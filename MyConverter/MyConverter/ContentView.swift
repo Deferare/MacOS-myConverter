@@ -502,29 +502,6 @@ struct ContentView: View {
                 .pickerStyle(.menu)
             }
 
-            Section("실행") {
-                HStack(spacing: 12) {
-                    Button {
-                        startConversion()
-                    } label: {
-                        Label(
-                            isConverting ? "변환 중" : "변환하기",
-                            systemImage: "play.circle.fill"
-                        )
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!canConvert)
-
-                    ProgressView(value: displayedConversionProgress, total: 1.0)
-                        .progressViewStyle(.linear)
-                        .frame(maxWidth: .infinity)
-
-                    Text(progressPercentageText)
-                        .font(.footnote.monospaced())
-                        .foregroundStyle(.secondary)
-                }
-            }
-
             Section("결과 파일") {
                 if let convertedURL {
                     LabeledContent("파일명") {
@@ -559,7 +536,36 @@ struct ContentView: View {
             }
         }
         .formStyle(.grouped)
+        .safeAreaInset(edge: .bottom) {
+            videoConversionControls
+                .padding(.horizontal, 20)
+                .padding(.vertical, 10)
+        }
         .navigationTitle("Convert Video")
+    }
+
+    private var videoConversionControls: some View {
+        HStack(spacing: 12) {
+            Button {
+                startConversion()
+            } label: {
+                Label(
+                    isConverting ? "변환 중" : "변환하기",
+                    systemImage: "play.circle.fill"
+                )
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(!canConvert)
+
+            ProgressView(value: displayedConversionProgress, total: 1.0)
+                .progressViewStyle(.linear)
+                .tint(progressTintColor)
+                .frame(maxWidth: .infinity)
+
+            Text(progressPercentageText)
+                .font(.footnote.monospaced())
+                .foregroundStyle(.secondary)
+        }
     }
 
     private var imageDetailView: some View {
@@ -631,7 +637,13 @@ struct ContentView: View {
     }
 
     private var displayedConversionProgress: Double {
-        isConverting ? conversionProgress : 0
+        let rawProgress = isConverting ? conversionProgress : 0
+        // 시작 직후의 미세한 값은 0%로 취급해 초기 파란 게이지 노출을 막습니다.
+        return rawProgress < 0.01 ? 0 : rawProgress
+    }
+
+    private var progressTintColor: Color {
+        displayedConversionProgress > 0 ? .accentColor : .clear
     }
 
     private var progressPercentageText: String {
