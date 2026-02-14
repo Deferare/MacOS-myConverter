@@ -423,6 +423,7 @@ struct ContentView: View {
                     Label(sourceURL == nil ? "MKV 파일 선택" : "다른 MKV 선택", systemImage: "doc")
                 }
                 .disabled(isConverting)
+                .keyboardShortcut("o", modifiers: [.command])
 
                 if let sourceURL {
                     LabeledContent("파일명") {
@@ -436,17 +437,25 @@ struct ContentView: View {
                             .truncationMode(.middle)
                             .textSelection(.enabled)
                     }
-                } else {
-                    Text("아직 선택된 입력 파일이 없습니다.")
-                        .foregroundStyle(.secondary)
                 }
             }
 
             Section("출력 설정") {
                 LabeledContent("컨테이너") { Text("MP4") }
-                Text("결과 파일은 입력 파일과 같은 폴더에 저장됩니다.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+
+                if let sourceURL {
+                    LabeledContent("예상 파일명") {
+                        Text("\(sourceURL.deletingPathExtension().lastPathComponent).mp4")
+                            .textSelection(.enabled)
+                    }
+
+                    LabeledContent("저장 폴더") {
+                        Text(sourceURL.deletingLastPathComponent().path)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .textSelection(.enabled)
+                    }
+                }
 
                 Picker("Video Encoder", selection: $selectedVideoEncoder) {
                     ForEach(VideoEncoderOption.allCases) { option in
@@ -514,10 +523,6 @@ struct ContentView: View {
                     }
                 }
                 .pickerStyle(.menu)
-
-                Text("고급 출력 옵션이 설정되면 ffmpeg 인코딩으로 변환합니다.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
             }
 
             Section("실행") {
