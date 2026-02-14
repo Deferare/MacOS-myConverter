@@ -230,12 +230,7 @@ struct ContentView: View {
 
         var id: String { rawValue }
 
-        var codecName: String {
-            switch self {
-            case .aac:
-                return "aac"
-            }
-        }
+        var codecName: String { "aac" }
     }
 
     private enum AudioModeOption: String, CaseIterable, Identifiable {
@@ -325,16 +320,6 @@ struct ContentView: View {
         let audioMode: AudioModeOption
         let sampleRate: SampleRateOption
         let audioBitRateKbps: Int?
-
-        var shouldUseDirectFFmpeg: Bool {
-            videoEncoder != .h264GPU ||
-                resolution != .original ||
-                frameRate != .original ||
-                videoBitRateKbps != nil ||
-                audioMode != .auto ||
-                sampleRate != .hz48000 ||
-                audioBitRateKbps != nil
-        }
     }
 
     @State private var sourceURL: URL?
@@ -763,6 +748,31 @@ struct ContentView: View {
     }
 
     @MainActor
+    private func prepareConversionStartState() {
+        isConverting = true
+        statusMessage = "변환 중..."
+        errorMessage = nil
+        debugMessage = nil
+        convertedURL = nil
+        conversionProgress = 0
+        progressDetail = "변환 준비 중"
+    }
+
+    @MainActor
+    private func applyConversionError(_ error: Error, status: String, progress: String? = nil) {
+        errorMessage = error.localizedDescription
+        if let conversionError = error as? ConversionError {
+            debugMessage = conversionError.debugInfo
+        } else {
+            debugMessage = "상세: \(error)"
+        }
+        statusMessage = status
+        if let progress {
+            progressDetail = progress
+        }
+    }
+
+    @MainActor
     private func convert() async {
         guard let sourceURL else {
             errorMessage = "변환할 파일이 없습니다."
@@ -773,23 +783,11 @@ struct ContentView: View {
         do {
             outputSettings = try buildVideoOutputSettings()
         } catch {
-            errorMessage = error.localizedDescription
-            if let conversionError = error as? ConversionError {
-                debugMessage = conversionError.debugInfo
-            } else {
-                debugMessage = "상세: \(error)"
-            }
-            statusMessage = "출력 설정 오류"
+            applyConversionError(error, status: "출력 설정 오류")
             return
         }
 
-        isConverting = true
-        statusMessage = "변환 중..."
-        errorMessage = nil
-        debugMessage = nil
-        convertedURL = nil
-        conversionProgress = 0
-        progressDetail = "변환 준비 중"
+        prepareConversionStartState()
 
         let shouldStopSourceAccessing = sourceURL.startAccessingSecurityScopedResource()
         defer {
@@ -806,8 +804,6 @@ struct ContentView: View {
                 outputDirectory.stopAccessingSecurityScopedResource()
             }
         }
-
-        let inputDurationSeconds: Double? = nil
 
         do {
             defer { isConverting = false }
@@ -830,22 +826,14 @@ struct ContentView: View {
                 inputURL: sourceURL,
                 outputURL: workingOutputURL,
                 outputSettings: outputSettings,
-                inputDurationSeconds: inputDurationSeconds
+                inputDurationSeconds: nil
             )
             convertedURL = try saveConvertedOutput(from: output, to: destinationURL)
             conversionProgress = 1
             progressDetail = "변환 완료"
             statusMessage = "변환 완료"
         } catch {
-            isConverting = false
-            errorMessage = error.localizedDescription
-            if let conversionError = error as? ConversionError {
-                debugMessage = conversionError.debugInfo
-            } else {
-                debugMessage = "상세: \(error)"
-            }
-            progressDetail = "변환 실패"
-            statusMessage = "변환 실패"
+            applyConversionError(error, status: "변환 실패", progress: "변환 실패")
         }
     }
 
@@ -909,13 +897,12 @@ struct ContentView: View {
         }
 
         #if os(macOS)
-        if findFFmpegPath() != nil {
-            try await convertMKVToMP4WithFFmpeg(
-                inputURL: inputURL,
-                outputURL: outputURL,
-                outputSettings: outputSettings,
-                inputDurationSeconds: inputDurationSeconds
-            )
+        if try await convertWithFFmpegIfAvailable(
+            inputURL: inputURL,
+            outputURL: outputURL,
+            outputSettings: outputSettings,
+            inputDurationSeconds: inputDurationSeconds
+        ) {
             return outputURL
         }
         #endif
@@ -926,13 +913,12 @@ struct ContentView: View {
         } catch {
             if isUnsupportedMediaFormatError(error) {
                 #if os(macOS)
-                if findFFmpegPath() != nil {
-                    try await convertMKVToMP4WithFFmpeg(
-                        inputURL: inputURL,
-                        outputURL: outputURL,
-                        outputSettings: outputSettings,
-                        inputDurationSeconds: inputDurationSeconds
-                    )
+                if try await convertWithFFmpegIfAvailable(
+                    inputURL: inputURL,
+                    outputURL: outputURL,
+                    outputSettings: outputSettings,
+                    inputDurationSeconds: inputDurationSeconds
+                ) {
                     return outputURL
                 }
                 throw ConversionError.ffmpegUnavailable
@@ -952,13 +938,12 @@ struct ContentView: View {
 
         guard !candidatePresets.isEmpty else {
             #if os(macOS)
-            if findFFmpegPath() != nil {
-                try await convertMKVToMP4WithFFmpeg(
-                    inputURL: inputURL,
-                    outputURL: outputURL,
-                    outputSettings: outputSettings,
-                    inputDurationSeconds: inputDurationSeconds
-                )
+            if try await convertWithFFmpegIfAvailable(
+                inputURL: inputURL,
+                outputURL: outputURL,
+                outputSettings: outputSettings,
+                inputDurationSeconds: inputDurationSeconds
+            ) {
                 return outputURL
             }
             throw ConversionError.ffmpegUnavailable
@@ -1016,13 +1001,12 @@ struct ContentView: View {
 
         #if os(macOS)
         if let lastError, shouldFallbackToFFmpeg(after: lastError) {
-            if findFFmpegPath() != nil {
-                try await convertMKVToMP4WithFFmpeg(
-                    inputURL: inputURL,
-                    outputURL: outputURL,
-                    outputSettings: outputSettings,
-                    inputDurationSeconds: inputDurationSeconds
-                )
+            if try await convertWithFFmpegIfAvailable(
+                inputURL: inputURL,
+                outputURL: outputURL,
+                outputSettings: outputSettings,
+                inputDurationSeconds: inputDurationSeconds
+            ) {
                 return outputURL
             }
 
@@ -1036,6 +1020,25 @@ struct ContentView: View {
     }
 
     #if os(macOS)
+    private func convertWithFFmpegIfAvailable(
+        inputURL: URL,
+        outputURL: URL,
+        outputSettings: VideoOutputSettings,
+        inputDurationSeconds: Double?
+    ) async throws -> Bool {
+        guard findFFmpegPath() != nil else {
+            return false
+        }
+
+        try await convertMKVToMP4WithFFmpeg(
+            inputURL: inputURL,
+            outputURL: outputURL,
+            outputSettings: outputSettings,
+            inputDurationSeconds: inputDurationSeconds
+        )
+        return true
+    }
+
     private func convertMKVToMP4WithFFmpeg(
         inputURL: URL,
         outputURL: URL,
