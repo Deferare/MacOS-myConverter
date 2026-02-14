@@ -394,22 +394,19 @@ struct ContentView: View {
     private var videoDetailView: some View {
         Form {
             Section("입력 파일") {
-                Button {
-                    isImporting = true
-                } label: {
-                    Label(sourceURL == nil ? "MKV 파일 선택" : "다른 MKV 선택", systemImage: "doc")
-                }
-                .disabled(isConverting)
-                .keyboardShortcut("o", modifiers: [.command])
-
-                if let sourceURL {
-                    LabeledContent("파일명") {
-                        Text(sourceURL.lastPathComponent)
-                            .textSelection(.enabled)
+                HStack(spacing: 12) {
+                    Button {
+                        isImporting = true
+                    } label: {
+                        Label(sourceURL == nil ? "MKV 파일 선택" : "다른 MKV 선택", systemImage: "doc")
                     }
+                    .disabled(isConverting)
+                    .keyboardShortcut("o", modifiers: [.command])
 
-                    LabeledContent("위치") {
-                        Text(sourceURL.path)
+                    Spacer(minLength: 0)
+
+                    if let sourceURL {
+                        Text(sourceURL.lastPathComponent)
                             .lineLimit(1)
                             .truncationMode(.middle)
                             .textSelection(.enabled)
@@ -419,20 +416,6 @@ struct ContentView: View {
 
             Section("출력 설정") {
                 LabeledContent("컨테이너") { Text("MP4") }
-
-                if let sourceURL {
-                    LabeledContent("예상 파일명") {
-                        Text("\(sourceURL.deletingPathExtension().lastPathComponent).mp4")
-                            .textSelection(.enabled)
-                    }
-
-                    LabeledContent("저장 폴더") {
-                        Text(sourceURL.deletingLastPathComponent().path)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                            .textSelection(.enabled)
-                    }
-                }
 
                 Picker("Video Encoder", selection: $selectedVideoEncoder) {
                     ForEach(VideoEncoderOption.allCases) { option in
