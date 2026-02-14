@@ -43,6 +43,300 @@ struct ContentView: View {
         }
     }
 
+    private enum VideoEncoderOption: String, CaseIterable, Identifiable {
+        case h265CPU = "H.265(CPU)"
+        case h265GPU = "H.265(GPU)"
+        case h264CPU = "H.264(CPU)"
+        case h264GPU = "H.264(GPU)"
+
+        var id: String { rawValue }
+
+        var codecCandidates: [String] {
+            switch self {
+            case .h265CPU:
+                return ["libx265", "hevc"]
+            case .h265GPU:
+                return ["hevc_videotoolbox"]
+            case .h264CPU:
+                return ["libx264", "h264"]
+            case .h264GPU:
+                return ["h264_videotoolbox"]
+            }
+        }
+
+        var isHEVC: Bool {
+            switch self {
+            case .h265CPU, .h265GPU:
+                return true
+            case .h264CPU, .h264GPU:
+                return false
+            }
+        }
+    }
+
+    private enum ResolutionOption: String, CaseIterable, Identifiable {
+        case original = "Original"
+        case r3840x2160 = "3840x2160"
+        case r2560x1440 = "2560x1440"
+        case r1920x1080 = "1920x1080"
+        case r1280x720 = "1280x720"
+        case r640x480 = "640x480"
+        case r480x360 = "480x360"
+        case r320x240 = "320x240"
+        case r192x144 = "192x144"
+
+        var id: String { rawValue }
+
+        var dimensions: (width: Int, height: Int)? {
+            switch self {
+            case .original:
+                return nil
+            case .r3840x2160:
+                return (3840, 2160)
+            case .r2560x1440:
+                return (2560, 1440)
+            case .r1920x1080:
+                return (1920, 1080)
+            case .r1280x720:
+                return (1280, 720)
+            case .r640x480:
+                return (640, 480)
+            case .r480x360:
+                return (480, 360)
+            case .r320x240:
+                return (320, 240)
+            case .r192x144:
+                return (192, 144)
+            }
+        }
+    }
+
+    private enum FrameRateOption: String, CaseIterable, Identifiable {
+        case original = "Original"
+        case fps120 = "120 FPS"
+        case fps90 = "90 FPS"
+        case fps60 = "60 FPS"
+        case fps50 = "50 FPS"
+        case fps40 = "40 FPS"
+        case fps30 = "30 FPS"
+        case fps25 = "25 FPS"
+        case fps24 = "24 FPS"
+        case fps20 = "20 FPS"
+        case fps15 = "15 FPS"
+        case fps12 = "12 FPS"
+        case fps10 = "10 FPS"
+        case fps5 = "5 FPS"
+        case fps1 = "1 FPS"
+
+        var id: String { rawValue }
+
+        var fps: Int? {
+            switch self {
+            case .original:
+                return nil
+            case .fps120:
+                return 120
+            case .fps90:
+                return 90
+            case .fps60:
+                return 60
+            case .fps50:
+                return 50
+            case .fps40:
+                return 40
+            case .fps30:
+                return 30
+            case .fps25:
+                return 25
+            case .fps24:
+                return 24
+            case .fps20:
+                return 20
+            case .fps15:
+                return 15
+            case .fps12:
+                return 12
+            case .fps10:
+                return 10
+            case .fps5:
+                return 5
+            case .fps1:
+                return 1
+            }
+        }
+    }
+
+    private enum VideoBitRateOption: String, CaseIterable, Identifiable {
+        case auto = "Auto"
+        case kbps50000 = "50000 Kbps"
+        case kbps40000 = "40000 Kbps"
+        case kbps30000 = "30000 Kbps"
+        case kbps20000 = "20000 Kbps"
+        case kbps10000 = "10000 Kbps"
+        case kbps9000 = "9000 Kbps"
+        case kbps8000 = "8000 Kbps"
+        case kbps7000 = "7000 Kbps"
+        case kbps6000 = "6000 Kbps"
+        case kbps5000 = "5000 Kbps"
+        case kbps4000 = "4000 Kbps"
+        case kbps3000 = "3000 Kbps"
+        case kbps2000 = "2000 Kbps"
+        case kbps1000 = "1000 Kbps"
+        case kbps500 = "500 Kbps"
+        case custom = "Custom"
+
+        var id: String { rawValue }
+
+        var kbps: Int? {
+            switch self {
+            case .auto, .custom:
+                return nil
+            case .kbps50000:
+                return 50000
+            case .kbps40000:
+                return 40000
+            case .kbps30000:
+                return 30000
+            case .kbps20000:
+                return 20000
+            case .kbps10000:
+                return 10000
+            case .kbps9000:
+                return 9000
+            case .kbps8000:
+                return 8000
+            case .kbps7000:
+                return 7000
+            case .kbps6000:
+                return 6000
+            case .kbps5000:
+                return 5000
+            case .kbps4000:
+                return 4000
+            case .kbps3000:
+                return 3000
+            case .kbps2000:
+                return 2000
+            case .kbps1000:
+                return 1000
+            case .kbps500:
+                return 500
+            }
+        }
+    }
+
+    private enum AudioEncoderOption: String, CaseIterable, Identifiable {
+        case aac = "AAC"
+
+        var id: String { rawValue }
+
+        var codecName: String {
+            switch self {
+            case .aac:
+                return "aac"
+            }
+        }
+    }
+
+    private enum AudioModeOption: String, CaseIterable, Identifiable {
+        case auto = "Auto"
+        case stereo = "Stereo"
+        case mono = "Mono"
+
+        var id: String { rawValue }
+
+        var channelCount: Int? {
+            switch self {
+            case .auto:
+                return nil
+            case .stereo:
+                return 2
+            case .mono:
+                return 1
+            }
+        }
+    }
+
+    private enum SampleRateOption: String, CaseIterable, Identifiable {
+        case hz48000 = "48000 HZ"
+        case hz44100 = "44100 HZ"
+        case hz32000 = "32000 HZ"
+        case hz16000 = "16000 HZ"
+
+        var id: String { rawValue }
+
+        var hertz: Int {
+            switch self {
+            case .hz48000:
+                return 48000
+            case .hz44100:
+                return 44100
+            case .hz32000:
+                return 32000
+            case .hz16000:
+                return 16000
+            }
+        }
+    }
+
+    private enum AudioBitRateOption: String, CaseIterable, Identifiable {
+        case auto = "Auto"
+        case kbps320 = "320 Kbps"
+        case kbps256 = "256 Kbps"
+        case kbps192 = "192 Kbps"
+        case kbps160 = "160 Kbps"
+        case kbps128 = "128 Kbps"
+        case kbps96 = "96 Kbps"
+        case kbps80 = "80 Kbps"
+        case kbps64 = "64 Kbps"
+
+        var id: String { rawValue }
+
+        var kbps: Int? {
+            switch self {
+            case .auto:
+                return nil
+            case .kbps320:
+                return 320
+            case .kbps256:
+                return 256
+            case .kbps192:
+                return 192
+            case .kbps160:
+                return 160
+            case .kbps128:
+                return 128
+            case .kbps96:
+                return 96
+            case .kbps80:
+                return 80
+            case .kbps64:
+                return 64
+            }
+        }
+    }
+
+    private struct VideoOutputSettings {
+        let videoEncoder: VideoEncoderOption
+        let resolution: ResolutionOption
+        let frameRate: FrameRateOption
+        let videoBitRateKbps: Int?
+        let audioEncoder: AudioEncoderOption
+        let audioMode: AudioModeOption
+        let sampleRate: SampleRateOption
+        let audioBitRateKbps: Int?
+
+        var shouldUseDirectFFmpeg: Bool {
+            videoEncoder != .h264GPU ||
+                resolution != .original ||
+                frameRate != .original ||
+                videoBitRateKbps != nil ||
+                audioMode != .auto ||
+                sampleRate != .hz48000 ||
+                audioBitRateKbps != nil
+        }
+    }
+
     @State private var sourceURL: URL?
     @State private var convertedURL: URL?
     @State private var isImporting = false
@@ -55,6 +349,15 @@ struct ContentView: View {
     @State private var imageKeepMetadata = true
     @State private var audioOutputFormat = "M4A"
     @State private var audioBitrateKbps = 192
+    @State private var selectedVideoEncoder: VideoEncoderOption = .h264GPU
+    @State private var selectedResolution: ResolutionOption = .original
+    @State private var selectedFrameRate: FrameRateOption = .original
+    @State private var selectedVideoBitRate: VideoBitRateOption = .auto
+    @State private var customVideoBitRate = "5000"
+    @State private var selectedAudioEncoder: AudioEncoderOption = .aac
+    @State private var selectedAudioMode: AudioModeOption = .auto
+    @State private var selectedSampleRate: SampleRateOption = .hz48000
+    @State private var selectedAudioBitRate: AudioBitRateOption = .auto
 
     var body: some View {
         NavigationSplitView {
@@ -139,9 +442,74 @@ struct ContentView: View {
 
             Section("출력 설정") {
                 LabeledContent("컨테이너") { Text("MP4") }
-                LabeledContent("비디오") { Text("H.264 (VideoToolbox 우선)") }
-                LabeledContent("오디오") { Text("AAC") }
-                Text("일부 MKV는 AVFoundation 미지원일 수 있으며, 이 경우 ffmpeg로 자동 대체합니다.")
+                Picker("Video Encoder", selection: $selectedVideoEncoder) {
+                    ForEach(VideoEncoderOption.allCases) { option in
+                        Text(option.rawValue).tag(option)
+                    }
+                }
+                .pickerStyle(.menu)
+
+                Picker("Resolution", selection: $selectedResolution) {
+                    ForEach(ResolutionOption.allCases) { option in
+                        Text(option.rawValue).tag(option)
+                    }
+                }
+                .pickerStyle(.menu)
+
+                Picker("Frame Rate", selection: $selectedFrameRate) {
+                    ForEach(FrameRateOption.allCases) { option in
+                        Text(option.rawValue).tag(option)
+                    }
+                }
+                .pickerStyle(.menu)
+
+                Picker("Video Bit Rate", selection: $selectedVideoBitRate) {
+                    ForEach(VideoBitRateOption.allCases) { option in
+                        Text(option.rawValue).tag(option)
+                    }
+                }
+                .pickerStyle(.menu)
+
+                if selectedVideoBitRate == .custom {
+                    TextField("Custom Kbps (예: 5000)", text: $customVideoBitRate)
+                        .textFieldStyle(.roundedBorder)
+
+                    if normalizedCustomVideoBitRateKbps == nil {
+                        Text("Custom 비트레이트는 1 이상 정수(Kbps)로 입력해 주세요.")
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
+                }
+
+                Picker("Audio Encoder", selection: $selectedAudioEncoder) {
+                    ForEach(AudioEncoderOption.allCases) { option in
+                        Text(option.rawValue).tag(option)
+                    }
+                }
+                .pickerStyle(.menu)
+
+                Picker("Audio Mode", selection: $selectedAudioMode) {
+                    ForEach(AudioModeOption.allCases) { option in
+                        Text(option.rawValue).tag(option)
+                    }
+                }
+                .pickerStyle(.menu)
+
+                Picker("Sample Rate", selection: $selectedSampleRate) {
+                    ForEach(SampleRateOption.allCases) { option in
+                        Text(option.rawValue).tag(option)
+                    }
+                }
+                .pickerStyle(.menu)
+
+                Picker("Audio Bit Rate", selection: $selectedAudioBitRate) {
+                    ForEach(AudioBitRateOption.allCases) { option in
+                        Text(option.rawValue).tag(option)
+                    }
+                }
+                .pickerStyle(.menu)
+
+                Text("고급 출력 옵션이 설정되면 ffmpeg 인코딩으로 변환합니다.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -275,7 +643,48 @@ struct ContentView: View {
     }
 
     private var canConvert: Bool {
-        sourceURL != nil && !isConverting
+        sourceURL != nil && !isConverting && isVideoSettingsValid
+    }
+
+    private var isVideoSettingsValid: Bool {
+        if selectedVideoBitRate == .custom {
+            return normalizedCustomVideoBitRateKbps != nil
+        }
+        return true
+    }
+
+    private var normalizedCustomVideoBitRateKbps: Int? {
+        let trimmed = customVideoBitRate.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let sanitized = trimmed.replacingOccurrences(of: ",", with: "")
+        guard let value = Int(sanitized), value > 0 else { return nil }
+        return value
+    }
+
+    private func buildVideoOutputSettings() throws -> VideoOutputSettings {
+        let videoBitRateKbps: Int?
+        switch selectedVideoBitRate {
+        case .auto:
+            videoBitRateKbps = nil
+        case .custom:
+            guard let custom = normalizedCustomVideoBitRateKbps else {
+                throw ConversionError.invalidCustomVideoBitRate(customVideoBitRate)
+            }
+            videoBitRateKbps = custom
+        default:
+            videoBitRateKbps = selectedVideoBitRate.kbps
+        }
+
+        return VideoOutputSettings(
+            videoEncoder: selectedVideoEncoder,
+            resolution: selectedResolution,
+            frameRate: selectedFrameRate,
+            videoBitRateKbps: videoBitRateKbps,
+            audioEncoder: selectedAudioEncoder,
+            audioMode: selectedAudioMode,
+            sampleRate: selectedSampleRate,
+            audioBitRateKbps: selectedAudioBitRate.kbps
+        )
     }
 
     private var statusColor: Color {
@@ -321,6 +730,20 @@ struct ContentView: View {
             return
         }
 
+        let outputSettings: VideoOutputSettings
+        do {
+            outputSettings = try buildVideoOutputSettings()
+        } catch {
+            errorMessage = error.localizedDescription
+            if let conversionError = error as? ConversionError {
+                debugMessage = conversionError.debugInfo
+            } else {
+                debugMessage = "상세: \(error)"
+            }
+            statusMessage = "출력 설정 오류"
+            return
+        }
+
         isConverting = true
         statusMessage = "변환 중..."
         errorMessage = nil
@@ -333,7 +756,11 @@ struct ContentView: View {
         do {
             defer { isConverting = false }
             let destinationURL = uniqueOutputURL(for: sourceURL)
-            let output = try await convertMKVToMP4(inputURL: sourceURL, outputURL: destinationURL)
+            let output = try await convertMKVToMP4(
+                inputURL: sourceURL,
+                outputURL: destinationURL,
+                outputSettings: outputSettings
+            )
             convertedURL = output
             statusMessage = "변환 완료"
         } catch {
@@ -361,10 +788,25 @@ struct ContentView: View {
         return candidate
     }
 
-    private func convertMKVToMP4(inputURL: URL, outputURL: URL) async throws -> URL {
+    private func convertMKVToMP4(
+        inputURL: URL,
+        outputURL: URL,
+        outputSettings: VideoOutputSettings
+    ) async throws -> URL {
         if FileManager.default.fileExists(atPath: outputURL.path) {
             try FileManager.default.removeItem(at: outputURL)
         }
+
+        #if os(macOS)
+        if outputSettings.shouldUseDirectFFmpeg {
+            try await convertMKVToMP4WithFFmpeg(
+                inputURL: inputURL,
+                outputURL: outputURL,
+                outputSettings: outputSettings
+            )
+            return outputURL
+        }
+        #endif
 
         let asset = AVURLAsset(url: inputURL)
         do {
@@ -373,7 +815,11 @@ struct ContentView: View {
             if isUnsupportedMediaFormatError(error) {
                 #if os(macOS)
                 if findFFmpegPath() != nil {
-                    try await convertMKVToMP4WithFFmpeg(inputURL: inputURL, outputURL: outputURL)
+                    try await convertMKVToMP4WithFFmpeg(
+                        inputURL: inputURL,
+                        outputURL: outputURL,
+                        outputSettings: outputSettings
+                    )
                     return outputURL
                 }
                 throw ConversionError.ffmpegUnavailable
@@ -394,13 +840,17 @@ struct ContentView: View {
         guard !candidatePresets.isEmpty else {
             #if os(macOS)
             if findFFmpegPath() != nil {
-                try await convertMKVToMP4WithFFmpeg(inputURL: inputURL, outputURL: outputURL)
+                try await convertMKVToMP4WithFFmpeg(
+                    inputURL: inputURL,
+                    outputURL: outputURL,
+                    outputSettings: outputSettings
+                )
                 return outputURL
             }
             throw ConversionError.ffmpegUnavailable
-            #endif
-
+            #else
             throw ConversionError.noCompatiblePreset(compatiblePresets)
+            #endif
         }
 
         var lastError: Error?
@@ -436,7 +886,11 @@ struct ContentView: View {
         #if os(macOS)
         if let lastError, isUnsupportedMediaFormatError(lastError) {
             do {
-                try await convertMKVToMP4WithFFmpeg(inputURL: inputURL, outputURL: outputURL)
+                try await convertMKVToMP4WithFFmpeg(
+                    inputURL: inputURL,
+                    outputURL: outputURL,
+                    outputSettings: outputSettings
+                )
                 return outputURL
             } catch {
                 if case ConversionError.ffmpegUnavailable = error {
@@ -457,7 +911,11 @@ struct ContentView: View {
     }
 
     #if os(macOS)
-    private func convertMKVToMP4WithFFmpeg(inputURL: URL, outputURL: URL) async throws {
+    private func convertMKVToMP4WithFFmpeg(
+        inputURL: URL,
+        outputURL: URL,
+        outputSettings: VideoOutputSettings
+    ) async throws {
         guard let ffmpegPath = findFFmpegPath() else {
             throw ConversionError.ffmpegUnavailable
         }
@@ -466,55 +924,81 @@ struct ContentView: View {
             try FileManager.default.removeItem(at: outputURL)
         }
 
-        do {
-            try await runFFmpeg(ffmpegPath: ffmpegPath, inputURL: inputURL, outputURL: outputURL, mode: .h264VideoToolbox)
-            return
-        } catch {
-            if FileManager.default.fileExists(atPath: outputURL.path) {
-                try? FileManager.default.removeItem(at: outputURL)
+        var lastError: Error?
+        for codec in outputSettings.videoEncoder.codecCandidates {
+            do {
+                try await runFFmpeg(
+                    ffmpegPath: ffmpegPath,
+                    inputURL: inputURL,
+                    outputURL: outputURL,
+                    outputSettings: outputSettings,
+                    videoCodec: codec
+                )
+                return
+            } catch {
+                lastError = error
+                if FileManager.default.fileExists(atPath: outputURL.path) {
+                    try? FileManager.default.removeItem(at: outputURL)
+                }
             }
         }
 
-        try await runFFmpeg(ffmpegPath: ffmpegPath, inputURL: inputURL, outputURL: outputURL, mode: .mpeg4Aac)
+        throw lastError ?? ConversionError.ffmpegFailed(-1, "지원되는 비디오 인코더를 찾지 못했습니다.")
     }
 
-    private enum FFmpegMode: String {
-        case h264VideoToolbox = "h264-videotoolbox"
-        case mpeg4Aac = "mpeg4-aac"
-    }
+    private func runFFmpeg(
+        ffmpegPath: String,
+        inputURL: URL,
+        outputURL: URL,
+        outputSettings: VideoOutputSettings,
+        videoCodec: String
+    ) async throws {
+        var args = [
+            "-y",
+            "-i", inputURL.path,
+            "-c:v", videoCodec
+        ]
 
-    private func runFFmpeg(ffmpegPath: String, inputURL: URL, outputURL: URL, mode: FFmpegMode) async throws {
-        let args: [String]
-        switch mode {
-        case .h264VideoToolbox:
-            args = [
-                "-y",
-                "-i", inputURL.path,
-                "-c:v", "h264_videotoolbox",
-                "-c:a", "aac",
-                "-b:a", "192k",
-                "-pix_fmt", "yuv420p",
-                "-movflags", "+faststart",
-                outputURL.path
-            ]
-        case .mpeg4Aac:
-            args = [
-                "-y",
-                "-i", inputURL.path,
-                "-c:v", "mpeg4",
-                "-q:v", "4",
-                "-c:a", "aac",
-                "-b:a", "192k",
-                "-movflags", "+faststart",
-                outputURL.path
-            ]
+        if let dimensions = outputSettings.resolution.dimensions {
+            args.append(contentsOf: ["-vf", "scale=\(dimensions.width):\(dimensions.height)"])
         }
+
+        if let fps = outputSettings.frameRate.fps {
+            args.append(contentsOf: ["-r", "\(fps)"])
+        }
+
+        if let videoBitRate = outputSettings.videoBitRateKbps {
+            args.append(contentsOf: ["-b:v", "\(videoBitRate)k"])
+        }
+
+        if outputSettings.videoEncoder.isHEVC {
+            args.append(contentsOf: ["-tag:v", "hvc1"])
+        }
+
+        args.append(contentsOf: [
+            "-c:a", outputSettings.audioEncoder.codecName,
+            "-ar", "\(outputSettings.sampleRate.hertz)"
+        ])
+
+        if let channels = outputSettings.audioMode.channelCount {
+            args.append(contentsOf: ["-ac", "\(channels)"])
+        }
+
+        if let audioBitRate = outputSettings.audioBitRateKbps {
+            args.append(contentsOf: ["-b:a", "\(audioBitRate)k"])
+        }
+
+        args.append(contentsOf: [
+            "-pix_fmt", "yuv420p",
+            "-movflags", "+faststart",
+            outputURL.path
+        ])
 
         let result = try await runCommand(path: ffmpegPath, arguments: args)
         guard result.terminationStatus == 0 else {
             throw ConversionError.ffmpegFailed(
                 result.terminationStatus,
-                "[\(mode.rawValue)] \(result.output)"
+                "[\(videoCodec)] \(result.output)"
             )
         }
     }
@@ -695,6 +1179,7 @@ private enum ConversionError: LocalizedError {
     case unsupportedSource
     case unreadableAsset
     case noTracksFound
+    case invalidCustomVideoBitRate(String)
     case noCompatiblePreset([String])
     case cannotCreateExportSession(String)
     case unsupportedOutputType
@@ -711,6 +1196,8 @@ private enum ConversionError: LocalizedError {
             return "MKV 파일을 해석할 수 없습니다."
         case .noTracksFound:
             return "동영상/오디오 트랙을 찾지 못했습니다."
+        case .invalidCustomVideoBitRate:
+            return "Custom Video Bit Rate는 1 이상의 정수(Kbps)여야 합니다."
         case .noCompatiblePreset:
             return "현재 AVFoundation에서 지원 가능한 변환 프리셋이 없습니다."
         case .cannotCreateExportSession:
@@ -747,6 +1234,8 @@ private enum ConversionError: LocalizedError {
             return "brew install ffmpeg 또는 앱 번들에 ffmpeg를 포함해 주세요."
         case .ffmpegFailed(let code, let output):
             return "FFmpeg 종료 코드: \(code). 상세: \(output)"
+        case .invalidCustomVideoBitRate(let value):
+            return "입력값: \(value)"
         case .unreadableAsset:
             return "MKV 파서를 읽지 못했습니다(코덱 미지원일 수 있음)."
         case .unsupportedSource:
