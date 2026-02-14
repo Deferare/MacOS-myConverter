@@ -369,7 +369,7 @@ struct ContentView: View {
                 Button {
                     startConversion()
                 } label: {
-                    Label("변환", systemImage: "arrow.trianglehead.2.clockwise.rotate.90")
+                    Label("Convert", systemImage: "arrow.trianglehead.2.clockwise.rotate.90")
                 }
                 .disabled(!canConvert)
             }
@@ -386,14 +386,14 @@ struct ContentView: View {
                 sourceURL = selected
                 convertedURL = nil
             case .failure(let error):
-                print("파일 선택에 실패했습니다: \(error.localizedDescription)")
+                print("Failed to select file: \(error.localizedDescription)")
             }
         }
     }
 
     private var videoDetailView: some View {
         VStack(spacing: 0) {
-            // 입력 파일 영역 (Drag & Drop)
+            // Input File Area (Drag & Drop)
             Group {
                 if let sourceURL {
                     SelectedFileView(url: sourceURL) {
@@ -412,10 +412,10 @@ struct ContentView: View {
             
             Divider()
             
-            // 설정 폼
+            // Settings Form
             Form {
-                Section("출력 설정") {
-                    LabeledContent("컨테이너") { Text("MP4").fontWeight(.semibold) }
+                Section("Output Settings") {
+                    LabeledContent("Container") { Text("MP4").fontWeight(.semibold) }
 
                     Picker("Video Encoder", selection: $selectedVideoEncoder) {
                         ForEach(VideoEncoderOption.allCases) { option in
@@ -446,11 +446,11 @@ struct ContentView: View {
                     .pickerStyle(.menu)
 
                     if selectedVideoBitRate == .custom {
-                        TextField("Custom Kbps (예: 5000)", text: $customVideoBitRate)
+                        TextField("Custom Kbps (e.g. 5000)", text: $customVideoBitRate)
                             .textFieldStyle(.roundedBorder)
 
                         if normalizedCustomVideoBitRateKbps == nil {
-                            Text("Custom 비트레이트는 1 이상 정수(Kbps)로 입력해 주세요.")
+                            Text("Please enter an integer greater than 1 for Custom Bitrate (Kbps).")
                                 .font(.footnote)
                                 .foregroundStyle(.red)
                         }
@@ -485,22 +485,22 @@ struct ContentView: View {
                     .pickerStyle(.menu)
                 }
 
-                Section("결과 파일") {
+                Section("Output File") {
                     if let convertedURL {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundStyle(.green)
-                                Text("변환 성공!")
+                                Text("Conversion Successful!")
                                     .font(.headline)
                             }
                             
-                            LabeledContent("파일명") {
+                            LabeledContent("File Name") {
                                 Text(convertedURL.lastPathComponent)
                                     .textSelection(.enabled)
                             }
 
-                            LabeledContent("위치") {
+                            LabeledContent("Location") {
                                 Text(convertedURL.path)
                                     .lineLimit(1)
                                     .truncationMode(.middle)
@@ -510,7 +510,7 @@ struct ContentView: View {
                             
                             HStack(spacing: 12) {
                                 ShareLink(item: convertedURL) {
-                                    Label("공유", systemImage: "square.and.arrow.up")
+                                    Label("Share", systemImage: "square.and.arrow.up")
                                 }
                                 .buttonStyle(.bordered)
                                 
@@ -518,14 +518,14 @@ struct ContentView: View {
                                 Button {
                                     NSWorkspace.shared.open(convertedURL.deletingLastPathComponent())
                                 } label: {
-                                    Label("폴더 열기", systemImage: "folder")
+                                    Label("Open Folder", systemImage: "folder")
                                 }
                                 .buttonStyle(.bordered)
                                 
                                 Button {
                                     NSWorkspace.shared.open(convertedURL)
                                 } label: {
-                                    Label("파일 열기", systemImage: "play.rectangle")
+                                    Label("Open File", systemImage: "play.rectangle")
                                 }
                                 .buttonStyle(.borderedProminent)
                                 #endif
@@ -534,7 +534,7 @@ struct ContentView: View {
                         }
                         .padding(.vertical, 8)
                     } else {
-                        Text("변환이 완료되면 결과 파일이 여기에 표시됩니다.")
+                        Text("The converted file will appear here.")
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity, alignment: .center)
                             .padding(.vertical, 12)
@@ -562,7 +562,7 @@ struct ContentView: View {
                 startConversion()
             } label: {
                 Label(
-                    isConverting ? "변환 중..." : "변환 시작",
+                    isConverting ? "Converting..." : "Start Conversion",
                     systemImage: isConverting ? "arrow.triangle.2.circlepath" : "play.fill"
                 )
                 .font(.body.bold())
@@ -578,7 +578,7 @@ struct ContentView: View {
                     .tint(progressTintColor)
                 
                 HStack {
-                    Text(isConverting ? "변환 진행 중..." : "대기 중")
+                    Text(isConverting ? "Conversion in progress..." : "Ready")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     
@@ -608,10 +608,10 @@ struct ContentView: View {
                 }
                 
                 VStack(spacing: 6) {
-                    Text("파일을 이곳에 드롭하세요")
+                    Text("Drop file here")
                         .font(.title3.bold())
                     
-                    Text("또는 클릭하여 MKV 파일 선택")
+                    Text("or click to select MKV file")
                         .font(.body)
                         .foregroundStyle(.secondary)
                 }
@@ -655,7 +655,7 @@ struct ContentView: View {
             
             Spacer()
             
-            Button("변경") {
+            Button("Change") {
                 isImporting = true
             }
             .buttonStyle(.bordered)
@@ -722,9 +722,9 @@ struct ContentView: View {
     private var imageDetailView: some View {
         VStack(spacing: 20) {
             ContentUnavailableView(
-                "이미지 변환 준비 중",
+                "Image Conversion Coming Soon",
                 systemImage: "photo.badge.arrow.down",
-                description: Text("이 기능은 곧 지원될 예정입니다.")
+                description: Text("This feature will be available soon.")
             )
         }
         .navigationTitle("Convert Image")
@@ -733,9 +733,9 @@ struct ContentView: View {
     private var audioDetailView: some View {
         VStack(spacing: 20) {
             ContentUnavailableView(
-                "오디오 변환 준비 중",
+                "Audio Conversion Coming Soon",
                 systemImage: "waveform.badge.magnifyingglass",
-                description: Text("이 기능은 곧 지원될 예정입니다.")
+                description: Text("This feature will be available soon.")
             )
         }
         .navigationTitle("Convert Audio")
@@ -747,7 +747,7 @@ struct ContentView: View {
 
     private var displayedConversionProgress: Double {
         let rawProgress = isConverting ? conversionProgress : 0
-        // 시작 직후의 미세한 값은 0%로 취급해 초기 파란 게이지 노출을 막습니다.
+        // Treat minute values immediately after start as 0% to prevent initial blue gauge flash.
         return rawProgress < 0.01 ? 0 : rawProgress
     }
 
@@ -822,16 +822,16 @@ struct ContentView: View {
     @MainActor
     private func applyConversionError(_ error: Error) {
         if let conversionError = error as? ConversionError {
-            print("변환 실패: \(conversionError.debugInfo)")
+            print("Conversion failed: \(conversionError.debugInfo)")
         } else {
-            print("변환 실패: \(error.localizedDescription)")
+            print("Conversion failed: \(error.localizedDescription)")
         }
     }
 
     @MainActor
     private func convert() async {
         guard let sourceURL else {
-            print("변환할 파일이 없습니다.")
+            print("No file to convert.")
             return
         }
 
@@ -1128,7 +1128,7 @@ struct ContentView: View {
             }
         }
 
-        throw lastError ?? ConversionError.ffmpegFailed(-1, "지원되는 비디오 인코더를 찾지 못했습니다.")
+        throw lastError ?? ConversionError.ffmpegFailed(-1, "No supported video encoder found.")
     }
 
     private func runFFmpeg(
@@ -1548,65 +1548,65 @@ private enum ConversionError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unsupportedSource:
-            return "입력 파일을 읽지 못했습니다."
+            return "Failed to read input files."
         case .unreadableAsset:
-            return "MKV 파일을 해석할 수 없습니다."
+            return "Could not parse MKV file."
         case .noTracksFound:
-            return "동영상/오디오 트랙을 찾지 못했습니다."
+            return "No video/audio tracks found."
         case .invalidCustomVideoBitRate:
-            return "Custom Video Bit Rate는 1 이상의 정수(Kbps)여야 합니다."
+            return "Custom Video Bit Rate must be an integer greater than 1 (Kbps)."
         case .noCompatiblePreset:
-            return "현재 AVFoundation에서 지원 가능한 변환 프리셋이 없습니다."
+            return "No compatible export preset found in AVFoundation."
         case .cannotCreateExportSession:
-            return "변환 세션을 만들 수 없습니다."
+            return "Could not create conversion session."
         case .unsupportedOutputType:
-            return "이 장치에서는 MP4 출력이 지원되지 않습니다."
+            return "MP4 output is not supported on this device."
         case .exportCancelled:
-            return "변환이 중단되었습니다."
+            return "Conversion cancelled."
         case .ffmpegUnavailable:
-            return "이 MKV는 AVFoundation에서 열 수 없습니다. ffmpeg를 찾지 못했습니다."
+            return "Cannot open this MKV with AVFoundation. ffmpeg not found."
         case .ffmpegFailed(_, let output):
             if output.localizedCaseInsensitiveContains("operation not permitted") ||
                 output.localizedCaseInsensitiveContains("permission denied") {
-                return "파일 접근 권한 문제로 변환이 실패했습니다. 입력 파일 권한을 확인해 주세요."
+                return "Conversion failed due to file permission issues. Please check input file permissions."
             }
-            return "ffmpeg 변환이 실패했습니다."
+            return "FFmpeg conversion failed."
         case .outputSaveFailed:
-            return "변환 파일 저장에 실패했습니다. 앱 저장 폴더 접근 권한을 확인해 주세요."
+            return "Failed to save output file. Please check app storage permissions."
         case .exportFailed:
-            return "AVAssetExportSession 변환에 실패했습니다."
+            return "AVAssetExportSession conversion failed."
         }
     }
 
     var debugInfo: String {
         switch self {
         case .noCompatiblePreset(let presets):
-            return "지원 프리셋: \(presets.joined(separator: ", "))"
+            return "Supported presets: \(presets.joined(separator: ", "))"
         case .cannotCreateExportSession(let preset):
-            return "프리셋 \(preset)로 세션 생성 실패"
+            return "Failed to create session with preset: \(preset)"
         case .unsupportedOutputType:
-            return "outputFileType으로 .mp4를 허용하지 않습니다."
+            return "Does not allow .mp4 as outputFileType."
         case .exportFailed(let status, let underlying, let preset):
             if let underlying {
-                return "프리셋: \(preset), 상태: \(status), 상세: \(underlying.localizedDescription)"
+                return "Preset: \(preset), Status: \(status), Detail: \(underlying.localizedDescription)"
             }
-            return "프리셋: \(preset), 상태: \(status)"
+            return "Preset: \(preset), Status: \(status)"
         case .exportCancelled:
-            return "상태: cancelled"
+            return "Status: cancelled"
         case .ffmpegUnavailable:
-            return "brew install ffmpeg 또는 앱 번들에 ffmpeg를 포함해 주세요."
+            return "brew install ffmpeg or include ffmpeg in app bundle."
         case .ffmpegFailed(let code, let output):
-            return "FFmpeg 종료 코드: \(code). 상세: \(output)"
+            return "FFmpeg exit code: \(code). Detail: \(output)"
         case .outputSaveFailed(let path, let reason):
-            return "저장 경로: \(path), 상세: \(reason)"
+            return "Save path: \(path), Detail: \(reason)"
         case .invalidCustomVideoBitRate(let value):
-            return "입력값: \(value)"
+            return "Input value: \(value)"
         case .unreadableAsset:
-            return "MKV 파서를 읽지 못했습니다(코덱 미지원일 수 있음)."
+            return "Failed to read MKV parser (Codec might be unsupported)."
         case .unsupportedSource:
-            return "지원되지 않는 MKV 코덱/컨테이너 가능성."
+            return "Use unsupported MKV codec/container."
         case .noTracksFound:
-            return "비디오/오디오 트랙 미탐지."
+            return "Video/Audio track not detected."
         }
     }
 }
