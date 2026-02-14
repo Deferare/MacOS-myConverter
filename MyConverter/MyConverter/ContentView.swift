@@ -392,226 +392,352 @@ struct ContentView: View {
     }
 
     private var videoDetailView: some View {
-        Form {
-            Section("입력 파일") {
-                HStack(spacing: 12) {
-                    Button {
-                        isImporting = true
-                    } label: {
-                        Label(sourceURL == nil ? "MKV 파일 선택" : "다른 MKV 선택", systemImage: "doc")
-                    }
-                    .disabled(isConverting)
-                    .keyboardShortcut("o", modifiers: [.command])
-
-                    Spacer(minLength: 0)
-
-                    if let sourceURL {
-                        Text(sourceURL.lastPathComponent)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                            .textSelection(.enabled)
-                    }
-                }
-            }
-
-            Section("출력 설정") {
-                LabeledContent("컨테이너") { Text("MP4") }
-
-                Picker("Video Encoder", selection: $selectedVideoEncoder) {
-                    ForEach(VideoEncoderOption.allCases) { option in
-                        Text(option.rawValue).tag(option)
-                    }
-                }
-                .pickerStyle(.menu)
-
-                Picker("Resolution", selection: $selectedResolution) {
-                    ForEach(ResolutionOption.allCases) { option in
-                        Text(option.rawValue).tag(option)
-                    }
-                }
-                .pickerStyle(.menu)
-
-                Picker("Frame Rate", selection: $selectedFrameRate) {
-                    ForEach(FrameRateOption.allCases) { option in
-                        Text(option.rawValue).tag(option)
-                    }
-                }
-                .pickerStyle(.menu)
-
-                Picker("Video Bit Rate", selection: $selectedVideoBitRate) {
-                    ForEach(VideoBitRateOption.allCases) { option in
-                        Text(option.rawValue).tag(option)
-                    }
-                }
-                .pickerStyle(.menu)
-
-                if selectedVideoBitRate == .custom {
-                    TextField("Custom Kbps (예: 5000)", text: $customVideoBitRate)
-                        .textFieldStyle(.roundedBorder)
-
-                    if normalizedCustomVideoBitRateKbps == nil {
-                        Text("Custom 비트레이트는 1 이상 정수(Kbps)로 입력해 주세요.")
-                            .font(.footnote)
-                            .foregroundStyle(.red)
-                    }
-                }
-
-                Picker("Audio Encoder", selection: $selectedAudioEncoder) {
-                    ForEach(AudioEncoderOption.allCases) { option in
-                        Text(option.rawValue).tag(option)
-                    }
-                }
-                .pickerStyle(.menu)
-
-                Picker("Audio Mode", selection: $selectedAudioMode) {
-                    ForEach(AudioModeOption.allCases) { option in
-                        Text(option.rawValue).tag(option)
-                    }
-                }
-                .pickerStyle(.menu)
-
-                Picker("Sample Rate", selection: $selectedSampleRate) {
-                    ForEach(SampleRateOption.allCases) { option in
-                        Text(option.rawValue).tag(option)
-                    }
-                }
-                .pickerStyle(.menu)
-
-                Picker("Audio Bit Rate", selection: $selectedAudioBitRate) {
-                    ForEach(AudioBitRateOption.allCases) { option in
-                        Text(option.rawValue).tag(option)
-                    }
-                }
-                .pickerStyle(.menu)
-            }
-
-            Section("결과 파일") {
-                if let convertedURL {
-                    LabeledContent("파일명") {
-                        Text(convertedURL.lastPathComponent)
-                            .textSelection(.enabled)
-                    }
-
-                    LabeledContent("위치") {
-                        Text(convertedURL.path)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                            .textSelection(.enabled)
-                    }
-
-                    HStack(spacing: 12) {
-                        ShareLink(item: convertedURL) {
-                            Label("공유", systemImage: "square.and.arrow.up")
+        VStack(spacing: 0) {
+            // 입력 파일 영역 (Drag & Drop)
+            Group {
+                if let sourceURL {
+                    SelectedFileView(url: sourceURL) {
+                        withAnimation {
+                            self.sourceURL = nil
+                            self.convertedURL = nil
                         }
-
-                        #if os(macOS)
-                        Button {
-                            NSWorkspace.shared.activateFileViewerSelecting([convertedURL])
-                        } label: {
-                            Label("Finder에서 열기", systemImage: "folder")
-                        }
-                        #endif
                     }
                 } else {
-                    Text("변환이 완료되면 결과 파일이 여기에 표시됩니다.")
-                        .foregroundStyle(.secondary)
+                    DropFileView {
+                        isImporting = true
+                    }
                 }
             }
+            .padding(20)
+            
+            Divider()
+            
+            // 설정 폼
+            Form {
+                Section("출력 설정") {
+                    LabeledContent("컨테이너") { Text("MP4").fontWeight(.semibold) }
+
+                    Picker("Video Encoder", selection: $selectedVideoEncoder) {
+                        ForEach(VideoEncoderOption.allCases) { option in
+                            Text(option.rawValue).tag(option)
+                        }
+                    }
+                    .pickerStyle(.menu)
+
+                    Picker("Resolution", selection: $selectedResolution) {
+                        ForEach(ResolutionOption.allCases) { option in
+                            Text(option.rawValue).tag(option)
+                        }
+                    }
+                    .pickerStyle(.menu)
+
+                    Picker("Frame Rate", selection: $selectedFrameRate) {
+                        ForEach(FrameRateOption.allCases) { option in
+                            Text(option.rawValue).tag(option)
+                        }
+                    }
+                    .pickerStyle(.menu)
+
+                    Picker("Video Bit Rate", selection: $selectedVideoBitRate) {
+                        ForEach(VideoBitRateOption.allCases) { option in
+                            Text(option.rawValue).tag(option)
+                        }
+                    }
+                    .pickerStyle(.menu)
+
+                    if selectedVideoBitRate == .custom {
+                        TextField("Custom Kbps (예: 5000)", text: $customVideoBitRate)
+                            .textFieldStyle(.roundedBorder)
+
+                        if normalizedCustomVideoBitRateKbps == nil {
+                            Text("Custom 비트레이트는 1 이상 정수(Kbps)로 입력해 주세요.")
+                                .font(.footnote)
+                                .foregroundStyle(.red)
+                        }
+                    }
+
+                    Picker("Audio Encoder", selection: $selectedAudioEncoder) {
+                        ForEach(AudioEncoderOption.allCases) { option in
+                            Text(option.rawValue).tag(option)
+                        }
+                    }
+                    .pickerStyle(.menu)
+
+                    Picker("Audio Mode", selection: $selectedAudioMode) {
+                        ForEach(AudioModeOption.allCases) { option in
+                            Text(option.rawValue).tag(option)
+                        }
+                    }
+                    .pickerStyle(.menu)
+
+                    Picker("Sample Rate", selection: $selectedSampleRate) {
+                        ForEach(SampleRateOption.allCases) { option in
+                            Text(option.rawValue).tag(option)
+                        }
+                    }
+                    .pickerStyle(.menu)
+
+                    Picker("Audio Bit Rate", selection: $selectedAudioBitRate) {
+                        ForEach(AudioBitRateOption.allCases) { option in
+                            Text(option.rawValue).tag(option)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+
+                Section("결과 파일") {
+                    if let convertedURL {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(.green)
+                                Text("변환 성공!")
+                                    .font(.headline)
+                            }
+                            
+                            LabeledContent("파일명") {
+                                Text(convertedURL.lastPathComponent)
+                                    .textSelection(.enabled)
+                            }
+
+                            LabeledContent("위치") {
+                                Text(convertedURL.path)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                    .textSelection(.enabled)
+                                    .foregroundStyle(.secondary)
+                            }
+                            
+                            HStack(spacing: 12) {
+                                ShareLink(item: convertedURL) {
+                                    Label("공유", systemImage: "square.and.arrow.up")
+                                }
+                                .buttonStyle(.bordered)
+                                
+                                #if os(macOS)
+                                Button {
+                                    NSWorkspace.shared.open(convertedURL.deletingLastPathComponent())
+                                } label: {
+                                    Label("폴더 열기", systemImage: "folder")
+                                }
+                                .buttonStyle(.bordered)
+                                
+                                Button {
+                                    NSWorkspace.shared.open(convertedURL)
+                                } label: {
+                                    Label("파일 열기", systemImage: "play.rectangle")
+                                }
+                                .buttonStyle(.borderedProminent)
+                                #endif
+                            }
+                            .padding(.top, 4)
+                        }
+                        .padding(.vertical, 8)
+                    } else {
+                        Text("변환이 완료되면 결과 파일이 여기에 표시됩니다.")
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.vertical, 12)
+                    }
+                }
+            }
+            .formStyle(.grouped)
         }
-        .formStyle(.grouped)
         .safeAreaInset(edge: .bottom) {
             videoConversionControls
                 .padding(.horizontal, 20)
-                .padding(.vertical, 10)
+                .padding(.vertical, 16)
+                .background(.regularMaterial)
+                .overlay(Rectangle().frame(height: 1).foregroundStyle(.separator), alignment: .top)
         }
         .navigationTitle("Convert Video")
+        .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+            handleDrop(providers: providers)
+        }
     }
 
     private var videoConversionControls: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 16) {
             Button {
                 startConversion()
             } label: {
                 Label(
-                    isConverting ? "변환 중" : "변환하기",
-                    systemImage: "play.circle.fill"
+                    isConverting ? "변환 중..." : "변환 시작",
+                    systemImage: isConverting ? "arrow.triangle.2.circlepath" : "play.fill"
                 )
+                .font(.body.bold())
+                .frame(minWidth: 120, minHeight: 40)
             }
             .buttonStyle(.borderedProminent)
+            .controlSize(.large)
             .disabled(!canConvert)
 
-            ProgressView(value: displayedConversionProgress, total: 1.0)
-                .progressViewStyle(.linear)
-                .tint(progressTintColor)
-                .frame(maxWidth: .infinity)
-
-            Text(progressPercentageText)
-                .font(.footnote.monospaced())
-                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 4) {
+                ProgressView(value: displayedConversionProgress, total: 1.0)
+                    .progressViewStyle(.linear)
+                    .tint(progressTintColor)
+                
+                HStack {
+                    Text(isConverting ? "변환 진행 중..." : "대기 중")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    
+                    Spacer()
+                    
+                    Text(progressPercentageText)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
+    }
+    
+    // MARK: - UI Subviews (ViewBuilders) in ContentView
+    
+    private func DropFileView(action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 16) {
+                ZStack {
+                    Circle()
+                        .fill(Color.accentColor.opacity(0.1))
+                        .frame(width: 80, height: 80)
+                    
+                    Image(systemName: "arrow.down.doc.fill")
+                        .font(.system(size: 32))
+                        .foregroundStyle(.primary)
+                }
+                
+                VStack(spacing: 6) {
+                    Text("파일을 이곳에 드롭하세요")
+                        .font(.title3.bold())
+                    
+                    Text("또는 클릭하여 MKV 파일 선택")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 200)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.secondary.opacity(0.3), style: StrokeStyle(lineWidth: 2, dash: [8]))
+                    .background(Color.secondary.opacity(0.05))
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+    
+    private func SelectedFileView(url: URL, onClear: @escaping () -> Void) -> some View {
+        HStack(spacing: 16) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.accentColor)
+                    .frame(width: 50, height: 60)
+                
+                Image(systemName: "film")
+                    .font(.title2)
+                    .foregroundStyle(.white)
+            }
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(url.lastPathComponent)
+                    .font(.headline)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                
+                Text(url.path)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            
+            Spacer()
+            
+            Button("변경") {
+                isImporting = true
+            }
+            .buttonStyle(.bordered)
+            .disabled(isConverting)
+            
+            Button(action: onClear) {
+                Image(systemName: "xmark")
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+                    .padding(8)
+                    .background(Circle().fill(Color.secondary.opacity(0.1)))
+            }
+            .buttonStyle(.plain)
+            .disabled(isConverting)
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(cardBackgroundColor)
+                .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.secondary.opacity(0.1), lineWidth: 1)
+                )
+        )
+    }
+    
+    private var cardBackgroundColor: Color {
+        #if os(macOS)
+        return Color(nsColor: .controlBackgroundColor)
+        #else
+        return Color(uiColor: .secondarySystemBackground)
+        #endif
+    }
+    
+    private func handleDrop(providers: [NSItemProvider]) -> Bool {
+        guard let provider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) }) else { return false }
+        
+        provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+            var finalURL: URL?
+            
+            if let data = item as? Data {
+                finalURL = URL(dataRepresentation: data, relativeTo: nil)
+            } else if let url = item as? URL {
+                finalURL = url
+            }
+            
+            if let url = finalURL {
+                Task { @MainActor in
+                    withAnimation {
+                        // 간단한 확장자 체크
+                        let ext = url.pathExtension.lowercased()
+                        if ext == "mkv" || ext == "mov" || ext == "mp4" {
+                            self.sourceURL = url
+                            self.convertedURL = nil
+                        }
+                    }
+                }
+            }
+        }
+        return true
     }
 
     private var imageDetailView: some View {
-        Form {
-            Section("입력 이미지") {
-                Label("이미지 파일을 선택해 변환합니다.", systemImage: "photo")
-                Button("이미지 파일 선택 (준비 중)") {}
-                    .disabled(true)
-            }
-
-            Section("출력 옵션") {
-                Picker("포맷", selection: $imageOutputFormat) {
-                    Text("PNG").tag("PNG")
-                    Text("JPEG").tag("JPEG")
-                    Text("HEIC").tag("HEIC")
-                    Text("WEBP").tag("WEBP")
-                }
-                Toggle("메타데이터 유지", isOn: $imageKeepMetadata)
-            }
-
-            Section("실행") {
-                Button("이미지 변환 시작") {}
-                    .buttonStyle(.borderedProminent)
-                    .disabled(true)
-
-                Text("이미지 변환 엔진은 다음 단계에서 연결됩니다.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
+        VStack(spacing: 20) {
+            ContentUnavailableView(
+                "이미지 변환 준비 중",
+                systemImage: "photo.badge.arrow.down",
+                description: Text("이 기능은 곧 지원될 예정입니다.")
+            )
         }
-        .formStyle(.grouped)
         .navigationTitle("Convert Image")
     }
 
     private var audioDetailView: some View {
-        Form {
-            Section("입력 오디오") {
-                Label("오디오 파일을 선택해 변환합니다.", systemImage: "waveform")
-                Button("오디오 파일 선택 (준비 중)") {}
-                    .disabled(true)
-            }
-
-            Section("출력 옵션") {
-                Picker("포맷", selection: $audioOutputFormat) {
-                    Text("M4A").tag("M4A")
-                    Text("MP3").tag("MP3")
-                    Text("WAV").tag("WAV")
-                    Text("FLAC").tag("FLAC")
-                }
-                Stepper("비트레이트 \(audioBitrateKbps) kbps", value: $audioBitrateKbps, in: 96...320, step: 32)
-            }
-
-            Section("실행") {
-                Button("오디오 변환 시작") {}
-                    .buttonStyle(.borderedProminent)
-                    .disabled(true)
-
-                Text("오디오 변환 엔진은 다음 단계에서 연결됩니다.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
+        VStack(spacing: 20) {
+            ContentUnavailableView(
+                "오디오 변환 준비 중",
+                systemImage: "waveform.badge.magnifyingglass",
+                description: Text("이 기능은 곧 지원될 예정입니다.")
+            )
         }
-        .formStyle(.grouped)
         .navigationTitle("Convert Audio")
     }
 
@@ -726,23 +852,9 @@ struct ContentView: View {
             }
         }
 
-        let outputDirectory = sourceURL.deletingLastPathComponent()
-
-        let shouldStopOutputAccessing = outputDirectory.startAccessingSecurityScopedResource()
-        defer {
-            if shouldStopOutputAccessing {
-                outputDirectory.stopAccessingSecurityScopedResource()
-            }
-        }
-
         do {
             defer { isConverting = false }
-
-            try FileManager.default.createDirectory(
-                at: outputDirectory,
-                withIntermediateDirectories: true,
-                attributes: nil
-            )
+            let outputDirectory = try sandboxOutputDirectory()
 
             let destinationURL = uniqueOutputURL(for: sourceURL, in: outputDirectory)
             let workingOutputURL = temporaryOutputURL(for: sourceURL)
@@ -763,6 +875,27 @@ struct ContentView: View {
         } catch {
             applyConversionError(error)
         }
+    }
+
+    private func sandboxOutputDirectory() throws -> URL {
+        let appSupportDirectory = try FileManager.default.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+
+        let bundleIdentifier = Bundle.main.bundleIdentifier ?? "MyConverter"
+        let outputDirectory = appSupportDirectory
+            .appendingPathComponent(bundleIdentifier, isDirectory: true)
+            .appendingPathComponent("Converted", isDirectory: true)
+
+        try FileManager.default.createDirectory(
+            at: outputDirectory,
+            withIntermediateDirectories: true,
+            attributes: nil
+        )
+        return outputDirectory
     }
 
     private func uniqueOutputURL(for sourceURL: URL, in outputDirectory: URL) -> URL {
@@ -1435,11 +1568,11 @@ private enum ConversionError: LocalizedError {
         case .ffmpegFailed(_, let output):
             if output.localizedCaseInsensitiveContains("operation not permitted") ||
                 output.localizedCaseInsensitiveContains("permission denied") {
-                return "입력 파일 폴더에 쓸 수 없습니다. 폴더 권한을 확인해 주세요."
+                return "파일 접근 권한 문제로 변환이 실패했습니다. 입력 파일 권한을 확인해 주세요."
             }
             return "ffmpeg 변환이 실패했습니다."
         case .outputSaveFailed:
-            return "변환 파일 저장에 실패했습니다. 입력 파일 폴더 권한을 확인해 주세요."
+            return "변환 파일 저장에 실패했습니다. 앱 저장 폴더 접근 권한을 확인해 주세요."
         case .exportFailed:
             return "AVAssetExportSession 변환에 실패했습니다."
         }
