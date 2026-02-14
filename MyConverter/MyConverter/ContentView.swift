@@ -13,6 +13,36 @@ import AppKit
 #endif
 
 struct ContentView: View {
+    private enum ConverterTab: String, CaseIterable, Identifiable {
+        case video
+        case image
+        case audio
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .video:
+                return "Convert Video"
+            case .image:
+                return "Convert Image"
+            case .audio:
+                return "Convert Audio"
+            }
+        }
+
+        var systemImage: String {
+            switch self {
+            case .video:
+                return "film"
+            case .image:
+                return "photo"
+            case .audio:
+                return "waveform"
+            }
+        }
+    }
+
     @State private var sourceURL: URL?
     @State private var convertedURL: URL?
     @State private var isImporting = false
@@ -20,69 +50,45 @@ struct ContentView: View {
     @State private var statusMessage = "MKV 파일을 선택해 MP4로 변환하세요."
     @State private var errorMessage: String?
     @State private var debugMessage: String?
+    @State private var selectedTab: ConverterTab = .video
+    @State private var imageOutputFormat = "PNG"
+    @State private var imageKeepMetadata = true
+    @State private var audioOutputFormat = "M4A"
+    @State private var audioBitrateKbps = 192
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("MKV to MP4 Converter")
-                .font(.title2)
-                .bold()
-
-            Text(statusMessage)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-            Button("MKV 파일 선택") {
-                isImporting = true
-            }
-            .disabled(isConverting)
-
-            if let sourceURL {
-                Text("입력: \(sourceURL.lastPathComponent)")
-                    .font(.footnote)
-                    .textSelection(.enabled)
-            }
-
-            Button("MP4로 변환") {
-                Task {
-                    await convert()
+        NavigationSplitView {
+            List(selection: $selectedTab) {
+                ForEach(ConverterTab.allCases) { tab in
+                    Label(tab.title, systemImage: tab.systemImage)
+                        .tag(tab)
                 }
             }
-            .disabled(sourceURL == nil || isConverting)
-
-            if isConverting {
-                ProgressView()
-            }
-
-            if let convertedURL {
-                Divider()
-                Text("변환 완료: \(convertedURL.lastPathComponent)")
-                    .font(.footnote)
-
-                ShareLink(item: convertedURL) {
-                    Label("변환 파일 공유", systemImage: "square.and.arrow.up")
-                }
-
-                #if os(macOS)
-                Button("Finder에서 열기") {
-                    NSWorkspace.shared.activateFileViewerSelecting([convertedURL])
-                }
-                #endif
-            }
-
-            if let errorMessage {
-                Text("오류: \(errorMessage)")
-                    .foregroundStyle(.red)
-                    .font(.footnote)
-            }
-
-            if let debugMessage {
-                Text(debugMessage)
-                    .foregroundStyle(.orange)
-                    .font(.caption)
-                    .textSelection(.enabled)
+            .listStyle(.sidebar)
+            .navigationTitle("MyConverter")
+            .navigationSplitViewColumnWidth(min: 220, ideal: 250)
+        } detail: {
+            switch selectedTab {
+            case .video:
+                videoDetailView
+            case .image:
+                imageDetailView
+            case .audio:
+                audioDetailView
             }
         }
-        .padding()
+        .navigationSplitViewStyle(.balanced)
+        .toolbar {
+            if selectedTab == .video {
+                Button {
+                    startConversion()
+                } label: {
+                    Label("변환", systemImage: "arrow.trianglehead.2.clockwise.rotate.90")
+                }
+                .disabled(!canConvert)
+            }
+        }
+        .frame(minWidth: 980, minHeight: 620)
         .fileImporter(
             isPresented: $isImporting,
             allowedContentTypes: preferredImportTypes,
@@ -100,6 +106,207 @@ struct ContentView: View {
                 errorMessage = error.localizedDescription
                 statusMessage = "파일 선택에 실패했습니다."
             }
+        }
+    }
+
+    private var videoDetailView: some View {
+        Form {
+            Section("입력 파일") {
+                Button {
+                    isImporting = true
+                } label: {
+                    Label(sourceURL == nil ? "MKV 파일 선택" : "다른 MKV 선택", systemImage: "doc")
+                }
+                .disabled(isConverting)
+
+                if let sourceURL {
+                    LabeledContent("파일명") {
+                        Text(sourceURL.lastPathComponent)
+                            .textSelection(.enabled)
+                    }
+
+                    LabeledContent("위치") {
+                        Text(sourceURL.path)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .textSelection(.enabled)
+                    }
+                } else {
+                    Text("아직 선택된 입력 파일이 없습니다.")
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Section("출력 설정") {
+                LabeledContent("컨테이너") { Text("MP4") }
+                LabeledContent("비디오") { Text("H.264 (VideoToolbox 우선)") }
+                LabeledContent("오디오") { Text("AAC") }
+                Text("일부 MKV는 AVFoundation 미지원일 수 있으며, 이 경우 ffmpeg로 자동 대체합니다.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("실행") {
+                Button {
+                    startConversion()
+                } label: {
+                    Label(isConverting ? "변환 중..." : "MP4로 변환", systemImage: "play.circle.fill")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!canConvert)
+
+                if isConverting {
+                    ProgressView("파일 변환 중")
+                        .progressViewStyle(.linear)
+                }
+
+                LabeledContent("현재 상태") {
+                    Text(statusMessage)
+                        .foregroundStyle(statusColor)
+                }
+
+                if let errorMessage {
+                    Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                        .font(.footnote)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Section("결과 파일") {
+                if let convertedURL {
+                    LabeledContent("파일명") {
+                        Text(convertedURL.lastPathComponent)
+                            .textSelection(.enabled)
+                    }
+
+                    LabeledContent("위치") {
+                        Text(convertedURL.path)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .textSelection(.enabled)
+                    }
+
+                    HStack(spacing: 12) {
+                        ShareLink(item: convertedURL) {
+                            Label("공유", systemImage: "square.and.arrow.up")
+                        }
+
+                        #if os(macOS)
+                        Button {
+                            NSWorkspace.shared.activateFileViewerSelecting([convertedURL])
+                        } label: {
+                            Label("Finder에서 열기", systemImage: "folder")
+                        }
+                        #endif
+                    }
+                } else {
+                    Text("변환이 완료되면 결과 파일이 여기에 표시됩니다.")
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .navigationTitle("Convert Video")
+    }
+
+    private var imageDetailView: some View {
+        Form {
+            Section("입력 이미지") {
+                Label("이미지 파일을 선택해 변환합니다.", systemImage: "photo")
+                Button("이미지 파일 선택 (준비 중)") {}
+                    .disabled(true)
+            }
+
+            Section("출력 옵션") {
+                Picker("포맷", selection: $imageOutputFormat) {
+                    Text("PNG").tag("PNG")
+                    Text("JPEG").tag("JPEG")
+                    Text("HEIC").tag("HEIC")
+                    Text("WEBP").tag("WEBP")
+                }
+                Toggle("메타데이터 유지", isOn: $imageKeepMetadata)
+            }
+
+            Section("실행") {
+                Button("이미지 변환 시작") {}
+                    .buttonStyle(.borderedProminent)
+                    .disabled(true)
+
+                Text("이미지 변환 엔진은 다음 단계에서 연결됩니다.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .navigationTitle("Convert Image")
+    }
+
+    private var audioDetailView: some View {
+        Form {
+            Section("입력 오디오") {
+                Label("오디오 파일을 선택해 변환합니다.", systemImage: "waveform")
+                Button("오디오 파일 선택 (준비 중)") {}
+                    .disabled(true)
+            }
+
+            Section("출력 옵션") {
+                Picker("포맷", selection: $audioOutputFormat) {
+                    Text("M4A").tag("M4A")
+                    Text("MP3").tag("MP3")
+                    Text("WAV").tag("WAV")
+                    Text("FLAC").tag("FLAC")
+                }
+                Stepper("비트레이트 \(audioBitrateKbps) kbps", value: $audioBitrateKbps, in: 96...320, step: 32)
+            }
+
+            Section("실행") {
+                Button("오디오 변환 시작") {}
+                    .buttonStyle(.borderedProminent)
+                    .disabled(true)
+
+                Text("오디오 변환 엔진은 다음 단계에서 연결됩니다.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .navigationTitle("Convert Audio")
+    }
+
+    private var canConvert: Bool {
+        sourceURL != nil && !isConverting
+    }
+
+    private var statusColor: Color {
+        if errorMessage != nil {
+            return .red
+        }
+        if isConverting {
+            return .orange
+        }
+        if convertedURL != nil {
+            return .green
+        }
+        return .secondary
+    }
+
+    private var statusIcon: String {
+        if errorMessage != nil {
+            return "exclamationmark.triangle.fill"
+        }
+        if isConverting {
+            return "hourglass"
+        }
+        if convertedURL != nil {
+            return "checkmark.circle.fill"
+        }
+        return "info.circle"
+    }
+
+    private func startConversion() {
+        Task {
+            await convert()
         }
     }
 
