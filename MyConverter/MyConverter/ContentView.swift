@@ -326,9 +326,6 @@ struct ContentView: View {
     @State private var convertedURL: URL?
     @State private var isImporting = false
     @State private var isConverting = false
-    @State private var statusMessage = "MKV 파일을 선택해 MP4로 변환하세요."
-    @State private var errorMessage: String?
-    @State private var debugMessage: String?
     @State private var selectedTab: ConverterTab = .video
     @State private var imageOutputFormat = "PNG"
     @State private var imageKeepMetadata = true
@@ -344,7 +341,6 @@ struct ContentView: View {
     @State private var selectedSampleRate: SampleRateOption = .hz48000
     @State private var selectedAudioBitRate: AudioBitRateOption = .auto
     @State private var conversionProgress: Double = 0
-    @State private var progressDetail = "대기 중"
 
     var body: some View {
         NavigationSplitView {
@@ -389,12 +385,8 @@ struct ContentView: View {
                 guard let selected = urls.first else { return }
                 sourceURL = selected
                 convertedURL = nil
-                errorMessage = nil
-                debugMessage = nil
-                statusMessage = "선택됨: \(selected.lastPathComponent)"
             case .failure(let error):
-                errorMessage = error.localizedDescription
-                statusMessage = "파일 선택에 실패했습니다."
+                print("파일 선택에 실패했습니다: \(error.localizedDescription)")
             }
         }
     }
@@ -511,51 +503,25 @@ struct ContentView: View {
             }
 
             Section("실행") {
-                Button {
-                    startConversion()
-                } label: {
-                    Label(
-                        isConverting ? "변환 중 \(progressPercentageText)" : "MP4로 변환",
-                        systemImage: "play.circle.fill"
-                    )
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(!canConvert)
-
-                if isConverting {
-                    VStack(alignment: .leading, spacing: 8) {
-                        ProgressView(value: conversionProgress, total: 1.0) {
-                            Text("파일 변환 중")
-                        } currentValueLabel: {
-                            Text(progressPercentageText)
-                                .monospacedDigit()
-                        }
-                        .progressViewStyle(.linear)
-
-                        Text(progressDetail)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                HStack(spacing: 12) {
+                    Button {
+                        startConversion()
+                    } label: {
+                        Label(
+                            isConverting ? "변환 중" : "변환하기",
+                            systemImage: "play.circle.fill"
+                        )
                     }
-                }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!canConvert)
 
-                LabeledContent("현재 상태") {
-                    Label(statusMessage, systemImage: statusIcon)
-                        .foregroundStyle(statusColor)
-                }
+                    ProgressView(value: displayedConversionProgress, total: 1.0)
+                        .progressViewStyle(.linear)
+                        .frame(maxWidth: .infinity)
 
-                if let errorMessage {
-                    Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.red)
-                        .font(.footnote)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                if let debugMessage, !debugMessage.isEmpty {
-                    Text(debugMessage)
+                    Text(progressPercentageText)
                         .font(.footnote.monospaced())
                         .foregroundStyle(.secondary)
-                        .textSelection(.enabled)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
@@ -664,8 +630,12 @@ struct ContentView: View {
         sourceURL != nil && !isConverting && isVideoSettingsValid
     }
 
+    private var displayedConversionProgress: Double {
+        isConverting ? conversionProgress : 0
+    }
+
     private var progressPercentageText: String {
-        let percent = Int((conversionProgress * 100).rounded())
+        let percent = Int((displayedConversionProgress * 100).rounded())
         return "\(max(0, min(percent, 100)))%"
     }
 
@@ -710,32 +680,6 @@ struct ContentView: View {
         )
     }
 
-    private var statusColor: Color {
-        if errorMessage != nil {
-            return .red
-        }
-        if isConverting {
-            return .orange
-        }
-        if convertedURL != nil {
-            return .green
-        }
-        return .secondary
-    }
-
-    private var statusIcon: String {
-        if errorMessage != nil {
-            return "exclamationmark.triangle.fill"
-        }
-        if isConverting {
-            return "hourglass"
-        }
-        if convertedURL != nil {
-            return "checkmark.circle.fill"
-        }
-        return "info.circle"
-    }
-
     private func startConversion() {
         Task {
             await convert()
@@ -750,32 +694,23 @@ struct ContentView: View {
     @MainActor
     private func prepareConversionStartState() {
         isConverting = true
-        statusMessage = "변환 중..."
-        errorMessage = nil
-        debugMessage = nil
         convertedURL = nil
         conversionProgress = 0
-        progressDetail = "변환 준비 중"
     }
 
     @MainActor
-    private func applyConversionError(_ error: Error, status: String, progress: String? = nil) {
-        errorMessage = error.localizedDescription
+    private func applyConversionError(_ error: Error) {
         if let conversionError = error as? ConversionError {
-            debugMessage = conversionError.debugInfo
+            print("변환 실패: \(conversionError.debugInfo)")
         } else {
-            debugMessage = "상세: \(error)"
-        }
-        statusMessage = status
-        if let progress {
-            progressDetail = progress
+            print("변환 실패: \(error.localizedDescription)")
         }
     }
 
     @MainActor
     private func convert() async {
         guard let sourceURL else {
-            errorMessage = "변환할 파일이 없습니다."
+            print("변환할 파일이 없습니다.")
             return
         }
 
@@ -783,7 +718,7 @@ struct ContentView: View {
         do {
             outputSettings = try buildVideoOutputSettings()
         } catch {
-            applyConversionError(error, status: "출력 설정 오류")
+            applyConversionError(error)
             return
         }
 
@@ -830,10 +765,8 @@ struct ContentView: View {
             )
             convertedURL = try saveConvertedOutput(from: output, to: destinationURL)
             conversionProgress = 1
-            progressDetail = "변환 완료"
-            statusMessage = "변환 완료"
         } catch {
-            applyConversionError(error, status: "변환 실패", progress: "변환 실패")
+            applyConversionError(error)
         }
     }
 
@@ -879,11 +812,8 @@ struct ContentView: View {
     }
 
     @MainActor
-    private func updateConversionProgress(_ rawProgress: Double, detail: String? = nil) {
+    private func updateConversionProgress(_ rawProgress: Double) {
         conversionProgress = min(max(rawProgress, 0), 1)
-        if let detail {
-            progressDetail = detail
-        }
     }
 
     private func convertMKVToMP4(
@@ -974,10 +904,7 @@ struct ContentView: View {
                     if status != .waiting && status != .exporting {
                         break
                     }
-                    updateConversionProgress(
-                        Double(session.progress),
-                        detail: "AVFoundation 변환 중"
-                    )
+                    updateConversionProgress(Double(session.progress))
                     try? await Task.sleep(nanoseconds: 150_000_000)
                 }
             }
@@ -986,7 +913,7 @@ struct ContentView: View {
                 try await export(session, preset: preset)
                 progressTask.cancel()
                 if session.status == .completed && FileManager.default.fileExists(atPath: outputURL.path) {
-                    updateConversionProgress(1, detail: "AVFoundation 변환 완료")
+                    updateConversionProgress(1)
                     return outputURL
                 }
                 lastError = ConversionError.exportFailed(status: session.status, underlying: session.error, preset: preset)
@@ -1127,7 +1054,7 @@ struct ContentView: View {
             outputURL.path
         ])
 
-        updateConversionProgress(0, detail: "FFmpeg 인코딩 시작 (\(videoCodec))")
+        updateConversionProgress(0)
 
         var effectiveDuration = inputDurationSeconds
         let result = try await runCommand(path: ffmpegPath, arguments: args) { line in
@@ -1137,7 +1064,7 @@ struct ContentView: View {
 
             if line == "progress=end" {
                 Task {
-                    updateConversionProgress(1, detail: "FFmpeg 인코딩 완료")
+                    updateConversionProgress(1)
                 }
                 return
             }
@@ -1152,7 +1079,7 @@ struct ContentView: View {
 
             let ratio = outTimeSeconds / duration
             Task {
-                updateConversionProgress(ratio, detail: "FFmpeg 인코딩 중")
+                updateConversionProgress(ratio)
             }
         }
 
@@ -1163,7 +1090,7 @@ struct ContentView: View {
             )
         }
 
-        updateConversionProgress(1, detail: "FFmpeg 인코딩 완료")
+        updateConversionProgress(1)
     }
 
     private func findFFmpegPath() -> String? {
