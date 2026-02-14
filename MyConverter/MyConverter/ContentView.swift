@@ -54,13 +54,13 @@ struct ContentView: View {
         var codecCandidates: [String] {
             switch self {
             case .h265CPU:
-                return ["libx265", "hevc"]
+                return ["libx265", "hevc", "h264", "mpeg4"]
             case .h265GPU:
-                return ["hevc_videotoolbox"]
+                return ["hevc_videotoolbox", "hevc", "h264_videotoolbox", "h264", "mpeg4"]
             case .h264CPU:
-                return ["libx264", "h264"]
+                return ["libx264", "h264", "mpeg4"]
             case .h264GPU:
-                return ["h264_videotoolbox"]
+                return ["h264_videotoolbox", "h264", "mpeg4"]
             }
         }
 
@@ -358,6 +358,8 @@ struct ContentView: View {
     @State private var selectedAudioMode: AudioModeOption = .auto
     @State private var selectedSampleRate: SampleRateOption = .hz48000
     @State private var selectedAudioBitRate: AudioBitRateOption = .auto
+    @State private var conversionProgress: Double = 0
+    @State private var progressDetail = "대기 중"
 
     var body: some View {
         NavigationSplitView {
@@ -442,6 +444,10 @@ struct ContentView: View {
 
             Section("출력 설정") {
                 LabeledContent("컨테이너") { Text("MP4") }
+                Text("결과 파일은 입력 파일과 같은 폴더에 저장됩니다.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+
                 Picker("Video Encoder", selection: $selectedVideoEncoder) {
                     ForEach(VideoEncoderOption.allCases) { option in
                         Text(option.rawValue).tag(option)
@@ -518,18 +524,32 @@ struct ContentView: View {
                 Button {
                     startConversion()
                 } label: {
-                    Label(isConverting ? "변환 중..." : "MP4로 변환", systemImage: "play.circle.fill")
+                    Label(
+                        isConverting ? "변환 중 \(progressPercentageText)" : "MP4로 변환",
+                        systemImage: "play.circle.fill"
+                    )
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(!canConvert)
 
                 if isConverting {
-                    ProgressView("파일 변환 중")
+                    VStack(alignment: .leading, spacing: 8) {
+                        ProgressView(value: conversionProgress, total: 1.0) {
+                            Text("파일 변환 중")
+                        } currentValueLabel: {
+                            Text(progressPercentageText)
+                                .monospacedDigit()
+                        }
                         .progressViewStyle(.linear)
+
+                        Text(progressDetail)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 LabeledContent("현재 상태") {
-                    Text(statusMessage)
+                    Label(statusMessage, systemImage: statusIcon)
                         .foregroundStyle(statusColor)
                 }
 
@@ -537,6 +557,14 @@ struct ContentView: View {
                     Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.red)
                         .font(.footnote)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if let debugMessage, !debugMessage.isEmpty {
+                    Text(debugMessage)
+                        .font(.footnote.monospaced())
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -646,6 +674,11 @@ struct ContentView: View {
         sourceURL != nil && !isConverting && isVideoSettingsValid
     }
 
+    private var progressPercentageText: String {
+        let percent = Int((conversionProgress * 100).rounded())
+        return "\(max(0, min(percent, 100)))%"
+    }
+
     private var isVideoSettingsValid: Bool {
         if selectedVideoBitRate == .custom {
             return normalizedCustomVideoBitRateKbps != nil
@@ -724,6 +757,7 @@ struct ContentView: View {
         return [mkvType, .movie].compactMap { $0 }
     }
 
+    @MainActor
     private func convert() async {
         guard let sourceURL else {
             errorMessage = "변환할 파일이 없습니다."
@@ -749,19 +783,53 @@ struct ContentView: View {
         errorMessage = nil
         debugMessage = nil
         convertedURL = nil
+        conversionProgress = 0
+        progressDetail = "변환 준비 중"
 
-        let shouldStopAccessing = sourceURL.startAccessingSecurityScopedResource()
-        defer { if shouldStopAccessing { sourceURL.stopAccessingSecurityScopedResource() } }
+        let shouldStopSourceAccessing = sourceURL.startAccessingSecurityScopedResource()
+        defer {
+            if shouldStopSourceAccessing {
+                sourceURL.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        let outputDirectory = sourceURL.deletingLastPathComponent()
+
+        let shouldStopOutputAccessing = outputDirectory.startAccessingSecurityScopedResource()
+        defer {
+            if shouldStopOutputAccessing {
+                outputDirectory.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        let inputDurationSeconds: Double? = nil
 
         do {
             defer { isConverting = false }
-            let destinationURL = uniqueOutputURL(for: sourceURL)
+
+            try FileManager.default.createDirectory(
+                at: outputDirectory,
+                withIntermediateDirectories: true,
+                attributes: nil
+            )
+
+            let destinationURL = uniqueOutputURL(for: sourceURL, in: outputDirectory)
+            let workingOutputURL = temporaryOutputURL(for: sourceURL)
+            defer {
+                if FileManager.default.fileExists(atPath: workingOutputURL.path) {
+                    try? FileManager.default.removeItem(at: workingOutputURL)
+                }
+            }
+
             let output = try await convertMKVToMP4(
                 inputURL: sourceURL,
-                outputURL: destinationURL,
-                outputSettings: outputSettings
+                outputURL: workingOutputURL,
+                outputSettings: outputSettings,
+                inputDurationSeconds: inputDurationSeconds
             )
-            convertedURL = output
+            convertedURL = try saveConvertedOutput(from: output, to: destinationURL)
+            conversionProgress = 1
+            progressDetail = "변환 완료"
             statusMessage = "변환 완료"
         } catch {
             isConverting = false
@@ -771,13 +839,13 @@ struct ContentView: View {
             } else {
                 debugMessage = "상세: \(error)"
             }
+            progressDetail = "변환 실패"
             statusMessage = "변환 실패"
         }
     }
 
-    private func uniqueOutputURL(for sourceURL: URL) -> URL {
+    private func uniqueOutputURL(for sourceURL: URL, in outputDirectory: URL) -> URL {
         let baseName = sourceURL.deletingPathExtension().lastPathComponent
-        let outputDirectory = FileManager.default.temporaryDirectory
         var candidate = outputDirectory.appendingPathComponent("\(baseName).mp4")
         var index = 1
 
@@ -788,21 +856,60 @@ struct ContentView: View {
         return candidate
     }
 
+    private func temporaryOutputURL(for sourceURL: URL) -> URL {
+        let baseName = sourceURL.deletingPathExtension().lastPathComponent
+        return FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(baseName)_working_\(UUID().uuidString).mp4")
+    }
+
+    private func saveConvertedOutput(from sourceURL: URL, to destinationURL: URL) throws -> URL {
+        if sourceURL.path == destinationURL.path {
+            return destinationURL
+        }
+
+        if FileManager.default.fileExists(atPath: destinationURL.path) {
+            try FileManager.default.removeItem(at: destinationURL)
+        }
+
+        do {
+            try FileManager.default.moveItem(at: sourceURL, to: destinationURL)
+            return destinationURL
+        } catch {
+            do {
+                try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
+                try? FileManager.default.removeItem(at: sourceURL)
+                return destinationURL
+            } catch {
+                throw ConversionError.outputSaveFailed(destinationURL.path, error.localizedDescription)
+            }
+        }
+    }
+
+    @MainActor
+    private func updateConversionProgress(_ rawProgress: Double, detail: String? = nil) {
+        conversionProgress = min(max(rawProgress, 0), 1)
+        if let detail {
+            progressDetail = detail
+        }
+    }
+
     private func convertMKVToMP4(
         inputURL: URL,
         outputURL: URL,
-        outputSettings: VideoOutputSettings
+        outputSettings: VideoOutputSettings,
+        inputDurationSeconds: Double?
     ) async throws -> URL {
         if FileManager.default.fileExists(atPath: outputURL.path) {
             try FileManager.default.removeItem(at: outputURL)
         }
 
         #if os(macOS)
-        if outputSettings.shouldUseDirectFFmpeg {
+        if findFFmpegPath() != nil {
             try await convertMKVToMP4WithFFmpeg(
                 inputURL: inputURL,
                 outputURL: outputURL,
-                outputSettings: outputSettings
+                outputSettings: outputSettings,
+                inputDurationSeconds: inputDurationSeconds
             )
             return outputURL
         }
@@ -818,7 +925,8 @@ struct ContentView: View {
                     try await convertMKVToMP4WithFFmpeg(
                         inputURL: inputURL,
                         outputURL: outputURL,
-                        outputSettings: outputSettings
+                        outputSettings: outputSettings,
+                        inputDurationSeconds: inputDurationSeconds
                     )
                     return outputURL
                 }
@@ -843,7 +951,8 @@ struct ContentView: View {
                 try await convertMKVToMP4WithFFmpeg(
                     inputURL: inputURL,
                     outputURL: outputURL,
-                    outputSettings: outputSettings
+                    outputSettings: outputSettings,
+                    inputDurationSeconds: inputDurationSeconds
                 )
                 return outputURL
             }
@@ -869,13 +978,30 @@ struct ContentView: View {
             session.outputFileType = .mp4
             session.shouldOptimizeForNetworkUse = true
 
+            let progressTask = Task {
+                while !Task.isCancelled {
+                    let status = session.status
+                    if status != .waiting && status != .exporting {
+                        break
+                    }
+                    updateConversionProgress(
+                        Double(session.progress),
+                        detail: "AVFoundation 변환 중"
+                    )
+                    try? await Task.sleep(nanoseconds: 150_000_000)
+                }
+            }
+
             do {
                 try await export(session, preset: preset)
+                progressTask.cancel()
                 if session.status == .completed && FileManager.default.fileExists(atPath: outputURL.path) {
+                    updateConversionProgress(1, detail: "AVFoundation 변환 완료")
                     return outputURL
                 }
                 lastError = ConversionError.exportFailed(status: session.status, underlying: session.error, preset: preset)
             } catch {
+                progressTask.cancel()
                 lastError = error
                 if isUnsupportedMediaFormatError(error) {
                     break
@@ -884,26 +1010,20 @@ struct ContentView: View {
         }
 
         #if os(macOS)
-        if let lastError, isUnsupportedMediaFormatError(lastError) {
-            do {
+        if let lastError, shouldFallbackToFFmpeg(after: lastError) {
+            if findFFmpegPath() != nil {
                 try await convertMKVToMP4WithFFmpeg(
                     inputURL: inputURL,
                     outputURL: outputURL,
-                    outputSettings: outputSettings
+                    outputSettings: outputSettings,
+                    inputDurationSeconds: inputDurationSeconds
                 )
                 return outputURL
-            } catch {
-                if case ConversionError.ffmpegUnavailable = error {
-                    throw error
-                }
-                throw error
             }
-        }
-        #endif
 
-        #if os(macOS)
-        if let lastError, isUnsupportedMediaFormatError(lastError), findFFmpegPath() == nil {
-            throw ConversionError.ffmpegUnavailable
+            if isUnsupportedMediaFormatError(lastError) {
+                throw ConversionError.ffmpegUnavailable
+            }
         }
         #endif
 
@@ -914,7 +1034,8 @@ struct ContentView: View {
     private func convertMKVToMP4WithFFmpeg(
         inputURL: URL,
         outputURL: URL,
-        outputSettings: VideoOutputSettings
+        outputSettings: VideoOutputSettings,
+        inputDurationSeconds: Double?
     ) async throws {
         guard let ffmpegPath = findFFmpegPath() else {
             throw ConversionError.ffmpegUnavailable
@@ -932,7 +1053,8 @@ struct ContentView: View {
                     inputURL: inputURL,
                     outputURL: outputURL,
                     outputSettings: outputSettings,
-                    videoCodec: codec
+                    videoCodec: codec,
+                    inputDurationSeconds: inputDurationSeconds
                 )
                 return
             } catch {
@@ -951,10 +1073,13 @@ struct ContentView: View {
         inputURL: URL,
         outputURL: URL,
         outputSettings: VideoOutputSettings,
-        videoCodec: String
+        videoCodec: String,
+        inputDurationSeconds: Double?
     ) async throws {
         var args = [
             "-y",
+            "-progress", "pipe:1",
+            "-nostats",
             "-i", inputURL.path,
             "-c:v", videoCodec
         ]
@@ -994,13 +1119,43 @@ struct ContentView: View {
             outputURL.path
         ])
 
-        let result = try await runCommand(path: ffmpegPath, arguments: args)
+        updateConversionProgress(0, detail: "FFmpeg 인코딩 시작 (\(videoCodec))")
+
+        var effectiveDuration = inputDurationSeconds
+        let result = try await runCommand(path: ffmpegPath, arguments: args) { line in
+            if effectiveDuration == nil {
+                effectiveDuration = parseFFmpegDurationSeconds(from: line)
+            }
+
+            if line == "progress=end" {
+                Task {
+                    updateConversionProgress(1, detail: "FFmpeg 인코딩 완료")
+                }
+                return
+            }
+
+            guard
+                let outTimeSeconds = parseFFmpegOutTimeSeconds(from: line),
+                let duration = effectiveDuration,
+                duration > 0
+            else {
+                return
+            }
+
+            let ratio = outTimeSeconds / duration
+            Task {
+                updateConversionProgress(ratio, detail: "FFmpeg 인코딩 중")
+            }
+        }
+
         guard result.terminationStatus == 0 else {
             throw ConversionError.ffmpegFailed(
                 result.terminationStatus,
                 "[\(videoCodec)] \(result.output)"
             )
         }
+
+        updateConversionProgress(1, detail: "FFmpeg 인코딩 완료")
     }
 
     private func findFFmpegPath() -> String? {
@@ -1039,7 +1194,73 @@ struct ContentView: View {
         return nil
     }
 
-    private func runCommand(path: String, arguments: [String]) async throws -> (terminationStatus: Int32, output: String) {
+    private func parseFFmpegDurationSeconds(from line: String) -> Double? {
+        guard let markerRange = line.range(of: "Duration: ") else { return nil }
+        let remaining = line[markerRange.upperBound...]
+        guard let commaIndex = remaining.firstIndex(of: ",") else { return nil }
+        let timestamp = String(remaining[..<commaIndex])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return parseFFmpegTimestampSeconds(timestamp)
+    }
+
+    private func parseFFmpegOutTimeSeconds(from line: String) -> Double? {
+        if line.hasPrefix("out_time=") {
+            let value = String(line.dropFirst("out_time=".count))
+            return parseFFmpegTimestampSeconds(value)
+        }
+
+        if line.hasPrefix("out_time_us=") {
+            let raw = String(line.dropFirst("out_time_us=".count))
+            guard let value = Double(raw) else { return nil }
+            return value / 1_000_000
+        }
+
+        if line.hasPrefix("out_time_ms=") {
+            let raw = String(line.dropFirst("out_time_ms=".count))
+            guard let value = Double(raw) else { return nil }
+            // ffmpeg -progress에서 out_time_ms는 실측상 microseconds 값을 반환합니다.
+            return value / 1_000_000
+        }
+
+        return nil
+    }
+
+    private func parseFFmpegTimestampSeconds(_ timestamp: String) -> Double? {
+        let normalized = timestamp
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: ",", with: ".")
+        let components = normalized.split(separator: ":")
+        guard components.count == 3 else { return nil }
+        guard let hours = Double(components[0]),
+              let minutes = Double(components[1]),
+              let seconds = Double(components[2]) else {
+            return nil
+        }
+        return (hours * 3600) + (minutes * 60) + seconds
+    }
+
+    private static func consumeCompleteLines(from buffer: inout Data) -> [String] {
+        var lines: [String] = []
+        let newline = Data([0x0A])
+
+        while let range = buffer.range(of: newline) {
+            let lineData = buffer.subdata(in: buffer.startIndex..<range.lowerBound)
+            let text = String(data: lineData, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if !text.isEmpty {
+                lines.append(text)
+            }
+            buffer.removeSubrange(buffer.startIndex..<range.upperBound)
+        }
+
+        return lines
+    }
+
+    private func runCommand(
+        path: String,
+        arguments: [String],
+        outputLineHandler: ((String) -> Void)? = nil
+    ) async throws -> (terminationStatus: Int32, output: String) {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(Int32, String), Error>) in
             let process = Process()
             process.executableURL = URL(fileURLWithPath: path)
@@ -1048,21 +1269,93 @@ struct ContentView: View {
             let outputPipe = Pipe()
             process.standardOutput = outputPipe
             process.standardError = outputPipe
+            let outputHandle = outputPipe.fileHandleForReading
+            let syncQueue = DispatchQueue(label: "myconverter.runcommand.output")
+            var accumulated = Data()
+            var lineBuffer = Data()
+
+            outputHandle.readabilityHandler = { handle in
+                let data = handle.availableData
+                guard !data.isEmpty else { return }
+
+                syncQueue.async {
+                    accumulated.append(data)
+                    lineBuffer.append(data)
+                    let lines = Self.consumeCompleteLines(from: &lineBuffer)
+                    guard let outputLineHandler else { return }
+                    for line in lines {
+                        outputLineHandler(line)
+                    }
+                }
+            }
 
             process.terminationHandler = { proc in
-                let data = try? outputPipe.fileHandleForReading.readToEnd() ?? Data()
-                let output = String(data: data ?? Data(), encoding: .utf8) ?? ""
-                continuation.resume(returning: (proc.terminationStatus, output))
+                outputHandle.readabilityHandler = nil
+                let trailingData = outputHandle.readDataToEndOfFile()
+
+                syncQueue.async {
+                    if !trailingData.isEmpty {
+                        accumulated.append(trailingData)
+                        lineBuffer.append(trailingData)
+                    }
+
+                    let lines = Self.consumeCompleteLines(from: &lineBuffer)
+                    if let outputLineHandler {
+                        for line in lines {
+                            outputLineHandler(line)
+                        }
+
+                        if !lineBuffer.isEmpty,
+                           let trailingLine = String(data: lineBuffer, encoding: .utf8)?
+                            .trimmingCharacters(in: .whitespacesAndNewlines),
+                           !trailingLine.isEmpty {
+                            outputLineHandler(trailingLine)
+                        }
+                    }
+
+                    let output = String(data: accumulated, encoding: .utf8) ?? ""
+                    continuation.resume(returning: (proc.terminationStatus, output))
+                }
             }
 
             do {
                 try process.run()
             } catch {
+                outputHandle.readabilityHandler = nil
                 continuation.resume(throwing: error)
             }
         }
     }
     #endif
+
+    private func shouldFallbackToFFmpeg(after error: Error) -> Bool {
+        if let conversionError = error as? ConversionError {
+            switch conversionError {
+            case .invalidCustomVideoBitRate,
+                    .exportCancelled,
+                    .ffmpegUnavailable,
+                    .ffmpegFailed:
+                return false
+            default:
+                return true
+            }
+        }
+
+        if isUnsupportedMediaFormatError(error) {
+            return true
+        }
+
+        let nsError = error as NSError
+        if nsError.domain == AVFoundationErrorDomain || nsError.domain == NSOSStatusErrorDomain {
+            return true
+        }
+
+        if error is AVError {
+            return true
+        }
+
+        return false
+    }
 
     private func isUnsupportedMediaFormatError(_ error: Error) -> Bool {
         if let conversionError = error as? ConversionError {
@@ -1106,7 +1399,7 @@ struct ContentView: View {
             }
         }
 
-        if nsError.domain == NSOSStatusErrorDomain && nsError.code == -12847 {
+        if nsError.domain == NSOSStatusErrorDomain && (nsError.code == -12847 || nsError.code == -12894) {
             return true
         }
 
@@ -1187,6 +1480,7 @@ private enum ConversionError: LocalizedError {
     case exportFailed(status: AVAssetExportSession.Status, underlying: Error?, preset: String)
     case ffmpegUnavailable
     case ffmpegFailed(Int32, String)
+    case outputSaveFailed(String, String)
 
     var errorDescription: String? {
         switch self {
@@ -1208,8 +1502,14 @@ private enum ConversionError: LocalizedError {
             return "변환이 중단되었습니다."
         case .ffmpegUnavailable:
             return "이 MKV는 AVFoundation에서 열 수 없습니다. ffmpeg를 찾지 못했습니다."
-        case .ffmpegFailed:
+        case .ffmpegFailed(_, let output):
+            if output.localizedCaseInsensitiveContains("operation not permitted") ||
+                output.localizedCaseInsensitiveContains("permission denied") {
+                return "입력 파일 폴더에 쓸 수 없습니다. 폴더 권한을 확인해 주세요."
+            }
             return "ffmpeg 변환이 실패했습니다."
+        case .outputSaveFailed:
+            return "변환 파일 저장에 실패했습니다. 입력 파일 폴더 권한을 확인해 주세요."
         case .exportFailed:
             return "AVAssetExportSession 변환에 실패했습니다."
         }
@@ -1234,6 +1534,8 @@ private enum ConversionError: LocalizedError {
             return "brew install ffmpeg 또는 앱 번들에 ffmpeg를 포함해 주세요."
         case .ffmpegFailed(let code, let output):
             return "FFmpeg 종료 코드: \(code). 상세: \(output)"
+        case .outputSaveFailed(let path, let reason):
+            return "저장 경로: \(path), 상세: \(reason)"
         case .invalidCustomVideoBitRate(let value):
             return "입력값: \(value)"
         case .unreadableAsset:
