@@ -90,7 +90,7 @@ struct ContentView: View {
     private var videoInputArea: some View {
         Group {
             if !isVideoDropTargeted, !viewModel.selectedVideoSourceURLs.isEmpty {
-                SelectedFilesView(
+                selectedFilesView(
                     urls: viewModel.selectedVideoSourceURLs,
                     systemImage: "film.fill",
                     isConverting: viewModel.isConverting
@@ -101,7 +101,7 @@ struct ContentView: View {
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             } else {
-                DropFileView(
+                dropFileView(
                     isDropTargeted: isVideoDropTargeted,
                     placeholder: "Drop Video Here"
                 ) {
@@ -219,7 +219,7 @@ struct ContentView: View {
             } else {
                 VStack(spacing: 10) {
                     ForEach(Array(viewModel.convertedURLs.enumerated()), id: \.element.path) { index, url in
-                        OutputFileCardView(
+                        outputFileCardView(
                             url: url,
                             order: index + 1,
                             openSystemImage: "play.fill"
@@ -262,7 +262,7 @@ struct ContentView: View {
     private var imageInputArea: some View {
         Group {
             if !isImageDropTargeted, !viewModel.selectedImageSourceURLs.isEmpty {
-                SelectedFilesView(
+                selectedFilesView(
                     urls: viewModel.selectedImageSourceURLs,
                     systemImage: "photo.fill",
                     isConverting: viewModel.isImageConverting
@@ -273,7 +273,7 @@ struct ContentView: View {
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             } else {
-                DropFileView(
+                dropFileView(
                     isDropTargeted: isImageDropTargeted,
                     placeholder: "Drop Image Here"
                 ) {
@@ -344,7 +344,7 @@ struct ContentView: View {
             } else {
                 VStack(spacing: 10) {
                     ForEach(Array(viewModel.convertedImageURLs.enumerated()), id: \.element.path) { index, url in
-                        OutputFileCardView(
+                        outputFileCardView(
                             url: url,
                             order: index + 1,
                             openSystemImage: "photo.fill"
@@ -490,7 +490,7 @@ struct ContentView: View {
         }
     }
 
-    private func DropFileView(
+    private func dropFileView(
         isDropTargeted: Bool,
         placeholder: String,
         action: @escaping () -> Void
@@ -548,7 +548,7 @@ struct ContentView: View {
         .animation(.spring(response: 0.35, dampingFraction: 0.7), value: isDropTargeted)
     }
 
-    private func SelectedFilesView(
+    private func selectedFilesView(
         urls: [URL],
         systemImage: String,
         isConverting: Bool,
@@ -592,7 +592,7 @@ struct ContentView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 14) {
                     ForEach(Array(urls.enumerated()), id: \.element.path) { index, url in
-                        SelectedFileCardView(
+                        selectedFileCardView(
                             url: url,
                             order: index + 1,
                             systemImage: systemImage
@@ -633,7 +633,7 @@ struct ContentView: View {
         .clipShape(RoundedRectangle(cornerRadius: 24))
     }
 
-    private func SelectedFileCardView(
+    private func selectedFileCardView(
         url: URL,
         order: Int,
         systemImage: String
@@ -690,7 +690,7 @@ struct ContentView: View {
         .shadow(color: .black.opacity(0.03), radius: 5, x: 0, y: 2)
     }
 
-    private func OutputFileCardView(
+    private func outputFileCardView(
         url: URL,
         order: Int,
         openSystemImage: String
@@ -762,7 +762,7 @@ struct ContentView: View {
         .shadow(color: .black.opacity(0.02), radius: 5, x: 0, y: 2)
     }
 
-    private func ConversionResultView(
+    private func conversionResultView(
         url: URL,
         detailText: String,
         openSystemImage: String
@@ -892,7 +892,7 @@ struct ContentView: View {
     private var audioInputArea: some View {
         Group {
             if !isAudioDropTargeted, !viewModel.selectedAudioSourceURLs.isEmpty {
-                SelectedFilesView(
+                selectedFilesView(
                     urls: viewModel.selectedAudioSourceURLs,
                     systemImage: "waveform",
                     isConverting: viewModel.isAudioConverting
@@ -903,7 +903,7 @@ struct ContentView: View {
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             } else {
-                DropFileView(
+                dropFileView(
                     isDropTargeted: isAudioDropTargeted,
                     placeholder: "Drop Audio Here"
                 ) {
@@ -978,7 +978,7 @@ struct ContentView: View {
             } else {
                 VStack(spacing: 10) {
                     ForEach(Array(viewModel.convertedAudioURLs.enumerated()), id: \.element.path) { index, url in
-                        OutputFileCardView(
+                        outputFileCardView(
                             url: url,
                             order: index + 1,
                             openSystemImage: "music.note"
@@ -999,7 +999,8 @@ struct ContentView: View {
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .frame(width: 140, height: 140)
-                        .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 5)
+                        .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+                        .shadow(color: .black.opacity(0.12), radius: 10, x: 0, y: 4)
 
                     VStack(spacing: 8) {
                         Text("MyConverter")
@@ -1014,11 +1015,11 @@ struct ContentView: View {
 
                 VStack(alignment: .leading, spacing: 20) {
                     Group {
-                        AboutSection(title: "Developer", value: "JiHoon K (Deferare)")
+                        aboutSection(title: "Developer", value: "JiHoon K (Deferare)")
                         Divider()
-                        AboutSection(title: "Contact", value: "deferare@icloud.com", isLink: true)
+                        aboutSection(title: "Contact", value: "deferare@icloud.com", isLink: true)
                         Divider()
-                        AboutSection(title: "License", value: "© 2026 Deferare. All rights reserved.")
+                        aboutSection(title: "License", value: "© 2026 Deferare. All rights reserved.")
                     }
 
                     Button("Open Source Licenses") {
@@ -1121,7 +1122,7 @@ struct ContentView: View {
         }
     }
 
-    private func AboutSection(title: String, value: String, isLink: Bool = false) -> some View {
+    private func aboutSection(title: String, value: String, isLink: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.caption.weight(.bold))
@@ -1176,7 +1177,7 @@ struct ContentView: View {
                     .fill(Color.accentColor)
                     .frame(width: 36, height: 36)
                 
-                Image(systemName: "arrow.left.and.right.righttriangle.left.righttriangle.right.fill")
+                Image(systemName: "arrow.triangle.2.circlepath")
                     .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(.white)
             }
@@ -1207,11 +1208,10 @@ struct ContentView: View {
     }
 
     private var appIconImage: Image {
-        if let image = NSImage(named: "AppIcon")
-            ?? NSImage(systemSymbolName: "app.dashed", accessibilityDescription: nil) {
+        if let image = NSImage(named: "AppIcon") {
             return Image(nsImage: image)
         }
-        return Image(systemName: "app.dashed")
+        return Image(systemName: "arrow.triangle.2.circlepath.circle.fill")
     }
 
     private var openSourceLicensesSheet: some View {
