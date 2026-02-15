@@ -176,6 +176,7 @@ struct ContentView: View {
                         }
                     }
                 }
+                .disabled(viewModel.isConverting)
 
                 Section("Output Files") {
                     if viewModel.convertedURLs.isEmpty {
@@ -289,6 +290,7 @@ struct ContentView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                .disabled(viewModel.isImageConverting)
 
                 Section("Output Files") {
                     if viewModel.convertedImageURLs.isEmpty {
@@ -899,6 +901,7 @@ struct ContentView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                .disabled(viewModel.isAudioConverting)
 
                 Section("Output Files") {
                     if viewModel.convertedAudioURLs.isEmpty {
