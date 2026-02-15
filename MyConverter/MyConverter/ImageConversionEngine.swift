@@ -26,17 +26,12 @@ enum ImageConversionEngine {
     nonisolated(unsafe) private static var introspectionCache: [String: FFmpegIntrospection] = [:]
 
     nonisolated static func isFFmpegAvailable() -> Bool {
-        #if os(macOS)
         findFFmpegPath() != nil
-        #else
-        false
-        #endif
     }
 
     nonisolated static func defaultOutputFormats() -> [ImageFormatOption] {
         let imageIOFormats = imageIOAvailableFormats()
 
-        #if os(macOS)
         guard let ffmpegPath = findFFmpegPath() else {
             return imageIOFormats
         }
@@ -55,9 +50,6 @@ enum ImageConversionEngine {
         )
 
         return mergedFormats(primary: ffmpegFormats, secondary: imageIOFormats)
-        #else
-        return imageIOFormats
-        #endif
     }
 
     nonisolated static func sourceCapabilities(for inputURL: URL) async -> ImageSourceCapabilities {
@@ -752,9 +744,6 @@ enum ImageConversionEngine {
     }
 
     nonisolated private static func findFFmpegPath() -> String? {
-        #if !os(macOS)
-        return nil
-        #else
         var candidates: [String] = []
 
         if let bundled = Bundle.main.path(forResource: "ffmpeg", ofType: nil) {
@@ -788,10 +777,8 @@ enum ImageConversionEngine {
         }
 
         return nil
-        #endif
     }
 
-    #if os(macOS)
     private final class ProcessCancellationController: @unchecked Sendable {
         private let queue = DispatchQueue(label: "myconverter.image.runcommand.process")
         nonisolated(unsafe) private var process: Process?
@@ -879,21 +866,6 @@ enum ImageConversionEngine {
             return (-1, error.localizedDescription)
         }
     }
-    #else
-    nonisolated private static func runCommand(
-        path: String,
-        arguments: [String]
-    ) async throws -> (terminationStatus: Int32, output: String) {
-        throw ImageConversionError.ffmpegUnavailableForAnimatedOutput
-    }
-
-    nonisolated private static func runCommandSync(
-        path: String,
-        arguments: [String]
-    ) -> (terminationStatus: Int32, output: String) {
-        (-1, "ffmpeg process execution is unavailable on iOS/iPadOS.")
-    }
-    #endif
 
     nonisolated private static func removeFileIfExists(at url: URL) throws {
         if FileManager.default.fileExists(atPath: url.path) {

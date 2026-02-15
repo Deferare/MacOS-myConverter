@@ -38,9 +38,7 @@ struct AudioSourceCapabilities {
 enum VideoConversionEngine {
     typealias ProgressHandler = @Sendable (Double) async -> Void
     private static let ffmpegIntrospectionCacheQueue = DispatchQueue(label: "myconverter.video.ffmpeg.introspection.cache")
-    #if os(macOS)
     nonisolated(unsafe) private static var ffmpegIntrospectionCache: [String: FFmpegIntrospection] = [:]
-    #endif
     private static let preferredExportPresets = [
         AVAssetExportPresetPassthrough,
         AVAssetExportPresetHighestQuality,
@@ -51,7 +49,6 @@ enum VideoConversionEngine {
     static func defaultOutputFormats() -> [VideoFormatOption] {
         let avFormats = VideoFormatOption.avFoundationDefaultFormats
 
-        #if os(macOS)
         guard let ffmpegPath = findFFmpegPath(),
               let introspection = try? inspectFFmpeg(at: ffmpegPath) else {
             return avFormats
@@ -61,13 +58,9 @@ enum VideoConversionEngine {
         let candidates = VideoFormatOption.deduplicatedAndSorted(avFormats + VideoFormatOption.ffmpegKnownFormats + discovered)
         let supportedFFmpegFormats = candidates.filter { isFFmpegFormatSupported($0, introspection: introspection) }
         return VideoFormatOption.deduplicatedAndSorted(supportedFFmpegFormats + avFormats)
-        #else
-        return avFormats
-        #endif
     }
 
     static func availableVideoEncoders(for format: VideoFormatOption) -> [VideoEncoderOption] {
-        #if os(macOS)
         if !format.supportsVideoEncoderSelection {
             return [.auto]
         }
@@ -84,13 +77,9 @@ enum VideoConversionEngine {
         }
 
         return options.isEmpty ? [.auto] : options
-        #else
-        return [.auto]
-        #endif
     }
 
     static func availableAudioEncoders(for format: VideoFormatOption) -> [AudioEncoderOption] {
-        #if os(macOS)
         if !format.supportsAudioTrack {
             return []
         }
@@ -107,15 +96,11 @@ enum VideoConversionEngine {
         }
 
         return options.isEmpty ? [.auto] : options
-        #else
-        return [.auto]
-        #endif
     }
 
     static func defaultAudioOutputFormats() -> [AudioFormatOption] {
         let knownFormats = AudioFormatOption.ffmpegKnownFormats
 
-        #if os(macOS)
         guard let ffmpegPath = findFFmpegPath(),
               let introspection = try? inspectFFmpeg(at: ffmpegPath) else {
             return knownFormats
@@ -124,13 +109,9 @@ enum VideoConversionEngine {
         let discovered = ffmpegDiscoveredAudioFormats(from: introspection)
         let candidates = AudioFormatOption.deduplicatedAndSorted(knownFormats + discovered)
         return candidates.filter { isFFmpegAudioFormatSupported($0, introspection: introspection) }
-        #else
-        return []
-        #endif
     }
 
     static func availableAudioEncoders(for format: AudioFormatOption) -> [AudioEncoderOption] {
-        #if os(macOS)
         guard let ffmpegPath = findFFmpegPath(),
               let introspection = try? inspectFFmpeg(at: ffmpegPath),
               isFFmpegAudioFormatSupported(format, introspection: introspection) else {
@@ -146,9 +127,6 @@ enum VideoConversionEngine {
             return format.allowsFFmpegAutomaticAudioCodec ? [.auto] : []
         }
         return options
-        #else
-        return []
-        #endif
     }
 
     static func sandboxOutputDirectory(bundleIdentifier: String?) throws -> URL {
@@ -242,17 +220,12 @@ enum VideoConversionEngine {
     }
 
     static func isFFmpegAvailable() -> Bool {
-        #if os(macOS)
         return findFFmpegPath() != nil
-        #else
-        return false
-        #endif
     }
 
     static func sourceCapabilitiesForAudio(for inputURL: URL) async -> AudioSourceCapabilities {
         let defaultFormats = defaultAudioOutputFormats()
 
-        #if os(macOS)
         guard isFFmpegAvailable() else {
             return AudioSourceCapabilities(
                 availableOutputFormats: [],
@@ -290,13 +263,6 @@ enum VideoConversionEngine {
                 errorMessage: nil
             )
         }
-        #else
-        return AudioSourceCapabilities(
-            availableOutputFormats: [],
-            warningMessage: nil,
-            errorMessage: "Audio conversion requires ffmpeg and is supported on macOS only."
-        )
-        #endif
     }
 
     static func sourceCapabilities(for inputURL: URL) async -> VideoSourceCapabilities {
@@ -355,7 +321,6 @@ enum VideoConversionEngine {
         try removeFileIfExists(at: outputURL)
         let outputFileType = outputSettings.containerFormat.avFileType
 
-        #if os(macOS)
         if outputFileType == nil {
             return try await attemptFFmpegConversionOrThrowUnavailable(
                 inputURL: inputURL,
@@ -365,9 +330,7 @@ enum VideoConversionEngine {
                 onProgress: onProgress
             )
         }
-        #endif
 
-        #if os(macOS)
         if let converted = try await attemptFFmpegConversion(
             inputURL: inputURL,
             outputURL: outputURL,
@@ -377,14 +340,12 @@ enum VideoConversionEngine {
         ) {
             return converted
         }
-        #endif
 
         let asset = AVURLAsset(url: inputURL)
         do {
             try await ensureAssetReadable(asset)
         } catch {
             if isUnsupportedMediaFormatError(error) {
-                #if os(macOS)
                 return try await attemptFFmpegConversionOrThrowUnavailable(
                     inputURL: inputURL,
                     outputURL: outputURL,
@@ -392,7 +353,6 @@ enum VideoConversionEngine {
                     inputDurationSeconds: inputDurationSeconds,
                     onProgress: onProgress
                 )
-                #endif
             }
             throw error
         }
@@ -408,7 +368,6 @@ enum VideoConversionEngine {
         )
 
         guard !candidatePresets.isEmpty else {
-            #if os(macOS)
             return try await attemptFFmpegConversionOrThrowUnavailable(
                 inputURL: inputURL,
                 outputURL: outputURL,
@@ -416,9 +375,6 @@ enum VideoConversionEngine {
                 inputDurationSeconds: inputDurationSeconds,
                 onProgress: onProgress
             )
-            #else
-            throw ConversionError.noCompatiblePreset(preferredExportPresets)
-            #endif
         }
 
         var lastError: Error?
@@ -462,7 +418,6 @@ enum VideoConversionEngine {
             }
         }
 
-        #if os(macOS)
         if let lastError, shouldFallbackToFFmpeg(after: lastError) {
             if let converted = try await attemptFFmpegConversion(
                 inputURL: inputURL,
@@ -478,7 +433,6 @@ enum VideoConversionEngine {
                 throw ConversionError.ffmpegUnavailable
             }
         }
-        #endif
 
         throw lastError ?? ConversionError.unsupportedSource
     }
@@ -492,7 +446,6 @@ enum VideoConversionEngine {
     ) async throws -> URL {
         try removeFileIfExists(at: outputURL)
 
-        #if os(macOS)
         guard let ffmpegPath = findFFmpegPath() else {
             throw ConversionError.ffmpegUnavailable
         }
@@ -512,12 +465,8 @@ enum VideoConversionEngine {
             onProgress: onProgress
         )
         return outputURL
-        #else
-        throw ConversionError.ffmpegUnavailable
-        #endif
     }
 
-    #if os(macOS)
     private static func attemptFFmpegConversionOrThrowUnavailable(
         inputURL: URL,
         outputURL: URL,
@@ -1458,7 +1407,6 @@ enum VideoConversionEngine {
             cancellationController.terminateIfNeeded()
         }
     }
-    #endif
 
     private static func removeFileIfExists(at url: URL) throws {
         if FileManager.default.fileExists(atPath: url.path) {

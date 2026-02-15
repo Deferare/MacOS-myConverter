@@ -8,14 +8,9 @@
 import SwiftUI
 import StoreKit
 import UniformTypeIdentifiers
-#if os(macOS)
 import AppKit
-#elseif os(iOS)
-import UIKit
-#endif
 
 struct ContentView: View {
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @StateObject private var viewModel = ContentViewModel()
     @StateObject private var donationStore = DonationStore()
     @State private var selectedTab: ConverterTab = .video
@@ -24,16 +19,8 @@ struct ContentView: View {
     @State private var isAudioDropTargeted = false
     @State private var isShowingOpenSourceLicenses = false
 
-    private var isCompactIOS: Bool {
-        #if os(iOS)
-        horizontalSizeClass == .compact
-        #else
-        false
-        #endif
-    }
-
     private var fileDropAreaHeight: CGFloat {
-        isCompactIOS ? 170 : 240
+        240
     }
 
     var body: some View {
@@ -49,7 +36,6 @@ struct ContentView: View {
 
     @ViewBuilder
     private var rootNavigationView: some View {
-        #if os(macOS)
         NavigationSplitView {
             sidebarView
         } detail: {
@@ -57,57 +43,8 @@ struct ContentView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .frame(minWidth: 980, minHeight: 620)
-        #else
-        if horizontalSizeClass == .compact {
-            iosTabNavigationView
-        } else {
-            NavigationSplitView {
-                sidebarView
-            } detail: {
-                detailView(for: selectedTab)
-            }
-            .navigationSplitViewStyle(.balanced)
-        }
-        #endif
     }
 
-    #if os(iOS)
-    private var iosTabNavigationView: some View {
-        TabView(selection: $selectedTab) {
-            NavigationStack {
-                videoDetailView
-            }
-            .tabItem {
-                Label("Video", systemImage: ConverterTab.video.systemImage)
-            }
-            .tag(ConverterTab.video)
-
-            NavigationStack {
-                imageDetailView
-            }
-            .tabItem {
-                Label("Image", systemImage: ConverterTab.image.systemImage)
-            }
-            .tag(ConverterTab.image)
-
-            NavigationStack {
-                audioDetailView
-            }
-            .tabItem {
-                Label("Audio", systemImage: ConverterTab.audio.systemImage)
-            }
-            .tag(ConverterTab.audio)
-
-            NavigationStack {
-                aboutDetailView
-            }
-            .tabItem {
-                Label("About", systemImage: ConverterTab.about.systemImage)
-            }
-            .tag(ConverterTab.about)
-        }
-    }
-    #endif
 
     @ViewBuilder
     private func detailView(for tab: ConverterTab) -> some View {
@@ -124,36 +61,21 @@ struct ContentView: View {
     }
 
     private var videoDetailView: some View {
-        Group {
-            if isCompactIOS {
-                Form {
-                    Section {
-                        videoInputArea
-                    }
-                    videoFormSections
-                    Section {
-                        videoConversionControls
-                    }
-                }
-                .formStyle(.grouped)
-            } else {
-                VStack(spacing: 0) {
-                    videoInputArea
-                        .padding(20)
-                    Divider()
-                    Form {
-                        videoFormSections
-                    }
-                    .formStyle(.grouped)
-                }
-                .safeAreaInset(edge: .bottom) {
-                    videoConversionControls
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 16)
-                        .background(.regularMaterial)
-                        .overlay(Rectangle().frame(height: 1).foregroundStyle(.separator), alignment: .top)
-                }
+        VStack(spacing: 0) {
+            videoInputArea
+                .padding(20)
+            Divider()
+            Form {
+                videoFormSections
             }
+            .formStyle(.grouped)
+        }
+        .safeAreaInset(edge: .bottom) {
+            videoConversionControls
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+                .background(.regularMaterial)
+                .overlay(Rectangle().frame(height: 1).foregroundStyle(.separator), alignment: .top)
         }
         .navigationTitle("Convert Video")
         .onDrop(of: [.fileURL], isTargeted: $isVideoDropTargeted) { providers in
@@ -308,36 +230,21 @@ struct ContentView: View {
     }
 
     private var imageDetailView: some View {
-        Group {
-            if isCompactIOS {
-                Form {
-                    Section {
-                        imageInputArea
-                    }
-                    imageFormSections
-                    Section {
-                        imageConversionControls
-                    }
-                }
-                .formStyle(.grouped)
-            } else {
-                VStack(spacing: 0) {
-                    imageInputArea
-                        .padding(20)
-                    Divider()
-                    Form {
-                        imageFormSections
-                    }
-                    .formStyle(.grouped)
-                }
-                .safeAreaInset(edge: .bottom) {
-                    imageConversionControls
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 16)
-                        .background(.regularMaterial)
-                        .overlay(Rectangle().frame(height: 1).foregroundStyle(.separator), alignment: .top)
-                }
+        VStack(spacing: 0) {
+            imageInputArea
+                .padding(20)
+            Divider()
+            Form {
+                imageFormSections
             }
+            .formStyle(.grouped)
+        }
+        .safeAreaInset(edge: .bottom) {
+            imageConversionControls
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+                .background(.regularMaterial)
+                .overlay(Rectangle().frame(height: 1).foregroundStyle(.separator), alignment: .top)
         }
         .navigationTitle("Convert Image")
         .onDrop(of: [.fileURL], isTargeted: $isImageDropTargeted) { providers in
@@ -720,7 +627,6 @@ struct ContentView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(isConverting)
-                #if os(macOS)
                 .onHover { inside in
                     if inside {
                         NSCursor.pointingHand.push()
@@ -728,7 +634,6 @@ struct ContentView: View {
                         NSCursor.pop()
                     }
                 }
-                #endif
             }
         }
         .padding(20)
@@ -833,7 +738,6 @@ struct ContentView: View {
 
             Spacer()
 
-            #if os(macOS)
             HStack(spacing: 8) {
                 Button {
                     NSWorkspace.shared.activateFileViewerSelecting([url])
@@ -852,13 +756,6 @@ struct ContentView: View {
                 .controlSize(.small)
                 .labelStyle(.titleAndIcon)
             }
-            #else
-            ShareLink(item: url) {
-                Label("Share", systemImage: "square.and.arrow.up")
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.small)
-            #endif
         }
         .padding(12)
         .background(
@@ -924,7 +821,6 @@ struct ContentView: View {
             }
 
             HStack(spacing: 12) {
-                #if os(macOS)
                 Button {
                     NSWorkspace.shared.activateFileViewerSelecting([url])
                 } label: {
@@ -942,14 +838,6 @@ struct ContentView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.regular)
-                #else
-                ShareLink(item: url) {
-                    Label("Share File", systemImage: "square.and.arrow.up")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.regular)
-                #endif
             }
         }
         .padding(16)
@@ -965,44 +853,25 @@ struct ContentView: View {
     }
 
     private var cardBackgroundColor: Color {
-        #if os(macOS)
-        return Color(nsColor: .controlBackgroundColor)
-        #else
-        return Color(uiColor: .secondarySystemBackground)
-        #endif
+        Color(nsColor: .controlBackgroundColor)
     }
 
     private var audioDetailView: some View {
-        Group {
-            if isCompactIOS {
-                Form {
-                    Section {
-                        audioInputArea
-                    }
-                    audioFormSections
-                    Section {
-                        audioConversionControls
-                    }
-                }
-                .formStyle(.grouped)
-            } else {
-                VStack(spacing: 0) {
-                    audioInputArea
-                        .padding(20)
-                    Divider()
-                    Form {
-                        audioFormSections
-                    }
-                    .formStyle(.grouped)
-                }
-                .safeAreaInset(edge: .bottom) {
-                    audioConversionControls
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 16)
-                        .background(.regularMaterial)
-                        .overlay(Rectangle().frame(height: 1).foregroundStyle(.separator), alignment: .top)
-                }
+        VStack(spacing: 0) {
+            audioInputArea
+                .padding(20)
+            Divider()
+            Form {
+                audioFormSections
             }
+            .formStyle(.grouped)
+        }
+        .safeAreaInset(edge: .bottom) {
+            audioConversionControls
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+                .background(.regularMaterial)
+                .overlay(Rectangle().frame(height: 1).foregroundStyle(.separator), alignment: .top)
         }
         .navigationTitle("Convert Audio")
         .onDrop(of: [.fileURL], isTargeted: $isAudioDropTargeted) { providers in
@@ -1161,11 +1030,7 @@ struct ContentView: View {
                     Button("Open Source Licenses") {
                         isShowingOpenSourceLicenses = true
                     }
-                    #if os(macOS)
                     .buttonStyle(.link)
-                    #else
-                    .buttonStyle(.borderless)
-                    #endif
                     .font(.callout)
 
                     Divider()
@@ -1270,15 +1135,9 @@ struct ContentView: View {
 
     private var sidebarView: some View {
         Group {
-            #if os(macOS)
             List(selection: $selectedTab) {
                 sidebarTabItems
             }
-            #else
-            List {
-                sidebarTabItems
-            }
-            #endif
         }
         .listStyle(.sidebar)
         .navigationTitle("MyConverter")
@@ -1288,44 +1147,16 @@ struct ContentView: View {
     @ViewBuilder
     private var sidebarTabItems: some View {
         ForEach(ConverterTab.allCases) { tab in
-            #if os(macOS)
             Label(tab.title, systemImage: tab.systemImage)
                 .tag(tab)
-            #else
-            Button {
-                selectedTab = tab
-            } label: {
-                HStack(spacing: 10) {
-                    Label(tab.title, systemImage: tab.systemImage)
-                    Spacer(minLength: 8)
-                    if selectedTab == tab {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(Color.accentColor)
-                    }
-                }
-                .contentShape(Rectangle())
-            }
-            .foregroundStyle(.primary)
-            .buttonStyle(.plain)
-            .listRowBackground(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(selectedTab == tab ? Color.accentColor.opacity(0.16) : Color.clear)
-            )
-            #endif
         }
     }
 
     private var appIconImage: Image {
-        #if os(macOS)
         if let image = NSImage(named: "AppIcon")
             ?? NSImage(systemSymbolName: "app.dashed", accessibilityDescription: nil) {
             return Image(nsImage: image)
         }
-        #elseif os(iOS)
-        if let image = UIImage(named: "AppIcon") {
-            return Image(uiImage: image)
-        }
-        #endif
         return Image(systemName: "app.dashed")
     }
 
