@@ -955,13 +955,13 @@ struct ContentView: View {
         }
 
         #if os(macOS)
-        if try await convertWithFFmpegIfAvailable(
+        if let converted = try await attemptFFmpegConversion(
             inputURL: inputURL,
             outputURL: outputURL,
             outputSettings: outputSettings,
             inputDurationSeconds: inputDurationSeconds
         ) {
-            return outputURL
+            return converted
         }
         #endif
 
@@ -971,13 +971,13 @@ struct ContentView: View {
         } catch {
             if isUnsupportedMediaFormatError(error) {
                 #if os(macOS)
-                if try await convertWithFFmpegIfAvailable(
+                if let converted = try await attemptFFmpegConversion(
                     inputURL: inputURL,
                     outputURL: outputURL,
                     outputSettings: outputSettings,
                     inputDurationSeconds: inputDurationSeconds
                 ) {
-                    return outputURL
+                    return converted
                 }
                 throw ConversionError.ffmpegUnavailable
                 #endif
@@ -996,13 +996,13 @@ struct ContentView: View {
 
         guard !candidatePresets.isEmpty else {
             #if os(macOS)
-            if try await convertWithFFmpegIfAvailable(
+            if let converted = try await attemptFFmpegConversion(
                 inputURL: inputURL,
                 outputURL: outputURL,
                 outputSettings: outputSettings,
                 inputDurationSeconds: inputDurationSeconds
             ) {
-                return outputURL
+                return converted
             }
             throw ConversionError.ffmpegUnavailable
             #else
@@ -1056,13 +1056,13 @@ struct ContentView: View {
 
         #if os(macOS)
         if let lastError, shouldFallbackToFFmpeg(after: lastError) {
-            if try await convertWithFFmpegIfAvailable(
+            if let converted = try await attemptFFmpegConversion(
                 inputURL: inputURL,
                 outputURL: outputURL,
                 outputSettings: outputSettings,
                 inputDurationSeconds: inputDurationSeconds
             ) {
-                return outputURL
+                return converted
             }
 
             if isUnsupportedMediaFormatError(lastError) {
@@ -1075,17 +1075,33 @@ struct ContentView: View {
     }
 
     #if os(macOS)
+    private func attemptFFmpegConversion(
+        inputURL: URL,
+        outputURL: URL,
+        outputSettings: VideoOutputSettings,
+        inputDurationSeconds: Double?
+    ) async throws -> URL? {
+        let didConvert = try await convertWithFFmpegIfAvailable(
+            inputURL: inputURL,
+            outputURL: outputURL,
+            outputSettings: outputSettings,
+            inputDurationSeconds: inputDurationSeconds
+        )
+        return didConvert ? outputURL : nil
+    }
+
     private func convertWithFFmpegIfAvailable(
         inputURL: URL,
         outputURL: URL,
         outputSettings: VideoOutputSettings,
         inputDurationSeconds: Double?
     ) async throws -> Bool {
-        guard findFFmpegPath() != nil else {
+        guard let ffmpegPath = findFFmpegPath() else {
             return false
         }
 
         try await convertMKVToMP4WithFFmpeg(
+            ffmpegPath: ffmpegPath,
             inputURL: inputURL,
             outputURL: outputURL,
             outputSettings: outputSettings,
@@ -1095,15 +1111,12 @@ struct ContentView: View {
     }
 
     private func convertMKVToMP4WithFFmpeg(
+        ffmpegPath: String,
         inputURL: URL,
         outputURL: URL,
         outputSettings: VideoOutputSettings,
         inputDurationSeconds: Double?
     ) async throws {
-        guard let ffmpegPath = findFFmpegPath() else {
-            throw ConversionError.ffmpegUnavailable
-        }
-
         if FileManager.default.fileExists(atPath: outputURL.path) {
             try FileManager.default.removeItem(at: outputURL)
         }
@@ -1139,48 +1152,12 @@ struct ContentView: View {
         videoCodec: String,
         inputDurationSeconds: Double?
     ) async throws {
-        var args = [
-            "-y",
-            "-progress", "pipe:1",
-            "-nostats",
-            "-i", inputURL.path,
-            "-c:v", videoCodec
-        ]
-
-        if let dimensions = outputSettings.resolution.dimensions {
-            args.append(contentsOf: ["-vf", "scale=\(dimensions.width):\(dimensions.height)"])
-        }
-
-        if let fps = outputSettings.frameRate.fps {
-            args.append(contentsOf: ["-r", "\(fps)"])
-        }
-
-        if let videoBitRate = outputSettings.videoBitRateKbps {
-            args.append(contentsOf: ["-b:v", "\(videoBitRate)k"])
-        }
-
-        if outputSettings.videoEncoder.isHEVC {
-            args.append(contentsOf: ["-tag:v", "hvc1"])
-        }
-
-        args.append(contentsOf: [
-            "-c:a", outputSettings.audioEncoder.codecName,
-            "-ar", "\(outputSettings.sampleRate.hertz)"
-        ])
-
-        if let channels = outputSettings.audioMode.channelCount {
-            args.append(contentsOf: ["-ac", "\(channels)"])
-        }
-
-        if let audioBitRate = outputSettings.audioBitRateKbps {
-            args.append(contentsOf: ["-b:a", "\(audioBitRate)k"])
-        }
-
-        args.append(contentsOf: [
-            "-pix_fmt", "yuv420p",
-            "-movflags", "+faststart",
-            outputURL.path
-        ])
+        let args = buildFFmpegArguments(
+            inputURL: inputURL,
+            outputURL: outputURL,
+            outputSettings: outputSettings,
+            videoCodec: videoCodec
+        )
 
         updateConversionProgress(0)
 
@@ -1219,6 +1196,71 @@ struct ContentView: View {
         }
 
         updateConversionProgress(1)
+    }
+
+    private func buildFFmpegArguments(
+        inputURL: URL,
+        outputURL: URL,
+        outputSettings: VideoOutputSettings,
+        videoCodec: String
+    ) -> [String] {
+        var args = [
+            "-y",
+            "-progress", "pipe:1",
+            "-nostats",
+            "-i", inputURL.path,
+            "-c:v", videoCodec
+        ]
+
+        appendVideoEncodingArguments(&args, outputSettings: outputSettings)
+        appendAudioEncodingArguments(&args, outputSettings: outputSettings)
+
+        args.append(contentsOf: [
+            "-pix_fmt", "yuv420p",
+            "-movflags", "+faststart",
+            outputURL.path
+        ])
+
+        return args
+    }
+
+    private func appendVideoEncodingArguments(
+        _ args: inout [String],
+        outputSettings: VideoOutputSettings
+    ) {
+        if let dimensions = outputSettings.resolution.dimensions {
+            args.append(contentsOf: ["-vf", "scale=\(dimensions.width):\(dimensions.height)"])
+        }
+
+        if let fps = outputSettings.frameRate.fps {
+            args.append(contentsOf: ["-r", "\(fps)"])
+        }
+
+        if let videoBitRate = outputSettings.videoBitRateKbps {
+            args.append(contentsOf: ["-b:v", "\(videoBitRate)k"])
+        }
+
+        if outputSettings.videoEncoder.isHEVC {
+            args.append(contentsOf: ["-tag:v", "hvc1"])
+        }
+    }
+
+    private func appendAudioEncodingArguments(
+        _ args: inout [String],
+        outputSettings: VideoOutputSettings
+    ) {
+        args.append(contentsOf: [
+            "-c:a", outputSettings.audioEncoder.codecName,
+            "-ar", "\(outputSettings.sampleRate.hertz)"
+        ])
+
+        if let channels = outputSettings.audioMode.channelCount {
+            args.append(contentsOf: ["-ac", "\(channels)"])
+        }
+
+        if let audioBitRate = outputSettings.audioBitRateKbps {
+            args.append(contentsOf: ["-b:a", "\(audioBitRate)k"])
+        }
     }
 
     private func findFFmpegPath() -> String? {
@@ -1272,20 +1314,23 @@ struct ContentView: View {
             return parseFFmpegTimestampSeconds(value)
         }
 
-        if line.hasPrefix("out_time_us=") {
-            let raw = String(line.dropFirst("out_time_us=".count))
-            guard let value = Double(raw) else { return nil }
-            return value / 1_000_000
+        if let seconds = parseFFmpegProgressTimeValue(from: line, key: "out_time_us=") {
+            return seconds
         }
 
-        if line.hasPrefix("out_time_ms=") {
-            let raw = String(line.dropFirst("out_time_ms=".count))
-            guard let value = Double(raw) else { return nil }
-            // ffmpeg -progress에서 out_time_ms는 실측상 microseconds 값을 반환합니다.
-            return value / 1_000_000
+        // ffmpeg -progress에서 out_time_ms는 실측상 microseconds 값을 반환합니다.
+        if let seconds = parseFFmpegProgressTimeValue(from: line, key: "out_time_ms=") {
+            return seconds
         }
 
         return nil
+    }
+
+    private func parseFFmpegProgressTimeValue(from line: String, key: String) -> Double? {
+        guard line.hasPrefix(key) else { return nil }
+        let raw = String(line.dropFirst(key.count))
+        guard let value = Double(raw) else { return nil }
+        return value / 1_000_000
     }
 
     private func parseFFmpegTimestampSeconds(_ timestamp: String) -> Double? {
@@ -1509,14 +1554,6 @@ struct ContentView: View {
                     continuation.resume(returning: ())
                 case .cancelled:
                     continuation.resume(throwing: ConversionError.exportCancelled)
-                case .failed:
-                    continuation.resume(
-                        throwing: ConversionError.exportFailed(
-                            status: session.status,
-                            underlying: session.error,
-                            preset: preset
-                        )
-                    )
                 default:
                     continuation.resume(
                         throwing: ConversionError.exportFailed(
