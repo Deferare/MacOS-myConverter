@@ -17,6 +17,7 @@ struct ContentView: View {
     @State private var isVideoDropTargeted = false
     @State private var isImageDropTargeted = false
     @State private var isAudioDropTargeted = false
+    @State private var isShowingOpenSourceLicenses = false
 
     var body: some View {
         NavigationSplitView {
@@ -827,7 +828,7 @@ struct ContentView: View {
 
     private var aboutDetailView: some View {
         ScrollView {
-            VStack(spacing: 32) {
+            VStack(spacing: 24) {
                 VStack(spacing: 16) {
                     Image(nsImage: NSImage(named: "AppIcon") ?? NSImage(systemSymbolName: "app.dashed", accessibilityDescription: nil) ?? NSImage())
                         .resizable()
@@ -839,41 +840,42 @@ struct ContentView: View {
                         Text("MyConverter")
                             .font(.system(size: 32, weight: .bold))
 
-                        Text("Version 1.0.0")
+                        Text(appVersionText)
                             .font(.headline)
                             .foregroundStyle(.secondary)
                     }
                 }
                 .padding(.top, 40)
 
-                VStack(spacing: 16) {
-                    Text("About This App")
-                        .font(.title2.bold())
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                    Text("MyConverter is a powerful tool designed to help you convert your media files with ease. Whether you need to convert videos, images, or audio files, MyConverter provides a simple and intuitive interface to get the job done.")
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("Developer")
+                        .font(.headline)
+                    Text("Deferare")
                         .font(.body)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .lineSpacing(4)
-                }
-                .padding()
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color(nsColor: .controlBackgroundColor))
-                        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
-                )
 
-                VStack(spacing: 16) {
-                    Text("Credits")
-                        .font(.title2.bold())
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Divider()
 
-                    VStack(alignment: .leading, spacing: 12) {
-                        CreditRow(role: "Developer", name: "JiHoon K")
-                        Divider()
-                        CreditRow(role: "Designer", name: "JiHoon K")
+                    Text("Contact")
+                        .font(.headline)
+                    if let contactURL = URL(string: "mailto:deferare@icloud.com") {
+                        Link("deferare@icloud.com", destination: contactURL)
+                            .font(.body)
+                    } else {
+                        Text("deferare@icloud.com")
+                            .font(.body)
                     }
+
+                    Divider()
+
+                    Text("License")
+                        .font(.headline)
+                    Text("© 2026 Deferare. All rights reserved.")
+                        .font(.body)
+                    Button("Open Source Licenses") {
+                        isShowingOpenSourceLicenses = true
+                    }
+                    .buttonStyle(.link)
+                    .font(.callout)
                 }
                 .padding()
                 .background(
@@ -882,30 +884,77 @@ struct ContentView: View {
                         .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
                 )
 
-                Spacer()
-
-                Text("Copyright © 2026 JiHoon K. All rights reserved.")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .padding(.bottom, 20)
             }
             .padding(40)
             .frame(maxWidth: 600)
         }
         .navigationTitle("About")
+        .sheet(isPresented: $isShowingOpenSourceLicenses) {
+            openSourceLicensesSheet
+        }
     }
 
-    private func CreditRow(role: String, name: String) -> some View {
-        HStack {
-            Text(role)
-                .foregroundStyle(.secondary)
-                .frame(width: 100, alignment: .leading)
+    private var appVersionText: String {
+        let shortVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+        let buildVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
 
-            Text(name)
-                .font(.body.weight(.medium))
-
-            Spacer()
+        switch (shortVersion, buildVersion) {
+        case let (.some(short), .some(build)) where short != build:
+            return "Version \(short) (\(build))"
+        case let (.some(short), _):
+            return "Version \(short)"
+        case let (_, .some(build)):
+            return "Version \(build)"
+        default:
+            return "Version"
         }
+    }
+
+    private var openSourceLicensesSheet: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("FFmpeg")
+                            .font(.title3.weight(.semibold))
+
+                        Text("This app bundles FFmpeg 7.1, built with --enable-gpl.")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+
+                        Text("License: GNU General Public License v2.0 or later.")
+                            .font(.body)
+
+                        if let ffmpegURL = URL(string: "https://ffmpeg.org") {
+                            Link("FFmpeg Project", destination: ffmpegURL)
+                                .font(.callout)
+                        }
+
+                        if let gplURL = URL(string: "https://www.gnu.org/licenses/old-licenses/gpl-2.0.html") {
+                            Link("GNU GPL v2.0 Text", destination: gplURL)
+                                .font(.callout)
+                        }
+                    }
+
+                    Divider()
+
+                    Text("The ffmpeg binary bundled in this app reports GPL licensing terms via ffmpeg -L.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(24)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .navigationTitle("Open Source Licenses")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") {
+                        isShowingOpenSourceLicenses = false
+                    }
+                }
+            }
+        }
+        .frame(minWidth: 560, minHeight: 420)
     }
 }
 
