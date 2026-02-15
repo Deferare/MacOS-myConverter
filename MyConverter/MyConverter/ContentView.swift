@@ -18,6 +18,7 @@ struct ContentView: View {
     @State private var isImageDropTargeted = false
     @State private var isAudioDropTargeted = false
     @State private var isShowingOpenSourceLicenses = false
+    private let fileDropAreaHeight: CGFloat = 240
 
     var body: some View {
         NavigationSplitView {
@@ -511,7 +512,7 @@ struct ContentView: View {
                 .animation(.easeInOut(duration: 0.2), value: isDropTargeted)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 240)
+            .frame(height: fileDropAreaHeight)
             .background(
                 ZStack {
                     RoundedRectangle(cornerRadius: 24)
@@ -602,6 +603,7 @@ struct ContentView: View {
             }
         }
         .padding(20)
+        .frame(maxWidth: .infinity, minHeight: fileDropAreaHeight, maxHeight: fileDropAreaHeight)
         .background(
             RoundedRectangle(cornerRadius: 24)
                 .fill(cardBackgroundColor)
