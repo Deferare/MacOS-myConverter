@@ -60,9 +60,7 @@ enum VideoConversionEngine {
             return destinationURL
         }
 
-        if FileManager.default.fileExists(atPath: destinationURL.path) {
-            try FileManager.default.removeItem(at: destinationURL)
-        }
+        try removeFileIfExists(at: destinationURL)
 
         do {
             try FileManager.default.moveItem(at: sourceURL, to: destinationURL)
@@ -85,9 +83,7 @@ enum VideoConversionEngine {
         inputDurationSeconds: Double?,
         onProgress: @escaping ProgressHandler
     ) async throws -> URL {
-        if FileManager.default.fileExists(atPath: outputURL.path) {
-            try FileManager.default.removeItem(at: outputURL)
-        }
+        try removeFileIfExists(at: outputURL)
 
         #if os(macOS)
         if let converted = try await attemptFFmpegConversion(
@@ -107,44 +103,41 @@ enum VideoConversionEngine {
         } catch {
             if isUnsupportedMediaFormatError(error) {
                 #if os(macOS)
-                if let converted = try await attemptFFmpegConversion(
+                return try await attemptFFmpegConversionOrThrowUnavailable(
                     inputURL: inputURL,
                     outputURL: outputURL,
                     outputSettings: outputSettings,
                     inputDurationSeconds: inputDurationSeconds,
                     onProgress: onProgress
-                ) {
-                    return converted
-                }
-                throw ConversionError.ffmpegUnavailable
+                )
                 #endif
             }
             throw error
         }
 
-        let compatiblePresets = AVAssetExportSession.exportPresets(compatibleWith: asset)
         let preferredPresets = [
             AVAssetExportPresetPassthrough,
             AVAssetExportPresetHighestQuality,
             AVAssetExportPresetMediumQuality,
             AVAssetExportPresetLowQuality
         ]
-        let candidatePresets = preferredPresets.filter { compatiblePresets.contains($0) }
+        let candidatePresets = await compatibleExportPresets(
+            for: asset,
+            preferredPresets: preferredPresets,
+            outputFileType: .mp4
+        )
 
         guard !candidatePresets.isEmpty else {
             #if os(macOS)
-            if let converted = try await attemptFFmpegConversion(
+            return try await attemptFFmpegConversionOrThrowUnavailable(
                 inputURL: inputURL,
                 outputURL: outputURL,
                 outputSettings: outputSettings,
                 inputDurationSeconds: inputDurationSeconds,
                 onProgress: onProgress
-            ) {
-                return converted
-            }
-            throw ConversionError.ffmpegUnavailable
+            )
             #else
-            throw ConversionError.noCompatiblePreset(compatiblePresets)
+            throw ConversionError.noCompatiblePreset(preferredPresets)
             #endif
         }
 
@@ -160,31 +153,24 @@ enum VideoConversionEngine {
                 continue
             }
 
-            session.outputURL = outputURL
-            session.outputFileType = .mp4
             session.shouldOptimizeForNetworkUse = true
 
-            let progressTask = Task {
-                while !Task.isCancelled {
-                    let status = session.status
-                    if status != .waiting && status != .exporting {
-                        break
-                    }
-                    await onProgress(Double(session.progress))
-                    try? await Task.sleep(nanoseconds: 150_000_000)
-                }
-            }
-
             do {
-                try await export(session, preset: preset)
-                progressTask.cancel()
-                if session.status == .completed && FileManager.default.fileExists(atPath: outputURL.path) {
-                    await onProgress(1)
+                try await export(
+                    session,
+                    to: outputURL,
+                    as: .mp4,
+                    preset: preset,
+                    onProgress: onProgress
+                )
+                if FileManager.default.fileExists(atPath: outputURL.path) {
                     return outputURL
                 }
-                lastError = ConversionError.exportFailed(status: session.status, underlying: session.error, preset: preset)
+                lastError = ConversionError.exportFailed(
+                    underlying: nil,
+                    preset: preset
+                )
             } catch {
-                progressTask.cancel()
                 lastError = error
                 if isUnsupportedMediaFormatError(error) {
                     break
@@ -214,6 +200,25 @@ enum VideoConversionEngine {
     }
 
     #if os(macOS)
+    private static func attemptFFmpegConversionOrThrowUnavailable(
+        inputURL: URL,
+        outputURL: URL,
+        outputSettings: VideoOutputSettings,
+        inputDurationSeconds: Double?,
+        onProgress: @escaping ProgressHandler
+    ) async throws -> URL {
+        if let converted = try await attemptFFmpegConversion(
+            inputURL: inputURL,
+            outputURL: outputURL,
+            outputSettings: outputSettings,
+            inputDurationSeconds: inputDurationSeconds,
+            onProgress: onProgress
+        ) {
+            return converted
+        }
+        throw ConversionError.ffmpegUnavailable
+    }
+
     private static func attemptFFmpegConversion(
         inputURL: URL,
         outputURL: URL,
@@ -261,9 +266,7 @@ enum VideoConversionEngine {
         inputDurationSeconds: Double?,
         onProgress: @escaping ProgressHandler
     ) async throws {
-        if FileManager.default.fileExists(atPath: outputURL.path) {
-            try FileManager.default.removeItem(at: outputURL)
-        }
+        try removeFileIfExists(at: outputURL)
 
         var lastError: Error?
         for codec in outputSettings.videoCodecCandidates {
@@ -280,9 +283,7 @@ enum VideoConversionEngine {
                 return
             } catch {
                 lastError = error
-                if FileManager.default.fileExists(atPath: outputURL.path) {
-                    try? FileManager.default.removeItem(at: outputURL)
-                }
+                try? removeFileIfExists(at: outputURL)
             }
         }
 
@@ -581,6 +582,31 @@ enum VideoConversionEngine {
     }
     #endif
 
+    private static func removeFileIfExists(at url: URL) throws {
+        if FileManager.default.fileExists(atPath: url.path) {
+            try FileManager.default.removeItem(at: url)
+        }
+    }
+
+    private static func compatibleExportPresets(
+        for asset: AVAsset,
+        preferredPresets: [String],
+        outputFileType: AVFileType
+    ) async -> [String] {
+        var presets: [String] = []
+        for preset in preferredPresets {
+            let isCompatible = await AVAssetExportSession.compatibility(
+                ofExportPreset: preset,
+                with: asset,
+                outputFileType: outputFileType
+            )
+            if isCompatible {
+                presets.append(preset)
+            }
+        }
+        return presets
+    }
+
     private static func shouldFallbackToFFmpeg(after error: Error) -> Bool {
         if let conversionError = error as? ConversionError {
             switch conversionError {
@@ -612,7 +638,7 @@ enum VideoConversionEngine {
 
     private static func isUnsupportedMediaFormatError(_ error: Error) -> Bool {
         if let conversionError = error as? ConversionError {
-            if case let .exportFailed(_, underlying: underlying, _) = conversionError {
+            if case let .exportFailed(underlying: underlying, _) = conversionError {
                 if let underlying {
                     return isUnsupportedMediaFormatError(underlying)
                 }
@@ -660,55 +686,57 @@ enum VideoConversionEngine {
     }
 
     private static func ensureAssetReadable(_ asset: AVURLAsset) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            let keys = ["tracks", "playable", "duration"]
-            asset.loadValuesAsynchronously(forKeys: keys) {
-                for key in keys {
-                    var keyError: NSError?
-                    let status = asset.statusOfValue(forKey: key, error: &keyError)
-                    if status == .failed || status == .cancelled {
-                        continuation.resume(
-                            throwing: keyError ?? ConversionError.unreadableAsset
-                        )
-                        return
-                    }
-                    if status != .loaded {
-                        continuation.resume(
-                            throwing: ConversionError.unreadableAsset
-                        )
-                        return
-                    }
-                }
+        let isPlayable = try await asset.load(.isPlayable)
+        _ = try await asset.load(.duration)
+        guard isPlayable else {
+            throw ConversionError.unreadableAsset
+        }
 
-                let hasMediaTrack = !(asset.tracks(withMediaType: .video).isEmpty &&
-                                      asset.tracks(withMediaType: .audio).isEmpty)
-                if !hasMediaTrack {
-                    continuation.resume(throwing: ConversionError.noTracksFound)
-                    return
-                }
-                continuation.resume(returning: ())
-            }
+        let videoTracks = try await asset.loadTracks(withMediaType: .video)
+        let audioTracks = try await asset.loadTracks(withMediaType: .audio)
+        let hasMediaTrack = !(videoTracks.isEmpty && audioTracks.isEmpty)
+        if !hasMediaTrack {
+            throw ConversionError.noTracksFound
         }
     }
 
-    private static func export(_ session: AVAssetExportSession, preset: String) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            session.exportAsynchronously {
-                switch session.status {
-                case .completed:
-                    continuation.resume(returning: ())
-                case .cancelled:
-                    continuation.resume(throwing: ConversionError.exportCancelled)
-                default:
-                    continuation.resume(
-                        throwing: ConversionError.exportFailed(
-                            status: session.status,
-                            underlying: session.error,
-                            preset: preset
-                        )
-                    )
+    private static func export(
+        _ session: AVAssetExportSession,
+        to outputURL: URL,
+        as outputFileType: AVFileType,
+        preset: String,
+        onProgress: @escaping ProgressHandler
+    ) async throws {
+        await onProgress(0)
+
+        let progressTask = Task {
+            for await state in session.states(updateInterval: 0.15) {
+                if Task.isCancelled {
+                    break
+                }
+
+                switch state {
+                case .pending, .waiting:
+                    break
+                case .exporting(let progress):
+                    let fractionCompleted = min(max(progress.fractionCompleted, 0), 1)
+                    await onProgress(fractionCompleted)
+                @unknown default:
+                    break
                 }
             }
+        }
+        defer {
+            progressTask.cancel()
+        }
+
+        do {
+            try await session.export(to: outputURL, as: outputFileType)
+            await onProgress(1)
+        } catch is CancellationError {
+            throw ConversionError.exportCancelled
+        } catch {
+            throw ConversionError.exportFailed(underlying: error, preset: preset)
         }
     }
 }
@@ -722,7 +750,7 @@ enum ConversionError: LocalizedError {
     case cannotCreateExportSession(String)
     case unsupportedOutputType
     case exportCancelled
-    case exportFailed(status: AVAssetExportSession.Status, underlying: Error?, preset: String)
+    case exportFailed(underlying: Error?, preset: String)
     case ffmpegUnavailable
     case ffmpegFailed(Int32, String)
     case outputSaveFailed(String, String)
@@ -768,11 +796,11 @@ enum ConversionError: LocalizedError {
             return "Failed to create session with preset: \(preset)"
         case .unsupportedOutputType:
             return "Does not allow .mp4 as outputFileType."
-        case .exportFailed(let status, let underlying, let preset):
+        case .exportFailed(let underlying, let preset):
             if let underlying {
-                return "Preset: \(preset), Status: \(status), Detail: \(underlying.localizedDescription)"
+                return "Preset: \(preset), Detail: \(underlying.localizedDescription)"
             }
-            return "Preset: \(preset), Status: \(status)"
+            return "Preset: \(preset)"
         case .exportCancelled:
             return "Status: cancelled"
         case .ffmpegUnavailable:
