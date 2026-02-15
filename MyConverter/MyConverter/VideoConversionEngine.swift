@@ -39,6 +39,16 @@ enum VideoConversionEngine {
     typealias ProgressHandler = @Sendable (Double) async -> Void
     private static let ffmpegIntrospectionCacheQueue = DispatchQueue(label: "myconverter.video.ffmpeg.introspection.cache")
     nonisolated(unsafe) private static var ffmpegIntrospectionCache: [String: FFmpegIntrospection] = [:]
+    private static let ffmpegPathCacheQueue = DispatchQueue(label: "myconverter.video.ffmpeg.path.cache")
+    nonisolated(unsafe) private static var ffmpegPathCache: String?? = nil
+    nonisolated(unsafe) private static var ffmpegPathLookupTime: UInt64 = 0
+    private static let ffmpegPathNilCacheTTL: UInt64 = 30_000_000_000
+    private static let capabilityCacheQueue = DispatchQueue(label: "myconverter.video.ffmpeg.capability.cache")
+    nonisolated(unsafe) private static var defaultVideoFormatsCache: [String: [VideoFormatOption]] = [:]
+    nonisolated(unsafe) private static var defaultAudioFormatsCache: [String: [AudioFormatOption]] = [:]
+    nonisolated(unsafe) private static var videoEncoderOptionsCache: [String: [VideoEncoderOption]] = [:]
+    nonisolated(unsafe) private static var videoFormatAudioEncoderOptionsCache: [String: [AudioEncoderOption]] = [:]
+    nonisolated(unsafe) private static var audioFormatEncoderOptionsCache: [String: [AudioEncoderOption]] = [:]
     private static let preferredExportPresets = [
         AVAssetExportPresetPassthrough,
         AVAssetExportPresetHighestQuality,
@@ -49,15 +59,27 @@ enum VideoConversionEngine {
     static func defaultOutputFormats() -> [VideoFormatOption] {
         let avFormats = VideoFormatOption.avFoundationDefaultFormats
 
-        guard let ffmpegPath = findFFmpegPath(),
-              let introspection = try? inspectFFmpeg(at: ffmpegPath) else {
+        guard let ffmpegPath = findFFmpegPath() else {
+            return avFormats
+        }
+
+        if let cached = capabilityCacheQueue.sync(execute: { defaultVideoFormatsCache[ffmpegPath] }) {
+            return cached
+        }
+
+        guard let introspection = try? inspectFFmpeg(at: ffmpegPath) else {
             return avFormats
         }
 
         let discovered = ffmpegDiscoveredFormats(from: introspection)
         let candidates = VideoFormatOption.deduplicatedAndSorted(avFormats + VideoFormatOption.ffmpegKnownFormats + discovered)
         let supportedFFmpegFormats = candidates.filter { isFFmpegFormatSupported($0, introspection: introspection) }
-        return VideoFormatOption.deduplicatedAndSorted(supportedFFmpegFormats + avFormats)
+        let resolved = VideoFormatOption.deduplicatedAndSorted(supportedFFmpegFormats + avFormats)
+
+        capabilityCacheQueue.sync {
+            defaultVideoFormatsCache[ffmpegPath] = resolved
+        }
+        return resolved
     }
 
     static func availableVideoEncoders(for format: VideoFormatOption) -> [VideoEncoderOption] {
@@ -65,9 +87,20 @@ enum VideoConversionEngine {
             return [.auto]
         }
 
-        guard let ffmpegPath = findFFmpegPath(),
-              let introspection = try? inspectFFmpeg(at: ffmpegPath),
+        guard let ffmpegPath = findFFmpegPath() else {
+            return [.auto]
+        }
+
+        let cacheKey = makeCapabilityCacheKey(path: ffmpegPath, normalizedID: format.normalizedID)
+        if let cached = capabilityCacheQueue.sync(execute: { videoEncoderOptionsCache[cacheKey] }) {
+            return cached
+        }
+
+        guard let introspection = try? inspectFFmpeg(at: ffmpegPath),
               isFFmpegFormatSupported(format, introspection: introspection) else {
+            capabilityCacheQueue.sync {
+                videoEncoderOptionsCache[cacheKey] = [.auto]
+            }
             return [.auto]
         }
 
@@ -76,7 +109,11 @@ enum VideoConversionEngine {
                 (option.codecCandidates.isEmpty || option.codecCandidates.contains(where: { introspection.videoEncoders.contains($0) }))
         }
 
-        return options.isEmpty ? [.auto] : options
+        let resolved = options.isEmpty ? [.auto] : options
+        capabilityCacheQueue.sync {
+            videoEncoderOptionsCache[cacheKey] = resolved
+        }
+        return resolved
     }
 
     static func availableAudioEncoders(for format: VideoFormatOption) -> [AudioEncoderOption] {
@@ -84,9 +121,20 @@ enum VideoConversionEngine {
             return []
         }
 
-        guard let ffmpegPath = findFFmpegPath(),
-              let introspection = try? inspectFFmpeg(at: ffmpegPath),
+        guard let ffmpegPath = findFFmpegPath() else {
+            return [.auto]
+        }
+
+        let cacheKey = makeCapabilityCacheKey(path: ffmpegPath, normalizedID: format.normalizedID)
+        if let cached = capabilityCacheQueue.sync(execute: { videoFormatAudioEncoderOptionsCache[cacheKey] }) {
+            return cached
+        }
+
+        guard let introspection = try? inspectFFmpeg(at: ffmpegPath),
               isFFmpegFormatSupported(format, introspection: introspection) else {
+            capabilityCacheQueue.sync {
+                videoFormatAudioEncoderOptionsCache[cacheKey] = [.auto]
+            }
             return [.auto]
         }
 
@@ -95,27 +143,54 @@ enum VideoConversionEngine {
                 (option.codecCandidates.isEmpty || option.codecCandidates.contains(where: { introspection.audioEncoders.contains($0) }))
         }
 
-        return options.isEmpty ? [.auto] : options
+        let resolved = options.isEmpty ? [.auto] : options
+        capabilityCacheQueue.sync {
+            videoFormatAudioEncoderOptionsCache[cacheKey] = resolved
+        }
+        return resolved
     }
 
     static func defaultAudioOutputFormats() -> [AudioFormatOption] {
         let knownFormats = AudioFormatOption.ffmpegKnownFormats
 
-        guard let ffmpegPath = findFFmpegPath(),
-              let introspection = try? inspectFFmpeg(at: ffmpegPath) else {
+        guard let ffmpegPath = findFFmpegPath() else {
+            return knownFormats
+        }
+
+        if let cached = capabilityCacheQueue.sync(execute: { defaultAudioFormatsCache[ffmpegPath] }) {
+            return cached
+        }
+
+        guard let introspection = try? inspectFFmpeg(at: ffmpegPath) else {
             return knownFormats
         }
 
         let discovered = ffmpegDiscoveredAudioFormats(from: introspection)
         let candidates = AudioFormatOption.deduplicatedAndSorted(knownFormats + discovered)
-        return candidates.filter { isFFmpegAudioFormatSupported($0, introspection: introspection) }
+        let resolved = candidates.filter { isFFmpegAudioFormatSupported($0, introspection: introspection) }
+        capabilityCacheQueue.sync {
+            defaultAudioFormatsCache[ffmpegPath] = resolved
+        }
+        return resolved
     }
 
     static func availableAudioEncoders(for format: AudioFormatOption) -> [AudioEncoderOption] {
-        guard let ffmpegPath = findFFmpegPath(),
-              let introspection = try? inspectFFmpeg(at: ffmpegPath),
-              isFFmpegAudioFormatSupported(format, introspection: introspection) else {
+        guard let ffmpegPath = findFFmpegPath() else {
             return format.allowsFFmpegAutomaticAudioCodec ? [.auto] : []
+        }
+
+        let cacheKey = makeCapabilityCacheKey(path: ffmpegPath, normalizedID: format.normalizedID)
+        if let cached = capabilityCacheQueue.sync(execute: { audioFormatEncoderOptionsCache[cacheKey] }) {
+            return cached
+        }
+
+        guard let introspection = try? inspectFFmpeg(at: ffmpegPath),
+              isFFmpegAudioFormatSupported(format, introspection: introspection) else {
+            let fallback = format.allowsFFmpegAutomaticAudioCodec ? [AudioEncoderOption.auto] : []
+            capabilityCacheQueue.sync {
+                audioFormatEncoderOptionsCache[cacheKey] = fallback
+            }
+            return fallback
         }
 
         let options = AudioEncoderOption.allCases.filter { option in
@@ -123,10 +198,13 @@ enum VideoConversionEngine {
                 (option.codecCandidates.isEmpty || option.codecCandidates.contains(where: { introspection.audioEncoders.contains($0) }))
         }
 
-        if options.isEmpty {
-            return format.allowsFFmpegAutomaticAudioCodec ? [.auto] : []
+        let resolved = options.isEmpty
+            ? (format.allowsFFmpegAutomaticAudioCodec ? [AudioEncoderOption.auto] : [])
+            : options
+        capabilityCacheQueue.sync {
+            audioFormatEncoderOptionsCache[cacheKey] = resolved
         }
-        return options
+        return resolved
     }
 
     static func sandboxOutputDirectory(bundleIdentifier: String?) throws -> URL {
@@ -672,15 +750,20 @@ enum VideoConversionEngine {
         await onProgress(0)
 
         var effectiveDuration = inputDurationSeconds
+        var lastReportedProgress = 0.0
+        var lastReportTime: UInt64 = DispatchTime.now().uptimeNanoseconds
         let result = try await runCommand(path: ffmpegPath, arguments: args) { line in
             if effectiveDuration == nil {
                 effectiveDuration = parseFFmpegDurationSeconds(from: line)
             }
 
             if line == "progress=end" {
-                Task {
-                    await onProgress(1)
-                }
+                enqueueProgressUpdate(
+                    progress: 1,
+                    lastReportedProgress: &lastReportedProgress,
+                    lastReportTime: &lastReportTime,
+                    onProgress: onProgress
+                )
                 return
             }
 
@@ -693,9 +776,12 @@ enum VideoConversionEngine {
             }
 
             let ratio = outTimeSeconds / duration
-            Task {
-                await onProgress(ratio)
-            }
+            enqueueProgressUpdate(
+                progress: ratio,
+                lastReportedProgress: &lastReportedProgress,
+                lastReportTime: &lastReportTime,
+                onProgress: onProgress
+            )
         }
         try Task.checkCancellation()
 
@@ -731,15 +817,20 @@ enum VideoConversionEngine {
         await onProgress(0)
 
         var effectiveDuration = inputDurationSeconds
+        var lastReportedProgress = 0.0
+        var lastReportTime: UInt64 = DispatchTime.now().uptimeNanoseconds
         let result = try await runCommand(path: ffmpegPath, arguments: args) { line in
             if effectiveDuration == nil {
                 effectiveDuration = parseFFmpegDurationSeconds(from: line)
             }
 
             if line == "progress=end" {
-                Task {
-                    await onProgress(1)
-                }
+                enqueueProgressUpdate(
+                    progress: 1,
+                    lastReportedProgress: &lastReportedProgress,
+                    lastReportTime: &lastReportTime,
+                    onProgress: onProgress
+                )
                 return
             }
 
@@ -752,9 +843,12 @@ enum VideoConversionEngine {
             }
 
             let ratio = outTimeSeconds / duration
-            Task {
-                await onProgress(ratio)
-            }
+            enqueueProgressUpdate(
+                progress: ratio,
+                lastReportedProgress: &lastReportedProgress,
+                lastReportTime: &lastReportTime,
+                onProgress: onProgress
+            )
         }
         try Task.checkCancellation()
 
@@ -767,6 +861,30 @@ enum VideoConversionEngine {
         }
 
         await onProgress(1)
+    }
+
+    private static func enqueueProgressUpdate(
+        progress: Double,
+        lastReportedProgress: inout Double,
+        lastReportTime: inout UInt64,
+        onProgress: @escaping ProgressHandler
+    ) {
+        let clamped = min(max(progress, 0), 1)
+        if clamped < 1, clamped <= lastReportedProgress {
+            return
+        }
+
+        let now = DispatchTime.now().uptimeNanoseconds
+        let intervalElapsed = now >= lastReportTime + 120_000_000
+        let stepAdvanced = clamped - lastReportedProgress >= 0.01
+        let shouldEmit = clamped >= 1 || stepAdvanced || intervalElapsed
+        guard shouldEmit else { return }
+
+        lastReportedProgress = clamped
+        lastReportTime = now
+        Task {
+            await onProgress(clamped)
+        }
     }
 
     private static func buildFFmpegArguments(
@@ -1205,6 +1323,31 @@ enum VideoConversionEngine {
     }
 
     private static func findFFmpegPath() -> String? {
+        let now = DispatchTime.now().uptimeNanoseconds
+        let cacheSnapshot = ffmpegPathCacheQueue.sync {
+            (ffmpegPathCache, ffmpegPathLookupTime)
+        }
+
+        if let cached = cacheSnapshot.0 {
+            if let path = cached, FileManager.default.isExecutableFile(atPath: path) {
+                return path
+            }
+
+            let nilCacheAge = now >= cacheSnapshot.1 ? now - cacheSnapshot.1 : 0
+            if cached == nil && nilCacheAge < ffmpegPathNilCacheTTL {
+                return nil
+            }
+        }
+
+        let resolved = resolveFFmpegPath()
+        ffmpegPathCacheQueue.sync {
+            ffmpegPathCache = resolved
+            ffmpegPathLookupTime = now
+        }
+        return resolved
+    }
+
+    private static func resolveFFmpegPath() -> String? {
         var candidates: [String] = []
 
         if let bundled = Bundle.main.path(forResource: "ffmpeg", ofType: nil) {
@@ -1238,6 +1381,10 @@ enum VideoConversionEngine {
         }
 
         return nil
+    }
+
+    private static func makeCapabilityCacheKey(path: String, normalizedID: String) -> String {
+        "\(path)|\(normalizedID)"
     }
 
     private static func parseFFmpegDurationSeconds(from line: String) -> Double? {
