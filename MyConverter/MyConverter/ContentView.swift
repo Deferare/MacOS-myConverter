@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import StoreKit
 import UniformTypeIdentifiers
 #if os(macOS)
 import AppKit
@@ -13,6 +14,7 @@ import AppKit
 
 struct ContentView: View {
     @StateObject private var viewModel = ContentViewModel()
+    @StateObject private var donationStore = DonationStore()
     @State private var selectedTab: ConverterTab = .video
     @State private var isVideoDropTargeted = false
     @State private var isImageDropTargeted = false
@@ -1023,6 +1025,70 @@ struct ContentView: View {
                     }
                     .buttonStyle(.link)
                     .font(.callout)
+
+                    Divider()
+
+                    Text("Support Development")
+                        .font(.headline)
+
+                    Text("MyConverter is free for everyone. If you want to support development, you can buy me a coffee.")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+
+                    if donationStore.isLoadingProducts {
+                        ProgressView("Loading support options...")
+                            .font(.callout)
+                    } else if donationStore.products.isEmpty {
+                        Button("Reload Support Options") {
+                            Task {
+                                await donationStore.loadProducts()
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                    } else {
+                        HStack(spacing: 12) {
+                            ForEach(donationStore.products, id: \.id) { product in
+                                Button {
+                                    Task {
+                                        await donationStore.purchase(product)
+                                    }
+                                } label: {
+                                    VStack(spacing: 4) {
+                                        Text(donationStore.suggestedAmountText(for: product.id))
+                                            .font(.headline)
+                                        Text(product.displayPrice)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+
+                                        if donationStore.purchasingProductID == product.id {
+                                            ProgressView()
+                                                .controlSize(.small)
+                                        } else {
+                                            Text("Buy Coffee")
+                                                .font(.caption2.weight(.semibold))
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity, minHeight: 76)
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .disabled(
+                                    donationStore.isLoadingProducts ||
+                                    (donationStore.purchasingProductID != nil && donationStore.purchasingProductID != product.id)
+                                )
+                            }
+                        }
+
+                        Text("Support products are consumables, so they cannot be restored.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if let statusMessage = donationStore.statusMessage {
+                        Text(statusMessage)
+                            .font(.caption)
+                            .foregroundStyle(donationStore.statusIsError ? .red : .secondary)
+                    }
                 }
                 .padding()
                 .background(
@@ -1036,6 +1102,9 @@ struct ContentView: View {
             .frame(maxWidth: 600)
         }
         .navigationTitle("About")
+        .task {
+            await donationStore.loadProductsIfNeeded()
+        }
         .sheet(isPresented: $isShowingOpenSourceLicenses) {
             openSourceLicensesSheet
         }
