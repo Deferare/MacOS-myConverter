@@ -45,17 +45,32 @@ final class ContentViewModel: ObservableObject {
         case error
     }
 
+    // Video state
     @Published private(set) var sourceURL: URL?
     @Published private(set) var convertedURL: URL?
     @Published private(set) var conversionErrorMessage: String?
     @Published private(set) var sourceCompatibilityErrorMessage: String?
     @Published private(set) var sourceCompatibilityWarningMessage: String?
     @Published private(set) var isAnalyzingSource = false
+    @Published var isConverting = false
+    @Published private(set) var conversionProgress: Double = 0
+    @Published private(set) var availableOutputFormats: [VideoContainerOption] = VideoContainerOption.allCases
+
+    // Image state
+    @Published private(set) var imageSourceURL: URL?
+    @Published private(set) var convertedImageURL: URL?
+    @Published private(set) var imageConversionErrorMessage: String?
+    @Published private(set) var imageSourceCompatibilityErrorMessage: String?
+    @Published private(set) var imageSourceCompatibilityWarningMessage: String?
+    @Published private(set) var isAnalyzingImageSource = false
+    @Published var isImageConverting = false
+    @Published private(set) var imageConversionProgress: Double = 0
+    @Published private(set) var availableImageOutputFormats: [ImageContainerOption] = ImageContainerOption.allCases
 
     @Published var isImporting = false
-    @Published var isConverting = false
     @Published var selectedTab: ConverterTab = .video
 
+    // Video options
     @Published var selectedOutputFormat: VideoContainerOption = .mp4 {
         didSet { persistCurrentSettingsIfNeeded() }
     }
@@ -86,8 +101,17 @@ final class ContentViewModel: ObservableObject {
     @Published var selectedAudioBitRate: AudioBitRateOption = .auto {
         didSet { persistCurrentSettingsIfNeeded() }
     }
-    @Published private(set) var conversionProgress: Double = 0
-    @Published private(set) var availableOutputFormats: [VideoContainerOption] = VideoContainerOption.allCases
+
+    // Image options
+    @Published var selectedImageOutputFormat: ImageContainerOption = .png {
+        didSet { persistCurrentImageSettingsIfNeeded() }
+    }
+    @Published var selectedImageResolution: ResolutionOption = .original {
+        didSet { persistCurrentImageSettingsIfNeeded() }
+    }
+    @Published var selectedImageQuality: ImageQualityOption = .high {
+        didSet { persistCurrentImageSettingsIfNeeded() }
+    }
 
     private struct VideoConversionSettings {
         var outputFormat: VideoContainerOption = .mp4
@@ -143,15 +167,52 @@ final class ContentViewModel: ObservableObject {
         }
     }
 
-    private var settingsBySourceID: [String: VideoConversionSettings] = [:]
+    private struct ImageConversionSettings {
+        var outputFormat: ImageContainerOption = .png
+        var resolution: ResolutionOption = .original
+        var quality: ImageQualityOption = .high
+    }
+
+    private struct PersistedImageConversionSettings: Codable {
+        var outputFormat: String
+        var resolution: String
+        var quality: String
+
+        init(from settings: ImageConversionSettings) {
+            outputFormat = settings.outputFormat.rawValue
+            resolution = settings.resolution.rawValue
+            quality = settings.quality.rawValue
+        }
+
+        var restoredSettings: ImageConversionSettings {
+            ImageConversionSettings(
+                outputFormat: ImageContainerOption(rawValue: outputFormat) ?? .png,
+                resolution: ResolutionOption(rawValue: resolution) ?? .original,
+                quality: ImageQualityOption(rawValue: quality) ?? .high
+            )
+        }
+    }
+
+    private var videoSettingsBySourceID: [String: VideoConversionSettings] = [:]
+    private var imageSettingsBySourceID: [String: ImageConversionSettings] = [:]
+
     private var isApplyingStoredSettings = false
+    private var isApplyingStoredImageSettings = false
+
     private var sourceAnalysisTask: Task<Void, Never>?
     private var conversionTask: Task<Void, Never>?
-    private let settingsStorageKey = "ContentViewModel.VideoSettingsBySource"
+    private var imageSourceAnalysisTask: Task<Void, Never>?
+    private var imageConversionTask: Task<Void, Never>?
+
+    private let videoSettingsStorageKey = "ContentViewModel.VideoSettingsBySource"
+    private let imageSettingsStorageKey = "ContentViewModel.ImageSettingsBySource"
 
     init() {
-        settingsBySourceID = loadPersistedSettings()
+        videoSettingsBySourceID = loadPersistedSettings()
+        imageSettingsBySourceID = loadPersistedImageSettings()
     }
+
+    // MARK: - Video Computed Properties
 
     var canConvert: Bool {
         sourceURL != nil &&
@@ -216,9 +277,65 @@ final class ContentViewModel: ObservableObject {
         return value
     }
 
+    // MARK: - Image Computed Properties
+
+    var canConvertImage: Bool {
+        imageSourceURL != nil &&
+            !isImageConverting &&
+            !isAnalyzingImageSource &&
+            imageSourceCompatibilityErrorMessage == nil &&
+            availableImageOutputFormats.contains(selectedImageOutputFormat)
+    }
+
+    var displayedImageConversionProgress: Double {
+        let rawProgress = isImageConverting ? imageConversionProgress : 0
+        return rawProgress < 0.01 ? 0 : rawProgress
+    }
+
+    var imageProgressPercentageText: String {
+        let percent = Int((displayedImageConversionProgress * 100).rounded())
+        return "\(max(0, min(percent, 100)))%"
+    }
+
+    var imageConversionStatusMessage: String {
+        imageConversionStatus.message
+    }
+
+    var imageConversionStatusLevel: ConversionStatusLevel {
+        imageConversionStatus.level
+    }
+
+    var imageOutputFormatOptions: [ImageContainerOption] {
+        if imageSourceURL == nil || availableImageOutputFormats.isEmpty {
+            return ImageContainerOption.allCases
+        }
+        return availableImageOutputFormats
+    }
+
+    var imageSettingsValidationMessage: String? {
+        if let imageSourceCompatibilityErrorMessage {
+            return imageSourceCompatibilityErrorMessage
+        }
+        if imageSourceURL != nil && !availableImageOutputFormats.contains(selectedImageOutputFormat) {
+            return "Selected output format is not available for this source."
+        }
+        return nil
+    }
+
+    // MARK: - Input Handling
+
     var preferredImportTypes: [UTType] {
-        let mkvType = UTType(filenameExtension: "mkv")
-        return [.movie, .audiovisualContent, mkvType].compactMap { $0 }
+        switch selectedTab {
+        case .video:
+            let mkvType = UTType(filenameExtension: "mkv")
+            return [.movie, .audiovisualContent, mkvType].compactMap { $0 }
+        case .image:
+            return [.image]
+        case .audio:
+            return [.audio, .audiovisualContent]
+        case .about:
+            return [.item]
+        }
     }
 
     func requestFileImport() {
@@ -226,6 +343,10 @@ final class ContentViewModel: ObservableObject {
     }
 
     func clearSelectedSource() {
+        clearSelectedVideoSource()
+    }
+
+    func clearSelectedVideoSource() {
         sourceAnalysisTask?.cancel()
         sourceAnalysisTask = nil
 
@@ -240,22 +361,63 @@ final class ContentViewModel: ObservableObject {
         applyStoredSettings(.init())
     }
 
+    func clearSelectedImageSource() {
+        imageSourceAnalysisTask?.cancel()
+        imageSourceAnalysisTask = nil
+
+        imageSourceURL = nil
+        convertedImageURL = nil
+        imageConversionErrorMessage = nil
+        imageSourceCompatibilityErrorMessage = nil
+        imageSourceCompatibilityWarningMessage = nil
+        isAnalyzingImageSource = false
+        availableImageOutputFormats = ImageContainerOption.allCases
+
+        applyStoredImageSettings(.init())
+    }
+
     func handleFileImportResult(_ result: Result<[URL], Error>) {
         switch result {
         case .success(let urls):
             guard let selected = urls.first else { return }
-            applySelectedSource(selected)
+            switch selectedTab {
+            case .video:
+                applySelectedSource(selected)
+            case .image:
+                applySelectedImageSource(selected)
+            case .audio, .about:
+                break
+            }
         case .failure(let error):
             print("Failed to select file: \(error.localizedDescription)")
         }
     }
 
     func handleDrop(providers: [NSItemProvider]) -> Bool {
+        handleVideoDrop(providers: providers)
+    }
+
+    func handleVideoDrop(providers: [NSItemProvider]) -> Bool {
+        handleDroppedFile(providers: providers) { [weak self] url in
+            self?.applySelectedSource(url)
+        }
+    }
+
+    func handleImageDrop(providers: [NSItemProvider]) -> Bool {
+        handleDroppedFile(providers: providers) { [weak self] url in
+            self?.applySelectedImageSource(url)
+        }
+    }
+
+    private func handleDroppedFile(
+        providers: [NSItemProvider],
+        onResolvedURL: @escaping @MainActor (URL) -> Void
+    ) -> Bool {
         guard let provider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) }) else {
             return false
         }
 
-        provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { [weak self] item, _ in
+        provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
             var finalURL: URL?
 
             if let data = item as? Data {
@@ -266,13 +428,15 @@ final class ContentViewModel: ObservableObject {
 
             guard let finalURL else { return }
 
-            Task { @MainActor [weak self] in
-                self?.applySelectedSource(finalURL)
+            Task { @MainActor in
+                onResolvedURL(finalURL)
             }
         }
 
         return true
     }
+
+    // MARK: - Conversion Control
 
     func startConversion() {
         guard !isConverting else { return }
@@ -286,6 +450,20 @@ final class ContentViewModel: ObservableObject {
         conversionTask?.cancel()
     }
 
+    func startImageConversion() {
+        guard !isImageConverting else { return }
+        imageConversionTask = Task { [weak self] in
+            await self?.convertImage()
+        }
+    }
+
+    func cancelImageConversion() {
+        guard isImageConverting else { return }
+        imageConversionTask?.cancel()
+    }
+
+    // MARK: - Video Source / Analyze
+
     private func applySelectedSource(_ url: URL) {
         sourceAnalysisTask?.cancel()
         sourceAnalysisTask = nil
@@ -297,7 +475,7 @@ final class ContentViewModel: ObservableObject {
         sourceCompatibilityWarningMessage = nil
 
         let sourceID = sourceIdentifier(for: url)
-        let stored = settingsBySourceID[sourceID] ?? VideoConversionSettings()
+        let stored = videoSettingsBySourceID[sourceID] ?? VideoConversionSettings()
         applyStoredSettings(stored)
 
         analyzeSourceCompatibility(for: url)
@@ -336,6 +514,60 @@ final class ContentViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Image Source / Analyze
+
+    private func applySelectedImageSource(_ url: URL) {
+        imageSourceAnalysisTask?.cancel()
+        imageSourceAnalysisTask = nil
+
+        imageSourceURL = url
+        convertedImageURL = nil
+        imageConversionErrorMessage = nil
+        imageSourceCompatibilityErrorMessage = nil
+        imageSourceCompatibilityWarningMessage = nil
+
+        let sourceID = sourceIdentifier(for: url)
+        let stored = imageSettingsBySourceID[sourceID] ?? ImageConversionSettings()
+        applyStoredImageSettings(stored)
+
+        analyzeImageSourceCompatibility(for: url)
+    }
+
+    private func analyzeImageSourceCompatibility(for url: URL) {
+        isAnalyzingImageSource = true
+
+        imageSourceAnalysisTask = Task { [weak self] in
+            guard let self else { return }
+
+            let shouldStopSourceAccessing = url.startAccessingSecurityScopedResource()
+            defer {
+                if shouldStopSourceAccessing {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+
+            let capabilities = await ImageConversionEngine.sourceCapabilities(for: url)
+
+            guard !Task.isCancelled else { return }
+            guard let currentSourceURL = self.imageSourceURL else { return }
+            guard self.sourceIdentifier(for: url) == self.sourceIdentifier(for: currentSourceURL) else { return }
+
+            self.isAnalyzingImageSource = false
+            self.availableImageOutputFormats = capabilities.availableOutputFormats
+            self.imageSourceCompatibilityWarningMessage = capabilities.warningMessage
+            self.imageSourceCompatibilityErrorMessage = capabilities.errorMessage
+
+            if let first = capabilities.availableOutputFormats.first,
+               !capabilities.availableOutputFormats.contains(self.selectedImageOutputFormat) {
+                self.selectedImageOutputFormat = first
+            }
+
+            self.persistCurrentImageSettingsIfNeeded()
+        }
+    }
+
+    // MARK: - Build Settings
+
     private func buildVideoOutputSettings() throws -> VideoOutputSettings {
         let videoBitRateKbps: Int?
         switch selectedVideoBitRate {
@@ -364,11 +596,35 @@ final class ContentViewModel: ObservableObject {
         )
     }
 
+    private func buildImageOutputSettings() -> ImageOutputSettings {
+        let compressionQuality: Double?
+        if selectedImageOutputFormat.supportsCompressionQuality {
+            compressionQuality = selectedImageQuality.compressionQuality
+        } else {
+            compressionQuality = nil
+        }
+
+        return ImageOutputSettings(
+            containerFormat: selectedImageOutputFormat,
+            resolution: selectedImageResolution.dimensions,
+            compressionQuality: compressionQuality
+        )
+    }
+
+    // MARK: - Conversion State / Errors
+
     private func prepareConversionStartState() {
         isConverting = true
         convertedURL = nil
         conversionErrorMessage = nil
         conversionProgress = 0
+    }
+
+    private func prepareImageConversionStartState() {
+        isImageConverting = true
+        convertedImageURL = nil
+        imageConversionErrorMessage = nil
+        imageConversionProgress = 0
     }
 
     private func applyConversionError(_ error: Error) {
@@ -385,6 +641,13 @@ final class ContentViewModel: ObservableObject {
             print("Conversion failed: \(error.localizedDescription)")
         }
     }
+
+    private func applyImageConversionError(_ error: Error) {
+        imageConversionErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        print("Image conversion failed: \(imageConversionErrorMessage ?? error.localizedDescription)")
+    }
+
+    // MARK: - Video Convert
 
     private func convert() async {
         defer { conversionTask = nil }
@@ -459,18 +722,94 @@ final class ContentViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Image Convert
+
+    private func convertImage() async {
+        defer { imageConversionTask = nil }
+
+        guard canConvertImage, let sourceURL = imageSourceURL else {
+            if imageSourceURL == nil {
+                print("No image file to convert.")
+            }
+            return
+        }
+
+        let outputSettings = buildImageOutputSettings()
+        prepareImageConversionStartState()
+
+        let shouldStopSourceAccessing = sourceURL.startAccessingSecurityScopedResource()
+        defer {
+            if shouldStopSourceAccessing {
+                sourceURL.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        do {
+            defer { isImageConverting = false }
+            try Task.checkCancellation()
+
+            let outputDirectory = try VideoConversionEngine.sandboxOutputDirectory(
+                bundleIdentifier: Bundle.main.bundleIdentifier
+            )
+
+            let destinationURL = ImageConversionEngine.uniqueOutputURL(
+                for: sourceURL,
+                format: selectedImageOutputFormat,
+                in: outputDirectory
+            )
+            let workingOutputURL = ImageConversionEngine.temporaryOutputURL(
+                for: sourceURL,
+                format: selectedImageOutputFormat
+            )
+            defer {
+                if FileManager.default.fileExists(atPath: workingOutputURL.path) {
+                    try? FileManager.default.removeItem(at: workingOutputURL)
+                }
+            }
+
+            let output = try await ImageConversionEngine.convert(
+                inputURL: sourceURL,
+                outputURL: workingOutputURL,
+                outputSettings: outputSettings
+            ) { [weak self] progress in
+                await self?.updateImageConversionProgress(progress)
+            }
+            try Task.checkCancellation()
+
+            convertedImageURL = try VideoConversionEngine.saveConvertedOutput(from: output, to: destinationURL)
+            imageConversionProgress = 1
+        } catch is CancellationError {
+            imageConversionProgress = 0
+            imageConversionErrorMessage = nil
+        } catch {
+            applyImageConversionError(error)
+        }
+    }
+
+    // MARK: - Progress
+
     private func updateConversionProgress(_ rawProgress: Double) {
         conversionProgress = min(max(rawProgress, 0), 1)
     }
+
+    private func updateImageConversionProgress(_ rawProgress: Double) {
+        imageConversionProgress = min(max(rawProgress, 0), 1)
+    }
+
+    // MARK: - Persistence
 
     private func sourceIdentifier(for url: URL) -> String {
         url.standardizedFileURL.path
     }
 
     private func persistCurrentSettingsIfNeeded() {
+        persistCurrentVideoSettingsIfNeeded()
+    }
+
+    private func persistCurrentVideoSettingsIfNeeded() {
         guard !isApplyingStoredSettings, let sourceURL else { return }
 
-        settingsBySourceID[sourceIdentifier(for: sourceURL)] = VideoConversionSettings(
+        videoSettingsBySourceID[sourceIdentifier(for: sourceURL)] = VideoConversionSettings(
             outputFormat: selectedOutputFormat,
             videoEncoder: selectedVideoEncoder,
             resolution: selectedResolution,
@@ -483,6 +822,17 @@ final class ContentViewModel: ObservableObject {
             audioBitRate: selectedAudioBitRate
         )
         savePersistedSettings()
+    }
+
+    private func persistCurrentImageSettingsIfNeeded() {
+        guard !isApplyingStoredImageSettings, let imageSourceURL else { return }
+
+        imageSettingsBySourceID[sourceIdentifier(for: imageSourceURL)] = ImageConversionSettings(
+            outputFormat: selectedImageOutputFormat,
+            resolution: selectedImageResolution,
+            quality: selectedImageQuality
+        )
+        savePersistedImageSettings()
     }
 
     private func applyStoredSettings(_ settings: VideoConversionSettings) {
@@ -501,18 +851,37 @@ final class ContentViewModel: ObservableObject {
         selectedAudioBitRate = settings.audioBitRate
     }
 
+    private func applyStoredImageSettings(_ settings: ImageConversionSettings) {
+        isApplyingStoredImageSettings = true
+        defer { isApplyingStoredImageSettings = false }
+
+        selectedImageOutputFormat = settings.outputFormat
+        selectedImageResolution = settings.resolution
+        selectedImageQuality = settings.quality
+    }
+
     private func savePersistedSettings() {
-        let persisted = settingsBySourceID.mapValues { PersistedVideoConversionSettings(from: $0) }
+        let persisted = videoSettingsBySourceID.mapValues { PersistedVideoConversionSettings(from: $0) }
         do {
             let data = try JSONEncoder().encode(persisted)
-            UserDefaults.standard.set(data, forKey: settingsStorageKey)
+            UserDefaults.standard.set(data, forKey: videoSettingsStorageKey)
         } catch {
             print("Failed to persist video settings: \(error.localizedDescription)")
         }
     }
 
+    private func savePersistedImageSettings() {
+        let persisted = imageSettingsBySourceID.mapValues { PersistedImageConversionSettings(from: $0) }
+        do {
+            let data = try JSONEncoder().encode(persisted)
+            UserDefaults.standard.set(data, forKey: imageSettingsStorageKey)
+        } catch {
+            print("Failed to persist image settings: \(error.localizedDescription)")
+        }
+    }
+
     private func loadPersistedSettings() -> [String: VideoConversionSettings] {
-        guard let data = UserDefaults.standard.data(forKey: settingsStorageKey) else {
+        guard let data = UserDefaults.standard.data(forKey: videoSettingsStorageKey) else {
             return [:]
         }
 
@@ -524,6 +893,22 @@ final class ContentViewModel: ObservableObject {
             return [:]
         }
     }
+
+    private func loadPersistedImageSettings() -> [String: ImageConversionSettings] {
+        guard let data = UserDefaults.standard.data(forKey: imageSettingsStorageKey) else {
+            return [:]
+        }
+
+        do {
+            let decoded = try JSONDecoder().decode([String: PersistedImageConversionSettings].self, from: data)
+            return decoded.mapValues { $0.restoredSettings }
+        } catch {
+            print("Failed to load persisted image settings: \(error.localizedDescription)")
+            return [:]
+        }
+    }
+
+    // MARK: - Status
 
     private var conversionStatus: (message: String, level: ConversionStatusLevel) {
         if isConverting {
@@ -543,6 +928,30 @@ final class ContentViewModel: ObservableObject {
         }
 
         if let warning = sourceCompatibilityWarningMessage, !warning.isEmpty {
+            return (warning, .warning)
+        }
+
+        return ("Ready", .normal)
+    }
+
+    private var imageConversionStatus: (message: String, level: ConversionStatusLevel) {
+        if isImageConverting {
+            return ("Conversion in progress...", .normal)
+        }
+
+        if isAnalyzingImageSource {
+            return ("Analyzing source compatibility...", .normal)
+        }
+
+        if let error = imageConversionErrorMessage, !error.isEmpty {
+            return (error, .error)
+        }
+
+        if let validation = imageSettingsValidationMessage {
+            return (validation, .error)
+        }
+
+        if let warning = imageSourceCompatibilityWarningMessage, !warning.isEmpty {
             return (warning, .warning)
         }
 

@@ -13,7 +13,8 @@ import AppKit
 
 struct ContentView: View {
     @StateObject private var viewModel = ContentViewModel()
-    @State private var isDropTargeted = false
+    @State private var isVideoDropTargeted = false
+    @State private var isImageDropTargeted = false
 
     var body: some View {
         NavigationSplitView {
@@ -52,22 +53,29 @@ struct ContentView: View {
     private var videoDetailView: some View {
         VStack(spacing: 0) {
             Group {
-                if !isDropTargeted, let sourceURL = viewModel.sourceURL {
-                    SelectedFileView(url: sourceURL) {
+                if !isVideoDropTargeted, let sourceURL = viewModel.sourceURL {
+                    SelectedFileView(
+                        url: sourceURL,
+                        systemImage: "film.fill",
+                        isConverting: viewModel.isConverting
+                    ) {
                         withAnimation {
-                            viewModel.clearSelectedSource()
+                            viewModel.clearSelectedVideoSource()
                         }
                     }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 } else {
-                    DropFileView {
+                    DropFileView(
+                        isDropTargeted: isVideoDropTargeted,
+                        placeholder: "Drop Video Here"
+                    ) {
                         viewModel.requestFileImport()
                     }
                     .transition(.scale(scale: 0.98).combined(with: .opacity))
                 }
             }
             .animation(.spring(response: 0.4, dampingFraction: 0.7), value: viewModel.sourceURL)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isDropTargeted)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isVideoDropTargeted)
             .padding(20)
 
             Divider()
@@ -146,9 +154,13 @@ struct ContentView: View {
 
                 Section("Output File") {
                     if let convertedURL = viewModel.convertedURL {
-                        ConversionResultView(url: convertedURL)
-                            .padding(.vertical, 4)
-                            .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                        ConversionResultView(
+                            url: convertedURL,
+                            detailText: "Your video is ready to view",
+                            openSystemImage: "play.fill"
+                        )
+                        .padding(.vertical, 4)
+                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
                     } else {
                         Text("The converted file will appear here")
                             .font(.callout)
@@ -168,8 +180,98 @@ struct ContentView: View {
                 .overlay(Rectangle().frame(height: 1).foregroundStyle(.separator), alignment: .top)
         }
         .navigationTitle("Convert Video")
-        .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
-            viewModel.handleDrop(providers: providers)
+        .onDrop(of: [.fileURL], isTargeted: $isVideoDropTargeted) { providers in
+            viewModel.handleVideoDrop(providers: providers)
+        }
+    }
+
+    private var imageDetailView: some View {
+        VStack(spacing: 0) {
+            Group {
+                if !isImageDropTargeted, let sourceURL = viewModel.imageSourceURL {
+                    SelectedFileView(
+                        url: sourceURL,
+                        systemImage: "photo.fill",
+                        isConverting: viewModel.isImageConverting
+                    ) {
+                        withAnimation {
+                            viewModel.clearSelectedImageSource()
+                        }
+                    }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                } else {
+                    DropFileView(
+                        isDropTargeted: isImageDropTargeted,
+                        placeholder: "Drop Image Here"
+                    ) {
+                        viewModel.requestFileImport()
+                    }
+                    .transition(.scale(scale: 0.98).combined(with: .opacity))
+                }
+            }
+            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: viewModel.imageSourceURL)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isImageDropTargeted)
+            .padding(20)
+
+            Divider()
+
+            Form {
+                Section("Output Settings") {
+                    Picker("Container", selection: $viewModel.selectedImageOutputFormat) {
+                        ForEach(viewModel.imageOutputFormatOptions) { format in
+                            Text(format.rawValue).tag(format)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .disabled(viewModel.imageOutputFormatOptions.isEmpty)
+
+                    Picker("Resolution", selection: $viewModel.selectedImageResolution) {
+                        ForEach(ResolutionOption.allCases) { option in
+                            Text(option.rawValue).tag(option)
+                        }
+                    }
+                    .pickerStyle(.menu)
+
+                    if viewModel.selectedImageOutputFormat.supportsCompressionQuality {
+                        Picker("Quality", selection: $viewModel.selectedImageQuality) {
+                            ForEach(ImageQualityOption.allCases) { option in
+                                Text(option.rawValue).tag(option)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                    }
+                }
+
+                Section("Output File") {
+                    if let convertedURL = viewModel.convertedImageURL {
+                        ConversionResultView(
+                            url: convertedURL,
+                            detailText: "Your image is ready to view",
+                            openSystemImage: "photo.fill"
+                        )
+                        .padding(.vertical, 4)
+                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                    } else {
+                        Text("The converted file will appear here")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.vertical, 20)
+                    }
+                }
+            }
+            .formStyle(.grouped)
+        }
+        .safeAreaInset(edge: .bottom) {
+            imageConversionControls
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+                .background(.regularMaterial)
+                .overlay(Rectangle().frame(height: 1).foregroundStyle(.separator), alignment: .top)
+        }
+        .navigationTitle("Convert Image")
+        .onDrop(of: [.fileURL], isTargeted: $isImageDropTargeted) { providers in
+            viewModel.handleImageDrop(providers: providers)
         }
     }
 
@@ -196,12 +298,12 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 4) {
                 ProgressView(value: viewModel.displayedConversionProgress, total: 1.0)
                     .progressViewStyle(.linear)
-                    .tint(progressTintColor)
+                    .tint(videoProgressTintColor)
 
                 HStack {
                     Text(viewModel.conversionStatusMessage)
                         .font(.caption)
-                        .foregroundStyle(conversionStatusColor)
+                        .foregroundStyle(videoConversionStatusColor)
                         .lineLimit(1)
 
                     Spacer()
@@ -214,12 +316,65 @@ struct ContentView: View {
         }
     }
 
-    private var progressTintColor: Color {
+    private var imageConversionControls: some View {
+        HStack(spacing: 16) {
+            Button {
+                if viewModel.isImageConverting {
+                    viewModel.cancelImageConversion()
+                } else {
+                    viewModel.startImageConversion()
+                }
+            } label: {
+                Label(
+                    viewModel.isImageConverting ? "Cancel" : "Start Conversion",
+                    systemImage: viewModel.isImageConverting ? "xmark.circle.fill" : "play.fill"
+                )
+                .font(.body.bold())
+                .frame(minWidth: 120, minHeight: 40)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .disabled(viewModel.isImageConverting ? false : !viewModel.canConvertImage)
+
+            VStack(alignment: .leading, spacing: 4) {
+                ProgressView(value: viewModel.displayedImageConversionProgress, total: 1.0)
+                    .progressViewStyle(.linear)
+                    .tint(imageProgressTintColor)
+
+                HStack {
+                    Text(viewModel.imageConversionStatusMessage)
+                        .font(.caption)
+                        .foregroundStyle(imageConversionStatusColor)
+                        .lineLimit(1)
+
+                    Spacer()
+
+                    Text(viewModel.imageProgressPercentageText)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private var videoProgressTintColor: Color {
         viewModel.displayedConversionProgress > 0 ? .accentColor : .clear
     }
 
-    private var conversionStatusColor: Color {
-        switch viewModel.conversionStatusLevel {
+    private var imageProgressTintColor: Color {
+        viewModel.displayedImageConversionProgress > 0 ? .accentColor : .clear
+    }
+
+    private var videoConversionStatusColor: Color {
+        statusColor(for: viewModel.conversionStatusLevel)
+    }
+
+    private var imageConversionStatusColor: Color {
+        statusColor(for: viewModel.imageConversionStatusLevel)
+    }
+
+    private func statusColor(for level: ContentViewModel.ConversionStatusLevel) -> Color {
+        switch level {
         case .normal:
             return .secondary
         case .warning:
@@ -229,7 +384,11 @@ struct ContentView: View {
         }
     }
 
-    private func DropFileView(action: @escaping () -> Void) -> some View {
+    private func DropFileView(
+        isDropTargeted: Bool,
+        placeholder: String,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
             VStack(spacing: 20) {
                 ZStack {
@@ -248,7 +407,7 @@ struct ContentView: View {
                 }
 
                 VStack(spacing: 8) {
-                    Text(isDropTargeted ? "Release to Import" : "Drop Video Here")
+                    Text(isDropTargeted ? "Release to Import" : placeholder)
                         .font(.title3.bold())
                         .foregroundStyle(isDropTargeted ? Color.accentColor : .primary)
                         .scaleEffect(isDropTargeted ? 1.05 : 1.0)
@@ -265,7 +424,7 @@ struct ContentView: View {
                 ZStack {
                     RoundedRectangle(cornerRadius: 24)
                         .fill(isDropTargeted ? Color.accentColor.opacity(0.04) : Color(nsColor: .controlBackgroundColor).opacity(0.5))
-                    
+
                     RoundedRectangle(cornerRadius: 24)
                         .strokeBorder(
                             isDropTargeted ? Color.accentColor.opacity(0.6) : Color.secondary.opacity(0.2),
@@ -280,7 +439,12 @@ struct ContentView: View {
         .buttonStyle(.plain)
     }
 
-    private func SelectedFileView(url: URL, onClear: @escaping () -> Void) -> some View {
+    private func SelectedFileView(
+        url: URL,
+        systemImage: String,
+        isConverting: Bool,
+        onClear: @escaping () -> Void
+    ) -> some View {
         HStack(spacing: 20) {
             ZStack {
                 RoundedRectangle(cornerRadius: 14)
@@ -294,7 +458,7 @@ struct ContentView: View {
                     .frame(width: 60, height: 72)
                     .shadow(color: Color.accentColor.opacity(0.3), radius: 8, x: 0, y: 4)
 
-                Image(systemName: "film.fill")
+                Image(systemName: systemImage)
                     .font(.title2)
                     .foregroundStyle(.white)
             }
@@ -309,7 +473,7 @@ struct ContentView: View {
                     Image(systemName: "folder")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    
+
                     Text(url.deletingLastPathComponent().path)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -326,7 +490,7 @@ struct ContentView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.regular)
-                .disabled(viewModel.isConverting)
+                .disabled(isConverting)
 
                 Button(action: onClear) {
                     Image(systemName: "xmark.circle.fill")
@@ -335,7 +499,7 @@ struct ContentView: View {
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .disabled(viewModel.isConverting)
+                .disabled(isConverting)
                 .onHover { inside in
                     if inside {
                         NSCursor.pointingHand.push()
@@ -357,7 +521,11 @@ struct ContentView: View {
         )
     }
 
-    private func ConversionResultView(url: URL) -> some View {
+    private func ConversionResultView(
+        url: URL,
+        detailText: String,
+        openSystemImage: String
+    ) -> some View {
         VStack(spacing: 16) {
             HStack(spacing: 12) {
                 ZStack {
@@ -373,7 +541,7 @@ struct ContentView: View {
                     Text("Conversion Completed")
                         .font(.headline)
                         .foregroundStyle(.primary)
-                    Text("Your video is ready to view")
+                    Text(detailText)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -389,7 +557,7 @@ struct ContentView: View {
                         .foregroundStyle(.secondary)
                     Spacer()
                 }
-                
+
                 HStack(spacing: 8) {
                     Image(systemName: "doc.text.fill")
                         .foregroundStyle(.secondary)
@@ -403,7 +571,7 @@ struct ContentView: View {
                 .background(Color.secondary.opacity(0.05))
                 .cornerRadius(8)
             }
-            
+
             HStack(spacing: 12) {
                 #if os(macOS)
                 Button {
@@ -414,11 +582,11 @@ struct ContentView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.regular)
-                
+
                 Button {
                     NSWorkspace.shared.open(url)
                 } label: {
-                    Label("Open", systemImage: "play.fill")
+                    Label("Open", systemImage: openSystemImage)
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -453,17 +621,6 @@ struct ContentView: View {
         #endif
     }
 
-    private var imageDetailView: some View {
-        VStack(spacing: 20) {
-            ContentUnavailableView(
-                "Image Conversion Coming Soon",
-                systemImage: "photo.badge.arrow.down",
-                description: Text("This feature will be available soon.")
-            )
-        }
-        .navigationTitle("Convert Image")
-    }
-
     private var audioDetailView: some View {
         VStack(spacing: 20) {
             ContentUnavailableView(
@@ -474,7 +631,7 @@ struct ContentView: View {
         }
         .navigationTitle("Convert Audio")
     }
-    
+
     private var aboutDetailView: some View {
         ScrollView {
             VStack(spacing: 32) {
@@ -484,23 +641,23 @@ struct ContentView: View {
                         .aspectRatio(contentMode: .fit)
                         .frame(width: 128, height: 128)
                         .shadow(radius: 8)
-                    
+
                     VStack(spacing: 8) {
                         Text("MyConverter")
                             .font(.system(size: 32, weight: .bold))
-                        
+
                         Text("Version 1.0.0")
                             .font(.headline)
                             .foregroundStyle(.secondary)
                     }
                 }
                 .padding(.top, 40)
-                
+
                 VStack(spacing: 16) {
                     Text("About This App")
                         .font(.title2.bold())
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    
+
                     Text("MyConverter is a powerful tool designed to help you convert your media files with ease. Whether you need to convert videos, images, or audio files, MyConverter provides a simple and intuitive interface to get the job done.")
                         .font(.body)
                         .foregroundStyle(.secondary)
@@ -513,12 +670,12 @@ struct ContentView: View {
                         .fill(Color(nsColor: .controlBackgroundColor))
                         .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
                 )
-                
+
                 VStack(spacing: 16) {
                     Text("Credits")
                         .font(.title2.bold())
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    
+
                     VStack(alignment: .leading, spacing: 12) {
                         CreditRow(role: "Developer", name: "JiHoon K")
                         Divider()
@@ -531,9 +688,9 @@ struct ContentView: View {
                         .fill(Color(nsColor: .controlBackgroundColor))
                         .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
                 )
-                
+
                 Spacer()
-                
+
                 Text("Copyright © 2026 JiHoon K. All rights reserved.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
@@ -550,10 +707,10 @@ struct ContentView: View {
             Text(role)
                 .foregroundStyle(.secondary)
                 .frame(width: 100, alignment: .leading)
-            
+
             Text(name)
                 .font(.body.weight(.medium))
-            
+
             Spacer()
         }
     }
