@@ -2,32 +2,132 @@ import Foundation
 import AVFoundation
 
 struct VideoOutputSettings {
-    let containerFormat: VideoContainerOption
+    let containerFormat: VideoFormatOption
     let videoCodecCandidates: [String]
     let useHEVCTag: Bool
     let resolution: (width: Int, height: Int)?
     let frameRate: Int?
+    let gifPlaybackSpeed: Double?
     let videoBitRateKbps: Int?
-    let audioCodec: String
+    let audioCodecCandidates: [String]
     let audioChannels: Int?
-    let sampleRate: Int
+    let sampleRate: Int?
     let audioBitRateKbps: Int?
 }
 
 struct VideoSourceCapabilities {
-    let availableOutputFormats: [VideoContainerOption]
+    let availableOutputFormats: [VideoFormatOption]
+    let warningMessage: String?
+    let errorMessage: String?
+}
+
+struct AudioOutputSettings {
+    let containerFormat: AudioFormatOption
+    let audioCodecCandidates: [String]
+    let audioChannels: Int?
+    let sampleRate: Int?
+    let audioBitRateKbps: Int?
+}
+
+struct AudioSourceCapabilities {
+    let availableOutputFormats: [AudioFormatOption]
     let warningMessage: String?
     let errorMessage: String?
 }
 
 enum VideoConversionEngine {
     typealias ProgressHandler = @Sendable (Double) async -> Void
+    private static let ffmpegIntrospectionCacheQueue = DispatchQueue(label: "myconverter.video.ffmpeg.introspection.cache")
+    nonisolated(unsafe) private static var ffmpegIntrospectionCache: [String: FFmpegIntrospection] = [:]
     private static let preferredExportPresets = [
         AVAssetExportPresetPassthrough,
         AVAssetExportPresetHighestQuality,
         AVAssetExportPresetMediumQuality,
         AVAssetExportPresetLowQuality
     ]
+
+    static func defaultOutputFormats() -> [VideoFormatOption] {
+        let avFormats = VideoFormatOption.avFoundationDefaultFormats
+
+        guard let ffmpegPath = findFFmpegPath(),
+              let introspection = try? inspectFFmpeg(at: ffmpegPath) else {
+            return avFormats
+        }
+
+        let discovered = ffmpegDiscoveredFormats(from: introspection)
+        let candidates = VideoFormatOption.deduplicatedAndSorted(avFormats + VideoFormatOption.ffmpegKnownFormats + discovered)
+        let supportedFFmpegFormats = candidates.filter { isFFmpegFormatSupported($0, introspection: introspection) }
+        return VideoFormatOption.deduplicatedAndSorted(supportedFFmpegFormats + avFormats)
+    }
+
+    static func availableVideoEncoders(for format: VideoFormatOption) -> [VideoEncoderOption] {
+        if !format.supportsVideoEncoderSelection {
+            return [.auto]
+        }
+
+        guard let ffmpegPath = findFFmpegPath(),
+              let introspection = try? inspectFFmpeg(at: ffmpegPath),
+              isFFmpegFormatSupported(format, introspection: introspection) else {
+            return [.auto]
+        }
+
+        let options = VideoEncoderOption.allCases.filter { option in
+            option.isCompatible(with: format) &&
+                (option.codecCandidates.isEmpty || option.codecCandidates.contains(where: { introspection.videoEncoders.contains($0) }))
+        }
+
+        return options.isEmpty ? [.auto] : options
+    }
+
+    static func availableAudioEncoders(for format: VideoFormatOption) -> [AudioEncoderOption] {
+        if !format.supportsAudioTrack {
+            return []
+        }
+
+        guard let ffmpegPath = findFFmpegPath(),
+              let introspection = try? inspectFFmpeg(at: ffmpegPath),
+              isFFmpegFormatSupported(format, introspection: introspection) else {
+            return [.auto]
+        }
+
+        let options = AudioEncoderOption.allCases.filter { option in
+            option.isCompatible(with: format) &&
+                (option.codecCandidates.isEmpty || option.codecCandidates.contains(where: { introspection.audioEncoders.contains($0) }))
+        }
+
+        return options.isEmpty ? [.auto] : options
+    }
+
+    static func defaultAudioOutputFormats() -> [AudioFormatOption] {
+        let knownFormats = AudioFormatOption.ffmpegKnownFormats
+
+        guard let ffmpegPath = findFFmpegPath(),
+              let introspection = try? inspectFFmpeg(at: ffmpegPath) else {
+            return knownFormats
+        }
+
+        let discovered = ffmpegDiscoveredAudioFormats(from: introspection)
+        let candidates = AudioFormatOption.deduplicatedAndSorted(knownFormats + discovered)
+        return candidates.filter { isFFmpegAudioFormatSupported($0, introspection: introspection) }
+    }
+
+    static func availableAudioEncoders(for format: AudioFormatOption) -> [AudioEncoderOption] {
+        guard let ffmpegPath = findFFmpegPath(),
+              let introspection = try? inspectFFmpeg(at: ffmpegPath),
+              isFFmpegAudioFormatSupported(format, introspection: introspection) else {
+            return format.allowsFFmpegAutomaticAudioCodec ? [.auto] : []
+        }
+
+        let options = AudioEncoderOption.allCases.filter { option in
+            option.isCompatible(with: format) &&
+                (option.codecCandidates.isEmpty || option.codecCandidates.contains(where: { introspection.audioEncoders.contains($0) }))
+        }
+
+        if options.isEmpty {
+            return format.allowsFFmpegAutomaticAudioCodec ? [.auto] : []
+        }
+        return options
+    }
 
     static func sandboxOutputDirectory(bundleIdentifier: String?) throws -> URL {
         let appSupportDirectory = try FileManager.default.url(
@@ -52,7 +152,7 @@ enum VideoConversionEngine {
 
     static func uniqueOutputURL(
         for sourceURL: URL,
-        format: VideoContainerOption,
+        format: VideoFormatOption,
         in outputDirectory: URL
     ) -> URL {
         let baseName = sourceURL.deletingPathExtension().lastPathComponent
@@ -67,7 +167,31 @@ enum VideoConversionEngine {
         return candidate
     }
 
-    static func temporaryOutputURL(for sourceURL: URL, format: VideoContainerOption) -> URL {
+    static func temporaryOutputURL(for sourceURL: URL, format: VideoFormatOption) -> URL {
+        let baseName = sourceURL.deletingPathExtension().lastPathComponent
+        let ext = format.fileExtension
+        return FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(baseName)_working_\(UUID().uuidString).\(ext)")
+    }
+
+    static func uniqueOutputURL(
+        for sourceURL: URL,
+        format: AudioFormatOption,
+        in outputDirectory: URL
+    ) -> URL {
+        let baseName = sourceURL.deletingPathExtension().lastPathComponent
+        let ext = format.fileExtension
+        var candidate = outputDirectory.appendingPathComponent("\(baseName).\(ext)")
+        var index = 1
+
+        while FileManager.default.fileExists(atPath: candidate.path) {
+            candidate = outputDirectory.appendingPathComponent("\(baseName)_converted_\(index).\(ext)")
+            index += 1
+        }
+        return candidate
+    }
+
+    static func temporaryOutputURL(for sourceURL: URL, format: AudioFormatOption) -> URL {
         let baseName = sourceURL.deletingPathExtension().lastPathComponent
         let ext = format.fileExtension
         return FileManager.default.temporaryDirectory
@@ -96,23 +220,62 @@ enum VideoConversionEngine {
     }
 
     static func isFFmpegAvailable() -> Bool {
-        #if os(macOS)
         return findFFmpegPath() != nil
-        #else
-        return false
-        #endif
+    }
+
+    static func sourceCapabilitiesForAudio(for inputURL: URL) async -> AudioSourceCapabilities {
+        let defaultFormats = defaultAudioOutputFormats()
+
+        guard isFFmpegAvailable() else {
+            return AudioSourceCapabilities(
+                availableOutputFormats: [],
+                warningMessage: nil,
+                errorMessage: "Audio conversion requires ffmpeg, but ffmpeg was not found."
+            )
+        }
+
+        guard !defaultFormats.isEmpty else {
+            return AudioSourceCapabilities(
+                availableOutputFormats: [],
+                warningMessage: nil,
+                errorMessage: "No compatible audio output format is available with the current ffmpeg build."
+            )
+        }
+
+        let asset = AVURLAsset(url: inputURL)
+        do {
+            try await ensureAssetHasAudioTrack(asset)
+            return AudioSourceCapabilities(
+                availableOutputFormats: defaultFormats,
+                warningMessage: nil,
+                errorMessage: nil
+            )
+        } catch ConversionError.noTracksFound {
+            return AudioSourceCapabilities(
+                availableOutputFormats: defaultFormats,
+                warningMessage: nil,
+                errorMessage: "No audio track found in this source."
+            )
+        } catch {
+            return AudioSourceCapabilities(
+                availableOutputFormats: defaultFormats,
+                warningMessage: "Could not analyze this source with AVFoundation. ffmpeg conversion will be attempted.",
+                errorMessage: nil
+            )
+        }
     }
 
     static func sourceCapabilities(for inputURL: URL) async -> VideoSourceCapabilities {
         let ffmpegAvailable = isFFmpegAvailable()
         let asset = AVURLAsset(url: inputURL)
+        let defaultFormats = defaultOutputFormats()
 
         do {
             try await ensureAssetReadable(asset)
             let avSupported = await supportedOutputFormatsWithAVFoundation(for: asset)
             if ffmpegAvailable {
                 return VideoSourceCapabilities(
-                    availableOutputFormats: VideoContainerOption.allCases,
+                    availableOutputFormats: VideoFormatOption.deduplicatedAndSorted(defaultFormats + avSupported),
                     warningMessage: nil,
                     errorMessage: nil
                 )
@@ -134,7 +297,7 @@ enum VideoConversionEngine {
         } catch {
             if ffmpegAvailable {
                 return VideoSourceCapabilities(
-                    availableOutputFormats: VideoContainerOption.allCases,
+                    availableOutputFormats: defaultFormats,
                     warningMessage: nil,
                     errorMessage: nil
                 )
@@ -158,7 +321,16 @@ enum VideoConversionEngine {
         try removeFileIfExists(at: outputURL)
         let outputFileType = outputSettings.containerFormat.avFileType
 
-        #if os(macOS)
+        if outputFileType == nil {
+            return try await attemptFFmpegConversionOrThrowUnavailable(
+                inputURL: inputURL,
+                outputURL: outputURL,
+                outputSettings: outputSettings,
+                inputDurationSeconds: inputDurationSeconds,
+                onProgress: onProgress
+            )
+        }
+
         if let converted = try await attemptFFmpegConversion(
             inputURL: inputURL,
             outputURL: outputURL,
@@ -168,14 +340,12 @@ enum VideoConversionEngine {
         ) {
             return converted
         }
-        #endif
 
         let asset = AVURLAsset(url: inputURL)
         do {
             try await ensureAssetReadable(asset)
         } catch {
             if isUnsupportedMediaFormatError(error) {
-                #if os(macOS)
                 return try await attemptFFmpegConversionOrThrowUnavailable(
                     inputURL: inputURL,
                     outputURL: outputURL,
@@ -183,9 +353,12 @@ enum VideoConversionEngine {
                     inputDurationSeconds: inputDurationSeconds,
                     onProgress: onProgress
                 )
-                #endif
             }
             throw error
+        }
+
+        guard let outputFileType else {
+            throw ConversionError.unsupportedOutputType(outputSettings.containerFormat)
         }
 
         let candidatePresets = await compatibleExportPresets(
@@ -195,7 +368,6 @@ enum VideoConversionEngine {
         )
 
         guard !candidatePresets.isEmpty else {
-            #if os(macOS)
             return try await attemptFFmpegConversionOrThrowUnavailable(
                 inputURL: inputURL,
                 outputURL: outputURL,
@@ -203,9 +375,6 @@ enum VideoConversionEngine {
                 inputDurationSeconds: inputDurationSeconds,
                 onProgress: onProgress
             )
-            #else
-            throw ConversionError.noCompatiblePreset(preferredExportPresets)
-            #endif
         }
 
         var lastError: Error?
@@ -249,7 +418,6 @@ enum VideoConversionEngine {
             }
         }
 
-        #if os(macOS)
         if let lastError, shouldFallbackToFFmpeg(after: lastError) {
             if let converted = try await attemptFFmpegConversion(
                 inputURL: inputURL,
@@ -265,12 +433,40 @@ enum VideoConversionEngine {
                 throw ConversionError.ffmpegUnavailable
             }
         }
-        #endif
 
         throw lastError ?? ConversionError.unsupportedSource
     }
 
-    #if os(macOS)
+    static func convertAudio(
+        inputURL: URL,
+        outputURL: URL,
+        outputSettings: AudioOutputSettings,
+        inputDurationSeconds: Double?,
+        onProgress: @escaping ProgressHandler
+    ) async throws -> URL {
+        try removeFileIfExists(at: outputURL)
+
+        guard let ffmpegPath = findFFmpegPath() else {
+            throw ConversionError.ffmpegUnavailable
+        }
+
+        let introspection = try inspectFFmpeg(at: ffmpegPath)
+        guard isFFmpegAudioFormatSupported(outputSettings.containerFormat, introspection: introspection) else {
+            throw ConversionError.ffmpegFailed(-1, "Selected audio container is not supported by this ffmpeg build.")
+        }
+
+        try await convertAudioWithFFmpeg(
+            introspection: introspection,
+            ffmpegPath: ffmpegPath,
+            inputURL: inputURL,
+            outputURL: outputURL,
+            outputSettings: outputSettings,
+            inputDurationSeconds: inputDurationSeconds,
+            onProgress: onProgress
+        )
+        return outputURL
+    }
+
     private static func attemptFFmpegConversionOrThrowUnavailable(
         inputURL: URL,
         outputURL: URL,
@@ -318,7 +514,13 @@ enum VideoConversionEngine {
             return false
         }
 
+        guard let introspection = try? inspectFFmpeg(at: ffmpegPath),
+              isFFmpegFormatSupported(outputSettings.containerFormat, introspection: introspection) else {
+            return false
+        }
+
         try await convertWithFFmpeg(
+            introspection: introspection,
             ffmpegPath: ffmpegPath,
             inputURL: inputURL,
             outputURL: outputURL,
@@ -330,6 +532,7 @@ enum VideoConversionEngine {
     }
 
     private static func convertWithFFmpeg(
+        introspection: FFmpegIntrospection,
         ffmpegPath: String,
         inputURL: URL,
         outputURL: URL,
@@ -339,17 +542,97 @@ enum VideoConversionEngine {
     ) async throws {
         try removeFileIfExists(at: outputURL)
 
+        let availableVideoCodecs = outputSettings.videoCodecCandidates.filter { introspection.videoEncoders.contains($0) }
+        let availableAudioCodecs = outputSettings.audioCodecCandidates.filter { introspection.audioEncoders.contains($0) }
+
+        let videoCodecs: [String?]
+        if availableVideoCodecs.isEmpty {
+            videoCodecs = outputSettings.containerFormat.allowsFFmpegAutomaticVideoCodec ? [nil] : []
+        } else {
+            videoCodecs = availableVideoCodecs.map { Optional($0) }
+        }
+
+        let audioCodecs: [String?]
+        if !outputSettings.containerFormat.supportsAudioTrack {
+            audioCodecs = [nil]
+        } else if availableAudioCodecs.isEmpty {
+            audioCodecs = outputSettings.containerFormat.allowsFFmpegAutomaticAudioCodec ? [nil] : []
+        } else {
+            audioCodecs = availableAudioCodecs.map { Optional($0) }
+        }
+
+        guard !videoCodecs.isEmpty else {
+            throw ConversionError.ffmpegFailed(-1, "No supported video encoder found for selected format.")
+        }
+        guard !audioCodecs.isEmpty else {
+            throw ConversionError.ffmpegFailed(-1, "No supported audio encoder found for selected format.")
+        }
+
         var lastError: Error?
-        for codec in outputSettings.videoCodecCandidates {
+        for videoCodec in videoCodecs {
+            for audioCodec in audioCodecs {
+                try Task.checkCancellation()
+
+                do {
+                    try await runFFmpeg(
+                        ffmpegPath: ffmpegPath,
+                        inputURL: inputURL,
+                        outputURL: outputURL,
+                        outputSettings: outputSettings,
+                        videoCodec: videoCodec,
+                        audioCodec: audioCodec,
+                        inputDurationSeconds: inputDurationSeconds,
+                        onProgress: onProgress
+                    )
+                    return
+                } catch is CancellationError {
+                    throw ConversionError.exportCancelled
+                } catch ConversionError.exportCancelled {
+                    throw ConversionError.exportCancelled
+                } catch {
+                    lastError = error
+                    try? removeFileIfExists(at: outputURL)
+                }
+            }
+        }
+
+        throw lastError ?? ConversionError.ffmpegFailed(-1, "No supported video/audio encoder combination found.")
+    }
+
+    private static func convertAudioWithFFmpeg(
+        introspection: FFmpegIntrospection,
+        ffmpegPath: String,
+        inputURL: URL,
+        outputURL: URL,
+        outputSettings: AudioOutputSettings,
+        inputDurationSeconds: Double?,
+        onProgress: @escaping ProgressHandler
+    ) async throws {
+        try removeFileIfExists(at: outputURL)
+
+        let availableAudioCodecs = outputSettings.audioCodecCandidates.filter { introspection.audioEncoders.contains($0) }
+        let audioCodecs: [String?]
+        if availableAudioCodecs.isEmpty {
+            audioCodecs = outputSettings.containerFormat.allowsFFmpegAutomaticAudioCodec ? [nil] : []
+        } else {
+            audioCodecs = availableAudioCodecs.map { Optional($0) }
+        }
+
+        guard !audioCodecs.isEmpty else {
+            throw ConversionError.ffmpegFailed(-1, "No supported audio encoder found for selected format.")
+        }
+
+        var lastError: Error?
+        for audioCodec in audioCodecs {
             try Task.checkCancellation()
 
             do {
-                try await runFFmpeg(
+                try await runAudioFFmpeg(
                     ffmpegPath: ffmpegPath,
                     inputURL: inputURL,
                     outputURL: outputURL,
                     outputSettings: outputSettings,
-                    videoCodec: codec,
+                    audioCodec: audioCodec,
                     inputDurationSeconds: inputDurationSeconds,
                     onProgress: onProgress
                 )
@@ -364,7 +647,7 @@ enum VideoConversionEngine {
             }
         }
 
-        throw lastError ?? ConversionError.ffmpegFailed(-1, "No supported video encoder found.")
+        throw lastError ?? ConversionError.ffmpegFailed(-1, "No supported audio encoder found for selected format.")
     }
 
     private static func runFFmpeg(
@@ -372,7 +655,8 @@ enum VideoConversionEngine {
         inputURL: URL,
         outputURL: URL,
         outputSettings: VideoOutputSettings,
-        videoCodec: String,
+        videoCodec: String?,
+        audioCodec: String?,
         inputDurationSeconds: Double?,
         onProgress: @escaping ProgressHandler
     ) async throws {
@@ -380,7 +664,8 @@ enum VideoConversionEngine {
             inputURL: inputURL,
             outputURL: outputURL,
             outputSettings: outputSettings,
-            videoCodec: videoCodec
+            videoCodec: videoCodec,
+            audioCodec: audioCodec
         )
 
         try Task.checkCancellation()
@@ -415,9 +700,69 @@ enum VideoConversionEngine {
         try Task.checkCancellation()
 
         guard result.terminationStatus == 0 else {
+            let videoCodecLabel = videoCodec ?? "auto"
+            let audioCodecLabel = audioCodec ?? "auto"
             throw ConversionError.ffmpegFailed(
                 result.terminationStatus,
-                "[\(videoCodec)] \(result.output)"
+                "[v:\(videoCodecLabel) a:\(audioCodecLabel)] \(result.output)"
+            )
+        }
+
+        await onProgress(1)
+    }
+
+    private static func runAudioFFmpeg(
+        ffmpegPath: String,
+        inputURL: URL,
+        outputURL: URL,
+        outputSettings: AudioOutputSettings,
+        audioCodec: String?,
+        inputDurationSeconds: Double?,
+        onProgress: @escaping ProgressHandler
+    ) async throws {
+        let args = buildFFmpegAudioArguments(
+            inputURL: inputURL,
+            outputURL: outputURL,
+            outputSettings: outputSettings,
+            audioCodec: audioCodec
+        )
+
+        try Task.checkCancellation()
+        await onProgress(0)
+
+        var effectiveDuration = inputDurationSeconds
+        let result = try await runCommand(path: ffmpegPath, arguments: args) { line in
+            if effectiveDuration == nil {
+                effectiveDuration = parseFFmpegDurationSeconds(from: line)
+            }
+
+            if line == "progress=end" {
+                Task {
+                    await onProgress(1)
+                }
+                return
+            }
+
+            guard
+                let outTimeSeconds = parseFFmpegOutTimeSeconds(from: line),
+                let duration = effectiveDuration,
+                duration > 0
+            else {
+                return
+            }
+
+            let ratio = outTimeSeconds / duration
+            Task {
+                await onProgress(ratio)
+            }
+        }
+        try Task.checkCancellation()
+
+        guard result.terminationStatus == 0 else {
+            let audioCodecLabel = audioCodec ?? "auto"
+            throw ConversionError.ffmpegFailed(
+                result.terminationStatus,
+                "[a:\(audioCodecLabel)] \(result.output)"
             )
         }
 
@@ -428,24 +773,63 @@ enum VideoConversionEngine {
         inputURL: URL,
         outputURL: URL,
         outputSettings: VideoOutputSettings,
-        videoCodec: String
+        videoCodec: String?,
+        audioCodec: String?
     ) -> [String] {
+        if outputSettings.containerFormat.usesGIFPalettePipeline {
+            return buildFFmpegGIFArguments(
+                inputURL: inputURL,
+                outputURL: outputURL,
+                outputSettings: outputSettings
+            )
+        }
+
         var args = [
             "-y",
             "-progress", "pipe:1",
             "-nostats",
-            "-i", inputURL.path,
-            "-c:v", videoCodec
+            "-i", inputURL.path
         ]
 
+        if let videoCodec {
+            args.append(contentsOf: ["-c:v", videoCodec])
+        }
+
         appendVideoEncodingArguments(&args, outputSettings: outputSettings)
-        appendAudioEncodingArguments(&args, outputSettings: outputSettings)
+        appendAudioEncodingArguments(&args, outputSettings: outputSettings, audioCodec: audioCodec)
 
         args.append(contentsOf: [
             "-pix_fmt", "yuv420p"
         ])
         if outputSettings.containerFormat.supportsFastStart {
             args.append(contentsOf: ["-movflags", "+faststart"])
+        }
+        if let preferredMuxer = outputSettings.containerFormat.preferredFFmpegMuxer {
+            args.append(contentsOf: ["-f", preferredMuxer])
+        }
+        args.append(outputURL.path)
+
+        return args
+    }
+
+    private static func buildFFmpegAudioArguments(
+        inputURL: URL,
+        outputURL: URL,
+        outputSettings: AudioOutputSettings,
+        audioCodec: String?
+    ) -> [String] {
+        var args = [
+            "-y",
+            "-progress", "pipe:1",
+            "-nostats",
+            "-i", inputURL.path,
+            "-vn"
+        ]
+
+        appendAudioOnlyEncodingArguments(&args, outputSettings: outputSettings, audioCodec: audioCodec)
+
+        if let preferredMuxer = outputSettings.containerFormat.preferredFFmpegMuxer {
+            args.append(contentsOf: ["-f", preferredMuxer])
         }
         args.append(outputURL.path)
 
@@ -468,19 +852,28 @@ enum VideoConversionEngine {
             args.append(contentsOf: ["-b:v", "\(videoBitRate)k"])
         }
 
-        if outputSettings.useHEVCTag && outputSettings.containerFormat != .m4v {
+        if outputSettings.useHEVCTag && outputSettings.containerFormat.supportsHEVCTag {
             args.append(contentsOf: ["-tag:v", "hvc1"])
         }
     }
 
     private static func appendAudioEncodingArguments(
         _ args: inout [String],
-        outputSettings: VideoOutputSettings
+        outputSettings: VideoOutputSettings,
+        audioCodec: String?
     ) {
-        args.append(contentsOf: [
-            "-c:a", outputSettings.audioCodec,
-            "-ar", "\(outputSettings.sampleRate)"
-        ])
+        if !outputSettings.containerFormat.supportsAudioTrack {
+            args.append("-an")
+            return
+        }
+
+        if let audioCodec {
+            args.append(contentsOf: ["-c:a", audioCodec])
+        }
+
+        if let sampleRate = outputSettings.sampleRate {
+            args.append(contentsOf: ["-ar", "\(sampleRate)"])
+        }
 
         if let channels = outputSettings.audioChannels {
             args.append(contentsOf: ["-ac", "\(channels)"])
@@ -488,6 +881,326 @@ enum VideoConversionEngine {
 
         if let audioBitRate = outputSettings.audioBitRateKbps {
             args.append(contentsOf: ["-b:a", "\(audioBitRate)k"])
+        }
+    }
+
+    private static func appendAudioOnlyEncodingArguments(
+        _ args: inout [String],
+        outputSettings: AudioOutputSettings,
+        audioCodec: String?
+    ) {
+        if let audioCodec {
+            args.append(contentsOf: ["-c:a", audioCodec])
+        }
+
+        if let sampleRate = outputSettings.sampleRate {
+            args.append(contentsOf: ["-ar", "\(sampleRate)"])
+        }
+
+        if let channels = outputSettings.audioChannels {
+            args.append(contentsOf: ["-ac", "\(channels)"])
+        }
+
+        if let audioBitRate = outputSettings.audioBitRateKbps {
+            args.append(contentsOf: ["-b:a", "\(audioBitRate)k"])
+        }
+    }
+
+    private static func buildFFmpegGIFArguments(
+        inputURL: URL,
+        outputURL: URL,
+        outputSettings: VideoOutputSettings
+    ) -> [String] {
+        var filterParts: [String] = []
+        if let speed = outputSettings.gifPlaybackSpeed,
+           speed.isFinite,
+           speed > 0,
+           abs(speed - 1.0) > 0.0001 {
+            filterParts.append("setpts=PTS/\(speed)")
+        }
+        if let fps = outputSettings.frameRate {
+            filterParts.append("fps=\(max(1, fps))")
+        }
+        if let dimensions = outputSettings.resolution {
+            filterParts.append("scale=\(dimensions.width):\(dimensions.height):force_original_aspect_ratio=decrease:flags=lanczos")
+        }
+
+        let baseFilter = filterParts.isEmpty ? "null" : filterParts.joined(separator: ",")
+        let complexFilter = "[0:v]\(baseFilter),split[v0][v1];[v0]palettegen=stats_mode=diff[p];[v1][p]paletteuse=dither=sierra2_4a"
+
+        return [
+            "-y",
+            "-progress", "pipe:1",
+            "-nostats",
+            "-i", inputURL.path,
+            "-an",
+            "-filter_complex", complexFilter,
+            "-loop", "0",
+            "-f", "gif",
+            outputURL.path
+        ]
+    }
+
+    private struct FFmpegIntrospection {
+        let videoEncoders: Set<String>
+        let audioEncoders: Set<String>
+        let muxers: Set<String>
+        let muxerExtensions: [String: [String]]
+    }
+
+    private struct FFmpegMuxerDescriptor {
+        let name: String
+        let description: String
+    }
+
+    private static func ffmpegDiscoveredFormats(from introspection: FFmpegIntrospection) -> [VideoFormatOption] {
+        var formats: [VideoFormatOption] = []
+
+        for (muxer, extensions) in introspection.muxerExtensions {
+            for fileExtension in extensions where VideoFormatOption.isLikelyVideoFileExtension(fileExtension) {
+                formats.append(VideoFormatOption.fromFFmpegExtension(fileExtension, muxer: muxer))
+            }
+        }
+
+        return VideoFormatOption.deduplicatedAndSorted(formats)
+    }
+
+    private static func ffmpegDiscoveredAudioFormats(from introspection: FFmpegIntrospection) -> [AudioFormatOption] {
+        var formats: [AudioFormatOption] = []
+
+        for (muxer, extensions) in introspection.muxerExtensions {
+            for fileExtension in extensions where AudioFormatOption.isLikelyAudioFileExtension(fileExtension) {
+                formats.append(AudioFormatOption.fromFFmpegExtension(fileExtension, muxer: muxer))
+            }
+        }
+
+        return AudioFormatOption.deduplicatedAndSorted(formats)
+    }
+
+    private static func isFFmpegFormatSupported(_ format: VideoFormatOption, introspection: FFmpegIntrospection) -> Bool {
+        if format.ffmpegRequiredMuxers.isEmpty {
+            return format.avFileType != nil
+        }
+
+        let hasMuxer = format.ffmpegRequiredMuxers.contains(where: { introspection.muxers.contains($0) })
+        return hasMuxer
+    }
+
+    private static func isFFmpegAudioFormatSupported(_ format: AudioFormatOption, introspection: FFmpegIntrospection) -> Bool {
+        if format.ffmpegRequiredMuxers.isEmpty {
+            return true
+        }
+
+        return format.ffmpegRequiredMuxers.contains(where: { introspection.muxers.contains($0) })
+    }
+
+    private static func inspectFFmpeg(at ffmpegPath: String) throws -> FFmpegIntrospection {
+        if let cached = ffmpegIntrospectionCacheQueue.sync(execute: { ffmpegIntrospectionCache[ffmpegPath] }) {
+            return cached
+        }
+
+        let encodersResult = runCommandSync(path: ffmpegPath, arguments: ["-hide_banner", "-encoders"])
+        let muxersResult = runCommandSync(path: ffmpegPath, arguments: ["-hide_banner", "-muxers"])
+
+        guard encodersResult.terminationStatus == 0 else {
+            throw ConversionError.ffmpegFailed(encodersResult.terminationStatus, encodersResult.output)
+        }
+        guard muxersResult.terminationStatus == 0 else {
+            throw ConversionError.ffmpegFailed(muxersResult.terminationStatus, muxersResult.output)
+        }
+
+        let videoEncoders = parseFFmpegEncoders(from: encodersResult.output, mediaFlag: "V")
+        let audioEncoders = parseFFmpegEncoders(from: encodersResult.output, mediaFlag: "A")
+        let muxerDescriptors = parseFFmpegMuxerDescriptors(from: muxersResult.output)
+        let muxers = Set(muxerDescriptors.map(\.name))
+        let muxerExtensions = parseFFmpegVideoMuxerExtensions(
+            ffmpegPath: ffmpegPath,
+            muxerDescriptors: muxerDescriptors
+        )
+
+        let introspection = FFmpegIntrospection(
+            videoEncoders: videoEncoders,
+            audioEncoders: audioEncoders,
+            muxers: muxers,
+            muxerExtensions: muxerExtensions
+        )
+
+        ffmpegIntrospectionCacheQueue.sync {
+            ffmpegIntrospectionCache[ffmpegPath] = introspection
+        }
+        return introspection
+    }
+
+    private static func parseFFmpegEncoders(from output: String, mediaFlag: Character) -> Set<String> {
+        var encoders = Set<String>()
+
+        for line in output.split(separator: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+
+            let parts = trimmed.split(whereSeparator: { $0.isWhitespace })
+            guard parts.count >= 2 else { continue }
+
+            let flags = String(parts[0])
+            guard flags.count >= 6, flags.first == mediaFlag else { continue }
+            encoders.insert(String(parts[1]))
+        }
+
+        return encoders
+    }
+
+    private static func parseFFmpegMuxerDescriptors(from output: String) -> [FFmpegMuxerDescriptor] {
+        var descriptors: [FFmpegMuxerDescriptor] = []
+
+        for line in output.split(separator: "\n", omittingEmptySubsequences: false) {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+
+            let parts = trimmed.split(maxSplits: 2, whereSeparator: { $0.isWhitespace })
+            guard parts.count >= 2 else { continue }
+
+            let flags = String(parts[0])
+            guard flags.contains("E") else { continue }
+
+            let muxerNames = String(parts[1])
+                .split(separator: ",")
+                .map { String($0).lowercased() }
+                .filter { !$0.isEmpty }
+            let description = parts.count == 3 ? String(parts[2]).lowercased() : ""
+
+            for muxer in muxerNames {
+                descriptors.append(FFmpegMuxerDescriptor(name: muxer, description: description))
+            }
+        }
+
+        return descriptors
+    }
+
+    private static func parseFFmpegVideoMuxerExtensions(
+        ffmpegPath: String,
+        muxerDescriptors: [FFmpegMuxerDescriptor]
+    ) -> [String: [String]] {
+        var byMuxer: [String: [String]] = [:]
+        var visited = Set<String>()
+
+        for descriptor in muxerDescriptors {
+            guard visited.insert(descriptor.name).inserted else { continue }
+            guard isLikelyVideoMuxer(descriptor) || isLikelyAudioMuxer(descriptor) else { continue }
+
+            let help = runCommandSync(path: ffmpegPath, arguments: ["-hide_banner", "-h", "muxer=\(descriptor.name)"])
+            guard help.terminationStatus == 0 else { continue }
+
+            var extensions = parseFFmpegMuxerExtensions(from: help.output)
+            if extensions.isEmpty,
+               VideoFormatOption.isLikelyVideoFileExtension(descriptor.name) ||
+                AudioFormatOption.isLikelyAudioFileExtension(descriptor.name) {
+                extensions = [descriptor.name]
+            }
+            guard !extensions.isEmpty else { continue }
+            byMuxer[descriptor.name] = extensions
+        }
+
+        return byMuxer
+    }
+
+    private static func parseFFmpegMuxerExtensions(from output: String) -> [String] {
+        var collecting = false
+        var buffer = ""
+
+        for line in output.split(separator: "\n", omittingEmptySubsequences: false) {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+
+            if !collecting {
+                guard let range = trimmed.range(of: "Common extensions:", options: [.caseInsensitive]) else { continue }
+                collecting = true
+                buffer += String(trimmed[range.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            } else {
+                buffer += " " + trimmed
+            }
+
+            if buffer.contains(".") {
+                break
+            }
+        }
+
+        guard !buffer.isEmpty else { return [] }
+        if let periodIndex = buffer.firstIndex(of: ".") {
+            buffer = String(buffer[..<periodIndex])
+        }
+
+        let allowed = CharacterSet.alphanumerics
+        var seen = Set<String>()
+        var extensions: [String] = []
+
+        for token in buffer.split(separator: ",") {
+            let cleanedScalars = token
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .unicodeScalars
+                .filter { allowed.contains($0) }
+            let normalized = String(String.UnicodeScalarView(cleanedScalars)).lowercased()
+            guard !normalized.isEmpty else { continue }
+            guard seen.insert(normalized).inserted else { continue }
+            extensions.append(normalized)
+        }
+
+        return extensions
+    }
+
+    private static func isLikelyVideoMuxer(_ descriptor: FFmpegMuxerDescriptor) -> Bool {
+        let name = descriptor.name.lowercased()
+        let description = descriptor.description.lowercased()
+
+        let explicitVideoMuxers: Set<String> = [
+            "3gp", "avi", "flv", "gif", "ipod", "matroska", "mov", "mp4", "mpeg", "mpegts", "ogg", "webm"
+        ]
+        if explicitVideoMuxers.contains(name) {
+            return true
+        }
+
+        let keywords = [
+            "video", "quicktime", "matroska", "webm", "mpeg", "movie", "avi", "flv", "ogg", "gif", "animation"
+        ]
+        return keywords.contains(where: { description.contains($0) })
+    }
+
+    private static func isLikelyAudioMuxer(_ descriptor: FFmpegMuxerDescriptor) -> Bool {
+        let name = descriptor.name.lowercased()
+        let description = descriptor.description.lowercased()
+
+        let explicitAudioMuxers: Set<String> = [
+            "aac", "ac3", "adts", "aiff", "caf", "flac", "ipod", "matroska", "mp3", "ogg", "opus", "wav"
+        ]
+        if explicitAudioMuxers.contains(name) {
+            return true
+        }
+
+        let keywords = [
+            "audio", "sound", "aac", "mp3", "wave", "wav", "flac", "opus", "ogg", "aiff", "caf"
+        ]
+        return keywords.contains(where: { description.contains($0) })
+    }
+
+    private static func runCommandSync(
+        path: String,
+        arguments: [String]
+    ) -> (terminationStatus: Int32, output: String) {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: path)
+        process.arguments = arguments
+
+        let outputPipe = Pipe()
+        process.standardOutput = outputPipe
+        process.standardError = outputPipe
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+            let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
+            let output = String(data: outputData, encoding: .utf8) ?? ""
+            return (process.terminationStatus, output)
+        } catch {
+            return (-1, error.localizedDescription)
         }
     }
 
@@ -694,7 +1407,6 @@ enum VideoConversionEngine {
             cancellationController.terminateIfNeeded()
         }
     }
-    #endif
 
     private static func removeFileIfExists(at url: URL) throws {
         if FileManager.default.fileExists(atPath: url.path) {
@@ -721,13 +1433,14 @@ enum VideoConversionEngine {
         return presets
     }
 
-    private static func supportedOutputFormatsWithAVFoundation(for asset: AVAsset) async -> [VideoContainerOption] {
-        var supported: [VideoContainerOption] = []
-        for format in VideoContainerOption.allCases {
+    private static func supportedOutputFormatsWithAVFoundation(for asset: AVAsset) async -> [VideoFormatOption] {
+        var supported: [VideoFormatOption] = []
+        for format in VideoFormatOption.avFoundationDefaultFormats {
+            guard let fileType = format.avFileType else { continue }
             let presets = await compatibleExportPresets(
                 for: asset,
                 preferredPresets: preferredExportPresets,
-                outputFileType: format.avFileType
+                outputFileType: fileType
             )
             if !presets.isEmpty {
                 supported.append(format)
@@ -829,6 +1542,19 @@ enum VideoConversionEngine {
         }
     }
 
+    private static func ensureAssetHasAudioTrack(_ asset: AVURLAsset) async throws {
+        let isPlayable = try await asset.load(.isPlayable)
+        _ = try await asset.load(.duration)
+        guard isPlayable else {
+            throw ConversionError.unreadableAsset
+        }
+
+        let audioTracks = try await asset.loadTracks(withMediaType: .audio)
+        if audioTracks.isEmpty {
+            throw ConversionError.noTracksFound
+        }
+    }
+
     private static func export(
         _ session: AVAssetExportSession,
         to outputURL: URL,
@@ -877,7 +1603,7 @@ enum ConversionError: LocalizedError {
     case invalidCustomVideoBitRate(String)
     case noCompatiblePreset([String])
     case cannotCreateExportSession(String)
-    case unsupportedOutputType(VideoContainerOption)
+    case unsupportedOutputType(VideoFormatOption)
     case exportCancelled
     case exportFailed(underlying: Error?, preset: String)
     case ffmpegUnavailable
@@ -899,7 +1625,7 @@ enum ConversionError: LocalizedError {
         case .cannotCreateExportSession:
             return "Could not create conversion session."
         case .unsupportedOutputType(let format):
-            return "\(format.rawValue) output is not supported on this device."
+            return "\(format.displayName) output is not supported on this device."
         case .exportCancelled:
             return "Conversion cancelled."
         case .ffmpegUnavailable:
