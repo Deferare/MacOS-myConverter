@@ -16,6 +16,7 @@ struct ContentView: View {
     @State private var selectedTab: ConverterTab = .video
     @State private var isVideoDropTargeted = false
     @State private var isImageDropTargeted = false
+    @State private var isAudioDropTargeted = false
 
     var body: some View {
         NavigationSplitView {
@@ -398,6 +399,47 @@ struct ContentView: View {
         }
     }
 
+    private var audioConversionControls: some View {
+        HStack(spacing: 16) {
+            Button {
+                if viewModel.isAudioConverting {
+                    viewModel.cancelAudioConversion()
+                } else {
+                    viewModel.startAudioConversion()
+                }
+            } label: {
+                Label(
+                    viewModel.isAudioConverting ? "Cancel" : "Start Conversion",
+                    systemImage: viewModel.isAudioConverting ? "xmark.circle.fill" : "play.fill"
+                )
+                .font(.body.bold())
+                .frame(minWidth: 120, minHeight: 40)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .disabled(viewModel.isAudioConverting ? false : !viewModel.canConvertAudio)
+
+            VStack(alignment: .leading, spacing: 4) {
+                ProgressView(value: viewModel.displayedAudioConversionProgress, total: 1.0)
+                    .progressViewStyle(.linear)
+                    .tint(audioProgressTintColor)
+
+                HStack {
+                    Text(viewModel.audioConversionStatusMessage)
+                        .font(.caption)
+                        .foregroundStyle(audioConversionStatusColor)
+                        .lineLimit(1)
+
+                    Spacer()
+
+                    Text(viewModel.audioProgressPercentageText)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
     private var videoProgressTintColor: Color {
         viewModel.displayedConversionProgress > 0 ? .accentColor : .clear
     }
@@ -406,12 +448,20 @@ struct ContentView: View {
         viewModel.displayedImageConversionProgress > 0 ? .accentColor : .clear
     }
 
+    private var audioProgressTintColor: Color {
+        viewModel.displayedAudioConversionProgress > 0 ? .accentColor : .clear
+    }
+
     private var videoConversionStatusColor: Color {
         statusColor(for: viewModel.conversionStatusLevel)
     }
 
     private var imageConversionStatusColor: Color {
         statusColor(for: viewModel.imageConversionStatusLevel)
+    }
+
+    private var audioConversionStatusColor: Color {
+        statusColor(for: viewModel.audioConversionStatusLevel)
     }
 
     private func statusColor(for level: ContentViewModel.ConversionStatusLevel) -> Color {
@@ -663,14 +713,116 @@ struct ContentView: View {
     }
 
     private var audioDetailView: some View {
-        VStack(spacing: 20) {
-            ContentUnavailableView(
-                "Audio Conversion Coming Soon",
-                systemImage: "waveform.badge.magnifyingglass",
-                description: Text("This feature will be available soon.")
-            )
+        VStack(spacing: 0) {
+            Group {
+                if !isAudioDropTargeted, let sourceURL = viewModel.audioSourceURL {
+                    SelectedFileView(
+                        url: sourceURL,
+                        systemImage: "waveform",
+                        isConverting: viewModel.isAudioConverting
+                    ) {
+                        withAnimation {
+                            viewModel.clearSelectedAudioSource()
+                        }
+                    }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                } else {
+                    DropFileView(
+                        isDropTargeted: isAudioDropTargeted,
+                        placeholder: "Drop Audio Here"
+                    ) {
+                        viewModel.requestFileImport()
+                    }
+                    .transition(.scale(scale: 0.98).combined(with: .opacity))
+                }
+            }
+            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: viewModel.audioSourceURL)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isAudioDropTargeted)
+            .padding(20)
+
+            Divider()
+
+            Form {
+                Section("Output Settings") {
+                    Picker("Container", selection: $viewModel.selectedAudioOutputFormat) {
+                        ForEach(viewModel.audioOutputFormatOptions) { format in
+                            Text("\(format.displayName) (.\(format.fileExtension))").tag(format)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .disabled(viewModel.audioOutputFormatOptions.isEmpty)
+
+                    Picker("Audio Encoder", selection: $viewModel.selectedAudioOutputEncoder) {
+                        ForEach(viewModel.audioOutputEncoderOptions) { option in
+                            Text(option.rawValue).tag(option)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .disabled(viewModel.audioOutputEncoderOptions.isEmpty)
+
+                    Picker("Audio Mode", selection: $viewModel.selectedAudioOutputMode) {
+                        ForEach(AudioModeOption.allCases) { option in
+                            Text(option.rawValue).tag(option)
+                        }
+                    }
+                    .pickerStyle(.menu)
+
+                    if viewModel.shouldShowAudioOutputSampleRateOption {
+                        Picker("Sample Rate", selection: $viewModel.selectedAudioOutputSampleRate) {
+                            ForEach(SampleRateOption.allCases) { option in
+                                Text(option.rawValue).tag(option)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                    }
+
+                    if viewModel.shouldShowAudioOutputBitRateOption {
+                        Picker("Audio Bit Rate", selection: $viewModel.selectedAudioOutputBitRate) {
+                            ForEach(AudioBitRateOption.allCases) { option in
+                                Text(option.rawValue).tag(option)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                    }
+
+                    if let hint = viewModel.audioFormatHintMessage {
+                        Text(hint)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Section("Output File") {
+                    if let convertedURL = viewModel.convertedAudioURL {
+                        ConversionResultView(
+                            url: convertedURL,
+                            detailText: "Your audio is ready to play",
+                            openSystemImage: "music.note"
+                        )
+                        .padding(.vertical, 4)
+                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                    } else {
+                        Text("The converted file will appear here")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.vertical, 20)
+                    }
+                }
+            }
+            .formStyle(.grouped)
+        }
+        .safeAreaInset(edge: .bottom) {
+            audioConversionControls
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+                .background(.regularMaterial)
+                .overlay(Rectangle().frame(height: 1).foregroundStyle(.separator), alignment: .top)
         }
         .navigationTitle("Convert Audio")
+        .onDrop(of: [.fileURL], isTargeted: $isAudioDropTargeted) { providers in
+            viewModel.handleAudioDrop(providers: providers)
+        }
     }
 
     private var aboutDetailView: some View {

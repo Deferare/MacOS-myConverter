@@ -52,6 +52,13 @@ final class ContentViewModel: ObservableObject {
         return VideoFormatOption.fromFFmpegExtension("mp4", muxer: "mp4")
     }
 
+    private static var defaultAudioFormat: AudioFormatOption {
+        if let preferred = AudioFormatOption.defaultSelection(from: VideoConversionEngine.defaultAudioOutputFormats()) {
+            return preferred
+        }
+        return AudioFormatOption.fromFFmpegExtension("m4a", muxer: "ipod")
+    }
+
     // Video state
     @Published private(set) var sourceURL: URL?
     @Published private(set) var convertedURL: URL?
@@ -77,6 +84,18 @@ final class ContentViewModel: ObservableObject {
     @Published var isImageConverting = false
     @Published private(set) var imageConversionProgress: Double = 0
     @Published private(set) var availableImageOutputFormats: [ImageFormatOption] = ImageConversionEngine.defaultOutputFormats()
+
+    // Audio state
+    @Published private(set) var audioSourceURL: URL?
+    @Published private(set) var convertedAudioURL: URL?
+    @Published private(set) var audioConversionErrorMessage: String?
+    @Published private(set) var audioSourceCompatibilityErrorMessage: String?
+    @Published private(set) var audioSourceCompatibilityWarningMessage: String?
+    @Published private(set) var isAnalyzingAudioSource = false
+    @Published var isAudioConverting = false
+    @Published private(set) var audioConversionProgress: Double = 0
+    @Published private(set) var availableAudioOutputFormats: [AudioFormatOption] = VideoConversionEngine.defaultAudioOutputFormats()
+    @Published private(set) var availableAudioOutputEncoders: [AudioEncoderOption] = [.auto]
 
     @Published var isImporting = false
 
@@ -136,6 +155,27 @@ final class ContentViewModel: ObservableObject {
     }
     @Published var preserveImageAnimation = true {
         didSet { persistCurrentImageSettingsIfNeeded() }
+    }
+
+    // Audio options
+    @Published var selectedAudioOutputFormat: AudioFormatOption = ContentViewModel.defaultAudioFormat {
+        didSet {
+            scheduleAudioFormatChangeHandling()
+        }
+    }
+    @Published var selectedAudioOutputEncoder: AudioEncoderOption = .aac {
+        didSet {
+            scheduleAudioOptionNormalizationAndPersist()
+        }
+    }
+    @Published var selectedAudioOutputMode: AudioModeOption = .auto {
+        didSet { persistCurrentAudioSettingsIfNeeded() }
+    }
+    @Published var selectedAudioOutputSampleRate: SampleRateOption = .hz48000 {
+        didSet { persistCurrentAudioSettingsIfNeeded() }
+    }
+    @Published var selectedAudioOutputBitRate: AudioBitRateOption = .auto {
+        didSet { persistCurrentAudioSettingsIfNeeded() }
     }
 
     private struct VideoConversionSettings {
@@ -276,30 +316,92 @@ final class ContentViewModel: ObservableObject {
         }
     }
 
+    private struct AudioConversionSettings {
+        var outputFormatID: String = ContentViewModel.defaultAudioFormat.id
+        var audioEncoder: AudioEncoderOption = .aac
+        var audioMode: AudioModeOption = .auto
+        var sampleRate: SampleRateOption = .hz48000
+        var audioBitRate: AudioBitRateOption = .auto
+    }
+
+    private struct PersistedAudioConversionSettings: Codable {
+        var outputFormat: String
+        var audioEncoder: String
+        var audioMode: String
+        var sampleRate: String
+        var audioBitRate: String
+
+        private enum CodingKeys: String, CodingKey {
+            case outputFormat
+            case audioEncoder
+            case audioMode
+            case sampleRate
+            case audioBitRate
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            outputFormat = try container.decode(String.self, forKey: .outputFormat)
+            audioEncoder = try container.decode(String.self, forKey: .audioEncoder)
+            audioMode = try container.decode(String.self, forKey: .audioMode)
+            sampleRate = try container.decode(String.self, forKey: .sampleRate)
+            audioBitRate = try container.decode(String.self, forKey: .audioBitRate)
+        }
+
+        init(from settings: AudioConversionSettings) {
+            outputFormat = settings.outputFormatID
+            audioEncoder = settings.audioEncoder.rawValue
+            audioMode = settings.audioMode.rawValue
+            sampleRate = settings.sampleRate.rawValue
+            audioBitRate = settings.audioBitRate.rawValue
+        }
+
+        var restoredSettings: AudioConversionSettings {
+            AudioConversionSettings(
+                outputFormatID: outputFormat,
+                audioEncoder: AudioEncoderOption(rawValue: audioEncoder) ?? .aac,
+                audioMode: AudioModeOption(rawValue: audioMode) ?? .auto,
+                sampleRate: SampleRateOption(rawValue: sampleRate) ?? .hz48000,
+                audioBitRate: AudioBitRateOption(rawValue: audioBitRate) ?? .auto
+            )
+        }
+    }
+
     private var videoSettingsBySourceID: [String: VideoConversionSettings] = [:]
     private var imageSettingsBySourceID: [String: ImageConversionSettings] = [:]
+    private var audioSettingsBySourceID: [String: AudioConversionSettings] = [:]
 
     private var isApplyingStoredSettings = false
     private var isApplyingStoredImageSettings = false
+    private var isApplyingStoredAudioSettings = false
 
     private var sourceAnalysisTask: Task<Void, Never>?
     private var conversionTask: Task<Void, Never>?
     private var imageSourceAnalysisTask: Task<Void, Never>?
     private var imageConversionTask: Task<Void, Never>?
+    private var audioSourceAnalysisTask: Task<Void, Never>?
+    private var audioConversionTask: Task<Void, Never>?
     private var pendingVideoFormatChangeTask: Task<Void, Never>?
     private var pendingVideoOptionNormalizationTask: Task<Void, Never>?
+    private var pendingAudioFormatChangeTask: Task<Void, Never>?
+    private var pendingAudioOptionNormalizationTask: Task<Void, Never>?
 
     private let videoSettingsStorageKey = "ContentViewModel.VideoSettingsBySource"
     private let imageSettingsStorageKey = "ContentViewModel.ImageSettingsBySource"
+    private let audioSettingsStorageKey = "ContentViewModel.AudioSettingsBySource"
 
     init() {
         videoSettingsBySourceID = loadPersistedSettings()
         imageSettingsBySourceID = loadPersistedImageSettings()
+        audioSettingsBySourceID = loadPersistedAudioSettings()
         availableOutputFormats = VideoConversionEngine.defaultOutputFormats()
         ensureSelectedVideoOutputFormatIsAvailable()
         refreshVideoCodecOptions()
         availableImageOutputFormats = ImageConversionEngine.defaultOutputFormats()
         ensureSelectedImageOutputFormatIsAvailable()
+        availableAudioOutputFormats = VideoConversionEngine.defaultAudioOutputFormats()
+        ensureSelectedAudioOutputFormatIsAvailable()
+        refreshAudioCodecOptions()
     }
 
     // MARK: - Video Computed Properties
@@ -490,6 +592,77 @@ final class ContentViewModel: ObservableObject {
         return nil
     }
 
+    // MARK: - Audio Computed Properties
+
+    var canConvertAudio: Bool {
+        audioSourceURL != nil &&
+            !isAudioConverting &&
+            !isAnalyzingAudioSource &&
+            audioSettingsValidationMessage == nil &&
+            availableAudioOutputFormats.contains(where: { $0.normalizedID == selectedAudioOutputFormat.normalizedID })
+    }
+
+    var displayedAudioConversionProgress: Double {
+        let rawProgress = isAudioConverting ? audioConversionProgress : 0
+        return rawProgress < 0.01 ? 0 : rawProgress
+    }
+
+    var audioProgressPercentageText: String {
+        let percent = Int((displayedAudioConversionProgress * 100).rounded())
+        return "\(max(0, min(percent, 100)))%"
+    }
+
+    var audioConversionStatusMessage: String {
+        audioConversionStatus.message
+    }
+
+    var audioConversionStatusLevel: ConversionStatusLevel {
+        audioConversionStatus.level
+    }
+
+    var audioOutputFormatOptions: [AudioFormatOption] {
+        if availableAudioOutputFormats.isEmpty && audioSourceURL == nil {
+            return VideoConversionEngine.defaultAudioOutputFormats()
+        }
+        return availableAudioOutputFormats
+    }
+
+    var audioOutputEncoderOptions: [AudioEncoderOption] {
+        if !availableAudioOutputEncoders.isEmpty {
+            return availableAudioOutputEncoders
+        }
+        return selectedAudioOutputFormat.allowsFFmpegAutomaticAudioCodec ? [.auto] : []
+    }
+
+    var shouldShowAudioOutputSampleRateOption: Bool {
+        selectedAudioOutputEncoder.supportsSampleRate
+    }
+
+    var shouldShowAudioOutputBitRateOption: Bool {
+        selectedAudioOutputEncoder.supportsAudioBitRate
+    }
+
+    var audioFormatHintMessage: String? {
+        if let warning = audioSourceCompatibilityWarningMessage, !warning.isEmpty {
+            return warning
+        }
+        return nil
+    }
+
+    var audioSettingsValidationMessage: String? {
+        if let audioSourceCompatibilityErrorMessage {
+            return audioSourceCompatibilityErrorMessage
+        }
+        if audioSourceURL != nil &&
+            !availableAudioOutputFormats.contains(where: { $0.normalizedID == selectedAudioOutputFormat.normalizedID }) {
+            return "Selected output format is not available for this source."
+        }
+        if !audioOutputEncoderOptions.contains(selectedAudioOutputEncoder) {
+            return "Selected audio encoder is not available for this format."
+        }
+        return nil
+    }
+
     // MARK: - Input Handling
 
     func preferredImportTypes(for selectedTab: ConverterTab) -> [UTType] {
@@ -549,6 +722,23 @@ final class ContentViewModel: ObservableObject {
         ensureSelectedImageOutputFormatIsAvailable()
     }
 
+    func clearSelectedAudioSource() {
+        audioSourceAnalysisTask?.cancel()
+        audioSourceAnalysisTask = nil
+
+        audioSourceURL = nil
+        convertedAudioURL = nil
+        audioConversionErrorMessage = nil
+        audioSourceCompatibilityErrorMessage = nil
+        audioSourceCompatibilityWarningMessage = nil
+        isAnalyzingAudioSource = false
+        availableAudioOutputFormats = VideoConversionEngine.defaultAudioOutputFormats()
+
+        applyStoredAudioSettings(.init())
+        ensureSelectedAudioOutputFormatIsAvailable()
+        refreshAudioCodecOptions()
+    }
+
     func handleFileImportResult(_ result: Result<[URL], Error>, for selectedTab: ConverterTab) {
         switch result {
         case .success(let urls):
@@ -558,7 +748,9 @@ final class ContentViewModel: ObservableObject {
                 applySelectedSource(selected)
             case .image:
                 applySelectedImageSource(selected)
-            case .audio, .about:
+            case .audio:
+                applySelectedAudioSource(selected)
+            case .about:
                 break
             }
         case .failure(let error):
@@ -579,6 +771,12 @@ final class ContentViewModel: ObservableObject {
     func handleImageDrop(providers: [NSItemProvider]) -> Bool {
         handleDroppedFile(providers: providers) { [weak self] url in
             self?.applySelectedImageSource(url)
+        }
+    }
+
+    func handleAudioDrop(providers: [NSItemProvider]) -> Bool {
+        handleDroppedFile(providers: providers) { [weak self] url in
+            self?.applySelectedAudioSource(url)
         }
     }
 
@@ -633,6 +831,18 @@ final class ContentViewModel: ObservableObject {
     func cancelImageConversion() {
         guard isImageConverting else { return }
         imageConversionTask?.cancel()
+    }
+
+    func startAudioConversion() {
+        guard !isAudioConverting else { return }
+        audioConversionTask = Task { [weak self] in
+            await self?.convertAudio()
+        }
+    }
+
+    func cancelAudioConversion() {
+        guard isAudioConverting else { return }
+        audioConversionTask?.cancel()
     }
 
     // MARK: - Video Source / Analyze
@@ -748,6 +958,60 @@ final class ContentViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Audio Source / Analyze
+
+    private func applySelectedAudioSource(_ url: URL) {
+        audioSourceAnalysisTask?.cancel()
+        audioSourceAnalysisTask = nil
+
+        audioSourceURL = url
+        convertedAudioURL = nil
+        audioConversionErrorMessage = nil
+        audioSourceCompatibilityErrorMessage = nil
+        audioSourceCompatibilityWarningMessage = nil
+
+        let sourceID = sourceIdentifier(for: url)
+        let stored = audioSettingsBySourceID[sourceID] ?? AudioConversionSettings()
+        applyStoredAudioSettings(stored)
+
+        analyzeAudioSourceCompatibility(for: url)
+    }
+
+    private func analyzeAudioSourceCompatibility(for url: URL) {
+        isAnalyzingAudioSource = true
+
+        audioSourceAnalysisTask = Task { [weak self] in
+            guard let self else { return }
+
+            let shouldStopSourceAccessing = url.startAccessingSecurityScopedResource()
+            defer {
+                if shouldStopSourceAccessing {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+
+            let capabilities = await VideoConversionEngine.sourceCapabilitiesForAudio(for: url)
+
+            guard !Task.isCancelled else { return }
+            guard let currentSourceURL = self.audioSourceURL else { return }
+            guard self.sourceIdentifier(for: url) == self.sourceIdentifier(for: currentSourceURL) else { return }
+
+            self.isAnalyzingAudioSource = false
+            self.availableAudioOutputFormats = capabilities.availableOutputFormats
+            self.audioSourceCompatibilityWarningMessage = capabilities.warningMessage
+            self.audioSourceCompatibilityErrorMessage = capabilities.errorMessage
+
+            if let first = capabilities.availableOutputFormats.first,
+               !capabilities.availableOutputFormats.contains(where: { $0.normalizedID == self.selectedAudioOutputFormat.normalizedID }) {
+                self.selectedAudioOutputFormat = first
+            }
+
+            self.ensureSelectedAudioOutputFormatIsAvailable()
+            self.refreshAudioCodecOptions()
+            self.persistCurrentAudioSettingsIfNeeded()
+        }
+    }
+
     // MARK: - Build Settings
 
     private func buildVideoOutputSettings() throws -> VideoOutputSettings {
@@ -808,6 +1072,16 @@ final class ContentViewModel: ObservableObject {
         )
     }
 
+    private func buildAudioOutputSettings() -> AudioOutputSettings {
+        AudioOutputSettings(
+            containerFormat: selectedAudioOutputFormat,
+            audioCodecCandidates: selectedAudioOutputEncoder.codecCandidates,
+            audioChannels: selectedAudioOutputMode.channelCount,
+            sampleRate: shouldShowAudioOutputSampleRateOption ? selectedAudioOutputSampleRate.hertz : nil,
+            audioBitRateKbps: shouldShowAudioOutputBitRateOption ? selectedAudioOutputBitRate.kbps : nil
+        )
+    }
+
     // MARK: - Conversion State / Errors
 
     private func prepareConversionStartState() {
@@ -822,6 +1096,13 @@ final class ContentViewModel: ObservableObject {
         convertedImageURL = nil
         imageConversionErrorMessage = nil
         imageConversionProgress = 0
+    }
+
+    private func prepareAudioConversionStartState() {
+        isAudioConverting = true
+        convertedAudioURL = nil
+        audioConversionErrorMessage = nil
+        audioConversionProgress = 0
     }
 
     private func applyConversionError(_ error: Error) {
@@ -842,6 +1123,16 @@ final class ContentViewModel: ObservableObject {
     private func applyImageConversionError(_ error: Error) {
         imageConversionErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         print("Image conversion failed: \(imageConversionErrorMessage ?? error.localizedDescription)")
+    }
+
+    private func applyAudioConversionError(_ error: Error) {
+        if case ConversionError.exportCancelled = error {
+            audioConversionErrorMessage = nil
+            return
+        }
+
+        audioConversionErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        print("Audio conversion failed: \(audioConversionErrorMessage ?? error.localizedDescription)")
     }
 
     // MARK: - Video Convert
@@ -983,6 +1274,74 @@ final class ContentViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Audio Convert
+
+    private func convertAudio() async {
+        defer { audioConversionTask = nil }
+
+        guard canConvertAudio, let sourceURL = audioSourceURL else {
+            if audioSourceURL == nil {
+                print("No audio file to convert.")
+            }
+            return
+        }
+
+        let outputSettings = buildAudioOutputSettings()
+        prepareAudioConversionStartState()
+
+        let shouldStopSourceAccessing = sourceURL.startAccessingSecurityScopedResource()
+        defer {
+            if shouldStopSourceAccessing {
+                sourceURL.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        do {
+            defer { isAudioConverting = false }
+            try Task.checkCancellation()
+
+            let outputDirectory = try VideoConversionEngine.sandboxOutputDirectory(
+                bundleIdentifier: Bundle.main.bundleIdentifier
+            )
+
+            let destinationURL = VideoConversionEngine.uniqueOutputURL(
+                for: sourceURL,
+                format: selectedAudioOutputFormat,
+                in: outputDirectory
+            )
+            let workingOutputURL = VideoConversionEngine.temporaryOutputURL(
+                for: sourceURL,
+                format: selectedAudioOutputFormat
+            )
+            defer {
+                if FileManager.default.fileExists(atPath: workingOutputURL.path) {
+                    try? FileManager.default.removeItem(at: workingOutputURL)
+                }
+            }
+
+            let output = try await VideoConversionEngine.convertAudio(
+                inputURL: sourceURL,
+                outputURL: workingOutputURL,
+                outputSettings: outputSettings,
+                inputDurationSeconds: nil
+            ) { [weak self] progress in
+                await self?.updateAudioConversionProgress(progress)
+            }
+            try Task.checkCancellation()
+
+            convertedAudioURL = try VideoConversionEngine.saveConvertedOutput(from: output, to: destinationURL)
+            audioConversionProgress = 1
+        } catch is CancellationError {
+            audioConversionProgress = 0
+            audioConversionErrorMessage = nil
+        } catch ConversionError.exportCancelled {
+            audioConversionProgress = 0
+            audioConversionErrorMessage = nil
+        } catch {
+            applyAudioConversionError(error)
+        }
+    }
+
     // MARK: - Progress
 
     private func updateConversionProgress(_ rawProgress: Double) {
@@ -991,6 +1350,10 @@ final class ContentViewModel: ObservableObject {
 
     private func updateImageConversionProgress(_ rawProgress: Double) {
         imageConversionProgress = min(max(rawProgress, 0), 1)
+    }
+
+    private func updateAudioConversionProgress(_ rawProgress: Double) {
+        audioConversionProgress = min(max(rawProgress, 0), 1)
     }
 
     // MARK: - Persistence
@@ -1016,6 +1379,26 @@ final class ContentViewModel: ObservableObject {
             guard let self else { return }
             self.normalizeVideoOptionDependencies()
             self.persistCurrentSettingsIfNeeded()
+        }
+    }
+
+    private func scheduleAudioFormatChangeHandling() {
+        pendingAudioFormatChangeTask?.cancel()
+        pendingAudioFormatChangeTask = Task { @MainActor [weak self] in
+            await Task.yield()
+            guard let self else { return }
+            self.refreshAudioCodecOptions()
+            self.persistCurrentAudioSettingsIfNeeded()
+        }
+    }
+
+    private func scheduleAudioOptionNormalizationAndPersist() {
+        pendingAudioOptionNormalizationTask?.cancel()
+        pendingAudioOptionNormalizationTask = Task { @MainActor [weak self] in
+            await Task.yield()
+            guard let self else { return }
+            self.normalizeAudioOptionDependencies()
+            self.persistCurrentAudioSettingsIfNeeded()
         }
     }
 
@@ -1055,6 +1438,19 @@ final class ContentViewModel: ObservableObject {
         savePersistedImageSettings()
     }
 
+    private func persistCurrentAudioSettingsIfNeeded() {
+        guard !isApplyingStoredAudioSettings, let audioSourceURL else { return }
+
+        audioSettingsBySourceID[sourceIdentifier(for: audioSourceURL)] = AudioConversionSettings(
+            outputFormatID: selectedAudioOutputFormat.id,
+            audioEncoder: selectedAudioOutputEncoder,
+            audioMode: selectedAudioOutputMode,
+            sampleRate: selectedAudioOutputSampleRate,
+            audioBitRate: selectedAudioOutputBitRate
+        )
+        savePersistedAudioSettings()
+    }
+
     private func applyStoredSettings(_ settings: VideoConversionSettings) {
         isApplyingStoredSettings = true
         defer { isApplyingStoredSettings = false }
@@ -1091,11 +1487,35 @@ final class ContentViewModel: ObservableObject {
         ensureSelectedImageOutputFormatIsAvailable()
     }
 
+    private func applyStoredAudioSettings(_ settings: AudioConversionSettings) {
+        isApplyingStoredAudioSettings = true
+        defer { isApplyingStoredAudioSettings = false }
+
+        if let matchingFormat = audioOutputFormatOptions.first(where: { $0.normalizedID == settings.outputFormatID.lowercased() }) {
+            selectedAudioOutputFormat = matchingFormat
+        }
+        selectedAudioOutputEncoder = settings.audioEncoder
+        selectedAudioOutputMode = settings.audioMode
+        selectedAudioOutputSampleRate = settings.sampleRate
+        selectedAudioOutputBitRate = settings.audioBitRate
+        ensureSelectedAudioOutputFormatIsAvailable()
+        refreshAudioCodecOptions()
+    }
+
     private func ensureSelectedImageOutputFormatIsAvailable() {
         let options = imageOutputFormatOptions
         guard !options.isEmpty else { return }
         if !options.contains(where: { $0.normalizedID == selectedImageOutputFormat.normalizedID }), let first = options.first {
             selectedImageOutputFormat = first
+        }
+    }
+
+    private func ensureSelectedAudioOutputFormatIsAvailable() {
+        let options = audioOutputFormatOptions
+        guard !options.isEmpty else { return }
+        if !options.contains(where: { $0.normalizedID == selectedAudioOutputFormat.normalizedID }),
+           let preferred = AudioFormatOption.defaultSelection(from: options) {
+            selectedAudioOutputFormat = preferred
         }
     }
 
@@ -1127,6 +1547,22 @@ final class ContentViewModel: ObservableObject {
         normalizeVideoOptionDependencies()
     }
 
+    private func refreshAudioCodecOptions() {
+        let format = selectedAudioOutputFormat
+        availableAudioOutputEncoders = VideoConversionEngine.availableAudioEncoders(for: format)
+
+        let effectiveOptions = availableAudioOutputEncoders.isEmpty && format.allowsFFmpegAutomaticAudioCodec
+            ? [.auto]
+            : availableAudioOutputEncoders
+
+        if let preferred = preferredAudioOutputEncoder(for: format, from: effectiveOptions),
+           !effectiveOptions.contains(selectedAudioOutputEncoder) {
+            selectedAudioOutputEncoder = preferred
+        }
+
+        normalizeAudioOptionDependencies()
+    }
+
     private func preferredVideoEncoder(from options: [VideoEncoderOption]) -> VideoEncoderOption? {
         guard !options.isEmpty else { return nil }
         if options.contains(.h264GPU) { return .h264GPU }
@@ -1138,6 +1574,30 @@ final class ContentViewModel: ObservableObject {
     private func preferredAudioEncoder(from options: [AudioEncoderOption]) -> AudioEncoderOption? {
         guard !options.isEmpty else { return nil }
         if options.contains(.aac) { return .aac }
+        if options.contains(.auto) { return .auto }
+        return options.first
+    }
+
+    private func preferredAudioOutputEncoder(for format: AudioFormatOption, from options: [AudioEncoderOption]) -> AudioEncoderOption? {
+        guard !options.isEmpty else { return nil }
+
+        switch format.fileExtension.lowercased() {
+        case "m4a", "aac":
+            if options.contains(.aac) { return .aac }
+        case "mp3":
+            if options.contains(.mp3) { return .mp3 }
+        case "wav", "aiff", "aif", "caf":
+            if options.contains(.pcm) { return .pcm }
+        case "flac":
+            if options.contains(.flac) { return .flac }
+        case "opus", "ogg", "oga":
+            if options.contains(.opus) { return .opus }
+        default:
+            break
+        }
+
+        if options.contains(.aac) { return .aac }
+        if options.contains(.mp3) { return .mp3 }
         if options.contains(.auto) { return .auto }
         return options.first
     }
@@ -1165,6 +1625,19 @@ final class ContentViewModel: ObservableObject {
         }
     }
 
+    private func normalizeAudioOptionDependencies() {
+        let options = audioOutputEncoderOptions
+        if !options.isEmpty,
+           !options.contains(selectedAudioOutputEncoder),
+           let preferred = preferredAudioOutputEncoder(for: selectedAudioOutputFormat, from: options) {
+            selectedAudioOutputEncoder = preferred
+        }
+
+        if !selectedAudioOutputEncoder.supportsAudioBitRate && selectedAudioOutputBitRate != .auto {
+            selectedAudioOutputBitRate = .auto
+        }
+    }
+
     private func savePersistedSettings() {
         let persisted = videoSettingsBySourceID.mapValues { PersistedVideoConversionSettings(from: $0) }
         do {
@@ -1182,6 +1655,16 @@ final class ContentViewModel: ObservableObject {
             UserDefaults.standard.set(data, forKey: imageSettingsStorageKey)
         } catch {
             print("Failed to persist image settings: \(error.localizedDescription)")
+        }
+    }
+
+    private func savePersistedAudioSettings() {
+        let persisted = audioSettingsBySourceID.mapValues { PersistedAudioConversionSettings(from: $0) }
+        do {
+            let data = try JSONEncoder().encode(persisted)
+            UserDefaults.standard.set(data, forKey: audioSettingsStorageKey)
+        } catch {
+            print("Failed to persist audio settings: \(error.localizedDescription)")
         }
     }
 
@@ -1209,6 +1692,20 @@ final class ContentViewModel: ObservableObject {
             return decoded.mapValues { $0.restoredSettings }
         } catch {
             print("Failed to load persisted image settings: \(error.localizedDescription)")
+            return [:]
+        }
+    }
+
+    private func loadPersistedAudioSettings() -> [String: AudioConversionSettings] {
+        guard let data = UserDefaults.standard.data(forKey: audioSettingsStorageKey) else {
+            return [:]
+        }
+
+        do {
+            let decoded = try JSONDecoder().decode([String: PersistedAudioConversionSettings].self, from: data)
+            return decoded.mapValues { $0.restoredSettings }
+        } catch {
+            print("Failed to load persisted audio settings: \(error.localizedDescription)")
             return [:]
         }
     }
@@ -1261,6 +1758,34 @@ final class ContentViewModel: ObservableObject {
         }
 
         if let hint = imageFormatHintMessage, !hint.isEmpty {
+            return (hint, .warning)
+        }
+
+        return ("Ready", .normal)
+    }
+
+    private var audioConversionStatus: (message: String, level: ConversionStatusLevel) {
+        if isAudioConverting {
+            return ("Conversion in progress...", .normal)
+        }
+
+        if isAnalyzingAudioSource {
+            return ("Analyzing source compatibility...", .normal)
+        }
+
+        if let error = audioConversionErrorMessage, !error.isEmpty {
+            return (error, .error)
+        }
+
+        if let validation = audioSettingsValidationMessage {
+            return (validation, .error)
+        }
+
+        if let warning = audioSourceCompatibilityWarningMessage, !warning.isEmpty {
+            return (warning, .warning)
+        }
+
+        if let hint = audioFormatHintMessage, !hint.isEmpty {
             return (hint, .warning)
         }
 

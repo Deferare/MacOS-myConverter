@@ -427,6 +427,305 @@ private struct VideoFormatProfile {
     }()
 }
 
+struct AudioFormatOption: Identifiable, Hashable, Sendable {
+    let id: String
+    let displayName: String
+    let fileExtension: String
+    let ffmpegRequiredMuxers: [String]
+    let preferredFFmpegMuxer: String?
+    let allowsFFmpegAutomaticAudioCodec: Bool
+
+    var normalizedID: String {
+        id.lowercased()
+    }
+
+    static func == (lhs: AudioFormatOption, rhs: AudioFormatOption) -> Bool {
+        lhs.normalizedID == rhs.normalizedID
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(normalizedID)
+    }
+
+    static var ffmpegKnownFormats: [AudioFormatOption] {
+        AudioFormatProfile.ffmpegOnlyProfiles.map { $0.asOption }
+    }
+
+    static func fromFFmpegExtension(_ fileExtension: String, muxer: String) -> AudioFormatOption {
+        let normalizedExtension = normalizedFileExtension(fileExtension)
+        let normalizedMuxer = muxer.lowercased()
+        let extensionUTType = UTType(filenameExtension: normalizedExtension)
+        let profile = AudioFormatProfile.byFileExtension[normalizedExtension]
+
+        let resolvedID =
+            profile?.id ??
+            extensionUTType?.identifier.lowercased() ??
+            "ffmpeg.\(normalizedExtension)"
+
+        let resolvedDisplayName =
+            profile?.displayName ??
+            extensionUTType?.localizedDescription ??
+            normalizedExtension.uppercased()
+
+        let resolvedExtension =
+            profile?.fileExtension ??
+            extensionUTType?.preferredFilenameExtension ??
+            normalizedExtension
+
+        let resolvedMuxers = uniqueStrings((profile?.ffmpegRequiredMuxers ?? []) + [normalizedMuxer])
+
+        return AudioFormatOption(
+            id: resolvedID,
+            displayName: resolvedDisplayName,
+            fileExtension: resolvedExtension,
+            ffmpegRequiredMuxers: resolvedMuxers,
+            preferredFFmpegMuxer: profile?.preferredFFmpegMuxer ?? normalizedMuxer,
+            allowsFFmpegAutomaticAudioCodec: profile?.allowsFFmpegAutomaticAudioCodec ?? true
+        )
+    }
+
+    static func deduplicatedAndSorted(_ formats: [AudioFormatOption]) -> [AudioFormatOption] {
+        var byID: [String: AudioFormatOption] = [:]
+
+        for format in formats {
+            let key = format.normalizedID
+            if let existing = byID[key] {
+                byID[key] = existing.merged(with: format)
+            } else {
+                byID[key] = format
+            }
+        }
+
+        return byID.values.sorted { lhs, rhs in
+            lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
+        }
+    }
+
+    static func defaultSelection(from formats: [AudioFormatOption]) -> AudioFormatOption? {
+        let normalized = deduplicatedAndSorted(formats)
+        guard !normalized.isEmpty else { return nil }
+
+        let preferredExtensions = ["m4a", "mp3", "wav", "flac"]
+        for ext in preferredExtensions {
+            if let preferred = normalized.first(where: { $0.fileExtension.lowercased() == ext }) {
+                return preferred
+            }
+        }
+
+        return normalized.first
+    }
+
+    static func isLikelyAudioFileExtension(_ fileExtension: String) -> Bool {
+        let normalized = normalizedFileExtension(fileExtension)
+        guard !normalized.isEmpty else { return false }
+
+        if let utType = UTType(filenameExtension: normalized),
+           utType.conforms(to: .audio) {
+            return true
+        }
+
+        return knownAudioExtensions.contains(normalized)
+    }
+
+    private func merged(with other: AudioFormatOption) -> AudioFormatOption {
+        AudioFormatOption(
+            id: id,
+            displayName: displayName.count >= other.displayName.count ? displayName : other.displayName,
+            fileExtension: fileExtension,
+            ffmpegRequiredMuxers: Self.uniqueStrings(ffmpegRequiredMuxers + other.ffmpegRequiredMuxers),
+            preferredFFmpegMuxer: preferredFFmpegMuxer ?? other.preferredFFmpegMuxer,
+            allowsFFmpegAutomaticAudioCodec: allowsFFmpegAutomaticAudioCodec || other.allowsFFmpegAutomaticAudioCodec
+        )
+    }
+
+    private static func uniqueStrings(_ values: [String]) -> [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+
+        for value in values {
+            let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard !normalized.isEmpty else { continue }
+            if seen.insert(normalized).inserted {
+                result.append(normalized)
+            }
+        }
+
+        return result
+    }
+
+    private static func normalizedFileExtension(_ fileExtension: String) -> String {
+        var normalized = fileExtension.lowercased()
+        if normalized.hasPrefix(".") {
+            normalized.removeFirst()
+        }
+
+        normalized = normalized
+            .replacingOccurrences(of: "-", with: "")
+            .replacingOccurrences(of: "_", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return normalized
+    }
+
+    private static let knownAudioExtensions: Set<String> = [
+        "aac", "ac3", "aif", "aiff", "alac", "caf", "flac", "m4a", "m4b", "mka", "mp2",
+        "mp3", "oga", "ogg", "opus", "wav", "wma"
+    ]
+}
+
+private struct AudioFormatProfile {
+    let id: String
+    let displayName: String
+    let fileExtension: String
+    let ffmpegRequiredMuxers: [String]
+    let preferredFFmpegMuxer: String?
+    let allowsFFmpegAutomaticAudioCodec: Bool
+
+    var asOption: AudioFormatOption {
+        AudioFormatOption(
+            id: id,
+            displayName: displayName,
+            fileExtension: fileExtension,
+            ffmpegRequiredMuxers: ffmpegRequiredMuxers,
+            preferredFFmpegMuxer: preferredFFmpegMuxer,
+            allowsFFmpegAutomaticAudioCodec: allowsFFmpegAutomaticAudioCodec
+        )
+    }
+
+    static let byIdentifier: [String: AudioFormatProfile] = {
+        var map: [String: AudioFormatProfile] = [:]
+
+        func add(
+            id: String,
+            displayName: String,
+            fileExtension: String,
+            ffmpegRequiredMuxers: [String],
+            preferredFFmpegMuxer: String? = nil,
+            allowsFFmpegAutomaticAudioCodec: Bool = true
+        ) {
+            map[id.lowercased()] = AudioFormatProfile(
+                id: id.lowercased(),
+                displayName: displayName,
+                fileExtension: fileExtension.lowercased(),
+                ffmpegRequiredMuxers: ffmpegRequiredMuxers.map { $0.lowercased() },
+                preferredFFmpegMuxer: preferredFFmpegMuxer?.lowercased(),
+                allowsFFmpegAutomaticAudioCodec: allowsFFmpegAutomaticAudioCodec
+            )
+        }
+
+        add(
+            id: "ffmpeg.m4a",
+            displayName: "M4A",
+            fileExtension: "m4a",
+            ffmpegRequiredMuxers: ["ipod", "mp4"],
+            preferredFFmpegMuxer: "ipod"
+        )
+        add(
+            id: "ffmpeg.mp3",
+            displayName: "MP3",
+            fileExtension: "mp3",
+            ffmpegRequiredMuxers: ["mp3"],
+            preferredFFmpegMuxer: "mp3"
+        )
+        add(
+            id: "ffmpeg.wav",
+            displayName: "WAV",
+            fileExtension: "wav",
+            ffmpegRequiredMuxers: ["wav"],
+            preferredFFmpegMuxer: "wav"
+        )
+        add(
+            id: "ffmpeg.flac",
+            displayName: "FLAC",
+            fileExtension: "flac",
+            ffmpegRequiredMuxers: ["flac"],
+            preferredFFmpegMuxer: "flac"
+        )
+        add(
+            id: "ffmpeg.ogg",
+            displayName: "Ogg Audio",
+            fileExtension: "ogg",
+            ffmpegRequiredMuxers: ["ogg"],
+            preferredFFmpegMuxer: "ogg"
+        )
+        add(
+            id: "ffmpeg.opus",
+            displayName: "Opus",
+            fileExtension: "opus",
+            ffmpegRequiredMuxers: ["opus", "ogg"],
+            preferredFFmpegMuxer: "opus"
+        )
+        add(
+            id: "ffmpeg.aac",
+            displayName: "AAC",
+            fileExtension: "aac",
+            ffmpegRequiredMuxers: ["adts"],
+            preferredFFmpegMuxer: "adts"
+        )
+        add(
+            id: "ffmpeg.aiff",
+            displayName: "AIFF",
+            fileExtension: "aiff",
+            ffmpegRequiredMuxers: ["aiff"],
+            preferredFFmpegMuxer: "aiff"
+        )
+        add(
+            id: "ffmpeg.caf",
+            displayName: "CAF",
+            fileExtension: "caf",
+            ffmpegRequiredMuxers: ["caf"],
+            preferredFFmpegMuxer: "caf"
+        )
+        add(
+            id: "ffmpeg.mka",
+            displayName: "Matroska Audio",
+            fileExtension: "mka",
+            ffmpegRequiredMuxers: ["matroska"],
+            preferredFFmpegMuxer: "matroska"
+        )
+
+        return map
+    }()
+
+    static let byFileExtension: [String: AudioFormatProfile] = {
+        var map: [String: AudioFormatProfile] = [:]
+        for profile in byIdentifier.values {
+            map[profile.fileExtension] = profile
+        }
+
+        if let m4a = map["m4a"] {
+            map["m4b"] = map["m4b"] ?? m4a
+            map["m4r"] = map["m4r"] ?? m4a
+        }
+        if let ogg = map["ogg"] {
+            map["oga"] = map["oga"] ?? ogg
+        }
+        if let aiff = map["aiff"] {
+            map["aif"] = map["aif"] ?? aiff
+        }
+        if let aac = map["aac"] {
+            map["adts"] = map["adts"] ?? aac
+        }
+
+        return map
+    }()
+
+    static let ffmpegOnlyProfiles: [AudioFormatProfile] = {
+        [
+            byIdentifier["ffmpeg.m4a"],
+            byIdentifier["ffmpeg.mp3"],
+            byIdentifier["ffmpeg.wav"],
+            byIdentifier["ffmpeg.flac"],
+            byIdentifier["ffmpeg.ogg"],
+            byIdentifier["ffmpeg.opus"],
+            byIdentifier["ffmpeg.aac"],
+            byIdentifier["ffmpeg.aiff"],
+            byIdentifier["ffmpeg.caf"],
+            byIdentifier["ffmpeg.mka"]
+        ].compactMap { $0 }
+    }()
+}
+
 enum VideoEncoderOption: String, CaseIterable, Identifiable {
     case auto = "Auto"
     case h265CPU = "H.265(CPU)"
@@ -774,6 +1073,50 @@ enum AudioEncoderOption: String, CaseIterable, Identifiable {
             return muxers.isEmpty || muxers.contains("matroska") || muxers.contains("ogg")
         case .pcm:
             return muxers.isEmpty || muxers.contains("mov") || muxers.contains("matroska") || muxers.contains("avi")
+        }
+    }
+
+    func isCompatible(with format: AudioFormatOption) -> Bool {
+        let muxers = Set(format.ffmpegRequiredMuxers)
+
+        switch self {
+        case .auto:
+            return format.allowsFFmpegAutomaticAudioCodec
+        case .aac:
+            return muxers.isEmpty ||
+                muxers.contains("adts") ||
+                muxers.contains("ipod") ||
+                muxers.contains("mp4") ||
+                muxers.contains("mov") ||
+                muxers.contains("matroska")
+        case .opus:
+            return muxers.isEmpty ||
+                muxers.contains("ogg") ||
+                muxers.contains("opus") ||
+                muxers.contains("matroska") ||
+                muxers.contains("webm")
+        case .mp3:
+            return muxers.isEmpty ||
+                muxers.contains("mp3") ||
+                muxers.contains("matroska")
+        case .ac3:
+            return muxers.isEmpty ||
+                muxers.contains("ac3") ||
+                muxers.contains("eac3") ||
+                muxers.contains("matroska") ||
+                muxers.contains("mpegts")
+        case .flac:
+            return muxers.isEmpty ||
+                muxers.contains("flac") ||
+                muxers.contains("ogg") ||
+                muxers.contains("matroska")
+        case .pcm:
+            return muxers.isEmpty ||
+                muxers.contains("wav") ||
+                muxers.contains("aiff") ||
+                muxers.contains("caf") ||
+                muxers.contains("mov") ||
+                muxers.contains("matroska")
         }
     }
 }
