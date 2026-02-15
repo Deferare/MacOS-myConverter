@@ -63,8 +63,8 @@ struct ContentView: View {
     private var videoDetailView: some View {
         VStack(spacing: 0) {
             videoInputArea
-                .padding(20)
-            Divider()
+                .padding(24)
+            
             Form {
                 videoFormSections
             }
@@ -232,8 +232,8 @@ struct ContentView: View {
     private var imageDetailView: some View {
         VStack(spacing: 0) {
             imageInputArea
-                .padding(20)
-            Divider()
+                .padding(24)
+            
             Form {
                 imageFormSections
             }
@@ -352,7 +352,28 @@ struct ContentView: View {
     }
 
     private var videoConversionControls: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 20) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text(viewModel.conversionStatusMessage)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(videoConversionStatusColor)
+                        .lineLimit(1)
+
+                    Spacer()
+
+                    Text(viewModel.progressPercentageText)
+                        .font(.subheadline.monospacedDigit().weight(.bold))
+                        .foregroundStyle(.secondary)
+                }
+
+                ProgressView(value: viewModel.displayedConversionProgress, total: 1.0)
+                    .progressViewStyle(.linear)
+                    .tint(videoProgressTintColor)
+                    .scaleEffect(x: 1, y: 1.5, anchor: .center)
+                    .clipShape(Capsule())
+            }
+
             Button {
                 if viewModel.isConverting {
                     viewModel.cancelConversion()
@@ -360,40 +381,43 @@ struct ContentView: View {
                     viewModel.startConversion()
                 }
             } label: {
-                Label(
-                    viewModel.isConverting ? "Cancel" : "Start",
-                    systemImage: viewModel.isConverting ? "xmark.circle.fill" : "play.fill"
-                )
+                HStack(spacing: 8) {
+                    Image(systemName: viewModel.isConverting ? "xmark.circle.fill" : "play.fill")
+                    Text(viewModel.isConverting ? "Cancel" : "Start Conversion")
+                }
                 .font(.body.bold())
-                .frame(minWidth: 120, minHeight: 40)
+                .frame(minWidth: 140, minHeight: 44)
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .disabled(viewModel.isConverting ? false : !viewModel.canConvert)
-
-            VStack(alignment: .leading, spacing: 4) {
-                ProgressView(value: viewModel.displayedConversionProgress, total: 1.0)
-                    .progressViewStyle(.linear)
-                    .tint(videoProgressTintColor)
-
-                HStack {
-                    Text(viewModel.conversionStatusMessage)
-                        .font(.caption)
-                        .foregroundStyle(videoConversionStatusColor)
-                        .lineLimit(1)
-
-                    Spacer()
-
-                    Text(viewModel.progressPercentageText)
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
-                }
-            }
+            .shadow(color: .accentColor.opacity(viewModel.canConvert ? 0.2 : 0), radius: 8, x: 0, y: 4)
         }
     }
 
     private var imageConversionControls: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 20) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text(viewModel.imageConversionStatusMessage)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(imageConversionStatusColor)
+                        .lineLimit(1)
+
+                    Spacer()
+
+                    Text(viewModel.imageProgressPercentageText)
+                        .font(.subheadline.monospacedDigit().weight(.bold))
+                        .foregroundStyle(.secondary)
+                }
+
+                ProgressView(value: viewModel.displayedImageConversionProgress, total: 1.0)
+                    .progressViewStyle(.linear)
+                    .tint(imageProgressTintColor)
+                    .scaleEffect(x: 1, y: 1.5, anchor: .center)
+                    .clipShape(Capsule())
+            }
+
             Button {
                 if viewModel.isImageConverting {
                     viewModel.cancelImageConversion()
@@ -401,40 +425,43 @@ struct ContentView: View {
                     viewModel.startImageConversion()
                 }
             } label: {
-                Label(
-                    viewModel.isImageConverting ? "Cancel" : "Start",
-                    systemImage: viewModel.isImageConverting ? "xmark.circle.fill" : "play.fill"
-                )
+                HStack(spacing: 8) {
+                    Image(systemName: viewModel.isImageConverting ? "xmark.circle.fill" : "play.fill")
+                    Text(viewModel.isImageConverting ? "Cancel" : "Start Conversion")
+                }
                 .font(.body.bold())
-                .frame(minWidth: 120, minHeight: 40)
+                .frame(minWidth: 140, minHeight: 44)
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .disabled(viewModel.isImageConverting ? false : !viewModel.canConvertImage)
-
-            VStack(alignment: .leading, spacing: 4) {
-                ProgressView(value: viewModel.displayedImageConversionProgress, total: 1.0)
-                    .progressViewStyle(.linear)
-                    .tint(imageProgressTintColor)
-
-                HStack {
-                    Text(viewModel.imageConversionStatusMessage)
-                        .font(.caption)
-                        .foregroundStyle(imageConversionStatusColor)
-                        .lineLimit(1)
-
-                    Spacer()
-
-                    Text(viewModel.imageProgressPercentageText)
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
-                }
-            }
+            .shadow(color: .accentColor.opacity(viewModel.canConvertImage ? 0.2 : 0), radius: 8, x: 0, y: 4)
         }
     }
 
     private var audioConversionControls: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 20) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text(viewModel.audioConversionStatusMessage)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(audioConversionStatusColor)
+                        .lineLimit(1)
+
+                    Spacer()
+
+                    Text(viewModel.audioProgressPercentageText)
+                        .font(.subheadline.monospacedDigit().weight(.bold))
+                        .foregroundStyle(.secondary)
+                }
+
+                ProgressView(value: viewModel.displayedAudioConversionProgress, total: 1.0)
+                    .progressViewStyle(.linear)
+                    .tint(audioProgressTintColor)
+                    .scaleEffect(x: 1, y: 1.5, anchor: .center)
+                    .clipShape(Capsule())
+            }
+
             Button {
                 if viewModel.isAudioConverting {
                     viewModel.cancelAudioConversion()
@@ -442,35 +469,17 @@ struct ContentView: View {
                     viewModel.startAudioConversion()
                 }
             } label: {
-                Label(
-                    viewModel.isAudioConverting ? "Cancel" : "Start",
-                    systemImage: viewModel.isAudioConverting ? "xmark.circle.fill" : "play.fill"
-                )
+                HStack(spacing: 8) {
+                    Image(systemName: viewModel.isAudioConverting ? "xmark.circle.fill" : "play.fill")
+                    Text(viewModel.isAudioConverting ? "Cancel" : "Start Conversion")
+                }
                 .font(.body.bold())
-                .frame(minWidth: 120, minHeight: 40)
+                .frame(minWidth: 140, minHeight: 44)
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .disabled(viewModel.isAudioConverting ? false : !viewModel.canConvertAudio)
-
-            VStack(alignment: .leading, spacing: 4) {
-                ProgressView(value: viewModel.displayedAudioConversionProgress, total: 1.0)
-                    .progressViewStyle(.linear)
-                    .tint(audioProgressTintColor)
-
-                HStack {
-                    Text(viewModel.audioConversionStatusMessage)
-                        .font(.caption)
-                        .foregroundStyle(audioConversionStatusColor)
-                        .lineLimit(1)
-
-                    Spacer()
-
-                    Text(viewModel.audioProgressPercentageText)
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
-                }
-            }
+            .shadow(color: .accentColor.opacity(viewModel.canConvertAudio ? 0.2 : 0), radius: 8, x: 0, y: 4)
         }
     }
 
@@ -515,51 +524,48 @@ struct ContentView: View {
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            VStack(spacing: 20) {
+            VStack(spacing: 24) {
                 ZStack {
                     Circle()
-                        .fill(isDropTargeted ? Color.accentColor.opacity(0.15) : Color.accentColor.opacity(0.05))
-                        .frame(width: 90, height: 90)
+                        .fill(isDropTargeted ? Color.accentColor.opacity(0.12) : Color.accentColor.opacity(0.04))
+                        .frame(width: 100, height: 100)
                         .scaleEffect(isDropTargeted ? 1.1 : 1.0)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isDropTargeted)
+                        .animation(.spring(response: 0.35, dampingFraction: 0.6), value: isDropTargeted)
 
-                    Image(systemName: "arrow.down.doc.fill")
-                        .font(.system(size: 36))
-                        .foregroundStyle(isDropTargeted ? Color.accentColor : .primary)
-                        .scaleEffect(isDropTargeted ? 1.15 : 1.0)
-                        .rotationEffect(.degrees(isDropTargeted ? 10 : 0))
-                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isDropTargeted)
+                    Image(systemName: isDropTargeted ? "square.and.arrow.down.fill" : "arrow.down.doc.fill")
+                        .font(.system(size: 40, weight: .medium))
+                        .foregroundStyle(isDropTargeted ? Color.accentColor : Color.secondary)
+                        .scaleEffect(isDropTargeted ? 1.1 : 1.0)
+                        .animation(.spring(response: 0.35, dampingFraction: 0.6), value: isDropTargeted)
                 }
 
-                VStack(spacing: 8) {
-                    Text(isDropTargeted ? "Release to Import" : placeholder)
-                        .font(.title3.bold())
+                VStack(spacing: 10) {
+                    Text(isDropTargeted ? "Drop to Import" : placeholder)
+                        .font(.title3.weight(.bold))
                         .foregroundStyle(isDropTargeted ? Color.accentColor : .primary)
-                        .scaleEffect(isDropTargeted ? 1.05 : 1.0)
 
-                    Text(isDropTargeted ? "Ready to load your file" : "or click to browse local files")
-                        .font(.body)
-                        .foregroundStyle(isDropTargeted ? Color.secondary.opacity(0.8) : Color.secondary)
+                    Text(isDropTargeted ? "Release to start conversion setup" : "or click to browse local files")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
-                .animation(.easeInOut(duration: 0.2), value: isDropTargeted)
             }
             .frame(maxWidth: .infinity)
             .frame(height: fileDropAreaHeight)
             .background(
                 ZStack {
-                    RoundedRectangle(cornerRadius: 24)
-                        .fill(isDropTargeted ? Color.accentColor.opacity(0.04) : cardBackgroundColor.opacity(0.5))
+                    RoundedRectangle(cornerRadius: 20)
+                        .fill(isDropTargeted ? Color.accentColor.opacity(0.04) : Color.primary.opacity(0.02))
 
-                    RoundedRectangle(cornerRadius: 24)
+                    RoundedRectangle(cornerRadius: 20)
                         .strokeBorder(
-                            isDropTargeted ? Color.accentColor.opacity(0.6) : Color.secondary.opacity(0.2),
-                            style: StrokeStyle(lineWidth: isDropTargeted ? 3 : 1, dash: isDropTargeted ? [] : [10])
+                            isDropTargeted ? Color.accentColor : Color.secondary.opacity(0.2),
+                            style: StrokeStyle(lineWidth: isDropTargeted ? 2 : 1, dash: isDropTargeted ? [] : [6, 4])
                         )
                 }
             )
             .contentShape(Rectangle())
-            .scaleEffect(isDropTargeted ? 1.02 : 1.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isDropTargeted)
+            .scaleEffect(isDropTargeted ? 1.01 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isDropTargeted)
         }
         .buttonStyle(.plain)
     }
@@ -636,15 +642,14 @@ struct ContentView: View {
                 }
             }
         }
-        .padding(20)
+        .padding(24)
         .frame(maxWidth: .infinity, minHeight: fileDropAreaHeight, maxHeight: fileDropAreaHeight)
         .background(
-            RoundedRectangle(cornerRadius: 18)
-                .fill(cardBackgroundColor)
-                .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 3)
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color.primary.opacity(0.02))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 18)
-                        .stroke(Color.secondary.opacity(0.14), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(Color.primary.opacity(0.05), lineWidth: 1)
                 )
         )
     }
@@ -707,21 +712,25 @@ struct ContentView: View {
         order: Int,
         openSystemImage: String
     ) -> some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 16) {
             ZStack {
-                RoundedRectangle(cornerRadius: 9)
-                    .fill(Color.green.opacity(0.14))
-                    .frame(width: 34, height: 34)
-                Image(systemName: "checkmark")
-                    .font(.caption.bold())
+                Circle()
+                    .fill(Color.green.opacity(0.1))
+                    .frame(width: 40, height: 40)
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 20))
                     .foregroundStyle(.green)
             }
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
                     Text("#\(order)")
-                        .font(.caption.weight(.semibold))
+                        .font(.caption2.weight(.bold))
                         .foregroundStyle(.secondary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.secondary.opacity(0.1))
+                        .cornerRadius(4)
 
                     Text(url.lastPathComponent)
                         .font(.subheadline.weight(.semibold))
@@ -730,7 +739,7 @@ struct ContentView: View {
                 }
 
                 Text(url.deletingLastPathComponent().path)
-                    .font(.caption)
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -738,33 +747,33 @@ struct ContentView: View {
 
             Spacer()
 
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 Button {
                     NSWorkspace.shared.activateFileViewerSelecting([url])
                 } label: {
-                    Label("Finder", systemImage: "folder")
+                    Image(systemName: "folder")
+                        .font(.system(size: 14, weight: .medium))
                 }
                 .buttonStyle(.bordered)
-                .controlSize(.small)
+                .help("Show in Finder")
 
                 Button {
                     NSWorkspace.shared.open(url)
                 } label: {
                     Label("Open", systemImage: openSystemImage)
+                        .font(.system(size: 13, weight: .bold))
                 }
                 .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-                .labelStyle(.titleAndIcon)
+                .controlSize(.regular)
             }
         }
-        .padding(12)
+        .padding(14)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(cardBackgroundColor)
-                .shadow(color: .black.opacity(0.03), radius: 4, x: 0, y: 2)
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.primary.opacity(0.02))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.green.opacity(0.22), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.primary.opacity(0.05), lineWidth: 1)
                 )
         )
     }
@@ -859,8 +868,8 @@ struct ContentView: View {
     private var audioDetailView: some View {
         VStack(spacing: 0) {
             audioInputArea
-                .padding(20)
-            Divider()
+                .padding(24)
+            
             Form {
                 audioFormSections
             }
@@ -984,67 +993,57 @@ struct ContentView: View {
 
     private var aboutDetailView: some View {
         ScrollView {
-            VStack(spacing: 24) {
-                VStack(spacing: 16) {
+            VStack(spacing: 32) {
+                VStack(spacing: 20) {
                     appIconImage
                         .resizable()
                         .aspectRatio(contentMode: .fit)
-                        .frame(width: 128, height: 128)
-                        .shadow(radius: 8)
+                        .frame(width: 140, height: 140)
+                        .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 5)
 
                     VStack(spacing: 8) {
                         Text("MyConverter")
-                            .font(.system(size: 32, weight: .bold))
+                            .font(.system(size: 36, weight: .black))
 
                         Text(appVersionText)
                             .font(.headline)
                             .foregroundStyle(.secondary)
                     }
                 }
-                .padding(.top, 40)
+                .padding(.top, 60)
 
-                VStack(alignment: .leading, spacing: 14) {
-                    Text("Developer")
-                        .font(.headline)
-                    Text("Deferare")
-                        .font(.body)
-
-                    Divider()
-
-                    Text("Contact")
-                        .font(.headline)
-                    if let contactURL = URL(string: "mailto:deferare@icloud.com") {
-                        Link("deferare@icloud.com", destination: contactURL)
-                            .font(.body)
-                    } else {
-                        Text("deferare@icloud.com")
-                            .font(.body)
+                VStack(alignment: .leading, spacing: 20) {
+                    Group {
+                        AboutSection(title: "Developer", value: "JiHoon K (Deferare)")
+                        Divider()
+                        AboutSection(title: "Contact", value: "deferare@icloud.com", isLink: true)
+                        Divider()
+                        AboutSection(title: "License", value: "© 2026 Deferare. All rights reserved.")
                     }
 
-                    Divider()
-
-                    Text("License")
-                        .font(.headline)
-                    Text("© 2026 Deferare. All rights reserved.")
-                        .font(.body)
                     Button("Open Source Licenses") {
                         isShowingOpenSourceLicenses = true
                     }
                     .buttonStyle(.link)
-                    .font(.callout)
+                    .font(.subheadline.weight(.medium))
 
                     Divider()
 
                     Text("Support Development")
                         .font(.headline)
 
-                    Text("MyConverter is free for everyone. If you want to support development, you can buy me a coffee.")
-                        .font(.body)
+                    Text("MyConverter is a labor of love. If you find it useful, consider supporting its continued development.")
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
 
                     if donationStore.isLoadingProducts {
-                        ProgressView("Loading support options...")
-                            .font(.callout)
+                        HStack {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("Loading support options...")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
                     } else if donationStore.products.isEmpty {
                         Button("Reload Support Options") {
                             Task {
@@ -1054,31 +1053,27 @@ struct ContentView: View {
                         .buttonStyle(.bordered)
                     } else {
                         HStack(spacing: 12) {
-                            ForEach(donationStore.products, id: \.id) { product in
+                            ForEach(donationStore.products.sorted(by: { $0.price < $1.price }), id: \.id) { product in
                                 Button {
                                     Task {
                                         await donationStore.purchase(product)
                                     }
                                 } label: {
-                                    VStack(spacing: 4) {
+                                    VStack(spacing: 6) {
                                         Text(donationStore.suggestedAmountText(for: product.id))
-                                            .font(.headline)
+                                            .font(.subheadline.weight(.bold))
                                         Text(product.displayPrice)
-                                            .font(.caption)
+                                            .font(.caption2)
                                             .foregroundStyle(.secondary)
 
                                         if donationStore.purchasingProductID == product.id {
                                             ProgressView()
                                                 .controlSize(.small)
-                                        } else {
-                                            Text("Buy Coffee")
-                                                .font(.caption2.weight(.semibold))
-                                                .foregroundStyle(.secondary)
                                         }
                                     }
-                                    .frame(maxWidth: .infinity, minHeight: 76)
+                                    .frame(maxWidth: .infinity, minHeight: 60)
                                 }
-                                .buttonStyle(.borderedProminent)
+                                .buttonStyle(.bordered)
                                 .disabled(
                                     donationStore.isLoadingProducts ||
                                     (donationStore.purchasingProductID != nil && donationStore.purchasingProductID != product.id)
@@ -1086,9 +1081,10 @@ struct ContentView: View {
                             }
                         }
 
-                        Text("Support products are consumables, so they cannot be restored.")
-                            .font(.caption)
+                        Text("Thank you for your support!")
+                            .font(.caption2)
                             .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .center)
                     }
 
                     if let statusMessage = donationStore.statusMessage {
@@ -1097,16 +1093,24 @@ struct ContentView: View {
                             .foregroundStyle(donationStore.statusIsError ? .red : .secondary)
                     }
                 }
-                .padding()
+                .padding(32)
                 .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(cardBackgroundColor)
-                        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+                    RoundedRectangle(cornerRadius: 24)
+                        .fill(Color.primary.opacity(0.02))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 24)
+                                .stroke(Color.primary.opacity(0.05), lineWidth: 1)
+                        )
                 )
 
+                Text("Built with SwiftUI & FFmpeg")
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.tertiary)
+                    .padding(.bottom, 40)
             }
-            .padding(40)
-            .frame(maxWidth: 600)
+            .padding(.horizontal, 40)
+            .frame(maxWidth: 640)
+            .frame(maxWidth: .infinity)
         }
         .navigationTitle("About")
         .task {
@@ -1114,6 +1118,23 @@ struct ContentView: View {
         }
         .sheet(isPresented: $isShowingOpenSourceLicenses) {
             openSourceLicensesSheet
+        }
+    }
+
+    private func AboutSection(title: String, value: String, isLink: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+            
+            if isLink, let url = title == "Contact" ? URL(string: "mailto:\(value)") : URL(string: value) {
+                Link(value, destination: url)
+                    .font(.body.weight(.medium))
+            } else {
+                Text(value)
+                    .font(.body.weight(.medium))
+            }
         }
     }
 
@@ -1134,20 +1155,22 @@ struct ContentView: View {
     }
 
     private var sidebarView: some View {
-        Group {
-            List(selection: $selectedTab) {
+        List(selection: $selectedTab) {
+            Section("Converter") {
                 sidebarTabItems
             }
         }
         .listStyle(.sidebar)
         .navigationTitle("MyConverter")
-        .navigationSplitViewColumnWidth(min: 220, ideal: 250)
+        .navigationSplitViewColumnWidth(min: 220, ideal: 240)
     }
 
     @ViewBuilder
     private var sidebarTabItems: some View {
         ForEach(ConverterTab.allCases) { tab in
             Label(tab.title, systemImage: tab.systemImage)
+                .font(.body.weight(.medium))
+                .padding(.vertical, 2)
                 .tag(tab)
         }
     }
