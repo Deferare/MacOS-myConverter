@@ -48,7 +48,7 @@ struct ContentView: View {
         .fileImporter(
             isPresented: $viewModel.isImporting,
             allowedContentTypes: viewModel.preferredImportTypes(for: selectedTab),
-            allowsMultipleSelection: false
+            allowsMultipleSelection: true
         ) { result in
             viewModel.handleFileImportResult(result, for: selectedTab)
         }
@@ -57,9 +57,9 @@ struct ContentView: View {
     private var videoDetailView: some View {
         VStack(spacing: 0) {
             Group {
-                if !isVideoDropTargeted, let sourceURL = viewModel.sourceURL {
-                    SelectedFileView(
-                        url: sourceURL,
+                if !isVideoDropTargeted, !viewModel.selectedVideoSourceURLs.isEmpty {
+                    SelectedFilesView(
+                        urls: viewModel.selectedVideoSourceURLs,
                         systemImage: "film.fill",
                         isConverting: viewModel.isConverting
                     ) {
@@ -78,7 +78,7 @@ struct ContentView: View {
                     .transition(.scale(scale: 0.98).combined(with: .opacity))
                 }
             }
-            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: viewModel.sourceURL)
+            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: viewModel.selectedVideoFileCount)
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isVideoDropTargeted)
             .padding(20)
 
@@ -177,21 +177,25 @@ struct ContentView: View {
                     }
                 }
 
-                Section("Output File") {
-                    if let convertedURL = viewModel.convertedURL {
-                        ConversionResultView(
-                            url: convertedURL,
-                            detailText: "Your video is ready to view",
-                            openSystemImage: "play.fill"
-                        )
-                        .padding(.vertical, 4)
-                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                    } else {
-                        Text("The converted file will appear here")
+                Section("Output Files") {
+                    if viewModel.convertedURLs.isEmpty {
+                        Text("Converted files will appear here")
                             .font(.callout)
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity, alignment: .center)
                             .padding(.vertical, 20)
+                    } else {
+                        VStack(spacing: 10) {
+                            ForEach(Array(viewModel.convertedURLs.enumerated()), id: \.element.path) { index, url in
+                                OutputFileCardView(
+                                    url: url,
+                                    order: index + 1,
+                                    openSystemImage: "play.fill"
+                                )
+                            }
+                        }
+                        .padding(.vertical, 4)
+                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
                     }
                 }
             }
@@ -213,9 +217,9 @@ struct ContentView: View {
     private var imageDetailView: some View {
         VStack(spacing: 0) {
             Group {
-                if !isImageDropTargeted, let sourceURL = viewModel.imageSourceURL {
-                    SelectedFileView(
-                        url: sourceURL,
+                if !isImageDropTargeted, !viewModel.selectedImageSourceURLs.isEmpty {
+                    SelectedFilesView(
+                        urls: viewModel.selectedImageSourceURLs,
                         systemImage: "photo.fill",
                         isConverting: viewModel.isImageConverting
                     ) {
@@ -234,7 +238,7 @@ struct ContentView: View {
                     .transition(.scale(scale: 0.98).combined(with: .opacity))
                 }
             }
-            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: viewModel.imageSourceURL)
+            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: viewModel.selectedImageFileCount)
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isImageDropTargeted)
             .padding(20)
 
@@ -286,21 +290,25 @@ struct ContentView: View {
                     }
                 }
 
-                Section("Output File") {
-                    if let convertedURL = viewModel.convertedImageURL {
-                        ConversionResultView(
-                            url: convertedURL,
-                            detailText: "Your image is ready to view",
-                            openSystemImage: "photo.fill"
-                        )
-                        .padding(.vertical, 4)
-                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                    } else {
-                        Text("The converted file will appear here")
+                Section("Output Files") {
+                    if viewModel.convertedImageURLs.isEmpty {
+                        Text("Converted files will appear here")
                             .font(.callout)
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity, alignment: .center)
                             .padding(.vertical, 20)
+                    } else {
+                        VStack(spacing: 10) {
+                            ForEach(Array(viewModel.convertedImageURLs.enumerated()), id: \.element.path) { index, url in
+                                OutputFileCardView(
+                                    url: url,
+                                    order: index + 1,
+                                    openSystemImage: "photo.fill"
+                                )
+                            }
+                        }
+                        .padding(.vertical, 4)
+                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
                     }
                 }
             }
@@ -532,52 +540,33 @@ struct ContentView: View {
         .buttonStyle(.plain)
     }
 
-    private func SelectedFileView(
-        url: URL,
+    private func SelectedFilesView(
+        urls: [URL],
         systemImage: String,
         isConverting: Bool,
         onClear: @escaping () -> Void
     ) -> some View {
-        HStack(spacing: 20) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.accentColor, Color.accentColor.opacity(0.8)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+        VStack(alignment: .leading, spacing: 14) {
+            ScrollView(.horizontal, showsIndicators: urls.count > 4) {
+                HStack(spacing: 12) {
+                    ForEach(Array(urls.enumerated()), id: \.element.path) { index, url in
+                        SelectedFileCardView(
+                            url: url,
+                            order: index + 1,
+                            systemImage: systemImage
                         )
-                    )
-                    .frame(width: 60, height: 72)
-                    .shadow(color: Color.accentColor.opacity(0.3), radius: 8, x: 0, y: 4)
-
-                Image(systemName: systemImage)
-                    .font(.title2)
-                    .foregroundStyle(.white)
-            }
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text(url.lastPathComponent)
-                    .font(.headline)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-
-                HStack(spacing: 6) {
-                    Image(systemName: "folder")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    Text(url.deletingLastPathComponent().path)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
+                    }
                 }
+                .padding(.horizontal, 2)
             }
-
-            Spacer()
 
             HStack(spacing: 12) {
+                Text("\(urls.count) files selected")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
                 Button("Change") {
                     viewModel.requestFileImport()
                 }
@@ -611,6 +600,122 @@ struct ContentView: View {
                 .overlay(
                     RoundedRectangle(cornerRadius: 24)
                         .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                )
+        )
+    }
+
+    private func SelectedFileCardView(
+        url: URL,
+        order: Int,
+        systemImage: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 9)
+                        .fill(Color.accentColor.opacity(0.15))
+                        .frame(width: 32, height: 32)
+                    Image(systemName: systemImage)
+                        .font(.body.bold())
+                        .foregroundStyle(Color.accentColor)
+                }
+
+                Spacer(minLength: 0)
+
+                Text("\(order)")
+                    .font(.caption2.bold())
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 0)
+
+            Text(url.lastPathComponent)
+                .font(.footnote.weight(.semibold))
+                .lineLimit(3)
+                .truncationMode(.middle)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(12)
+        .frame(width: 130, height: 130)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.accentColor.opacity(0.06))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.accentColor.opacity(0.22), lineWidth: 1)
+                )
+        )
+    }
+
+    private func OutputFileCardView(
+        url: URL,
+        order: Int,
+        openSystemImage: String
+    ) -> some View {
+        HStack(spacing: 12) {
+            VStack(spacing: 6) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 9)
+                        .fill(Color.green.opacity(0.14))
+                        .frame(width: 34, height: 34)
+                    Image(systemName: "checkmark")
+                        .font(.caption.bold())
+                        .foregroundStyle(.green)
+                }
+
+                Text("\(order)")
+                    .font(.caption2.bold())
+                    .foregroundStyle(.secondary)
+            }
+            .frame(width: 38)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(url.lastPathComponent)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+
+                Text(url.deletingLastPathComponent().path)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+
+            Spacer()
+
+            #if os(macOS)
+            Button {
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+            } label: {
+                Image(systemName: "folder")
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+
+            Button {
+                NSWorkspace.shared.open(url)
+            } label: {
+                Label("Open", systemImage: openSystemImage)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+            #else
+            ShareLink(item: url) {
+                Label("Share", systemImage: "square.and.arrow.up")
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+            #endif
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(cardBackgroundColor)
+                .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 2)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(Color.green.opacity(0.25), lineWidth: 1)
                 )
         )
     }
@@ -718,9 +823,9 @@ struct ContentView: View {
     private var audioDetailView: some View {
         VStack(spacing: 0) {
             Group {
-                if !isAudioDropTargeted, let sourceURL = viewModel.audioSourceURL {
-                    SelectedFileView(
-                        url: sourceURL,
+                if !isAudioDropTargeted, !viewModel.selectedAudioSourceURLs.isEmpty {
+                    SelectedFilesView(
+                        urls: viewModel.selectedAudioSourceURLs,
                         systemImage: "waveform",
                         isConverting: viewModel.isAudioConverting
                     ) {
@@ -739,7 +844,7 @@ struct ContentView: View {
                     .transition(.scale(scale: 0.98).combined(with: .opacity))
                 }
             }
-            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: viewModel.audioSourceURL)
+            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: viewModel.selectedAudioFileCount)
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isAudioDropTargeted)
             .padding(20)
 
@@ -795,21 +900,25 @@ struct ContentView: View {
                     }
                 }
 
-                Section("Output File") {
-                    if let convertedURL = viewModel.convertedAudioURL {
-                        ConversionResultView(
-                            url: convertedURL,
-                            detailText: "Your audio is ready to play",
-                            openSystemImage: "music.note"
-                        )
-                        .padding(.vertical, 4)
-                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                    } else {
-                        Text("The converted file will appear here")
+                Section("Output Files") {
+                    if viewModel.convertedAudioURLs.isEmpty {
+                        Text("Converted files will appear here")
                             .font(.callout)
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity, alignment: .center)
                             .padding(.vertical, 20)
+                    } else {
+                        VStack(spacing: 10) {
+                            ForEach(Array(viewModel.convertedAudioURLs.enumerated()), id: \.element.path) { index, url in
+                                OutputFileCardView(
+                                    url: url,
+                                    order: index + 1,
+                                    openSystemImage: "music.note"
+                                )
+                            }
+                        }
+                        .padding(.vertical, 4)
+                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
                     }
                 }
             }

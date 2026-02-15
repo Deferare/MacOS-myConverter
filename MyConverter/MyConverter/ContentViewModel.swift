@@ -61,20 +61,26 @@ final class ContentViewModel: ObservableObject {
 
     // Video state
     @Published private(set) var sourceURL: URL?
+    @Published private(set) var queuedSourceURLs: [URL] = []
     @Published private(set) var convertedURL: URL?
+    @Published private(set) var convertedURLs: [URL] = []
     @Published private(set) var conversionErrorMessage: String?
     @Published private(set) var sourceCompatibilityErrorMessage: String?
     @Published private(set) var sourceCompatibilityWarningMessage: String?
     @Published private(set) var isAnalyzingSource = false
     @Published var isConverting = false
     @Published private(set) var conversionProgress: Double = 0
+    @Published private(set) var currentVideoBatchIndex = 0
+    @Published private(set) var totalVideoBatchCount = 0
     @Published private(set) var availableOutputFormats: [VideoFormatOption] = VideoConversionEngine.defaultOutputFormats()
     @Published private(set) var availableVideoEncoders: [VideoEncoderOption] = [.auto]
     @Published private(set) var availableAudioEncoders: [AudioEncoderOption] = [.auto]
 
     // Image state
     @Published private(set) var imageSourceURL: URL?
+    @Published private(set) var queuedImageSourceURLs: [URL] = []
     @Published private(set) var convertedImageURL: URL?
+    @Published private(set) var convertedImageURLs: [URL] = []
     @Published private(set) var imageConversionErrorMessage: String?
     @Published private(set) var imageSourceCompatibilityErrorMessage: String?
     @Published private(set) var imageSourceCompatibilityWarningMessage: String?
@@ -83,17 +89,23 @@ final class ContentViewModel: ObservableObject {
     @Published private(set) var imageSourceHasAlpha = false
     @Published var isImageConverting = false
     @Published private(set) var imageConversionProgress: Double = 0
+    @Published private(set) var currentImageBatchIndex = 0
+    @Published private(set) var totalImageBatchCount = 0
     @Published private(set) var availableImageOutputFormats: [ImageFormatOption] = ImageConversionEngine.defaultOutputFormats()
 
     // Audio state
     @Published private(set) var audioSourceURL: URL?
+    @Published private(set) var queuedAudioSourceURLs: [URL] = []
     @Published private(set) var convertedAudioURL: URL?
+    @Published private(set) var convertedAudioURLs: [URL] = []
     @Published private(set) var audioConversionErrorMessage: String?
     @Published private(set) var audioSourceCompatibilityErrorMessage: String?
     @Published private(set) var audioSourceCompatibilityWarningMessage: String?
     @Published private(set) var isAnalyzingAudioSource = false
     @Published var isAudioConverting = false
     @Published private(set) var audioConversionProgress: Double = 0
+    @Published private(set) var currentAudioBatchIndex = 0
+    @Published private(set) var totalAudioBatchCount = 0
     @Published private(set) var availableAudioOutputFormats: [AudioFormatOption] = VideoConversionEngine.defaultAudioOutputFormats()
     @Published private(set) var availableAudioOutputEncoders: [AudioEncoderOption] = [.auto]
 
@@ -415,6 +427,15 @@ final class ContentViewModel: ObservableObject {
             availableOutputFormats.contains(where: { $0.normalizedID == selectedOutputFormat.normalizedID })
     }
 
+    var selectedVideoSourceURLs: [URL] {
+        guard let sourceURL else { return [] }
+        return [sourceURL] + queuedSourceURLs
+    }
+
+    var selectedVideoFileCount: Int {
+        selectedVideoSourceURLs.count
+    }
+
     var displayedConversionProgress: Double {
         let rawProgress = isConverting ? conversionProgress : 0
         return rawProgress < 0.01 ? 0 : rawProgress
@@ -525,6 +546,15 @@ final class ContentViewModel: ObservableObject {
             availableImageOutputFormats.contains(where: { $0.normalizedID == selectedImageOutputFormat.normalizedID })
     }
 
+    var selectedImageSourceURLs: [URL] {
+        guard let imageSourceURL else { return [] }
+        return [imageSourceURL] + queuedImageSourceURLs
+    }
+
+    var selectedImageFileCount: Int {
+        selectedImageSourceURLs.count
+    }
+
     var displayedImageConversionProgress: Double {
         let rawProgress = isImageConverting ? imageConversionProgress : 0
         return rawProgress < 0.01 ? 0 : rawProgress
@@ -600,6 +630,15 @@ final class ContentViewModel: ObservableObject {
             !isAnalyzingAudioSource &&
             audioSettingsValidationMessage == nil &&
             availableAudioOutputFormats.contains(where: { $0.normalizedID == selectedAudioOutputFormat.normalizedID })
+    }
+
+    var selectedAudioSourceURLs: [URL] {
+        guard let audioSourceURL else { return [] }
+        return [audioSourceURL] + queuedAudioSourceURLs
+    }
+
+    var selectedAudioFileCount: Int {
+        selectedAudioSourceURLs.count
     }
 
     var displayedAudioConversionProgress: Double {
@@ -683,6 +722,21 @@ final class ContentViewModel: ObservableObject {
         isImporting = true
     }
 
+    private func uniqueStandardizedURLs(_ urls: [URL]) -> [URL] {
+        var seen = Set<String>()
+        var unique: [URL] = []
+
+        for url in urls {
+            let standardized = url.standardizedFileURL
+            let key = sourceIdentifier(for: standardized)
+            if seen.insert(key).inserted {
+                unique.append(standardized)
+            }
+        }
+
+        return unique
+    }
+
     func clearSelectedSource() {
         clearSelectedVideoSource()
     }
@@ -692,11 +746,15 @@ final class ContentViewModel: ObservableObject {
         sourceAnalysisTask = nil
 
         sourceURL = nil
+        queuedSourceURLs = []
         convertedURL = nil
+        convertedURLs = []
         conversionErrorMessage = nil
         sourceCompatibilityErrorMessage = nil
         sourceCompatibilityWarningMessage = nil
         isAnalyzingSource = false
+        currentVideoBatchIndex = 0
+        totalVideoBatchCount = 0
         availableOutputFormats = VideoConversionEngine.defaultOutputFormats()
 
         applyStoredSettings(.init())
@@ -709,13 +767,17 @@ final class ContentViewModel: ObservableObject {
         imageSourceAnalysisTask = nil
 
         imageSourceURL = nil
+        queuedImageSourceURLs = []
         imageSourceFrameCount = 0
         imageSourceHasAlpha = false
         convertedImageURL = nil
+        convertedImageURLs = []
         imageConversionErrorMessage = nil
         imageSourceCompatibilityErrorMessage = nil
         imageSourceCompatibilityWarningMessage = nil
         isAnalyzingImageSource = false
+        currentImageBatchIndex = 0
+        totalImageBatchCount = 0
         availableImageOutputFormats = ImageConversionEngine.defaultOutputFormats()
 
         applyStoredImageSettings(.init())
@@ -727,11 +789,15 @@ final class ContentViewModel: ObservableObject {
         audioSourceAnalysisTask = nil
 
         audioSourceURL = nil
+        queuedAudioSourceURLs = []
         convertedAudioURL = nil
+        convertedAudioURLs = []
         audioConversionErrorMessage = nil
         audioSourceCompatibilityErrorMessage = nil
         audioSourceCompatibilityWarningMessage = nil
         isAnalyzingAudioSource = false
+        currentAudioBatchIndex = 0
+        totalAudioBatchCount = 0
         availableAudioOutputFormats = VideoConversionEngine.defaultAudioOutputFormats()
 
         applyStoredAudioSettings(.init())
@@ -742,14 +808,15 @@ final class ContentViewModel: ObservableObject {
     func handleFileImportResult(_ result: Result<[URL], Error>, for selectedTab: ConverterTab) {
         switch result {
         case .success(let urls):
-            guard let selected = urls.first else { return }
+            let selected = uniqueStandardizedURLs(urls)
+            guard !selected.isEmpty else { return }
             switch selectedTab {
             case .video:
-                applySelectedSource(selected)
+                applySelectedVideoSources(selected)
             case .image:
-                applySelectedImageSource(selected)
+                applySelectedImageSources(selected)
             case .audio:
-                applySelectedAudioSource(selected)
+                applySelectedAudioSources(selected)
             case .about:
                 break
             }
@@ -763,44 +830,64 @@ final class ContentViewModel: ObservableObject {
     }
 
     func handleVideoDrop(providers: [NSItemProvider]) -> Bool {
-        handleDroppedFile(providers: providers) { [weak self] url in
-            self?.applySelectedSource(url)
+        handleDroppedFiles(providers: providers) { [weak self] urls in
+            self?.applySelectedVideoSources(urls)
         }
     }
 
     func handleImageDrop(providers: [NSItemProvider]) -> Bool {
-        handleDroppedFile(providers: providers) { [weak self] url in
-            self?.applySelectedImageSource(url)
+        handleDroppedFiles(providers: providers) { [weak self] urls in
+            self?.applySelectedImageSources(urls)
         }
     }
 
     func handleAudioDrop(providers: [NSItemProvider]) -> Bool {
-        handleDroppedFile(providers: providers) { [weak self] url in
-            self?.applySelectedAudioSource(url)
+        handleDroppedFiles(providers: providers) { [weak self] urls in
+            self?.applySelectedAudioSources(urls)
         }
     }
 
-    private func handleDroppedFile(
+    private func handleDroppedFiles(
         providers: [NSItemProvider],
-        onResolvedURL: @escaping @MainActor (URL) -> Void
+        onResolvedURLs: @escaping @MainActor ([URL]) -> Void
     ) -> Bool {
-        guard let provider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) }) else {
+        let fileProviders = providers.filter { $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) }
+        guard !fileProviders.isEmpty else {
             return false
         }
 
-        provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
-            var finalURL: URL?
+        let group = DispatchGroup()
+        let lock = NSLock()
+        var resolvedURLs: [URL] = []
 
-            if let data = item as? Data {
-                finalURL = URL(dataRepresentation: data, relativeTo: nil)
-            } else if let url = item as? URL {
-                finalURL = url
+        for provider in fileProviders {
+            group.enter()
+            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+                defer { group.leave() }
+
+                var finalURL: URL?
+
+                if let data = item as? Data {
+                    finalURL = URL(dataRepresentation: data, relativeTo: nil)
+                } else if let url = item as? URL {
+                    finalURL = url
+                }
+
+                guard let finalURL else { return }
+
+                lock.lock()
+                resolvedURLs.append(finalURL)
+                lock.unlock()
             }
+        }
 
-            guard let finalURL else { return }
+        group.notify(queue: .main) { [weak self] in
+            guard let self else { return }
+            let unique = self.uniqueStandardizedURLs(resolvedURLs)
+            guard !unique.isEmpty else { return }
 
             Task { @MainActor in
-                onResolvedURL(finalURL)
+                onResolvedURLs(unique)
             }
         }
 
@@ -848,20 +935,29 @@ final class ContentViewModel: ObservableObject {
     // MARK: - Video Source / Analyze
 
     private func applySelectedSource(_ url: URL) {
+        applySelectedVideoSources([url])
+    }
+
+    private func applySelectedVideoSources(_ urls: [URL]) {
+        let uniqueURLs = uniqueStandardizedURLs(urls)
+        guard let firstURL = uniqueURLs.first else { return }
+
         sourceAnalysisTask?.cancel()
         sourceAnalysisTask = nil
 
-        sourceURL = url
+        sourceURL = firstURL
+        queuedSourceURLs = Array(uniqueURLs.dropFirst())
         convertedURL = nil
+        convertedURLs = []
         conversionErrorMessage = nil
         sourceCompatibilityErrorMessage = nil
         sourceCompatibilityWarningMessage = nil
 
-        let sourceID = sourceIdentifier(for: url)
+        let sourceID = sourceIdentifier(for: firstURL)
         let stored = videoSettingsBySourceID[sourceID] ?? VideoConversionSettings()
         applyStoredSettings(stored)
 
-        analyzeSourceCompatibility(for: url)
+        analyzeSourceCompatibility(for: firstURL)
     }
 
     private func analyzeSourceCompatibility(for url: URL) {
@@ -902,22 +998,31 @@ final class ContentViewModel: ObservableObject {
     // MARK: - Image Source / Analyze
 
     private func applySelectedImageSource(_ url: URL) {
+        applySelectedImageSources([url])
+    }
+
+    private func applySelectedImageSources(_ urls: [URL]) {
+        let uniqueURLs = uniqueStandardizedURLs(urls)
+        guard let firstURL = uniqueURLs.first else { return }
+
         imageSourceAnalysisTask?.cancel()
         imageSourceAnalysisTask = nil
 
-        imageSourceURL = url
+        imageSourceURL = firstURL
+        queuedImageSourceURLs = Array(uniqueURLs.dropFirst())
         imageSourceFrameCount = 0
         imageSourceHasAlpha = false
         convertedImageURL = nil
+        convertedImageURLs = []
         imageConversionErrorMessage = nil
         imageSourceCompatibilityErrorMessage = nil
         imageSourceCompatibilityWarningMessage = nil
 
-        let sourceID = sourceIdentifier(for: url)
+        let sourceID = sourceIdentifier(for: firstURL)
         let stored = imageSettingsBySourceID[sourceID] ?? ImageConversionSettings()
         applyStoredImageSettings(stored)
 
-        analyzeImageSourceCompatibility(for: url)
+        analyzeImageSourceCompatibility(for: firstURL)
     }
 
     private func analyzeImageSourceCompatibility(for url: URL) {
@@ -961,20 +1066,29 @@ final class ContentViewModel: ObservableObject {
     // MARK: - Audio Source / Analyze
 
     private func applySelectedAudioSource(_ url: URL) {
+        applySelectedAudioSources([url])
+    }
+
+    private func applySelectedAudioSources(_ urls: [URL]) {
+        let uniqueURLs = uniqueStandardizedURLs(urls)
+        guard let firstURL = uniqueURLs.first else { return }
+
         audioSourceAnalysisTask?.cancel()
         audioSourceAnalysisTask = nil
 
-        audioSourceURL = url
+        audioSourceURL = firstURL
+        queuedAudioSourceURLs = Array(uniqueURLs.dropFirst())
         convertedAudioURL = nil
+        convertedAudioURLs = []
         audioConversionErrorMessage = nil
         audioSourceCompatibilityErrorMessage = nil
         audioSourceCompatibilityWarningMessage = nil
 
-        let sourceID = sourceIdentifier(for: url)
+        let sourceID = sourceIdentifier(for: firstURL)
         let stored = audioSettingsBySourceID[sourceID] ?? AudioConversionSettings()
         applyStoredAudioSettings(stored)
 
-        analyzeAudioSourceCompatibility(for: url)
+        analyzeAudioSourceCompatibility(for: firstURL)
     }
 
     private func analyzeAudioSourceCompatibility(for url: URL) {
@@ -1087,6 +1201,7 @@ final class ContentViewModel: ObservableObject {
     private func prepareConversionStartState() {
         isConverting = true
         convertedURL = nil
+        convertedURLs = []
         conversionErrorMessage = nil
         conversionProgress = 0
     }
@@ -1094,6 +1209,7 @@ final class ContentViewModel: ObservableObject {
     private func prepareImageConversionStartState() {
         isImageConverting = true
         convertedImageURL = nil
+        convertedImageURLs = []
         imageConversionErrorMessage = nil
         imageConversionProgress = 0
     }
@@ -1101,6 +1217,7 @@ final class ContentViewModel: ObservableObject {
     private func prepareAudioConversionStartState() {
         isAudioConverting = true
         convertedAudioURL = nil
+        convertedAudioURLs = []
         audioConversionErrorMessage = nil
         audioConversionProgress = 0
     }
@@ -1156,48 +1273,65 @@ final class ContentViewModel: ObservableObject {
         }
 
         prepareConversionStartState()
-
-        let shouldStopSourceAccessing = sourceURL.startAccessingSecurityScopedResource()
-        defer {
-            if shouldStopSourceAccessing {
-                sourceURL.stopAccessingSecurityScopedResource()
-            }
-        }
+        let sourceURLs = [sourceURL] + queuedSourceURLs
+        totalVideoBatchCount = sourceURLs.count
+        currentVideoBatchIndex = 0
 
         do {
-            defer { isConverting = false }
+            defer {
+                isConverting = false
+                currentVideoBatchIndex = 0
+                totalVideoBatchCount = 0
+            }
             try Task.checkCancellation()
 
             let outputDirectory = try VideoConversionEngine.sandboxOutputDirectory(
                 bundleIdentifier: Bundle.main.bundleIdentifier
             )
 
-            let destinationURL = VideoConversionEngine.uniqueOutputURL(
-                for: sourceURL,
-                format: selectedOutputFormat,
-                in: outputDirectory
-            )
-            let workingOutputURL = VideoConversionEngine.temporaryOutputURL(
-                for: sourceURL,
-                format: selectedOutputFormat
-            )
-            defer {
-                if FileManager.default.fileExists(atPath: workingOutputURL.path) {
-                    try? FileManager.default.removeItem(at: workingOutputURL)
+            for (index, currentSourceURL) in sourceURLs.enumerated() {
+                try Task.checkCancellation()
+                currentVideoBatchIndex = index + 1
+
+                let shouldStopSourceAccessing = currentSourceURL.startAccessingSecurityScopedResource()
+                defer {
+                    if shouldStopSourceAccessing {
+                        currentSourceURL.stopAccessingSecurityScopedResource()
+                    }
                 }
+
+                let destinationURL = VideoConversionEngine.uniqueOutputURL(
+                    for: currentSourceURL,
+                    format: selectedOutputFormat,
+                    in: outputDirectory
+                )
+                let workingOutputURL = VideoConversionEngine.temporaryOutputURL(
+                    for: currentSourceURL,
+                    format: selectedOutputFormat
+                )
+                defer {
+                    if FileManager.default.fileExists(atPath: workingOutputURL.path) {
+                        try? FileManager.default.removeItem(at: workingOutputURL)
+                    }
+                }
+
+                let output = try await VideoConversionEngine.convert(
+                    inputURL: currentSourceURL,
+                    outputURL: workingOutputURL,
+                    outputSettings: outputSettings,
+                    inputDurationSeconds: nil
+                ) { [weak self] progress in
+                    let base = Double(index)
+                    let total = Double(max(sourceURLs.count, 1))
+                    await self?.updateConversionProgress((base + progress) / total)
+                }
+                try Task.checkCancellation()
+
+                let savedURL = try VideoConversionEngine.saveConvertedOutput(from: output, to: destinationURL)
+                convertedURL = savedURL
+                convertedURLs.append(savedURL)
             }
 
-            let output = try await VideoConversionEngine.convert(
-                inputURL: sourceURL,
-                outputURL: workingOutputURL,
-                outputSettings: outputSettings,
-                inputDurationSeconds: nil
-            ) { [weak self] progress in
-                await self?.updateConversionProgress(progress)
-            }
-            try Task.checkCancellation()
-
-            convertedURL = try VideoConversionEngine.saveConvertedOutput(from: output, to: destinationURL)
             conversionProgress = 1
         } catch is CancellationError {
             conversionProgress = 0
@@ -1224,47 +1358,64 @@ final class ContentViewModel: ObservableObject {
 
         let outputSettings = buildImageOutputSettings()
         prepareImageConversionStartState()
-
-        let shouldStopSourceAccessing = sourceURL.startAccessingSecurityScopedResource()
-        defer {
-            if shouldStopSourceAccessing {
-                sourceURL.stopAccessingSecurityScopedResource()
-            }
-        }
+        let sourceURLs = [sourceURL] + queuedImageSourceURLs
+        totalImageBatchCount = sourceURLs.count
+        currentImageBatchIndex = 0
 
         do {
-            defer { isImageConverting = false }
+            defer {
+                isImageConverting = false
+                currentImageBatchIndex = 0
+                totalImageBatchCount = 0
+            }
             try Task.checkCancellation()
 
             let outputDirectory = try VideoConversionEngine.sandboxOutputDirectory(
                 bundleIdentifier: Bundle.main.bundleIdentifier
             )
 
-            let destinationURL = ImageConversionEngine.uniqueOutputURL(
-                for: sourceURL,
-                format: selectedImageOutputFormat,
-                in: outputDirectory
-            )
-            let workingOutputURL = ImageConversionEngine.temporaryOutputURL(
-                for: sourceURL,
-                format: selectedImageOutputFormat
-            )
-            defer {
-                if FileManager.default.fileExists(atPath: workingOutputURL.path) {
-                    try? FileManager.default.removeItem(at: workingOutputURL)
+            for (index, currentSourceURL) in sourceURLs.enumerated() {
+                try Task.checkCancellation()
+                currentImageBatchIndex = index + 1
+
+                let shouldStopSourceAccessing = currentSourceURL.startAccessingSecurityScopedResource()
+                defer {
+                    if shouldStopSourceAccessing {
+                        currentSourceURL.stopAccessingSecurityScopedResource()
+                    }
                 }
+
+                let destinationURL = ImageConversionEngine.uniqueOutputURL(
+                    for: currentSourceURL,
+                    format: selectedImageOutputFormat,
+                    in: outputDirectory
+                )
+                let workingOutputURL = ImageConversionEngine.temporaryOutputURL(
+                    for: currentSourceURL,
+                    format: selectedImageOutputFormat
+                )
+                defer {
+                    if FileManager.default.fileExists(atPath: workingOutputURL.path) {
+                        try? FileManager.default.removeItem(at: workingOutputURL)
+                    }
+                }
+
+                let output = try await ImageConversionEngine.convert(
+                    inputURL: currentSourceURL,
+                    outputURL: workingOutputURL,
+                    outputSettings: outputSettings
+                ) { [weak self] progress in
+                    let base = Double(index)
+                    let total = Double(max(sourceURLs.count, 1))
+                    await self?.updateImageConversionProgress((base + progress) / total)
+                }
+                try Task.checkCancellation()
+
+                let savedURL = try VideoConversionEngine.saveConvertedOutput(from: output, to: destinationURL)
+                convertedImageURL = savedURL
+                convertedImageURLs.append(savedURL)
             }
 
-            let output = try await ImageConversionEngine.convert(
-                inputURL: sourceURL,
-                outputURL: workingOutputURL,
-                outputSettings: outputSettings
-            ) { [weak self] progress in
-                await self?.updateImageConversionProgress(progress)
-            }
-            try Task.checkCancellation()
-
-            convertedImageURL = try VideoConversionEngine.saveConvertedOutput(from: output, to: destinationURL)
             imageConversionProgress = 1
         } catch is CancellationError {
             imageConversionProgress = 0
@@ -1288,48 +1439,65 @@ final class ContentViewModel: ObservableObject {
 
         let outputSettings = buildAudioOutputSettings()
         prepareAudioConversionStartState()
-
-        let shouldStopSourceAccessing = sourceURL.startAccessingSecurityScopedResource()
-        defer {
-            if shouldStopSourceAccessing {
-                sourceURL.stopAccessingSecurityScopedResource()
-            }
-        }
+        let sourceURLs = [sourceURL] + queuedAudioSourceURLs
+        totalAudioBatchCount = sourceURLs.count
+        currentAudioBatchIndex = 0
 
         do {
-            defer { isAudioConverting = false }
+            defer {
+                isAudioConverting = false
+                currentAudioBatchIndex = 0
+                totalAudioBatchCount = 0
+            }
             try Task.checkCancellation()
 
             let outputDirectory = try VideoConversionEngine.sandboxOutputDirectory(
                 bundleIdentifier: Bundle.main.bundleIdentifier
             )
 
-            let destinationURL = VideoConversionEngine.uniqueOutputURL(
-                for: sourceURL,
-                format: selectedAudioOutputFormat,
-                in: outputDirectory
-            )
-            let workingOutputURL = VideoConversionEngine.temporaryOutputURL(
-                for: sourceURL,
-                format: selectedAudioOutputFormat
-            )
-            defer {
-                if FileManager.default.fileExists(atPath: workingOutputURL.path) {
-                    try? FileManager.default.removeItem(at: workingOutputURL)
+            for (index, currentSourceURL) in sourceURLs.enumerated() {
+                try Task.checkCancellation()
+                currentAudioBatchIndex = index + 1
+
+                let shouldStopSourceAccessing = currentSourceURL.startAccessingSecurityScopedResource()
+                defer {
+                    if shouldStopSourceAccessing {
+                        currentSourceURL.stopAccessingSecurityScopedResource()
+                    }
                 }
+
+                let destinationURL = VideoConversionEngine.uniqueOutputURL(
+                    for: currentSourceURL,
+                    format: selectedAudioOutputFormat,
+                    in: outputDirectory
+                )
+                let workingOutputURL = VideoConversionEngine.temporaryOutputURL(
+                    for: currentSourceURL,
+                    format: selectedAudioOutputFormat
+                )
+                defer {
+                    if FileManager.default.fileExists(atPath: workingOutputURL.path) {
+                        try? FileManager.default.removeItem(at: workingOutputURL)
+                    }
+                }
+
+                let output = try await VideoConversionEngine.convertAudio(
+                    inputURL: currentSourceURL,
+                    outputURL: workingOutputURL,
+                    outputSettings: outputSettings,
+                    inputDurationSeconds: nil
+                ) { [weak self] progress in
+                    let base = Double(index)
+                    let total = Double(max(sourceURLs.count, 1))
+                    await self?.updateAudioConversionProgress((base + progress) / total)
+                }
+                try Task.checkCancellation()
+
+                let savedURL = try VideoConversionEngine.saveConvertedOutput(from: output, to: destinationURL)
+                convertedAudioURL = savedURL
+                convertedAudioURLs.append(savedURL)
             }
 
-            let output = try await VideoConversionEngine.convertAudio(
-                inputURL: sourceURL,
-                outputURL: workingOutputURL,
-                outputSettings: outputSettings,
-                inputDurationSeconds: nil
-            ) { [weak self] progress in
-                await self?.updateAudioConversionProgress(progress)
-            }
-            try Task.checkCancellation()
-
-            convertedAudioURL = try VideoConversionEngine.saveConvertedOutput(from: output, to: destinationURL)
             audioConversionProgress = 1
         } catch is CancellationError {
             audioConversionProgress = 0
@@ -1714,6 +1882,10 @@ final class ContentViewModel: ObservableObject {
 
     private var conversionStatus: (message: String, level: ConversionStatusLevel) {
         if isConverting {
+            if totalVideoBatchCount > 1 {
+                let current = max(1, currentVideoBatchIndex)
+                return ("Converting file \(current)/\(totalVideoBatchCount)...", .normal)
+            }
             return ("Conversion in progress...", .normal)
         }
 
@@ -1738,6 +1910,10 @@ final class ContentViewModel: ObservableObject {
 
     private var imageConversionStatus: (message: String, level: ConversionStatusLevel) {
         if isImageConverting {
+            if totalImageBatchCount > 1 {
+                let current = max(1, currentImageBatchIndex)
+                return ("Converting file \(current)/\(totalImageBatchCount)...", .normal)
+            }
             return ("Conversion in progress...", .normal)
         }
 
@@ -1766,6 +1942,10 @@ final class ContentViewModel: ObservableObject {
 
     private var audioConversionStatus: (message: String, level: ConversionStatusLevel) {
         if isAudioConverting {
+            if totalAudioBatchCount > 1 {
+                let current = max(1, currentAudioBatchIndex)
+                return ("Converting file \(current)/\(totalAudioBatchCount)...", .normal)
+            }
             return ("Conversion in progress...", .normal)
         }
 
