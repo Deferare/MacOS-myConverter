@@ -13,6 +13,7 @@ import AppKit
 
 struct ContentView: View {
     @StateObject private var viewModel = ContentViewModel()
+    @State private var isDropTargeted = false
 
     var body: some View {
         NavigationSplitView {
@@ -49,18 +50,22 @@ struct ContentView: View {
     private var videoDetailView: some View {
         VStack(spacing: 0) {
             Group {
-                if let sourceURL = viewModel.sourceURL {
+                if !isDropTargeted, let sourceURL = viewModel.sourceURL {
                     SelectedFileView(url: sourceURL) {
                         withAnimation {
                             viewModel.clearSelectedSource()
                         }
                     }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 } else {
                     DropFileView {
                         viewModel.requestFileImport()
                     }
+                    .transition(.scale(scale: 0.98).combined(with: .opacity))
                 }
             }
+            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: viewModel.sourceURL)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isDropTargeted)
             .padding(20)
 
             Divider()
@@ -139,57 +144,15 @@ struct ContentView: View {
 
                 Section("Output File") {
                     if let convertedURL = viewModel.convertedURL {
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(.green)
-                                Text("Conversion Successful!")
-                                    .font(.headline)
-                            }
-
-                            LabeledContent("File Name") {
-                                Text(convertedURL.lastPathComponent)
-                                    .textSelection(.enabled)
-                            }
-
-                            LabeledContent("Location") {
-                                Text(convertedURL.path)
-                                    .lineLimit(1)
-                                    .truncationMode(.middle)
-                                    .textSelection(.enabled)
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            HStack(spacing: 12) {
-                                ShareLink(item: convertedURL) {
-                                    Label("Share", systemImage: "square.and.arrow.up")
-                                }
-                                .buttonStyle(.bordered)
-
-                                #if os(macOS)
-                                Button {
-                                    NSWorkspace.shared.open(convertedURL.deletingLastPathComponent())
-                                } label: {
-                                    Label("Open Folder", systemImage: "folder")
-                                }
-                                .buttonStyle(.bordered)
-
-                                Button {
-                                    NSWorkspace.shared.open(convertedURL)
-                                } label: {
-                                    Label("Open File", systemImage: "play.rectangle")
-                                }
-                                .buttonStyle(.borderedProminent)
-                                #endif
-                            }
-                            .padding(.top, 4)
-                        }
-                        .padding(.vertical, 8)
+                        ConversionResultView(url: convertedURL)
+                            .padding(.vertical, 4)
+                            .transition(.opacity.combined(with: .scale(scale: 0.95)))
                     } else {
-                        Text("The converted file will appear here.")
+                        Text("The converted file will appear here")
+                            .font(.callout)
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.vertical, 12)
+                            .padding(.vertical, 20)
                     }
                 }
             }
@@ -203,7 +166,7 @@ struct ContentView: View {
                 .overlay(Rectangle().frame(height: 1).foregroundStyle(.separator), alignment: .top)
         }
         .navigationTitle("Convert Video")
-        .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+        .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
             viewModel.handleDrop(providers: providers)
         }
     }
@@ -266,89 +229,216 @@ struct ContentView: View {
 
     private func DropFileView(action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            VStack(spacing: 16) {
+            VStack(spacing: 20) {
                 ZStack {
                     Circle()
-                        .fill(Color.accentColor.opacity(0.1))
-                        .frame(width: 80, height: 80)
+                        .fill(isDropTargeted ? Color.accentColor.opacity(0.15) : Color.accentColor.opacity(0.05))
+                        .frame(width: 90, height: 90)
+                        .scaleEffect(isDropTargeted ? 1.1 : 1.0)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isDropTargeted)
 
                     Image(systemName: "arrow.down.doc.fill")
-                        .font(.system(size: 32))
-                        .foregroundStyle(.primary)
+                        .font(.system(size: 36))
+                        .foregroundStyle(isDropTargeted ? Color.accentColor : .primary)
+                        .scaleEffect(isDropTargeted ? 1.15 : 1.0)
+                        .rotationEffect(.degrees(isDropTargeted ? 10 : 0))
+                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isDropTargeted)
                 }
 
-                VStack(spacing: 6) {
-                    Text("Drop file here")
+                VStack(spacing: 8) {
+                    Text(isDropTargeted ? "Release to Import" : "Drop Video Here")
                         .font(.title3.bold())
+                        .foregroundStyle(isDropTargeted ? Color.accentColor : .primary)
+                        .scaleEffect(isDropTargeted ? 1.05 : 1.0)
 
-                    Text("or click to select any video file")
+                    Text(isDropTargeted ? "Ready to load your file" : "or click to browse local files")
                         .font(.body)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(isDropTargeted ? Color.secondary.opacity(0.8) : Color.secondary)
                 }
+                .animation(.easeInOut(duration: 0.2), value: isDropTargeted)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 200)
+            .frame(height: 240)
             .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color.secondary.opacity(0.3), style: StrokeStyle(lineWidth: 2, dash: [8]))
-                    .background(Color.secondary.opacity(0.05))
+                ZStack {
+                    RoundedRectangle(cornerRadius: 24)
+                        .fill(isDropTargeted ? Color.accentColor.opacity(0.04) : Color(nsColor: .controlBackgroundColor).opacity(0.5))
+                    
+                    RoundedRectangle(cornerRadius: 24)
+                        .strokeBorder(
+                            isDropTargeted ? Color.accentColor.opacity(0.6) : Color.secondary.opacity(0.2),
+                            style: StrokeStyle(lineWidth: isDropTargeted ? 3 : 1, dash: isDropTargeted ? [] : [10])
+                        )
+                }
             )
             .contentShape(Rectangle())
+            .scaleEffect(isDropTargeted ? 1.02 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isDropTargeted)
         }
         .buttonStyle(.plain)
     }
 
     private func SelectedFileView(url: URL, onClear: @escaping () -> Void) -> some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 20) {
             ZStack {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.accentColor)
-                    .frame(width: 50, height: 60)
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.accentColor, Color.accentColor.opacity(0.8)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 60, height: 72)
+                    .shadow(color: Color.accentColor.opacity(0.3), radius: 8, x: 0, y: 4)
 
-                Image(systemName: "film")
+                Image(systemName: "film.fill")
                     .font(.title2)
                     .foregroundStyle(.white)
             }
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(url.lastPathComponent)
                     .font(.headline)
                     .lineLimit(1)
                     .truncationMode(.middle)
 
-                Text(url.path)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                HStack(spacing: 6) {
+                    Image(systemName: "folder")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    
+                    Text(url.deletingLastPathComponent().path)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
             }
 
             Spacer()
 
-            Button("Change") {
-                viewModel.requestFileImport()
-            }
-            .buttonStyle(.bordered)
-            .disabled(viewModel.isConverting)
+            HStack(spacing: 12) {
+                Button("Change") {
+                    viewModel.requestFileImport()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.regular)
+                .disabled(viewModel.isConverting)
 
-            Button(action: onClear) {
-                Image(systemName: "xmark")
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
-                    .padding(8)
-                    .background(Circle().fill(Color.secondary.opacity(0.1)))
+                Button(action: onClear) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(Color.secondary.opacity(0.8))
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .disabled(viewModel.isConverting)
+                .onHover { inside in
+                    if inside {
+                        NSCursor.pointingHand.push()
+                    } else {
+                        NSCursor.pop()
+                    }
+                }
             }
-            .buttonStyle(.plain)
-            .disabled(viewModel.isConverting)
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 24)
+                .fill(cardBackgroundColor)
+                .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 4)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24)
+                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                )
+        )
+    }
+
+    private func ConversionResultView(url: URL) -> some View {
+        VStack(spacing: 16) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(Color.green.opacity(0.15))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(.green)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Conversion Completed")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    Text("Your video is ready to view")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Output File")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                
+                HStack(spacing: 8) {
+                    Image(systemName: "doc.text.fill")
+                        .foregroundStyle(.secondary)
+                    Text(url.lastPathComponent)
+                        .font(.subheadline.weight(.medium))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .textSelection(.enabled)
+                }
+                .padding(10)
+                .background(Color.secondary.opacity(0.05))
+                .cornerRadius(8)
+            }
+            
+            HStack(spacing: 12) {
+                #if os(macOS)
+                Button {
+                    NSWorkspace.shared.activateFileViewerSelecting([url])
+                } label: {
+                    Text("Show in Finder")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.regular)
+                
+                Button {
+                    NSWorkspace.shared.open(url)
+                } label: {
+                    Label("Open", systemImage: "play.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.regular)
+                #else
+                ShareLink(item: url) {
+                    Label("Share File", systemImage: "square.and.arrow.up")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.regular)
+                #endif
+            }
         }
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .fill(cardBackgroundColor)
-                .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+                .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.secondary.opacity(0.1), lineWidth: 1)
+                        .stroke(Color.green.opacity(0.4), lineWidth: 1)
                 )
         )
     }
