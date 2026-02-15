@@ -9,6 +9,9 @@ struct VideoFormatOption: Identifiable, Hashable, Sendable {
     let avFileTypeIdentifier: String?
     let supportsFastStart: Bool
     let supportsHEVCTag: Bool
+    let supportsAudioTrack: Bool
+    let supportsVideoEncoderSelection: Bool
+    let usesGIFPalettePipeline: Bool
     let ffmpegRequiredMuxers: [String]
     let preferredFFmpegMuxer: String?
     let allowsFFmpegAutomaticVideoCodec: Bool
@@ -61,6 +64,9 @@ struct VideoFormatOption: Identifiable, Hashable, Sendable {
             avFileTypeIdentifier: profile?.avFileTypeIdentifier,
             supportsFastStart: profile?.supportsFastStart ?? false,
             supportsHEVCTag: profile?.supportsHEVCTag ?? false,
+            supportsAudioTrack: profile?.supportsAudioTrack ?? true,
+            supportsVideoEncoderSelection: profile?.supportsVideoEncoderSelection ?? true,
+            usesGIFPalettePipeline: profile?.usesGIFPalettePipeline ?? false,
             ffmpegRequiredMuxers: resolvedMuxers,
             preferredFFmpegMuxer: profile?.preferredFFmpegMuxer ?? normalizedMuxer,
             allowsFFmpegAutomaticVideoCodec: profile?.allowsFFmpegAutomaticVideoCodec ?? true,
@@ -137,6 +143,9 @@ struct VideoFormatOption: Identifiable, Hashable, Sendable {
             avFileTypeIdentifier: avFileTypeIdentifier ?? other.avFileTypeIdentifier,
             supportsFastStart: supportsFastStart || other.supportsFastStart,
             supportsHEVCTag: supportsHEVCTag || other.supportsHEVCTag,
+            supportsAudioTrack: supportsAudioTrack && other.supportsAudioTrack,
+            supportsVideoEncoderSelection: supportsVideoEncoderSelection && other.supportsVideoEncoderSelection,
+            usesGIFPalettePipeline: usesGIFPalettePipeline || other.usesGIFPalettePipeline,
             ffmpegRequiredMuxers: Self.uniqueStrings(ffmpegRequiredMuxers + other.ffmpegRequiredMuxers),
             preferredFFmpegMuxer: preferredFFmpegMuxer ?? other.preferredFFmpegMuxer,
             allowsFFmpegAutomaticVideoCodec: allowsFFmpegAutomaticVideoCodec || other.allowsFFmpegAutomaticVideoCodec,
@@ -175,7 +184,7 @@ struct VideoFormatOption: Identifiable, Hashable, Sendable {
 
     private static let knownVideoExtensions: Set<String> = [
         "3g2", "3gp", "asf", "avi", "dv", "f4v", "flv", "m2t", "m2ts", "m2v", "m4v",
-        "mkv", "mov", "mp4", "mpeg", "mpg", "mts", "mxf", "ogv", "rm", "rmvb", "ts",
+        "gif", "mkv", "mov", "mp4", "mpeg", "mpg", "mts", "mxf", "ogv", "rm", "rmvb", "ts",
         "vob", "webm", "wmv"
     ]
 }
@@ -187,6 +196,9 @@ private struct VideoFormatProfile {
     let avFileTypeIdentifier: String?
     let supportsFastStart: Bool
     let supportsHEVCTag: Bool
+    let supportsAudioTrack: Bool
+    let supportsVideoEncoderSelection: Bool
+    let usesGIFPalettePipeline: Bool
     let ffmpegRequiredMuxers: [String]
     let preferredFFmpegMuxer: String?
     let allowsFFmpegAutomaticVideoCodec: Bool
@@ -200,6 +212,9 @@ private struct VideoFormatProfile {
             avFileTypeIdentifier: avFileTypeIdentifier,
             supportsFastStart: supportsFastStart,
             supportsHEVCTag: supportsHEVCTag,
+            supportsAudioTrack: supportsAudioTrack,
+            supportsVideoEncoderSelection: supportsVideoEncoderSelection,
+            usesGIFPalettePipeline: usesGIFPalettePipeline,
             ffmpegRequiredMuxers: ffmpegRequiredMuxers,
             preferredFFmpegMuxer: preferredFFmpegMuxer,
             allowsFFmpegAutomaticVideoCodec: allowsFFmpegAutomaticVideoCodec,
@@ -217,6 +232,9 @@ private struct VideoFormatProfile {
             avFileTypeIdentifier: String?,
             supportsFastStart: Bool,
             supportsHEVCTag: Bool,
+            supportsAudioTrack: Bool = true,
+            supportsVideoEncoderSelection: Bool = true,
+            usesGIFPalettePipeline: Bool = false,
             ffmpegRequiredMuxers: [String],
             preferredFFmpegMuxer: String? = nil,
             allowsFFmpegAutomaticVideoCodec: Bool = true,
@@ -229,6 +247,9 @@ private struct VideoFormatProfile {
                 avFileTypeIdentifier: avFileTypeIdentifier,
                 supportsFastStart: supportsFastStart,
                 supportsHEVCTag: supportsHEVCTag,
+                supportsAudioTrack: supportsAudioTrack,
+                supportsVideoEncoderSelection: supportsVideoEncoderSelection,
+                usesGIFPalettePipeline: usesGIFPalettePipeline,
                 ffmpegRequiredMuxers: ffmpegRequiredMuxers.map { $0.lowercased() },
                 preferredFFmpegMuxer: preferredFFmpegMuxer?.lowercased(),
                 allowsFFmpegAutomaticVideoCodec: allowsFFmpegAutomaticVideoCodec,
@@ -337,6 +358,21 @@ private struct VideoFormatProfile {
             ffmpegRequiredMuxers: ["ogg"],
             preferredFFmpegMuxer: "ogg"
         )
+        add(
+            id: "ffmpeg.gif",
+            displayName: "GIF",
+            fileExtension: "gif",
+            avFileTypeIdentifier: nil,
+            supportsFastStart: false,
+            supportsHEVCTag: false,
+            supportsAudioTrack: false,
+            supportsVideoEncoderSelection: false,
+            usesGIFPalettePipeline: true,
+            ffmpegRequiredMuxers: ["gif"],
+            preferredFFmpegMuxer: "gif",
+            allowsFFmpegAutomaticVideoCodec: true,
+            allowsFFmpegAutomaticAudioCodec: false
+        )
 
         return map
     }()
@@ -377,7 +413,8 @@ private struct VideoFormatProfile {
             byIdentifier["ffmpeg.flv"],
             byIdentifier["ffmpeg.3gp"],
             byIdentifier["ffmpeg.ts"],
-            byIdentifier["ffmpeg.ogv"]
+            byIdentifier["ffmpeg.ogv"],
+            byIdentifier["ffmpeg.gif"]
         ].compactMap { $0 }
     }()
 }
@@ -443,6 +480,10 @@ enum VideoEncoderOption: String, CaseIterable, Identifiable {
     }
 
     func isCompatible(with format: VideoFormatOption) -> Bool {
+        if !format.supportsVideoEncoderSelection {
+            return self == .auto
+        }
+
         let muxers = Set(format.ffmpegRequiredMuxers)
 
         switch self {
@@ -562,6 +603,40 @@ enum FrameRateOption: String, CaseIterable, Identifiable {
     }
 }
 
+enum GIFPlaybackSpeedOption: String, CaseIterable, Identifiable {
+    case x0_5 = "0.5x"
+    case x0_75 = "0.75x"
+    case x1_0 = "1.0x"
+    case x1_25 = "1.25x"
+    case x1_5 = "1.5x"
+    case x1_75 = "1.75x"
+    case x2_0 = "2.0x"
+    case x3_0 = "3.0x"
+
+    var id: String { rawValue }
+
+    var multiplier: Double {
+        switch self {
+        case .x0_5:
+            return 0.5
+        case .x0_75:
+            return 0.75
+        case .x1_0:
+            return 1.0
+        case .x1_25:
+            return 1.25
+        case .x1_5:
+            return 1.5
+        case .x1_75:
+            return 1.75
+        case .x2_0:
+            return 2.0
+        case .x3_0:
+            return 3.0
+        }
+    }
+}
+
 enum VideoBitRateOption: String, CaseIterable, Identifiable {
     case auto = "Auto"
     case kbps50000 = "50000 Kbps"
@@ -670,6 +745,10 @@ enum AudioEncoderOption: String, CaseIterable, Identifiable {
     }
 
     func isCompatible(with format: VideoFormatOption) -> Bool {
+        if !format.supportsAudioTrack {
+            return false
+        }
+
         let muxers = Set(format.ffmpegRequiredMuxers)
 
         switch self {

@@ -100,6 +100,9 @@ final class ContentViewModel: ObservableObject {
     @Published var selectedFrameRate: FrameRateOption = .original {
         didSet { persistCurrentSettingsIfNeeded() }
     }
+    @Published var selectedGIFPlaybackSpeed: GIFPlaybackSpeedOption = .x1_5 {
+        didSet { persistCurrentSettingsIfNeeded() }
+    }
     @Published var selectedVideoBitRate: VideoBitRateOption = .auto {
         didSet { persistCurrentSettingsIfNeeded() }
     }
@@ -144,6 +147,7 @@ final class ContentViewModel: ObservableObject {
         var videoEncoder: VideoEncoderOption = .h264GPU
         var resolution: ResolutionOption = .original
         var frameRate: FrameRateOption = .original
+        var gifPlaybackSpeed: GIFPlaybackSpeedOption = .x1_5
         var videoBitRate: VideoBitRateOption = .auto
         var customVideoBitRate: String = "5000"
         var audioEncoder: AudioEncoderOption = .aac
@@ -157,6 +161,7 @@ final class ContentViewModel: ObservableObject {
         var videoEncoder: String
         var resolution: String
         var frameRate: String
+        var gifPlaybackSpeed: String
         var videoBitRate: String
         var customVideoBitRate: String
         var audioEncoder: String
@@ -164,11 +169,41 @@ final class ContentViewModel: ObservableObject {
         var sampleRate: String
         var audioBitRate: String
 
+        private enum CodingKeys: String, CodingKey {
+            case outputFormat
+            case videoEncoder
+            case resolution
+            case frameRate
+            case gifPlaybackSpeed
+            case videoBitRate
+            case customVideoBitRate
+            case audioEncoder
+            case audioMode
+            case sampleRate
+            case audioBitRate
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            outputFormat = try container.decode(String.self, forKey: .outputFormat)
+            videoEncoder = try container.decode(String.self, forKey: .videoEncoder)
+            resolution = try container.decode(String.self, forKey: .resolution)
+            frameRate = try container.decode(String.self, forKey: .frameRate)
+            gifPlaybackSpeed = try container.decodeIfPresent(String.self, forKey: .gifPlaybackSpeed) ?? GIFPlaybackSpeedOption.x1_5.rawValue
+            videoBitRate = try container.decode(String.self, forKey: .videoBitRate)
+            customVideoBitRate = try container.decode(String.self, forKey: .customVideoBitRate)
+            audioEncoder = try container.decode(String.self, forKey: .audioEncoder)
+            audioMode = try container.decode(String.self, forKey: .audioMode)
+            sampleRate = try container.decode(String.self, forKey: .sampleRate)
+            audioBitRate = try container.decode(String.self, forKey: .audioBitRate)
+        }
+
         init(from settings: VideoConversionSettings) {
             outputFormat = settings.outputFormatID
             videoEncoder = settings.videoEncoder.rawValue
             resolution = settings.resolution.rawValue
             frameRate = settings.frameRate.rawValue
+            gifPlaybackSpeed = settings.gifPlaybackSpeed.rawValue
             videoBitRate = settings.videoBitRate.rawValue
             customVideoBitRate = settings.customVideoBitRate
             audioEncoder = settings.audioEncoder.rawValue
@@ -183,6 +218,7 @@ final class ContentViewModel: ObservableObject {
                 videoEncoder: VideoEncoderOption(rawValue: videoEncoder) ?? .h264GPU,
                 resolution: ResolutionOption(rawValue: resolution) ?? .original,
                 frameRate: FrameRateOption(rawValue: frameRate) ?? .original,
+                gifPlaybackSpeed: GIFPlaybackSpeedOption(rawValue: gifPlaybackSpeed) ?? .x1_5,
                 videoBitRate: VideoBitRateOption(rawValue: videoBitRate) ?? .auto,
                 customVideoBitRate: customVideoBitRate,
                 audioEncoder: AudioEncoderOption(rawValue: audioEncoder) ?? .aac,
@@ -317,7 +353,7 @@ final class ContentViewModel: ObservableObject {
         if !videoEncoderOptions.contains(selectedVideoEncoder) {
             return "Selected video encoder is not available for this format."
         }
-        if !audioEncoderOptions.contains(selectedAudioEncoder) {
+        if shouldShowAudioSettings && !audioEncoderOptions.contains(selectedAudioEncoder) {
             return "Selected audio encoder is not available for this format."
         }
         return nil
@@ -335,19 +371,34 @@ final class ContentViewModel: ObservableObject {
     }
 
     var audioEncoderOptions: [AudioEncoderOption] {
-        availableAudioEncoders.isEmpty ? [.auto] : availableAudioEncoders
+        if !shouldShowAudioSettings {
+            return []
+        }
+        return availableAudioEncoders.isEmpty ? [.auto] : availableAudioEncoders
+    }
+
+    var shouldShowVideoEncoderOption: Bool {
+        selectedOutputFormat.supportsVideoEncoderSelection && videoEncoderOptions.count > 1
+    }
+
+    var shouldShowAudioSettings: Bool {
+        selectedOutputFormat.supportsAudioTrack
     }
 
     var shouldShowVideoBitRateOption: Bool {
         selectedVideoEncoder.supportsVideoBitRate
     }
 
+    var shouldShowGIFPlaybackSpeedOption: Bool {
+        selectedOutputFormat.usesGIFPalettePipeline
+    }
+
     var shouldShowAudioSampleRateOption: Bool {
-        selectedAudioEncoder.supportsSampleRate
+        shouldShowAudioSettings && selectedAudioEncoder.supportsSampleRate
     }
 
     var shouldShowAudioBitRateOption: Bool {
-        selectedAudioEncoder.supportsAudioBitRate
+        shouldShowAudioSettings && selectedAudioEncoder.supportsAudioBitRate
     }
 
     var normalizedCustomVideoBitRateKbps: Int? {
@@ -725,9 +776,10 @@ final class ContentViewModel: ObservableObject {
             useHEVCTag: selectedVideoEncoder.usesHEVCCodec,
             resolution: selectedResolution.dimensions,
             frameRate: selectedFrameRate.fps,
+            gifPlaybackSpeed: shouldShowGIFPlaybackSpeedOption ? selectedGIFPlaybackSpeed.multiplier : nil,
             videoBitRateKbps: videoBitRateKbps,
-            audioCodecCandidates: selectedAudioEncoder.codecCandidates,
-            audioChannels: selectedAudioMode.channelCount,
+            audioCodecCandidates: shouldShowAudioSettings ? selectedAudioEncoder.codecCandidates : [],
+            audioChannels: shouldShowAudioSettings ? selectedAudioMode.channelCount : nil,
             sampleRate: shouldShowAudioSampleRateOption ? selectedSampleRate.hertz : nil,
             audioBitRateKbps: shouldShowAudioBitRateOption ? selectedAudioBitRate.kbps : nil
         )
@@ -961,6 +1013,7 @@ final class ContentViewModel: ObservableObject {
             videoEncoder: selectedVideoEncoder,
             resolution: selectedResolution,
             frameRate: selectedFrameRate,
+            gifPlaybackSpeed: selectedGIFPlaybackSpeed,
             videoBitRate: selectedVideoBitRate,
             customVideoBitRate: customVideoBitRate,
             audioEncoder: selectedAudioEncoder,
@@ -995,6 +1048,7 @@ final class ContentViewModel: ObservableObject {
         selectedVideoEncoder = settings.videoEncoder
         selectedResolution = settings.resolution
         selectedFrameRate = settings.frameRate
+        selectedGIFPlaybackSpeed = settings.gifPlaybackSpeed
         selectedVideoBitRate = settings.videoBitRate
         customVideoBitRate = settings.customVideoBitRate
         selectedAudioEncoder = settings.audioEncoder
@@ -1038,13 +1092,16 @@ final class ContentViewModel: ObservableObject {
     private func refreshVideoCodecOptions() {
         let format = selectedOutputFormat
         availableVideoEncoders = VideoConversionEngine.availableVideoEncoders(for: format)
-        availableAudioEncoders = VideoConversionEngine.availableAudioEncoders(for: format)
+        availableAudioEncoders = format.supportsAudioTrack
+            ? VideoConversionEngine.availableAudioEncoders(for: format)
+            : []
 
         if let preferredVideo = preferredVideoEncoder(from: availableVideoEncoders),
            !availableVideoEncoders.contains(selectedVideoEncoder) {
             selectedVideoEncoder = preferredVideo
         }
-        if let preferredAudio = preferredAudioEncoder(from: availableAudioEncoders),
+        if format.supportsAudioTrack,
+           let preferredAudio = preferredAudioEncoder(from: availableAudioEncoders),
            !availableAudioEncoders.contains(selectedAudioEncoder) {
             selectedAudioEncoder = preferredAudio
         }
@@ -1068,10 +1125,24 @@ final class ContentViewModel: ObservableObject {
     }
 
     private func normalizeVideoOptionDependencies() {
-        if !selectedVideoEncoder.supportsVideoBitRate {
+        if !selectedVideoEncoder.supportsVideoBitRate && selectedVideoBitRate != .auto {
             selectedVideoBitRate = .auto
         }
-        if !selectedAudioEncoder.supportsAudioBitRate {
+
+        if !shouldShowAudioSettings {
+            if selectedAudioEncoder != .auto {
+                selectedAudioEncoder = .auto
+            }
+            if selectedAudioMode != .auto {
+                selectedAudioMode = .auto
+            }
+            if selectedAudioBitRate != .auto {
+                selectedAudioBitRate = .auto
+            }
+            return
+        }
+
+        if !selectedAudioEncoder.supportsAudioBitRate && selectedAudioBitRate != .auto {
             selectedAudioBitRate = .auto
         }
     }

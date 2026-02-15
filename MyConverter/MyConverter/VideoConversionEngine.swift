@@ -7,6 +7,7 @@ struct VideoOutputSettings {
     let useHEVCTag: Bool
     let resolution: (width: Int, height: Int)?
     let frameRate: Int?
+    let gifPlaybackSpeed: Double?
     let videoBitRateKbps: Int?
     let audioCodecCandidates: [String]
     let audioChannels: Int?
@@ -51,6 +52,10 @@ enum VideoConversionEngine {
 
     static func availableVideoEncoders(for format: VideoFormatOption) -> [VideoEncoderOption] {
         #if os(macOS)
+        if !format.supportsVideoEncoderSelection {
+            return [.auto]
+        }
+
         guard let ffmpegPath = findFFmpegPath(),
               let introspection = try? inspectFFmpeg(at: ffmpegPath),
               isFFmpegFormatSupported(format, introspection: introspection) else {
@@ -70,6 +75,10 @@ enum VideoConversionEngine {
 
     static func availableAudioEncoders(for format: VideoFormatOption) -> [AudioEncoderOption] {
         #if os(macOS)
+        if !format.supportsAudioTrack {
+            return []
+        }
+
         guard let ffmpegPath = findFFmpegPath(),
               let introspection = try? inspectFFmpeg(at: ffmpegPath),
               isFFmpegFormatSupported(format, introspection: introspection) else {
@@ -432,7 +441,9 @@ enum VideoConversionEngine {
         }
 
         let audioCodecs: [String?]
-        if availableAudioCodecs.isEmpty {
+        if !outputSettings.containerFormat.supportsAudioTrack {
+            audioCodecs = [nil]
+        } else if availableAudioCodecs.isEmpty {
             audioCodecs = outputSettings.containerFormat.allowsFFmpegAutomaticAudioCodec ? [nil] : []
         } else {
             audioCodecs = availableAudioCodecs.map { Optional($0) }
@@ -544,6 +555,14 @@ enum VideoConversionEngine {
         videoCodec: String?,
         audioCodec: String?
     ) -> [String] {
+        if outputSettings.containerFormat.usesGIFPalettePipeline {
+            return buildFFmpegGIFArguments(
+                inputURL: inputURL,
+                outputURL: outputURL,
+                outputSettings: outputSettings
+            )
+        }
+
         var args = [
             "-y",
             "-progress", "pipe:1",
@@ -598,6 +617,11 @@ enum VideoConversionEngine {
         outputSettings: VideoOutputSettings,
         audioCodec: String?
     ) {
+        if !outputSettings.containerFormat.supportsAudioTrack {
+            args.append("-an")
+            return
+        }
+
         if let audioCodec {
             args.append(contentsOf: ["-c:a", audioCodec])
         }
@@ -613,6 +637,41 @@ enum VideoConversionEngine {
         if let audioBitRate = outputSettings.audioBitRateKbps {
             args.append(contentsOf: ["-b:a", "\(audioBitRate)k"])
         }
+    }
+
+    private static func buildFFmpegGIFArguments(
+        inputURL: URL,
+        outputURL: URL,
+        outputSettings: VideoOutputSettings
+    ) -> [String] {
+        var filterParts: [String] = []
+        if let speed = outputSettings.gifPlaybackSpeed,
+           speed.isFinite,
+           speed > 0,
+           abs(speed - 1.0) > 0.0001 {
+            filterParts.append("setpts=PTS/\(speed)")
+        }
+        if let fps = outputSettings.frameRate {
+            filterParts.append("fps=\(max(1, fps))")
+        }
+        if let dimensions = outputSettings.resolution {
+            filterParts.append("scale=\(dimensions.width):\(dimensions.height):force_original_aspect_ratio=decrease:flags=lanczos")
+        }
+
+        let baseFilter = filterParts.isEmpty ? "null" : filterParts.joined(separator: ",")
+        let complexFilter = "[0:v]\(baseFilter),split[v0][v1];[v0]palettegen=stats_mode=diff[p];[v1][p]paletteuse=dither=sierra2_4a"
+
+        return [
+            "-y",
+            "-progress", "pipe:1",
+            "-nostats",
+            "-i", inputURL.path,
+            "-an",
+            "-filter_complex", complexFilter,
+            "-loop", "0",
+            "-f", "gif",
+            outputURL.path
+        ]
     }
 
     private struct FFmpegIntrospection {
@@ -804,14 +863,14 @@ enum VideoConversionEngine {
         let description = descriptor.description.lowercased()
 
         let explicitVideoMuxers: Set<String> = [
-            "3gp", "avi", "flv", "ipod", "matroska", "mov", "mp4", "mpeg", "mpegts", "ogg", "webm"
+            "3gp", "avi", "flv", "gif", "ipod", "matroska", "mov", "mp4", "mpeg", "mpegts", "ogg", "webm"
         ]
         if explicitVideoMuxers.contains(name) {
             return true
         }
 
         let keywords = [
-            "video", "quicktime", "matroska", "webm", "mpeg", "movie", "avi", "flv", "ogg"
+            "video", "quicktime", "matroska", "webm", "mpeg", "movie", "avi", "flv", "ogg", "gif", "animation"
         ]
         return keywords.contains(where: { description.contains($0) })
     }
