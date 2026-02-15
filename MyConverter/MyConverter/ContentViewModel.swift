@@ -79,19 +79,16 @@ final class ContentViewModel: ObservableObject {
     @Published private(set) var availableImageOutputFormats: [ImageFormatOption] = ImageConversionEngine.defaultOutputFormats()
 
     @Published var isImporting = false
-    @Published var selectedTab: ConverterTab = .video
 
     // Video options
     @Published var selectedOutputFormat: VideoFormatOption = ContentViewModel.defaultVideoFormat {
         didSet {
-            refreshVideoCodecOptions()
-            persistCurrentSettingsIfNeeded()
+            scheduleVideoFormatChangeHandling()
         }
     }
     @Published var selectedVideoEncoder: VideoEncoderOption = .h264GPU {
         didSet {
-            normalizeVideoOptionDependencies()
-            persistCurrentSettingsIfNeeded()
+            scheduleVideoOptionNormalizationAndPersist()
         }
     }
     @Published var selectedResolution: ResolutionOption = .original {
@@ -111,8 +108,7 @@ final class ContentViewModel: ObservableObject {
     }
     @Published var selectedAudioEncoder: AudioEncoderOption = .aac {
         didSet {
-            normalizeVideoOptionDependencies()
-            persistCurrentSettingsIfNeeded()
+            scheduleVideoOptionNormalizationAndPersist()
         }
     }
     @Published var selectedAudioMode: AudioModeOption = .auto {
@@ -290,6 +286,8 @@ final class ContentViewModel: ObservableObject {
     private var conversionTask: Task<Void, Never>?
     private var imageSourceAnalysisTask: Task<Void, Never>?
     private var imageConversionTask: Task<Void, Never>?
+    private var pendingVideoFormatChangeTask: Task<Void, Never>?
+    private var pendingVideoOptionNormalizationTask: Task<Void, Never>?
 
     private let videoSettingsStorageKey = "ContentViewModel.VideoSettingsBySource"
     private let imageSettingsStorageKey = "ContentViewModel.ImageSettingsBySource"
@@ -494,7 +492,7 @@ final class ContentViewModel: ObservableObject {
 
     // MARK: - Input Handling
 
-    var preferredImportTypes: [UTType] {
+    func preferredImportTypes(for selectedTab: ConverterTab) -> [UTType] {
         switch selectedTab {
         case .video:
             let mkvType = UTType(filenameExtension: "mkv")
@@ -551,7 +549,7 @@ final class ContentViewModel: ObservableObject {
         ensureSelectedImageOutputFormatIsAvailable()
     }
 
-    func handleFileImportResult(_ result: Result<[URL], Error>) {
+    func handleFileImportResult(_ result: Result<[URL], Error>, for selectedTab: ConverterTab) {
         switch result {
         case .success(let urls):
             guard let selected = urls.first else { return }
@@ -999,6 +997,26 @@ final class ContentViewModel: ObservableObject {
 
     private func sourceIdentifier(for url: URL) -> String {
         url.standardizedFileURL.path
+    }
+
+    private func scheduleVideoFormatChangeHandling() {
+        pendingVideoFormatChangeTask?.cancel()
+        pendingVideoFormatChangeTask = Task { @MainActor [weak self] in
+            await Task.yield()
+            guard let self else { return }
+            self.refreshVideoCodecOptions()
+            self.persistCurrentSettingsIfNeeded()
+        }
+    }
+
+    private func scheduleVideoOptionNormalizationAndPersist() {
+        pendingVideoOptionNormalizationTask?.cancel()
+        pendingVideoOptionNormalizationTask = Task { @MainActor [weak self] in
+            await Task.yield()
+            guard let self else { return }
+            self.normalizeVideoOptionDependencies()
+            self.persistCurrentSettingsIfNeeded()
+        }
     }
 
     private func persistCurrentSettingsIfNeeded() {

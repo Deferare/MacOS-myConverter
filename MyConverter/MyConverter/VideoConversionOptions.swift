@@ -26,6 +26,14 @@ struct VideoFormatOption: Identifiable, Hashable, Sendable {
         id.lowercased()
     }
 
+    static func == (lhs: VideoFormatOption, rhs: VideoFormatOption) -> Bool {
+        lhs.normalizedID == rhs.normalizedID
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(normalizedID)
+    }
+
     static var avFoundationDefaultFormats: [VideoFormatOption] {
         VideoFormatProfile.avFoundationProfiles.map { $0.asOption }
     }

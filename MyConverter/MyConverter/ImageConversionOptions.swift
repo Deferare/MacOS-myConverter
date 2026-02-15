@@ -24,6 +24,14 @@ struct ImageFormatOption: Identifiable, Hashable, Sendable {
         id.lowercased()
     }
 
+    nonisolated static func == (lhs: ImageFormatOption, rhs: ImageFormatOption) -> Bool {
+        lhs.normalizedID == rhs.normalizedID
+    }
+
+    nonisolated func hash(into hasher: inout Hasher) {
+        hasher.combine(normalizedID)
+    }
+
     nonisolated static func fromImageIOTypeIdentifier(_ identifier: String) -> ImageFormatOption {
         let normalizedIdentifier = identifier.lowercased()
         let profile = ImageFormatProfile.byIdentifier[normalizedIdentifier]

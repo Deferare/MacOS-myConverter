@@ -13,12 +13,13 @@ import AppKit
 
 struct ContentView: View {
     @StateObject private var viewModel = ContentViewModel()
+    @State private var selectedTab: ConverterTab = .video
     @State private var isVideoDropTargeted = false
     @State private var isImageDropTargeted = false
 
     var body: some View {
         NavigationSplitView {
-            List(selection: $viewModel.selectedTab) {
+            List(selection: $selectedTab) {
                 ForEach(ConverterTab.allCases) { tab in
                     Label(tab.title, systemImage: tab.systemImage)
                         .tag(tab)
@@ -28,7 +29,7 @@ struct ContentView: View {
             .navigationTitle("MyConverter")
             .navigationSplitViewColumnWidth(min: 220, ideal: 250)
         } detail: {
-            switch viewModel.selectedTab {
+            switch selectedTab {
             case .video:
                 videoDetailView
             case .image:
@@ -43,10 +44,10 @@ struct ContentView: View {
         .frame(minWidth: 980, minHeight: 620)
         .fileImporter(
             isPresented: $viewModel.isImporting,
-            allowedContentTypes: viewModel.preferredImportTypes,
+            allowedContentTypes: viewModel.preferredImportTypes(for: selectedTab),
             allowsMultipleSelection: false
         ) { result in
-            viewModel.handleFileImportResult(result)
+            viewModel.handleFileImportResult(result, for: selectedTab)
         }
     }
 
