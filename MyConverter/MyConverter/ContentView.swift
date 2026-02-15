@@ -36,16 +36,6 @@ struct ContentView: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
-        .toolbar {
-            if viewModel.selectedTab == .video {
-                Button {
-                    viewModel.startConversion()
-                } label: {
-                    Label("Convert", systemImage: "arrow.trianglehead.2.clockwise.rotate.90")
-                }
-                .disabled(!viewModel.canConvert)
-            }
-        }
         .frame(minWidth: 980, minHeight: 620)
         .fileImporter(
             isPresented: $viewModel.isImporting,
@@ -145,24 +135,6 @@ struct ContentView: View {
                         }
                     }
                     .pickerStyle(.menu)
-
-                    if viewModel.isAnalyzingSource {
-                        Text("Analyzing source compatibility...")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    if let warning = viewModel.sourceCompatibilityWarningMessage {
-                        Text(warning)
-                            .font(.footnote)
-                            .foregroundStyle(.orange)
-                    }
-
-                    if let validation = viewModel.videoSettingsValidationMessage {
-                        Text(validation)
-                            .font(.footnote)
-                            .foregroundStyle(.red)
-                    }
                 }
 
                 Section("Output File") {
@@ -219,14 +191,6 @@ struct ContentView: View {
                             .frame(maxWidth: .infinity, alignment: .center)
                             .padding(.vertical, 12)
                     }
-
-                    if let conversionErrorMessage = viewModel.conversionErrorMessage {
-                        Text(conversionErrorMessage)
-                            .font(.footnote)
-                            .foregroundStyle(.red)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.top, 4)
-                    }
                 }
             }
             .formStyle(.grouped)
@@ -247,18 +211,22 @@ struct ContentView: View {
     private var videoConversionControls: some View {
         HStack(spacing: 16) {
             Button {
-                viewModel.startConversion()
+                if viewModel.isConverting {
+                    viewModel.cancelConversion()
+                } else {
+                    viewModel.startConversion()
+                }
             } label: {
                 Label(
-                    viewModel.isConverting ? "Converting..." : "Start Conversion",
-                    systemImage: viewModel.isConverting ? "arrow.triangle.2.circlepath" : "play.fill"
+                    viewModel.isConverting ? "Cancel" : "Start Conversion",
+                    systemImage: viewModel.isConverting ? "xmark.circle.fill" : "play.fill"
                 )
                 .font(.body.bold())
                 .frame(minWidth: 120, minHeight: 40)
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .disabled(!viewModel.canConvert)
+            .disabled(viewModel.isConverting ? false : !viewModel.canConvert)
 
             VStack(alignment: .leading, spacing: 4) {
                 ProgressView(value: viewModel.displayedConversionProgress, total: 1.0)
@@ -266,9 +234,10 @@ struct ContentView: View {
                     .tint(progressTintColor)
 
                 HStack {
-                    Text(viewModel.isConverting ? "Conversion in progress..." : "Ready")
+                    Text(viewModel.conversionStatusMessage)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(conversionStatusColor)
+                        .lineLimit(1)
 
                     Spacer()
 
@@ -282,6 +251,17 @@ struct ContentView: View {
 
     private var progressTintColor: Color {
         viewModel.displayedConversionProgress > 0 ? .accentColor : .clear
+    }
+
+    private var conversionStatusColor: Color {
+        switch viewModel.conversionStatusLevel {
+        case .normal:
+            return .secondary
+        case .warning:
+            return .orange
+        case .error:
+            return .red
+        }
     }
 
     private func DropFileView(action: @escaping () -> Void) -> some View {

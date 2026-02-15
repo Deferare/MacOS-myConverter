@@ -34,6 +34,12 @@ enum ConverterTab: String, CaseIterable, Identifiable {
 
 @MainActor
 final class ContentViewModel: ObservableObject {
+    enum ConversionStatusLevel {
+        case normal
+        case warning
+        case error
+    }
+
     @Published private(set) var sourceURL: URL?
     @Published private(set) var convertedURL: URL?
     @Published private(set) var conversionErrorMessage: String?
@@ -135,6 +141,7 @@ final class ContentViewModel: ObservableObject {
     private var settingsBySourceID: [String: VideoConversionSettings] = [:]
     private var isApplyingStoredSettings = false
     private var sourceAnalysisTask: Task<Void, Never>?
+    private var conversionTask: Task<Void, Never>?
     private let settingsStorageKey = "ContentViewModel.VideoSettingsBySource"
 
     init() {
@@ -158,6 +165,14 @@ final class ContentViewModel: ObservableObject {
     var progressPercentageText: String {
         let percent = Int((displayedConversionProgress * 100).rounded())
         return "\(max(0, min(percent, 100)))%"
+    }
+
+    var conversionStatusMessage: String {
+        conversionStatus.message
+    }
+
+    var conversionStatusLevel: ConversionStatusLevel {
+        conversionStatus.level
     }
 
     var isVideoSettingsValid: Bool {
@@ -255,9 +270,15 @@ final class ContentViewModel: ObservableObject {
     }
 
     func startConversion() {
-        Task {
-            await convert()
+        guard !isConverting else { return }
+        conversionTask = Task { [weak self] in
+            await self?.convert()
         }
+    }
+
+    func cancelConversion() {
+        guard isConverting else { return }
+        conversionTask?.cancel()
     }
 
     private func applySelectedSource(_ url: URL) {
@@ -346,6 +367,11 @@ final class ContentViewModel: ObservableObject {
     }
 
     private func applyConversionError(_ error: Error) {
+        if case ConversionError.exportCancelled = error {
+            conversionErrorMessage = nil
+            return
+        }
+
         conversionErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
 
         if let conversionError = error as? ConversionError {
@@ -356,6 +382,8 @@ final class ContentViewModel: ObservableObject {
     }
 
     private func convert() async {
+        defer { conversionTask = nil }
+
         guard canConvert, let sourceURL else {
             if sourceURL == nil {
                 print("No file to convert.")
@@ -382,6 +410,7 @@ final class ContentViewModel: ObservableObject {
 
         do {
             defer { isConverting = false }
+            try Task.checkCancellation()
 
             let outputDirectory = try VideoConversionEngine.sandboxOutputDirectory(
                 bundleIdentifier: Bundle.main.bundleIdentifier
@@ -410,9 +439,16 @@ final class ContentViewModel: ObservableObject {
             ) { [weak self] progress in
                 await self?.updateConversionProgress(progress)
             }
+            try Task.checkCancellation()
 
             convertedURL = try VideoConversionEngine.saveConvertedOutput(from: output, to: destinationURL)
             conversionProgress = 1
+        } catch is CancellationError {
+            conversionProgress = 0
+            conversionErrorMessage = nil
+        } catch ConversionError.exportCancelled {
+            conversionProgress = 0
+            conversionErrorMessage = nil
         } catch {
             applyConversionError(error)
         }
@@ -482,5 +518,29 @@ final class ContentViewModel: ObservableObject {
             print("Failed to load persisted video settings: \(error.localizedDescription)")
             return [:]
         }
+    }
+
+    private var conversionStatus: (message: String, level: ConversionStatusLevel) {
+        if isConverting {
+            return ("Conversion in progress...", .normal)
+        }
+
+        if isAnalyzingSource {
+            return ("Analyzing source compatibility...", .normal)
+        }
+
+        if let error = conversionErrorMessage, !error.isEmpty {
+            return (error, .error)
+        }
+
+        if let validation = videoSettingsValidationMessage {
+            return (validation, .error)
+        }
+
+        if let warning = sourceCompatibilityWarningMessage, !warning.isEmpty {
+            return (warning, .warning)
+        }
+
+        return ("Ready", .normal)
     }
 }

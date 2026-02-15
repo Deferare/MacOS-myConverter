@@ -135,7 +135,7 @@ enum VideoConversionEngine {
             if ffmpegAvailable {
                 return VideoSourceCapabilities(
                     availableOutputFormats: VideoContainerOption.allCases,
-                    warningMessage: "This source will be converted with ffmpeg fallback.",
+                    warningMessage: nil,
                     errorMessage: nil
                 )
             }
@@ -237,6 +237,10 @@ enum VideoConversionEngine {
                     underlying: nil,
                     preset: preset
                 )
+            } catch is CancellationError {
+                throw ConversionError.exportCancelled
+            } catch ConversionError.exportCancelled {
+                throw ConversionError.exportCancelled
             } catch {
                 lastError = error
                 if isUnsupportedMediaFormatError(error) {
@@ -337,6 +341,8 @@ enum VideoConversionEngine {
 
         var lastError: Error?
         for codec in outputSettings.videoCodecCandidates {
+            try Task.checkCancellation()
+
             do {
                 try await runFFmpeg(
                     ffmpegPath: ffmpegPath,
@@ -348,6 +354,10 @@ enum VideoConversionEngine {
                     onProgress: onProgress
                 )
                 return
+            } catch is CancellationError {
+                throw ConversionError.exportCancelled
+            } catch ConversionError.exportCancelled {
+                throw ConversionError.exportCancelled
             } catch {
                 lastError = error
                 try? removeFileIfExists(at: outputURL)
@@ -373,6 +383,7 @@ enum VideoConversionEngine {
             videoCodec: videoCodec
         )
 
+        try Task.checkCancellation()
         await onProgress(0)
 
         var effectiveDuration = inputDurationSeconds
@@ -401,6 +412,7 @@ enum VideoConversionEngine {
                 await onProgress(ratio)
             }
         }
+        try Task.checkCancellation()
 
         guard result.terminationStatus == 0 else {
             throw ConversionError.ffmpegFailed(
@@ -579,74 +591,107 @@ enum VideoConversionEngine {
         return lines
     }
 
+    private final class ProcessCancellationController: @unchecked Sendable {
+        private let queue = DispatchQueue(label: "myconverter.runcommand.process")
+        nonisolated(unsafe) private var process: Process?
+
+        nonisolated func setProcess(_ process: Process) {
+            queue.sync {
+                self.process = process
+            }
+        }
+
+        nonisolated func clearProcess() {
+            queue.sync {
+                process = nil
+            }
+        }
+
+        nonisolated func terminateIfNeeded() {
+            queue.sync {
+                guard let process, process.isRunning else { return }
+                process.terminate()
+            }
+        }
+    }
+
     private static func runCommand(
         path: String,
         arguments: [String],
         outputLineHandler: ((String) -> Void)? = nil
     ) async throws -> (terminationStatus: Int32, output: String) {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(Int32, String), Error>) in
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: path)
-            process.arguments = arguments
+        let cancellationController = ProcessCancellationController()
 
-            let outputPipe = Pipe()
-            process.standardOutput = outputPipe
-            process.standardError = outputPipe
-            let outputHandle = outputPipe.fileHandleForReading
-            let syncQueue = DispatchQueue(label: "myconverter.runcommand.output")
-            var accumulated = Data()
-            var lineBuffer = Data()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(Int32, String), Error>) in
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: path)
+                process.arguments = arguments
+                cancellationController.setProcess(process)
 
-            outputHandle.readabilityHandler = { handle in
-                let data = handle.availableData
-                guard !data.isEmpty else { return }
+                let outputPipe = Pipe()
+                process.standardOutput = outputPipe
+                process.standardError = outputPipe
+                let outputHandle = outputPipe.fileHandleForReading
+                let syncQueue = DispatchQueue(label: "myconverter.runcommand.output")
+                var accumulated = Data()
+                var lineBuffer = Data()
 
-                syncQueue.async {
-                    accumulated.append(data)
-                    lineBuffer.append(data)
-                    let lines = Self.consumeCompleteLines(from: &lineBuffer)
-                    guard let outputLineHandler else { return }
-                    for line in lines {
-                        outputLineHandler(line)
-                    }
-                }
-            }
+                outputHandle.readabilityHandler = { handle in
+                    let data = handle.availableData
+                    guard !data.isEmpty else { return }
 
-            process.terminationHandler = { proc in
-                outputHandle.readabilityHandler = nil
-                let trailingData = outputHandle.readDataToEndOfFile()
-
-                syncQueue.async {
-                    if !trailingData.isEmpty {
-                        accumulated.append(trailingData)
-                        lineBuffer.append(trailingData)
-                    }
-
-                    let lines = Self.consumeCompleteLines(from: &lineBuffer)
-                    if let outputLineHandler {
+                    syncQueue.async {
+                        accumulated.append(data)
+                        lineBuffer.append(data)
+                        let lines = Self.consumeCompleteLines(from: &lineBuffer)
+                        guard let outputLineHandler else { return }
                         for line in lines {
                             outputLineHandler(line)
                         }
-
-                        if !lineBuffer.isEmpty,
-                           let trailingLine = String(data: lineBuffer, encoding: .utf8)?
-                            .trimmingCharacters(in: .whitespacesAndNewlines),
-                           !trailingLine.isEmpty {
-                            outputLineHandler(trailingLine)
-                        }
                     }
+                }
 
-                    let output = String(data: accumulated, encoding: .utf8) ?? ""
-                    continuation.resume(returning: (proc.terminationStatus, output))
+                process.terminationHandler = { proc in
+                    outputHandle.readabilityHandler = nil
+                    let trailingData = outputHandle.readDataToEndOfFile()
+
+                    syncQueue.async {
+                        if !trailingData.isEmpty {
+                            accumulated.append(trailingData)
+                            lineBuffer.append(trailingData)
+                        }
+
+                        let lines = Self.consumeCompleteLines(from: &lineBuffer)
+                        if let outputLineHandler {
+                            for line in lines {
+                                outputLineHandler(line)
+                            }
+
+                            if !lineBuffer.isEmpty,
+                               let trailingLine = String(data: lineBuffer, encoding: .utf8)?
+                                .trimmingCharacters(in: .whitespacesAndNewlines),
+                               !trailingLine.isEmpty {
+                                outputLineHandler(trailingLine)
+                            }
+                        }
+
+                        let output = String(data: accumulated, encoding: .utf8) ?? ""
+                        cancellationController.clearProcess()
+                        continuation.resume(returning: (proc.terminationStatus, output))
+                    }
+                }
+
+                do {
+                    try process.run()
+                } catch {
+                    outputHandle.readabilityHandler = nil
+                    cancellationController.clearProcess()
+                    continuation.resume(throwing: error)
                 }
             }
-
-            do {
-                try process.run()
-            } catch {
-                outputHandle.readabilityHandler = nil
-                continuation.resume(throwing: error)
-            }
+        } onCancel: {
+            cancellationController.terminateIfNeeded()
         }
     }
     #endif
