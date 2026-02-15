@@ -91,9 +91,55 @@ final class ContentViewModel: ObservableObject {
         var audioBitRate: AudioBitRateOption = .auto
     }
 
+    private struct PersistedVideoConversionSettings: Codable {
+        var outputFormat: String
+        var videoEncoder: String
+        var resolution: String
+        var frameRate: String
+        var videoBitRate: String
+        var customVideoBitRate: String
+        var audioEncoder: String
+        var audioMode: String
+        var sampleRate: String
+        var audioBitRate: String
+
+        init(from settings: VideoConversionSettings) {
+            outputFormat = settings.outputFormat.rawValue
+            videoEncoder = settings.videoEncoder.rawValue
+            resolution = settings.resolution.rawValue
+            frameRate = settings.frameRate.rawValue
+            videoBitRate = settings.videoBitRate.rawValue
+            customVideoBitRate = settings.customVideoBitRate
+            audioEncoder = settings.audioEncoder.rawValue
+            audioMode = settings.audioMode.rawValue
+            sampleRate = settings.sampleRate.rawValue
+            audioBitRate = settings.audioBitRate.rawValue
+        }
+
+        var restoredSettings: VideoConversionSettings {
+            VideoConversionSettings(
+                outputFormat: VideoContainerOption(rawValue: outputFormat) ?? .mp4,
+                videoEncoder: VideoEncoderOption(rawValue: videoEncoder) ?? .h264GPU,
+                resolution: ResolutionOption(rawValue: resolution) ?? .original,
+                frameRate: FrameRateOption(rawValue: frameRate) ?? .original,
+                videoBitRate: VideoBitRateOption(rawValue: videoBitRate) ?? .auto,
+                customVideoBitRate: customVideoBitRate,
+                audioEncoder: AudioEncoderOption(rawValue: audioEncoder) ?? .aac,
+                audioMode: AudioModeOption(rawValue: audioMode) ?? .auto,
+                sampleRate: SampleRateOption(rawValue: sampleRate) ?? .hz48000,
+                audioBitRate: AudioBitRateOption(rawValue: audioBitRate) ?? .auto
+            )
+        }
+    }
+
     private var settingsBySourceID: [String: VideoConversionSettings] = [:]
     private var isApplyingStoredSettings = false
     private var sourceAnalysisTask: Task<Void, Never>?
+    private let settingsStorageKey = "ContentViewModel.VideoSettingsBySource"
+
+    init() {
+        settingsBySourceID = loadPersistedSettings()
+    }
 
     var canConvert: Bool {
         sourceURL != nil &&
@@ -395,6 +441,7 @@ final class ContentViewModel: ObservableObject {
             sampleRate: selectedSampleRate,
             audioBitRate: selectedAudioBitRate
         )
+        savePersistedSettings()
     }
 
     private func applyStoredSettings(_ settings: VideoConversionSettings) {
@@ -411,5 +458,29 @@ final class ContentViewModel: ObservableObject {
         selectedAudioMode = settings.audioMode
         selectedSampleRate = settings.sampleRate
         selectedAudioBitRate = settings.audioBitRate
+    }
+
+    private func savePersistedSettings() {
+        let persisted = settingsBySourceID.mapValues { PersistedVideoConversionSettings(from: $0) }
+        do {
+            let data = try JSONEncoder().encode(persisted)
+            UserDefaults.standard.set(data, forKey: settingsStorageKey)
+        } catch {
+            print("Failed to persist video settings: \(error.localizedDescription)")
+        }
+    }
+
+    private func loadPersistedSettings() -> [String: VideoConversionSettings] {
+        guard let data = UserDefaults.standard.data(forKey: settingsStorageKey) else {
+            return [:]
+        }
+
+        do {
+            let decoded = try JSONDecoder().decode([String: PersistedVideoConversionSettings].self, from: data)
+            return decoded.mapValues { $0.restoredSettings }
+        } catch {
+            print("Failed to load persisted video settings: \(error.localizedDescription)")
+            return [:]
+        }
     }
 }
