@@ -72,4 +72,32 @@ mkdir -p "${FFMPEG_BUNDLE_DIR}"
 cp "${FFMPEG_SOURCE}" "${FFMPEG_DESTINATION}"
 chmod +x "${FFMPEG_DESTINATION}"
 
+if [ "${CODE_SIGNING_ALLOWED:-NO}" = "YES" ] && [ -n "${EXPANDED_CODE_SIGN_IDENTITY:-}" ]; then
+  ENTITLEMENTS_TMP="$(mktemp "${TARGET_TEMP_DIR:-/tmp}/ffmpeg-entitlements.XXXXXX.plist")"
+  cat >"${ENTITLEMENTS_TMP}" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>com.apple.security.app-sandbox</key>
+  <true/>
+  <key>com.apple.security.inherit</key>
+  <true/>
+</dict>
+</plist>
+EOF
+
+  /usr/bin/codesign --force --sign "${EXPANDED_CODE_SIGN_IDENTITY}" --entitlements "${ENTITLEMENTS_TMP}" "${FFMPEG_DESTINATION}"
+  rm -f "${ENTITLEMENTS_TMP}"
+  echo "Signed ffmpeg with app sandbox entitlement."
+fi
+
+if [ "${DEBUG_INFORMATION_FORMAT:-}" = "dwarf-with-dsym" ] && command -v dsymutil >/dev/null 2>&1; then
+  FFMPEG_DSYM_DIR="${DWARF_DSYM_FOLDER_PATH:-}"
+  if [ -n "${FFMPEG_DSYM_DIR}" ]; then
+    mkdir -p "${FFMPEG_DSYM_DIR}"
+    /usr/bin/dsymutil "${FFMPEG_DESTINATION}" -o "${FFMPEG_DSYM_DIR}/ffmpeg.dSYM" || true
+  fi
+fi
+
 echo "Embedded ffmpeg: ${FFMPEG_SOURCE} -> ${FFMPEG_DESTINATION}"

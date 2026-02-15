@@ -24,6 +24,14 @@ enum ImageConversionEngine {
     typealias ProgressHandler = @Sendable (Double) async -> Void
     nonisolated private static let introspectionCacheQueue = DispatchQueue(label: "myconverter.image.ffmpeg.introspection.cache")
     nonisolated(unsafe) private static var introspectionCache: [String: FFmpegIntrospection] = [:]
+    nonisolated private static let ffmpegPathCacheQueue = DispatchQueue(label: "myconverter.image.ffmpeg.path.cache")
+    nonisolated(unsafe) private static var ffmpegPathCache: String?? = nil
+    nonisolated(unsafe) private static var ffmpegPathLookupTime: UInt64 = 0
+    nonisolated private static let ffmpegPathNilCacheTTL: UInt64 = 30_000_000_000
+    nonisolated private static let outputFormatCacheQueue = DispatchQueue(label: "myconverter.image.output.cache")
+    nonisolated(unsafe) private static var defaultOutputFormatsCache: [String: [ImageFormatOption]] = [:]
+    nonisolated(unsafe) private static var imageIODestinationTypeCache: Set<String>? = nil
+    nonisolated(unsafe) private static var imageIOAvailableFormatsCache: [ImageFormatOption]? = nil
 
     nonisolated static func isFFmpegAvailable() -> Bool {
         findFFmpegPath() != nil
@@ -34,6 +42,10 @@ enum ImageConversionEngine {
 
         guard let ffmpegPath = findFFmpegPath() else {
             return imageIOFormats
+        }
+
+        if let cached = outputFormatCacheQueue.sync(execute: { defaultOutputFormatsCache[ffmpegPath] }) {
+            return cached
         }
 
         guard let introspection = try? inspectFFmpeg(at: ffmpegPath) else {
@@ -49,7 +61,11 @@ enum ImageConversionEngine {
             introspection: introspection
         )
 
-        return mergedFormats(primary: ffmpegFormats, secondary: imageIOFormats)
+        let resolved = mergedFormats(primary: ffmpegFormats, secondary: imageIOFormats)
+        outputFormatCacheQueue.sync {
+            defaultOutputFormatsCache[ffmpegPath] = resolved
+        }
+        return resolved
     }
 
     nonisolated static func sourceCapabilities(for inputURL: URL) async -> ImageSourceCapabilities {
@@ -484,13 +500,29 @@ enum ImageConversionEngine {
     }
 
     nonisolated private static func imageIODestinationTypeIdentifiers() -> Set<String> {
-        Set((CGImageDestinationCopyTypeIdentifiers() as? [String] ?? []).map { $0.lowercased() })
+        if let cached = outputFormatCacheQueue.sync(execute: { imageIODestinationTypeCache }) {
+            return cached
+        }
+
+        let resolved = Set((CGImageDestinationCopyTypeIdentifiers() as? [String] ?? []).map { $0.lowercased() })
+        outputFormatCacheQueue.sync {
+            imageIODestinationTypeCache = resolved
+        }
+        return resolved
     }
 
     nonisolated private static func imageIOAvailableFormats() -> [ImageFormatOption] {
+        if let cached = outputFormatCacheQueue.sync(execute: { imageIOAvailableFormatsCache }) {
+            return cached
+        }
+
         let identifiers = (CGImageDestinationCopyTypeIdentifiers() as? [String] ?? [])
         let options = identifiers.map { ImageFormatOption.fromImageIOTypeIdentifier($0) }
-        return ImageFormatOption.deduplicatedAndSorted(options)
+        let resolved = ImageFormatOption.deduplicatedAndSorted(options)
+        outputFormatCacheQueue.sync {
+            imageIOAvailableFormatsCache = resolved
+        }
+        return resolved
     }
 
     nonisolated private static func isFFmpegFormatSupported(_ format: ImageFormatOption, ffmpegPath: String) -> Bool {
@@ -744,6 +776,31 @@ enum ImageConversionEngine {
     }
 
     nonisolated private static func findFFmpegPath() -> String? {
+        let now = DispatchTime.now().uptimeNanoseconds
+        let cacheSnapshot = ffmpegPathCacheQueue.sync {
+            (ffmpegPathCache, ffmpegPathLookupTime)
+        }
+
+        if let cached = cacheSnapshot.0 {
+            if let path = cached, FileManager.default.isExecutableFile(atPath: path) {
+                return path
+            }
+
+            let nilCacheAge = now >= cacheSnapshot.1 ? now - cacheSnapshot.1 : 0
+            if cached == nil && nilCacheAge < ffmpegPathNilCacheTTL {
+                return nil
+            }
+        }
+
+        let resolved = resolveFFmpegPath()
+        ffmpegPathCacheQueue.sync {
+            ffmpegPathCache = resolved
+            ffmpegPathLookupTime = now
+        }
+        return resolved
+    }
+
+    nonisolated private static func resolveFFmpegPath() -> String? {
         var candidates: [String] = []
 
         if let bundled = Bundle.main.path(forResource: "ffmpeg", ofType: nil) {
