@@ -84,18 +84,19 @@ struct ContentView: View {
                 Section("Output Settings") {
                     Picker("Container", selection: $viewModel.selectedOutputFormat) {
                         ForEach(viewModel.outputFormatOptions) { format in
-                            Text(format.rawValue).tag(format)
+                            Text("\(format.displayName) (.\(format.fileExtension))").tag(format)
                         }
                     }
                     .pickerStyle(.menu)
                     .disabled(viewModel.outputFormatOptions.isEmpty)
 
                     Picker("Video Encoder", selection: $viewModel.selectedVideoEncoder) {
-                        ForEach(VideoEncoderOption.allCases) { option in
+                        ForEach(viewModel.videoEncoderOptions) { option in
                             Text(option.rawValue).tag(option)
                         }
                     }
                     .pickerStyle(.menu)
+                    .disabled(viewModel.videoEncoderOptions.isEmpty)
 
                     Picker("Resolution", selection: $viewModel.selectedResolution) {
                         ForEach(ResolutionOption.allCases) { option in
@@ -111,24 +112,27 @@ struct ContentView: View {
                     }
                     .pickerStyle(.menu)
 
-                    Picker("Video Bit Rate", selection: $viewModel.selectedVideoBitRate) {
-                        ForEach(VideoBitRateOption.allCases) { option in
-                            Text(option.rawValue).tag(option)
+                    if viewModel.shouldShowVideoBitRateOption {
+                        Picker("Video Bit Rate", selection: $viewModel.selectedVideoBitRate) {
+                            ForEach(VideoBitRateOption.allCases) { option in
+                                Text(option.rawValue).tag(option)
+                            }
                         }
+                        .pickerStyle(.menu)
                     }
-                    .pickerStyle(.menu)
 
-                    if viewModel.selectedVideoBitRate == .custom {
+                    if viewModel.shouldShowVideoBitRateOption && viewModel.selectedVideoBitRate == .custom {
                         TextField("Custom Kbps (e.g. 5000)", text: $viewModel.customVideoBitRate)
                             .textFieldStyle(.roundedBorder)
                     }
 
                     Picker("Audio Encoder", selection: $viewModel.selectedAudioEncoder) {
-                        ForEach(AudioEncoderOption.allCases) { option in
+                        ForEach(viewModel.audioEncoderOptions) { option in
                             Text(option.rawValue).tag(option)
                         }
                     }
                     .pickerStyle(.menu)
+                    .disabled(viewModel.audioEncoderOptions.isEmpty)
 
                     Picker("Audio Mode", selection: $viewModel.selectedAudioMode) {
                         ForEach(AudioModeOption.allCases) { option in
@@ -137,19 +141,23 @@ struct ContentView: View {
                     }
                     .pickerStyle(.menu)
 
-                    Picker("Sample Rate", selection: $viewModel.selectedSampleRate) {
-                        ForEach(SampleRateOption.allCases) { option in
-                            Text(option.rawValue).tag(option)
+                    if viewModel.shouldShowAudioSampleRateOption {
+                        Picker("Sample Rate", selection: $viewModel.selectedSampleRate) {
+                            ForEach(SampleRateOption.allCases) { option in
+                                Text(option.rawValue).tag(option)
+                            }
                         }
+                        .pickerStyle(.menu)
                     }
-                    .pickerStyle(.menu)
 
-                    Picker("Audio Bit Rate", selection: $viewModel.selectedAudioBitRate) {
-                        ForEach(AudioBitRateOption.allCases) { option in
-                            Text(option.rawValue).tag(option)
+                    if viewModel.shouldShowAudioBitRateOption {
+                        Picker("Audio Bit Rate", selection: $viewModel.selectedAudioBitRate) {
+                            ForEach(AudioBitRateOption.allCases) { option in
+                                Text(option.rawValue).tag(option)
+                            }
                         }
+                        .pickerStyle(.menu)
                     }
-                    .pickerStyle(.menu)
                 }
 
                 Section("Output File") {

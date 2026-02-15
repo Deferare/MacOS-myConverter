@@ -45,6 +45,13 @@ final class ContentViewModel: ObservableObject {
         case error
     }
 
+    private static var defaultVideoFormat: VideoFormatOption {
+        if let preferred = VideoFormatOption.defaultSelection(from: VideoConversionEngine.defaultOutputFormats()) {
+            return preferred
+        }
+        return VideoFormatOption.fromFFmpegExtension("mp4", muxer: "mp4")
+    }
+
     // Video state
     @Published private(set) var sourceURL: URL?
     @Published private(set) var convertedURL: URL?
@@ -54,7 +61,9 @@ final class ContentViewModel: ObservableObject {
     @Published private(set) var isAnalyzingSource = false
     @Published var isConverting = false
     @Published private(set) var conversionProgress: Double = 0
-    @Published private(set) var availableOutputFormats: [VideoContainerOption] = VideoContainerOption.allCases
+    @Published private(set) var availableOutputFormats: [VideoFormatOption] = VideoConversionEngine.defaultOutputFormats()
+    @Published private(set) var availableVideoEncoders: [VideoEncoderOption] = [.auto]
+    @Published private(set) var availableAudioEncoders: [AudioEncoderOption] = [.auto]
 
     // Image state
     @Published private(set) var imageSourceURL: URL?
@@ -73,11 +82,17 @@ final class ContentViewModel: ObservableObject {
     @Published var selectedTab: ConverterTab = .video
 
     // Video options
-    @Published var selectedOutputFormat: VideoContainerOption = .mp4 {
-        didSet { persistCurrentSettingsIfNeeded() }
+    @Published var selectedOutputFormat: VideoFormatOption = ContentViewModel.defaultVideoFormat {
+        didSet {
+            refreshVideoCodecOptions()
+            persistCurrentSettingsIfNeeded()
+        }
     }
     @Published var selectedVideoEncoder: VideoEncoderOption = .h264GPU {
-        didSet { persistCurrentSettingsIfNeeded() }
+        didSet {
+            normalizeVideoOptionDependencies()
+            persistCurrentSettingsIfNeeded()
+        }
     }
     @Published var selectedResolution: ResolutionOption = .original {
         didSet { persistCurrentSettingsIfNeeded() }
@@ -92,7 +107,10 @@ final class ContentViewModel: ObservableObject {
         didSet { persistCurrentSettingsIfNeeded() }
     }
     @Published var selectedAudioEncoder: AudioEncoderOption = .aac {
-        didSet { persistCurrentSettingsIfNeeded() }
+        didSet {
+            normalizeVideoOptionDependencies()
+            persistCurrentSettingsIfNeeded()
+        }
     }
     @Published var selectedAudioMode: AudioModeOption = .auto {
         didSet { persistCurrentSettingsIfNeeded() }
@@ -122,7 +140,7 @@ final class ContentViewModel: ObservableObject {
     }
 
     private struct VideoConversionSettings {
-        var outputFormat: VideoContainerOption = .mp4
+        var outputFormatID: String = ContentViewModel.defaultVideoFormat.id
         var videoEncoder: VideoEncoderOption = .h264GPU
         var resolution: ResolutionOption = .original
         var frameRate: FrameRateOption = .original
@@ -147,7 +165,7 @@ final class ContentViewModel: ObservableObject {
         var audioBitRate: String
 
         init(from settings: VideoConversionSettings) {
-            outputFormat = settings.outputFormat.rawValue
+            outputFormat = settings.outputFormatID
             videoEncoder = settings.videoEncoder.rawValue
             resolution = settings.resolution.rawValue
             frameRate = settings.frameRate.rawValue
@@ -161,7 +179,7 @@ final class ContentViewModel: ObservableObject {
 
         var restoredSettings: VideoConversionSettings {
             VideoConversionSettings(
-                outputFormat: VideoContainerOption(rawValue: outputFormat) ?? .mp4,
+                outputFormatID: outputFormat,
                 videoEncoder: VideoEncoderOption(rawValue: videoEncoder) ?? .h264GPU,
                 resolution: ResolutionOption(rawValue: resolution) ?? .original,
                 frameRate: FrameRateOption(rawValue: frameRate) ?? .original,
@@ -243,6 +261,9 @@ final class ContentViewModel: ObservableObject {
     init() {
         videoSettingsBySourceID = loadPersistedSettings()
         imageSettingsBySourceID = loadPersistedImageSettings()
+        availableOutputFormats = VideoConversionEngine.defaultOutputFormats()
+        ensureSelectedVideoOutputFormatIsAvailable()
+        refreshVideoCodecOptions()
         availableImageOutputFormats = ImageConversionEngine.defaultOutputFormats()
         ensureSelectedImageOutputFormatIsAvailable()
     }
@@ -255,7 +276,7 @@ final class ContentViewModel: ObservableObject {
             !isAnalyzingSource &&
             sourceCompatibilityErrorMessage == nil &&
             isVideoSettingsValid &&
-            availableOutputFormats.contains(selectedOutputFormat)
+            availableOutputFormats.contains(where: { $0.normalizedID == selectedOutputFormat.normalizedID })
     }
 
     var displayedConversionProgress: Double {
@@ -277,7 +298,7 @@ final class ContentViewModel: ObservableObject {
     }
 
     var isVideoSettingsValid: Bool {
-        if selectedVideoBitRate == .custom {
+        if shouldShowVideoBitRateOption && selectedVideoBitRate == .custom {
             return normalizedCustomVideoBitRateKbps != nil
         }
         return true
@@ -287,20 +308,46 @@ final class ContentViewModel: ObservableObject {
         if let sourceCompatibilityErrorMessage {
             return sourceCompatibilityErrorMessage
         }
-        if selectedVideoBitRate == .custom && normalizedCustomVideoBitRateKbps == nil {
+        if shouldShowVideoBitRateOption && selectedVideoBitRate == .custom && normalizedCustomVideoBitRateKbps == nil {
             return "Please enter an integer greater than 1 for Custom Bitrate (Kbps)."
         }
-        if sourceURL != nil && !availableOutputFormats.contains(selectedOutputFormat) {
+        if sourceURL != nil && !availableOutputFormats.contains(where: { $0.normalizedID == selectedOutputFormat.normalizedID }) {
             return "Selected container is not available for this source."
+        }
+        if !videoEncoderOptions.contains(selectedVideoEncoder) {
+            return "Selected video encoder is not available for this format."
+        }
+        if !audioEncoderOptions.contains(selectedAudioEncoder) {
+            return "Selected audio encoder is not available for this format."
         }
         return nil
     }
 
-    var outputFormatOptions: [VideoContainerOption] {
-        if sourceURL == nil || availableOutputFormats.isEmpty {
-            return VideoContainerOption.allCases
+    var outputFormatOptions: [VideoFormatOption] {
+        if availableOutputFormats.isEmpty {
+            return VideoConversionEngine.defaultOutputFormats()
         }
         return availableOutputFormats
+    }
+
+    var videoEncoderOptions: [VideoEncoderOption] {
+        availableVideoEncoders.isEmpty ? [.auto] : availableVideoEncoders
+    }
+
+    var audioEncoderOptions: [AudioEncoderOption] {
+        availableAudioEncoders.isEmpty ? [.auto] : availableAudioEncoders
+    }
+
+    var shouldShowVideoBitRateOption: Bool {
+        selectedVideoEncoder.supportsVideoBitRate
+    }
+
+    var shouldShowAudioSampleRateOption: Bool {
+        selectedAudioEncoder.supportsSampleRate
+    }
+
+    var shouldShowAudioBitRateOption: Bool {
+        selectedAudioEncoder.supportsAudioBitRate
     }
 
     var normalizedCustomVideoBitRateKbps: Int? {
@@ -428,9 +475,11 @@ final class ContentViewModel: ObservableObject {
         sourceCompatibilityErrorMessage = nil
         sourceCompatibilityWarningMessage = nil
         isAnalyzingSource = false
-        availableOutputFormats = VideoContainerOption.allCases
+        availableOutputFormats = VideoConversionEngine.defaultOutputFormats()
 
         applyStoredSettings(.init())
+        ensureSelectedVideoOutputFormatIsAvailable()
+        refreshVideoCodecOptions()
     }
 
     func clearSelectedImageSource() {
@@ -581,10 +630,12 @@ final class ContentViewModel: ObservableObject {
             self.sourceCompatibilityErrorMessage = capabilities.errorMessage
 
             if let first = capabilities.availableOutputFormats.first,
-               !capabilities.availableOutputFormats.contains(self.selectedOutputFormat) {
+               !capabilities.availableOutputFormats.contains(where: { $0.normalizedID == self.selectedOutputFormat.normalizedID }) {
                 self.selectedOutputFormat = first
             }
 
+            self.ensureSelectedVideoOutputFormatIsAvailable()
+            self.refreshVideoCodecOptions()
             self.persistCurrentSettingsIfNeeded()
         }
     }
@@ -652,29 +703,33 @@ final class ContentViewModel: ObservableObject {
 
     private func buildVideoOutputSettings() throws -> VideoOutputSettings {
         let videoBitRateKbps: Int?
-        switch selectedVideoBitRate {
-        case .auto:
-            videoBitRateKbps = nil
-        case .custom:
-            guard let custom = normalizedCustomVideoBitRateKbps else {
-                throw ConversionError.invalidCustomVideoBitRate(customVideoBitRate)
+        if shouldShowVideoBitRateOption {
+            switch selectedVideoBitRate {
+            case .auto:
+                videoBitRateKbps = nil
+            case .custom:
+                guard let custom = normalizedCustomVideoBitRateKbps else {
+                    throw ConversionError.invalidCustomVideoBitRate(customVideoBitRate)
+                }
+                videoBitRateKbps = custom
+            default:
+                videoBitRateKbps = selectedVideoBitRate.kbps
             }
-            videoBitRateKbps = custom
-        default:
-            videoBitRateKbps = selectedVideoBitRate.kbps
+        } else {
+            videoBitRateKbps = nil
         }
 
         return VideoOutputSettings(
             containerFormat: selectedOutputFormat,
             videoCodecCandidates: selectedVideoEncoder.codecCandidates,
-            useHEVCTag: selectedVideoEncoder.isHEVC,
+            useHEVCTag: selectedVideoEncoder.usesHEVCCodec,
             resolution: selectedResolution.dimensions,
             frameRate: selectedFrameRate.fps,
             videoBitRateKbps: videoBitRateKbps,
-            audioCodec: selectedAudioEncoder.codecName,
+            audioCodecCandidates: selectedAudioEncoder.codecCandidates,
             audioChannels: selectedAudioMode.channelCount,
-            sampleRate: selectedSampleRate.hertz,
-            audioBitRateKbps: selectedAudioBitRate.kbps
+            sampleRate: shouldShowAudioSampleRateOption ? selectedSampleRate.hertz : nil,
+            audioBitRateKbps: shouldShowAudioBitRateOption ? selectedAudioBitRate.kbps : nil
         )
     }
 
@@ -902,7 +957,7 @@ final class ContentViewModel: ObservableObject {
         guard !isApplyingStoredSettings, let sourceURL else { return }
 
         videoSettingsBySourceID[sourceIdentifier(for: sourceURL)] = VideoConversionSettings(
-            outputFormat: selectedOutputFormat,
+            outputFormatID: selectedOutputFormat.id,
             videoEncoder: selectedVideoEncoder,
             resolution: selectedResolution,
             frameRate: selectedFrameRate,
@@ -933,7 +988,10 @@ final class ContentViewModel: ObservableObject {
         isApplyingStoredSettings = true
         defer { isApplyingStoredSettings = false }
 
-        selectedOutputFormat = settings.outputFormat
+        if let normalizedID = VideoFormatOption.legacyNormalizedID(from: settings.outputFormatID),
+           let matchingFormat = outputFormatOptions.first(where: { $0.normalizedID == normalizedID }) {
+            selectedOutputFormat = matchingFormat
+        }
         selectedVideoEncoder = settings.videoEncoder
         selectedResolution = settings.resolution
         selectedFrameRate = settings.frameRate
@@ -943,6 +1001,8 @@ final class ContentViewModel: ObservableObject {
         selectedAudioMode = settings.audioMode
         selectedSampleRate = settings.sampleRate
         selectedAudioBitRate = settings.audioBitRate
+        ensureSelectedVideoOutputFormatIsAvailable()
+        refreshVideoCodecOptions()
     }
 
     private func applyStoredImageSettings(_ settings: ImageConversionSettings) {
@@ -964,6 +1024,55 @@ final class ContentViewModel: ObservableObject {
         guard !options.isEmpty else { return }
         if !options.contains(where: { $0.normalizedID == selectedImageOutputFormat.normalizedID }), let first = options.first {
             selectedImageOutputFormat = first
+        }
+    }
+
+    private func ensureSelectedVideoOutputFormatIsAvailable() {
+        let options = outputFormatOptions
+        guard !options.isEmpty else { return }
+        if !options.contains(where: { $0.normalizedID == selectedOutputFormat.normalizedID }), let preferred = VideoFormatOption.defaultSelection(from: options) {
+            selectedOutputFormat = preferred
+        }
+    }
+
+    private func refreshVideoCodecOptions() {
+        let format = selectedOutputFormat
+        availableVideoEncoders = VideoConversionEngine.availableVideoEncoders(for: format)
+        availableAudioEncoders = VideoConversionEngine.availableAudioEncoders(for: format)
+
+        if let preferredVideo = preferredVideoEncoder(from: availableVideoEncoders),
+           !availableVideoEncoders.contains(selectedVideoEncoder) {
+            selectedVideoEncoder = preferredVideo
+        }
+        if let preferredAudio = preferredAudioEncoder(from: availableAudioEncoders),
+           !availableAudioEncoders.contains(selectedAudioEncoder) {
+            selectedAudioEncoder = preferredAudio
+        }
+
+        normalizeVideoOptionDependencies()
+    }
+
+    private func preferredVideoEncoder(from options: [VideoEncoderOption]) -> VideoEncoderOption? {
+        guard !options.isEmpty else { return nil }
+        if options.contains(.h264GPU) { return .h264GPU }
+        if options.contains(.h264CPU) { return .h264CPU }
+        if options.contains(.auto) { return .auto }
+        return options.first
+    }
+
+    private func preferredAudioEncoder(from options: [AudioEncoderOption]) -> AudioEncoderOption? {
+        guard !options.isEmpty else { return nil }
+        if options.contains(.aac) { return .aac }
+        if options.contains(.auto) { return .auto }
+        return options.first
+    }
+
+    private func normalizeVideoOptionDependencies() {
+        if !selectedVideoEncoder.supportsVideoBitRate {
+            selectedVideoBitRate = .auto
+        }
+        if !selectedAudioEncoder.supportsAudioBitRate {
+            selectedAudioBitRate = .auto
         }
     }
 
