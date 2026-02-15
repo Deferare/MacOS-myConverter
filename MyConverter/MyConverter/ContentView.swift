@@ -34,6 +34,8 @@ struct ContentView: View {
                 imageDetailView
             case .audio:
                 audioDetailView
+            case .about:
+                aboutDetailView
             }
         }
         .navigationSplitViewStyle(.balanced)
@@ -471,6 +473,89 @@ struct ContentView: View {
             )
         }
         .navigationTitle("Convert Audio")
+    }
+    
+    private var aboutDetailView: some View {
+        ScrollView {
+            VStack(spacing: 32) {
+                VStack(spacing: 16) {
+                    Image(nsImage: NSImage(named: "AppIcon") ?? NSImage(systemSymbolName: "app.dashed", accessibilityDescription: nil) ?? NSImage())
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 128, height: 128)
+                        .shadow(radius: 8)
+                    
+                    VStack(spacing: 8) {
+                        Text("MyConverter")
+                            .font(.system(size: 32, weight: .bold))
+                        
+                        Text("Version 1.0.0")
+                            .font(.headline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.top, 40)
+                
+                VStack(spacing: 16) {
+                    Text("About This App")
+                        .font(.title2.bold())
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    Text("MyConverter is a powerful tool designed to help you convert your media files with ease. Whether you need to convert videos, images, or audio files, MyConverter provides a simple and intuitive interface to get the job done.")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .lineSpacing(4)
+                }
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color(nsColor: .controlBackgroundColor))
+                        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+                )
+                
+                VStack(spacing: 16) {
+                    Text("Credits")
+                        .font(.title2.bold())
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    VStack(alignment: .leading, spacing: 12) {
+                        CreditRow(role: "Developer", name: "JiHoon K")
+                        Divider()
+                        CreditRow(role: "Designer", name: "JiHoon K")
+                    }
+                }
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color(nsColor: .controlBackgroundColor))
+                        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
+                )
+                
+                Spacer()
+                
+                Text("Copyright © 2026 JiHoon K. All rights reserved.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .padding(.bottom, 20)
+            }
+            .padding(40)
+            .frame(maxWidth: 600)
+        }
+        .navigationTitle("About")
+    }
+
+    private func CreditRow(role: String, name: String) -> some View {
+        HStack {
+            Text(role)
+                .foregroundStyle(.secondary)
+                .frame(width: 100, alignment: .leading)
+            
+            Text(name)
+                .font(.body.weight(.medium))
+            
+            Spacer()
+        }
     }
 }
 

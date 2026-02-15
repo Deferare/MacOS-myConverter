@@ -6,6 +6,7 @@ enum ConverterTab: String, CaseIterable, Identifiable {
     case video
     case image
     case audio
+    case about
 
     var id: String { rawValue }
 
@@ -17,6 +18,8 @@ enum ConverterTab: String, CaseIterable, Identifiable {
             return "Convert Image"
         case .audio:
             return "Convert Audio"
+        case .about:
+            return "About"
         }
     }
 
@@ -28,6 +31,8 @@ enum ConverterTab: String, CaseIterable, Identifiable {
             return "photo"
         case .audio:
             return "waveform"
+        case .about:
+            return "info.circle"
         }
     }
 }
