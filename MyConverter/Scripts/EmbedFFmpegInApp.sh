@@ -42,6 +42,29 @@ if [ -z "${FFMPEG_SOURCE}" ]; then
   exit 0
 fi
 
+if [ "${ALLOW_GPL_FFMPEG:-0}" != "1" ]; then
+  FFMPEG_VERSION_OUTPUT="$("${FFMPEG_SOURCE}" -version 2>/dev/null || true)"
+  FFMPEG_LICENSE_OUTPUT="$("${FFMPEG_SOURCE}" -L 2>/dev/null || true)"
+
+  if [ -n "${FFMPEG_VERSION_OUTPUT}" ] || [ -n "${FFMPEG_LICENSE_OUTPUT}" ]; then
+    if printf '%s\n' "${FFMPEG_VERSION_OUTPUT}" | grep -q -- "--enable-gpl"; then
+      echo "error: Refusing to embed GPL-enabled ffmpeg binary (${FFMPEG_SOURCE})."
+      echo "error: Use an LGPL-only build (remove --enable-gpl and GPL-only external libraries)."
+      echo "error: Override only if intentional: set ALLOW_GPL_FFMPEG=1"
+      exit 1
+    fi
+
+    if printf '%s\n' "${FFMPEG_LICENSE_OUTPUT}" | grep -qi "GNU General Public License" &&
+      ! printf '%s\n' "${FFMPEG_LICENSE_OUTPUT}" | grep -qi "GNU Lesser General Public License"; then
+      echo "error: Refusing to embed GPL-licensed ffmpeg binary (${FFMPEG_SOURCE})."
+      echo "error: Use an LGPL-only build or explicitly set ALLOW_GPL_FFMPEG=1."
+      exit 1
+    fi
+  else
+    echo "warning: Could not inspect ffmpeg license output for ${FFMPEG_SOURCE}. Skipping GPL guard."
+  fi
+fi
+
 FFMPEG_BUNDLE_DIR="${TARGET_BUILD_DIR:?TARGET_BUILD_DIR is required}/${UNLOCALIZED_RESOURCES_FOLDER_PATH:?UNLOCALIZED_RESOURCES_FOLDER_PATH is required}"
 FFMPEG_DESTINATION="${FFMPEG_BUNDLE_DIR}/ffmpeg"
 

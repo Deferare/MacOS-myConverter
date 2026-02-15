@@ -918,11 +918,11 @@ struct ContentView: View {
                         Text("FFmpeg")
                             .font(.title3.weight(.semibold))
 
-                        Text("This app bundles FFmpeg 7.1, built with --enable-gpl.")
+                        Text("This app bundles an LGPL-only FFmpeg 7.1 build.")
                             .font(.body)
                             .foregroundStyle(.secondary)
 
-                        Text("License: GNU General Public License v2.0 or later.")
+                        Text("License: GNU Lesser General Public License v2.1 or later.")
                             .font(.body)
 
                         if let ffmpegURL = URL(string: "https://ffmpeg.org") {
@@ -930,15 +930,15 @@ struct ContentView: View {
                                 .font(.callout)
                         }
 
-                        if let gplURL = URL(string: "https://www.gnu.org/licenses/old-licenses/gpl-2.0.html") {
-                            Link("GNU GPL v2.0 Text", destination: gplURL)
+                        if let lgplURL = URL(string: "https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html") {
+                            Link("GNU LGPL v2.1 Text", destination: lgplURL)
                                 .font(.callout)
                         }
                     }
 
                     Divider()
 
-                    Text("The ffmpeg binary bundled in this app reports GPL licensing terms via ffmpeg -L.")
+                    Text("The bundled ffmpeg binary is validated during build to reject GPL-enabled configurations.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
