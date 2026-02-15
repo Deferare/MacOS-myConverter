@@ -34,27 +34,74 @@ enum ConverterTab: String, CaseIterable, Identifiable {
 
 @MainActor
 final class ContentViewModel: ObservableObject {
-    @Published var sourceURL: URL?
-    @Published var convertedURL: URL?
+    @Published private(set) var sourceURL: URL?
+    @Published private(set) var convertedURL: URL?
+    @Published private(set) var conversionErrorMessage: String?
+    @Published private(set) var sourceCompatibilityErrorMessage: String?
+    @Published private(set) var sourceCompatibilityWarningMessage: String?
+    @Published private(set) var isAnalyzingSource = false
+
     @Published var isImporting = false
     @Published var isConverting = false
     @Published var selectedTab: ConverterTab = .video
 
-    @Published var selectedVideoEncoder: VideoEncoderOption = .h264GPU
-    @Published var selectedResolution: ResolutionOption = .original
-    @Published var selectedFrameRate: FrameRateOption = .original
-    @Published var selectedVideoBitRate: VideoBitRateOption = .auto
-    @Published var customVideoBitRate = "5000"
-    @Published var selectedAudioEncoder: AudioEncoderOption = .aac
-    @Published var selectedAudioMode: AudioModeOption = .auto
-    @Published var selectedSampleRate: SampleRateOption = .hz48000
-    @Published var selectedAudioBitRate: AudioBitRateOption = .auto
+    @Published var selectedOutputFormat: VideoContainerOption = .mp4 {
+        didSet { persistCurrentSettingsIfNeeded() }
+    }
+    @Published var selectedVideoEncoder: VideoEncoderOption = .h264GPU {
+        didSet { persistCurrentSettingsIfNeeded() }
+    }
+    @Published var selectedResolution: ResolutionOption = .original {
+        didSet { persistCurrentSettingsIfNeeded() }
+    }
+    @Published var selectedFrameRate: FrameRateOption = .original {
+        didSet { persistCurrentSettingsIfNeeded() }
+    }
+    @Published var selectedVideoBitRate: VideoBitRateOption = .auto {
+        didSet { persistCurrentSettingsIfNeeded() }
+    }
+    @Published var customVideoBitRate = "5000" {
+        didSet { persistCurrentSettingsIfNeeded() }
+    }
+    @Published var selectedAudioEncoder: AudioEncoderOption = .aac {
+        didSet { persistCurrentSettingsIfNeeded() }
+    }
+    @Published var selectedAudioMode: AudioModeOption = .auto {
+        didSet { persistCurrentSettingsIfNeeded() }
+    }
+    @Published var selectedSampleRate: SampleRateOption = .hz48000 {
+        didSet { persistCurrentSettingsIfNeeded() }
+    }
+    @Published var selectedAudioBitRate: AudioBitRateOption = .auto {
+        didSet { persistCurrentSettingsIfNeeded() }
+    }
     @Published private(set) var conversionProgress: Double = 0
+    @Published private(set) var availableOutputFormats: [VideoContainerOption] = VideoContainerOption.allCases
 
-    private let supportedDropExtensions: Set<String> = ["mkv", "mov", "mp4"]
+    private struct VideoConversionSettings {
+        var outputFormat: VideoContainerOption = .mp4
+        var videoEncoder: VideoEncoderOption = .h264GPU
+        var resolution: ResolutionOption = .original
+        var frameRate: FrameRateOption = .original
+        var videoBitRate: VideoBitRateOption = .auto
+        var customVideoBitRate: String = "5000"
+        var audioEncoder: AudioEncoderOption = .aac
+        var audioMode: AudioModeOption = .auto
+        var sampleRate: SampleRateOption = .hz48000
+        var audioBitRate: AudioBitRateOption = .auto
+    }
+
+    private var settingsBySourceID: [String: VideoConversionSettings] = [:]
+    private var isApplyingStoredSettings = false
+    private var sourceAnalysisTask: Task<Void, Never>?
 
     var canConvert: Bool {
-        sourceURL != nil && !isConverting && isVideoSettingsValid
+        sourceURL != nil &&
+            !isConverting &&
+            !isAnalyzingSource &&
+            sourceCompatibilityErrorMessage == nil &&
+            isVideoSettingsValid &&
+            availableOutputFormats.contains(selectedOutputFormat)
     }
 
     var displayedConversionProgress: Double {
@@ -74,6 +121,26 @@ final class ContentViewModel: ObservableObject {
         return true
     }
 
+    var videoSettingsValidationMessage: String? {
+        if let sourceCompatibilityErrorMessage {
+            return sourceCompatibilityErrorMessage
+        }
+        if selectedVideoBitRate == .custom && normalizedCustomVideoBitRateKbps == nil {
+            return "Please enter an integer greater than 1 for Custom Bitrate (Kbps)."
+        }
+        if sourceURL != nil && !availableOutputFormats.contains(selectedOutputFormat) {
+            return "Selected container is not available for this source."
+        }
+        return nil
+    }
+
+    var outputFormatOptions: [VideoContainerOption] {
+        if sourceURL == nil || availableOutputFormats.isEmpty {
+            return VideoContainerOption.allCases
+        }
+        return availableOutputFormats
+    }
+
     var normalizedCustomVideoBitRateKbps: Int? {
         let trimmed = customVideoBitRate.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
@@ -85,7 +152,7 @@ final class ContentViewModel: ObservableObject {
 
     var preferredImportTypes: [UTType] {
         let mkvType = UTType(filenameExtension: "mkv")
-        return [mkvType, .movie].compactMap { $0 }
+        return [.movie, .audiovisualContent, mkvType].compactMap { $0 }
     }
 
     func requestFileImport() {
@@ -93,16 +160,25 @@ final class ContentViewModel: ObservableObject {
     }
 
     func clearSelectedSource() {
+        sourceAnalysisTask?.cancel()
+        sourceAnalysisTask = nil
+
         sourceURL = nil
         convertedURL = nil
+        conversionErrorMessage = nil
+        sourceCompatibilityErrorMessage = nil
+        sourceCompatibilityWarningMessage = nil
+        isAnalyzingSource = false
+        availableOutputFormats = VideoContainerOption.allCases
+
+        applyStoredSettings(.init())
     }
 
     func handleFileImportResult(_ result: Result<[URL], Error>) {
         switch result {
         case .success(let urls):
             guard let selected = urls.first else { return }
-            sourceURL = selected
-            convertedURL = nil
+            applySelectedSource(selected)
         case .failure(let error):
             print("Failed to select file: \(error.localizedDescription)")
         }
@@ -125,7 +201,7 @@ final class ContentViewModel: ObservableObject {
             guard let finalURL else { return }
 
             Task { @MainActor [weak self] in
-                self?.acceptDroppedFile(finalURL)
+                self?.applySelectedSource(finalURL)
             }
         }
 
@@ -138,12 +214,54 @@ final class ContentViewModel: ObservableObject {
         }
     }
 
-    private func acceptDroppedFile(_ url: URL) {
-        let ext = url.pathExtension.lowercased()
-        guard supportedDropExtensions.contains(ext) else { return }
+    private func applySelectedSource(_ url: URL) {
+        sourceAnalysisTask?.cancel()
+        sourceAnalysisTask = nil
 
         sourceURL = url
         convertedURL = nil
+        conversionErrorMessage = nil
+        sourceCompatibilityErrorMessage = nil
+        sourceCompatibilityWarningMessage = nil
+
+        let sourceID = sourceIdentifier(for: url)
+        let stored = settingsBySourceID[sourceID] ?? VideoConversionSettings()
+        applyStoredSettings(stored)
+
+        analyzeSourceCompatibility(for: url)
+    }
+
+    private func analyzeSourceCompatibility(for url: URL) {
+        isAnalyzingSource = true
+
+        sourceAnalysisTask = Task { [weak self] in
+            guard let self else { return }
+
+            let shouldStopSourceAccessing = url.startAccessingSecurityScopedResource()
+            defer {
+                if shouldStopSourceAccessing {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+
+            let capabilities = await VideoConversionEngine.sourceCapabilities(for: url)
+
+            guard !Task.isCancelled else { return }
+            guard let currentSourceURL = self.sourceURL else { return }
+            guard self.sourceIdentifier(for: url) == self.sourceIdentifier(for: currentSourceURL) else { return }
+
+            self.isAnalyzingSource = false
+            self.availableOutputFormats = capabilities.availableOutputFormats
+            self.sourceCompatibilityWarningMessage = capabilities.warningMessage
+            self.sourceCompatibilityErrorMessage = capabilities.errorMessage
+
+            if let first = capabilities.availableOutputFormats.first,
+               !capabilities.availableOutputFormats.contains(self.selectedOutputFormat) {
+                self.selectedOutputFormat = first
+            }
+
+            self.persistCurrentSettingsIfNeeded()
+        }
     }
 
     private func buildVideoOutputSettings() throws -> VideoOutputSettings {
@@ -161,6 +279,7 @@ final class ContentViewModel: ObservableObject {
         }
 
         return VideoOutputSettings(
+            containerFormat: selectedOutputFormat,
             videoCodecCandidates: selectedVideoEncoder.codecCandidates,
             useHEVCTag: selectedVideoEncoder.isHEVC,
             resolution: selectedResolution.dimensions,
@@ -176,10 +295,13 @@ final class ContentViewModel: ObservableObject {
     private func prepareConversionStartState() {
         isConverting = true
         convertedURL = nil
+        conversionErrorMessage = nil
         conversionProgress = 0
     }
 
     private func applyConversionError(_ error: Error) {
+        conversionErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+
         if let conversionError = error as? ConversionError {
             print("Conversion failed: \(conversionError.debugInfo)")
         } else {
@@ -188,8 +310,10 @@ final class ContentViewModel: ObservableObject {
     }
 
     private func convert() async {
-        guard let sourceURL else {
-            print("No file to convert.")
+        guard canConvert, let sourceURL else {
+            if sourceURL == nil {
+                print("No file to convert.")
+            }
             return
         }
 
@@ -217,15 +341,22 @@ final class ContentViewModel: ObservableObject {
                 bundleIdentifier: Bundle.main.bundleIdentifier
             )
 
-            let destinationURL = VideoConversionEngine.uniqueOutputURL(for: sourceURL, in: outputDirectory)
-            let workingOutputURL = VideoConversionEngine.temporaryOutputURL(for: sourceURL)
+            let destinationURL = VideoConversionEngine.uniqueOutputURL(
+                for: sourceURL,
+                format: selectedOutputFormat,
+                in: outputDirectory
+            )
+            let workingOutputURL = VideoConversionEngine.temporaryOutputURL(
+                for: sourceURL,
+                format: selectedOutputFormat
+            )
             defer {
                 if FileManager.default.fileExists(atPath: workingOutputURL.path) {
                     try? FileManager.default.removeItem(at: workingOutputURL)
                 }
             }
 
-            let output = try await VideoConversionEngine.convertToMP4(
+            let output = try await VideoConversionEngine.convert(
                 inputURL: sourceURL,
                 outputURL: workingOutputURL,
                 outputSettings: outputSettings,
@@ -243,5 +374,42 @@ final class ContentViewModel: ObservableObject {
 
     private func updateConversionProgress(_ rawProgress: Double) {
         conversionProgress = min(max(rawProgress, 0), 1)
+    }
+
+    private func sourceIdentifier(for url: URL) -> String {
+        url.standardizedFileURL.path
+    }
+
+    private func persistCurrentSettingsIfNeeded() {
+        guard !isApplyingStoredSettings, let sourceURL else { return }
+
+        settingsBySourceID[sourceIdentifier(for: sourceURL)] = VideoConversionSettings(
+            outputFormat: selectedOutputFormat,
+            videoEncoder: selectedVideoEncoder,
+            resolution: selectedResolution,
+            frameRate: selectedFrameRate,
+            videoBitRate: selectedVideoBitRate,
+            customVideoBitRate: customVideoBitRate,
+            audioEncoder: selectedAudioEncoder,
+            audioMode: selectedAudioMode,
+            sampleRate: selectedSampleRate,
+            audioBitRate: selectedAudioBitRate
+        )
+    }
+
+    private func applyStoredSettings(_ settings: VideoConversionSettings) {
+        isApplyingStoredSettings = true
+        defer { isApplyingStoredSettings = false }
+
+        selectedOutputFormat = settings.outputFormat
+        selectedVideoEncoder = settings.videoEncoder
+        selectedResolution = settings.resolution
+        selectedFrameRate = settings.frameRate
+        selectedVideoBitRate = settings.videoBitRate
+        customVideoBitRate = settings.customVideoBitRate
+        selectedAudioEncoder = settings.audioEncoder
+        selectedAudioMode = settings.audioMode
+        selectedSampleRate = settings.sampleRate
+        selectedAudioBitRate = settings.audioBitRate
     }
 }

@@ -1,4 +1,44 @@
+import AVFoundation
 import Foundation
+
+enum VideoContainerOption: String, CaseIterable, Identifiable {
+    case mp4 = "MP4"
+    case mov = "MOV"
+    case m4v = "M4V"
+
+    var id: String { rawValue }
+
+    var fileExtension: String {
+        switch self {
+        case .mp4:
+            return "mp4"
+        case .mov:
+            return "mov"
+        case .m4v:
+            return "m4v"
+        }
+    }
+
+    var avFileType: AVFileType {
+        switch self {
+        case .mp4:
+            return .mp4
+        case .mov:
+            return .mov
+        case .m4v:
+            return .m4v
+        }
+    }
+
+    var supportsFastStart: Bool {
+        switch self {
+        case .mp4, .m4v:
+            return true
+        case .mov:
+            return false
+        }
+    }
+}
 
 enum VideoEncoderOption: String, CaseIterable, Identifiable {
     case h265CPU = "H.265(CPU)"

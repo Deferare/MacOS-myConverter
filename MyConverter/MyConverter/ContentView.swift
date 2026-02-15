@@ -77,7 +77,13 @@ struct ContentView: View {
 
             Form {
                 Section("Output Settings") {
-                    LabeledContent("Container") { Text("MP4").fontWeight(.semibold) }
+                    Picker("Container", selection: $viewModel.selectedOutputFormat) {
+                        ForEach(viewModel.outputFormatOptions) { format in
+                            Text(format.rawValue).tag(format)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .disabled(viewModel.outputFormatOptions.isEmpty)
 
                     Picker("Video Encoder", selection: $viewModel.selectedVideoEncoder) {
                         ForEach(VideoEncoderOption.allCases) { option in
@@ -110,12 +116,6 @@ struct ContentView: View {
                     if viewModel.selectedVideoBitRate == .custom {
                         TextField("Custom Kbps (e.g. 5000)", text: $viewModel.customVideoBitRate)
                             .textFieldStyle(.roundedBorder)
-
-                        if viewModel.normalizedCustomVideoBitRateKbps == nil {
-                            Text("Please enter an integer greater than 1 for Custom Bitrate (Kbps).")
-                                .font(.footnote)
-                                .foregroundStyle(.red)
-                        }
                     }
 
                     Picker("Audio Encoder", selection: $viewModel.selectedAudioEncoder) {
@@ -145,6 +145,24 @@ struct ContentView: View {
                         }
                     }
                     .pickerStyle(.menu)
+
+                    if viewModel.isAnalyzingSource {
+                        Text("Analyzing source compatibility...")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if let warning = viewModel.sourceCompatibilityWarningMessage {
+                        Text(warning)
+                            .font(.footnote)
+                            .foregroundStyle(.orange)
+                    }
+
+                    if let validation = viewModel.videoSettingsValidationMessage {
+                        Text(validation)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
                 }
 
                 Section("Output File") {
@@ -200,6 +218,14 @@ struct ContentView: View {
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity, alignment: .center)
                             .padding(.vertical, 12)
+                    }
+
+                    if let conversionErrorMessage = viewModel.conversionErrorMessage {
+                        Text(conversionErrorMessage)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.top, 4)
                     }
                 }
             }
@@ -275,7 +301,7 @@ struct ContentView: View {
                     Text("Drop file here")
                         .font(.title3.bold())
 
-                    Text("or click to select MKV file")
+                    Text("or click to select any video file")
                         .font(.body)
                         .foregroundStyle(.secondary)
                 }
