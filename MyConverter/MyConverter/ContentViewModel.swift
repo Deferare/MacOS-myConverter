@@ -65,7 +65,7 @@ final class ContentViewModel: ObservableObject {
     @Published private(set) var isAnalyzingImageSource = false
     @Published var isImageConverting = false
     @Published private(set) var imageConversionProgress: Double = 0
-    @Published private(set) var availableImageOutputFormats: [ImageContainerOption] = ImageContainerOption.allCases
+    @Published private(set) var availableImageOutputFormats: [ImageContainerOption] = ImageContainerOption.systemSupportedCases
 
     @Published var isImporting = false
     @Published var selectedTab: ConverterTab = .video
@@ -210,6 +210,7 @@ final class ContentViewModel: ObservableObject {
     init() {
         videoSettingsBySourceID = loadPersistedSettings()
         imageSettingsBySourceID = loadPersistedImageSettings()
+        ensureSelectedImageOutputFormatIsAvailable()
     }
 
     // MARK: - Video Computed Properties
@@ -306,8 +307,8 @@ final class ContentViewModel: ObservableObject {
     }
 
     var imageOutputFormatOptions: [ImageContainerOption] {
-        if imageSourceURL == nil || availableImageOutputFormats.isEmpty {
-            return ImageContainerOption.allCases
+        if availableImageOutputFormats.isEmpty {
+            return ImageContainerOption.systemSupportedCases
         }
         return availableImageOutputFormats
     }
@@ -371,9 +372,10 @@ final class ContentViewModel: ObservableObject {
         imageSourceCompatibilityErrorMessage = nil
         imageSourceCompatibilityWarningMessage = nil
         isAnalyzingImageSource = false
-        availableImageOutputFormats = ImageContainerOption.allCases
+        availableImageOutputFormats = ImageContainerOption.systemSupportedCases
 
         applyStoredImageSettings(.init())
+        ensureSelectedImageOutputFormatIsAvailable()
     }
 
     func handleFileImportResult(_ result: Result<[URL], Error>) {
@@ -562,6 +564,7 @@ final class ContentViewModel: ObservableObject {
                 self.selectedImageOutputFormat = first
             }
 
+            self.ensureSelectedImageOutputFormatIsAvailable()
             self.persistCurrentImageSettingsIfNeeded()
         }
     }
@@ -858,6 +861,15 @@ final class ContentViewModel: ObservableObject {
         selectedImageOutputFormat = settings.outputFormat
         selectedImageResolution = settings.resolution
         selectedImageQuality = settings.quality
+        ensureSelectedImageOutputFormatIsAvailable()
+    }
+
+    private func ensureSelectedImageOutputFormatIsAvailable() {
+        let options = imageOutputFormatOptions
+        guard !options.isEmpty else { return }
+        if !options.contains(selectedImageOutputFormat), let first = options.first {
+            selectedImageOutputFormat = first
+        }
     }
 
     private func savePersistedSettings() {

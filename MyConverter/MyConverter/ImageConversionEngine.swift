@@ -83,10 +83,7 @@ enum ImageConversionEngine {
             )
         }
 
-        let destinationTypes = Set((CGImageDestinationCopyTypeIdentifiers() as? [String]) ?? [])
-        let availableOutputFormats = ImageContainerOption.allCases.filter { option in
-            destinationTypes.contains(option.utType.identifier)
-        }
+        let availableOutputFormats = ImageContainerOption.systemSupportedCases
 
         if availableOutputFormats.isEmpty {
             return ImageSourceCapabilities(
