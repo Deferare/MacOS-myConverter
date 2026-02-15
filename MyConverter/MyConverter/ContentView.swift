@@ -219,7 +219,7 @@ struct ContentView: View {
                 Section("Output Settings") {
                     Picker("Container", selection: $viewModel.selectedImageOutputFormat) {
                         ForEach(viewModel.imageOutputFormatOptions) { format in
-                            Text(format.rawValue).tag(format)
+                            Text("\(format.displayName) (.\(format.fileExtension))").tag(format)
                         }
                     }
                     .pickerStyle(.menu)
@@ -232,13 +232,32 @@ struct ContentView: View {
                     }
                     .pickerStyle(.menu)
 
-                    if viewModel.selectedImageOutputFormat.supportsCompressionQuality {
+                    if viewModel.shouldShowImageQualityOption {
                         Picker("Quality", selection: $viewModel.selectedImageQuality) {
                             ForEach(ImageQualityOption.allCases) { option in
                                 Text(option.rawValue).tag(option)
                             }
                         }
                         .pickerStyle(.menu)
+                    }
+
+                    if viewModel.shouldShowPNGCompressionOption {
+                        Picker("PNG Compression", selection: $viewModel.selectedPNGCompressionLevel) {
+                            ForEach(PNGCompressionLevelOption.allCases) { option in
+                                Text(option.rawValue).tag(option)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                    }
+
+                    if viewModel.shouldShowPreserveAnimationOption {
+                        Toggle("Preserve Animation", isOn: $viewModel.preserveImageAnimation)
+                    }
+
+                    if let hint = viewModel.imageFormatHintMessage {
+                        Text(hint)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
 

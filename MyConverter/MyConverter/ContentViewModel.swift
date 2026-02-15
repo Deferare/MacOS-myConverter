@@ -63,9 +63,11 @@ final class ContentViewModel: ObservableObject {
     @Published private(set) var imageSourceCompatibilityErrorMessage: String?
     @Published private(set) var imageSourceCompatibilityWarningMessage: String?
     @Published private(set) var isAnalyzingImageSource = false
+    @Published private(set) var imageSourceFrameCount = 0
+    @Published private(set) var imageSourceHasAlpha = false
     @Published var isImageConverting = false
     @Published private(set) var imageConversionProgress: Double = 0
-    @Published private(set) var availableImageOutputFormats: [ImageContainerOption] = ImageContainerOption.systemSupportedCases
+    @Published private(set) var availableImageOutputFormats: [ImageFormatOption] = ImageConversionEngine.defaultOutputFormats()
 
     @Published var isImporting = false
     @Published var selectedTab: ConverterTab = .video
@@ -103,13 +105,19 @@ final class ContentViewModel: ObservableObject {
     }
 
     // Image options
-    @Published var selectedImageOutputFormat: ImageContainerOption = .png {
+    @Published var selectedImageOutputFormat: ImageFormatOption = ImageFormatOption.fromImageIOTypeIdentifier("public.png") {
         didSet { persistCurrentImageSettingsIfNeeded() }
     }
     @Published var selectedImageResolution: ResolutionOption = .original {
         didSet { persistCurrentImageSettingsIfNeeded() }
     }
     @Published var selectedImageQuality: ImageQualityOption = .high {
+        didSet { persistCurrentImageSettingsIfNeeded() }
+    }
+    @Published var selectedPNGCompressionLevel: PNGCompressionLevelOption = .balanced {
+        didSet { persistCurrentImageSettingsIfNeeded() }
+    }
+    @Published var preserveImageAnimation = true {
         didSet { persistCurrentImageSettingsIfNeeded() }
     }
 
@@ -168,27 +176,52 @@ final class ContentViewModel: ObservableObject {
     }
 
     private struct ImageConversionSettings {
-        var outputFormat: ImageContainerOption = .png
+        var outputFormatID: String = "public.png"
         var resolution: ResolutionOption = .original
         var quality: ImageQualityOption = .high
+        var pngCompressionLevel: PNGCompressionLevelOption = .balanced
+        var preserveAnimation: Bool = true
     }
 
     private struct PersistedImageConversionSettings: Codable {
         var outputFormat: String
         var resolution: String
         var quality: String
+        var pngCompressionLevel: String
+        var preserveAnimation: Bool
+
+        private enum CodingKeys: String, CodingKey {
+            case outputFormat
+            case resolution
+            case quality
+            case pngCompressionLevel
+            case preserveAnimation
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            outputFormat = try container.decode(String.self, forKey: .outputFormat)
+            resolution = try container.decode(String.self, forKey: .resolution)
+            quality = try container.decode(String.self, forKey: .quality)
+            pngCompressionLevel = try container.decodeIfPresent(String.self, forKey: .pngCompressionLevel) ?? PNGCompressionLevelOption.balanced.rawValue
+            preserveAnimation = try container.decodeIfPresent(Bool.self, forKey: .preserveAnimation) ?? true
+        }
 
         init(from settings: ImageConversionSettings) {
-            outputFormat = settings.outputFormat.rawValue
+            outputFormat = settings.outputFormatID
             resolution = settings.resolution.rawValue
             quality = settings.quality.rawValue
+            pngCompressionLevel = settings.pngCompressionLevel.rawValue
+            preserveAnimation = settings.preserveAnimation
         }
 
         var restoredSettings: ImageConversionSettings {
             ImageConversionSettings(
-                outputFormat: ImageContainerOption(rawValue: outputFormat) ?? .png,
+                outputFormatID: outputFormat,
                 resolution: ResolutionOption(rawValue: resolution) ?? .original,
-                quality: ImageQualityOption(rawValue: quality) ?? .high
+                quality: ImageQualityOption(rawValue: quality) ?? .high,
+                pngCompressionLevel: PNGCompressionLevelOption(rawValue: pngCompressionLevel) ?? .balanced,
+                preserveAnimation: preserveAnimation
             )
         }
     }
@@ -210,6 +243,7 @@ final class ContentViewModel: ObservableObject {
     init() {
         videoSettingsBySourceID = loadPersistedSettings()
         imageSettingsBySourceID = loadPersistedImageSettings()
+        availableImageOutputFormats = ImageConversionEngine.defaultOutputFormats()
         ensureSelectedImageOutputFormatIsAvailable()
     }
 
@@ -280,12 +314,17 @@ final class ContentViewModel: ObservableObject {
 
     // MARK: - Image Computed Properties
 
+    var imageSourceIsAnimated: Bool {
+        imageSourceFrameCount > 1
+    }
+
     var canConvertImage: Bool {
         imageSourceURL != nil &&
             !isImageConverting &&
             !isAnalyzingImageSource &&
             imageSourceCompatibilityErrorMessage == nil &&
-            availableImageOutputFormats.contains(selectedImageOutputFormat)
+            isImageSettingsValid &&
+            availableImageOutputFormats.contains(where: { $0.normalizedID == selectedImageOutputFormat.normalizedID })
     }
 
     var displayedImageConversionProgress: Double {
@@ -306,19 +345,51 @@ final class ContentViewModel: ObservableObject {
         imageConversionStatus.level
     }
 
-    var imageOutputFormatOptions: [ImageContainerOption] {
+    var imageOutputFormatOptions: [ImageFormatOption] {
         if availableImageOutputFormats.isEmpty {
-            return ImageContainerOption.systemSupportedCases
+            return ImageConversionEngine.defaultOutputFormats()
         }
         return availableImageOutputFormats
+    }
+
+    var isImageSettingsValid: Bool {
+        imageSettingsValidationMessage == nil
+    }
+
+    var shouldShowImageQualityOption: Bool {
+        selectedImageOutputFormat.supportsCompressionQuality
+    }
+
+    var shouldShowPNGCompressionOption: Bool {
+        selectedImageOutputFormat.supportsPNGCompressionLevel
+    }
+
+    var shouldShowPreserveAnimationOption: Bool {
+        imageSourceIsAnimated && selectedImageOutputFormat.supportsAnimation
+    }
+
+    var imageFormatHintMessage: String? {
+        if imageSourceIsAnimated && !selectedImageOutputFormat.supportsAnimation {
+            return "This format exports only the first frame for animated sources."
+        }
+        if shouldShowPreserveAnimationOption && !ImageConversionEngine.isFFmpegAvailable() {
+            return "ffmpeg is required to preserve animation."
+        }
+        return nil
     }
 
     var imageSettingsValidationMessage: String? {
         if let imageSourceCompatibilityErrorMessage {
             return imageSourceCompatibilityErrorMessage
         }
-        if imageSourceURL != nil && !availableImageOutputFormats.contains(selectedImageOutputFormat) {
+        if imageSourceURL != nil && !availableImageOutputFormats.contains(where: { $0.normalizedID == selectedImageOutputFormat.normalizedID }) {
             return "Selected output format is not available for this source."
+        }
+        if imageSourceIsAnimated &&
+            preserveImageAnimation &&
+            selectedImageOutputFormat.supportsAnimation &&
+            !ImageConversionEngine.isFFmpegAvailable() {
+            return "Animated output requires ffmpeg for the selected format."
         }
         return nil
     }
@@ -367,12 +438,14 @@ final class ContentViewModel: ObservableObject {
         imageSourceAnalysisTask = nil
 
         imageSourceURL = nil
+        imageSourceFrameCount = 0
+        imageSourceHasAlpha = false
         convertedImageURL = nil
         imageConversionErrorMessage = nil
         imageSourceCompatibilityErrorMessage = nil
         imageSourceCompatibilityWarningMessage = nil
         isAnalyzingImageSource = false
-        availableImageOutputFormats = ImageContainerOption.systemSupportedCases
+        availableImageOutputFormats = ImageConversionEngine.defaultOutputFormats()
 
         applyStoredImageSettings(.init())
         ensureSelectedImageOutputFormatIsAvailable()
@@ -523,6 +596,8 @@ final class ContentViewModel: ObservableObject {
         imageSourceAnalysisTask = nil
 
         imageSourceURL = url
+        imageSourceFrameCount = 0
+        imageSourceHasAlpha = false
         convertedImageURL = nil
         imageConversionErrorMessage = nil
         imageSourceCompatibilityErrorMessage = nil
@@ -555,12 +630,16 @@ final class ContentViewModel: ObservableObject {
             guard self.sourceIdentifier(for: url) == self.sourceIdentifier(for: currentSourceURL) else { return }
 
             self.isAnalyzingImageSource = false
-            self.availableImageOutputFormats = capabilities.availableOutputFormats
+            self.availableImageOutputFormats = capabilities.availableOutputFormats.isEmpty
+                ? ImageConversionEngine.defaultOutputFormats()
+                : capabilities.availableOutputFormats
             self.imageSourceCompatibilityWarningMessage = capabilities.warningMessage
             self.imageSourceCompatibilityErrorMessage = capabilities.errorMessage
+            self.imageSourceFrameCount = capabilities.frameCount
+            self.imageSourceHasAlpha = capabilities.hasAlpha
 
             if let first = capabilities.availableOutputFormats.first,
-               !capabilities.availableOutputFormats.contains(self.selectedImageOutputFormat) {
+               !capabilities.availableOutputFormats.contains(where: { $0.normalizedID == self.selectedImageOutputFormat.normalizedID }) {
                 self.selectedImageOutputFormat = first
             }
 
@@ -607,10 +686,20 @@ final class ContentViewModel: ObservableObject {
             compressionQuality = nil
         }
 
+        let pngCompressionLevel: Int?
+        if selectedImageOutputFormat.supportsPNGCompressionLevel {
+            pngCompressionLevel = selectedPNGCompressionLevel.level
+        } else {
+            pngCompressionLevel = nil
+        }
+
         return ImageOutputSettings(
             containerFormat: selectedImageOutputFormat,
             resolution: selectedImageResolution.dimensions,
-            compressionQuality: compressionQuality
+            compressionQuality: compressionQuality,
+            pngCompressionLevel: pngCompressionLevel,
+            preserveAnimation: preserveImageAnimation,
+            sourceIsAnimated: imageSourceIsAnimated
         )
     }
 
@@ -831,9 +920,11 @@ final class ContentViewModel: ObservableObject {
         guard !isApplyingStoredImageSettings, let imageSourceURL else { return }
 
         imageSettingsBySourceID[sourceIdentifier(for: imageSourceURL)] = ImageConversionSettings(
-            outputFormat: selectedImageOutputFormat,
+            outputFormatID: selectedImageOutputFormat.id,
             resolution: selectedImageResolution,
-            quality: selectedImageQuality
+            quality: selectedImageQuality,
+            pngCompressionLevel: selectedPNGCompressionLevel,
+            preserveAnimation: preserveImageAnimation
         )
         savePersistedImageSettings()
     }
@@ -858,16 +949,20 @@ final class ContentViewModel: ObservableObject {
         isApplyingStoredImageSettings = true
         defer { isApplyingStoredImageSettings = false }
 
-        selectedImageOutputFormat = settings.outputFormat
+        if let matchingFormat = imageOutputFormatOptions.first(where: { $0.normalizedID == settings.outputFormatID.lowercased() }) {
+            selectedImageOutputFormat = matchingFormat
+        }
         selectedImageResolution = settings.resolution
         selectedImageQuality = settings.quality
+        selectedPNGCompressionLevel = settings.pngCompressionLevel
+        preserveImageAnimation = settings.preserveAnimation
         ensureSelectedImageOutputFormatIsAvailable()
     }
 
     private func ensureSelectedImageOutputFormatIsAvailable() {
         let options = imageOutputFormatOptions
         guard !options.isEmpty else { return }
-        if !options.contains(selectedImageOutputFormat), let first = options.first {
+        if !options.contains(where: { $0.normalizedID == selectedImageOutputFormat.normalizedID }), let first = options.first {
             selectedImageOutputFormat = first
         }
     }
@@ -965,6 +1060,10 @@ final class ContentViewModel: ObservableObject {
 
         if let warning = imageSourceCompatibilityWarningMessage, !warning.isEmpty {
             return (warning, .warning)
+        }
+
+        if let hint = imageFormatHintMessage, !hint.isEmpty {
+            return (hint, .warning)
         }
 
         return ("Ready", .normal)
