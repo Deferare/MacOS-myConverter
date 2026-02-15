@@ -10,9 +10,12 @@ import StoreKit
 import UniformTypeIdentifiers
 #if os(macOS)
 import AppKit
+#elseif os(iOS)
+import UIKit
 #endif
 
 struct ContentView: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @StateObject private var viewModel = ContentViewModel()
     @StateObject private var donationStore = DonationStore()
     @State private var selectedTab: ConverterTab = .video
@@ -20,196 +23,137 @@ struct ContentView: View {
     @State private var isImageDropTargeted = false
     @State private var isAudioDropTargeted = false
     @State private var isShowingOpenSourceLicenses = false
-    private let fileDropAreaHeight: CGFloat = 240
+
+    private var isCompactIOS: Bool {
+        #if os(iOS)
+        horizontalSizeClass == .compact
+        #else
+        false
+        #endif
+    }
+
+    private var fileDropAreaHeight: CGFloat {
+        isCompactIOS ? 170 : 240
+    }
 
     var body: some View {
+        rootNavigationView
+            .fileImporter(
+                isPresented: $viewModel.isImporting,
+                allowedContentTypes: viewModel.preferredImportTypes(for: selectedTab),
+                allowsMultipleSelection: true
+            ) { result in
+                viewModel.handleFileImportResult(result, for: selectedTab)
+            }
+    }
+
+    @ViewBuilder
+    private var rootNavigationView: some View {
+        #if os(macOS)
         NavigationSplitView {
-            List(selection: $selectedTab) {
-                ForEach(ConverterTab.allCases) { tab in
-                    Label(tab.title, systemImage: tab.systemImage)
-                        .tag(tab)
-                }
-            }
-            .listStyle(.sidebar)
-            .navigationTitle("MyConverter")
-            .navigationSplitViewColumnWidth(min: 220, ideal: 250)
+            sidebarView
         } detail: {
-            switch selectedTab {
-            case .video:
-                videoDetailView
-            case .image:
-                imageDetailView
-            case .audio:
-                audioDetailView
-            case .about:
-                aboutDetailView
-            }
+            detailView(for: selectedTab)
         }
         .navigationSplitViewStyle(.balanced)
         .frame(minWidth: 980, minHeight: 620)
-        .fileImporter(
-            isPresented: $viewModel.isImporting,
-            allowedContentTypes: viewModel.preferredImportTypes(for: selectedTab),
-            allowsMultipleSelection: true
-        ) { result in
-            viewModel.handleFileImportResult(result, for: selectedTab)
+        #else
+        if horizontalSizeClass == .compact {
+            iosTabNavigationView
+        } else {
+            NavigationSplitView {
+                sidebarView
+            } detail: {
+                detailView(for: selectedTab)
+            }
+            .navigationSplitViewStyle(.balanced)
+        }
+        #endif
+    }
+
+    #if os(iOS)
+    private var iosTabNavigationView: some View {
+        TabView(selection: $selectedTab) {
+            NavigationStack {
+                videoDetailView
+            }
+            .tabItem {
+                Label("Video", systemImage: ConverterTab.video.systemImage)
+            }
+            .tag(ConverterTab.video)
+
+            NavigationStack {
+                imageDetailView
+            }
+            .tabItem {
+                Label("Image", systemImage: ConverterTab.image.systemImage)
+            }
+            .tag(ConverterTab.image)
+
+            NavigationStack {
+                audioDetailView
+            }
+            .tabItem {
+                Label("Audio", systemImage: ConverterTab.audio.systemImage)
+            }
+            .tag(ConverterTab.audio)
+
+            NavigationStack {
+                aboutDetailView
+            }
+            .tabItem {
+                Label("About", systemImage: ConverterTab.about.systemImage)
+            }
+            .tag(ConverterTab.about)
+        }
+    }
+    #endif
+
+    @ViewBuilder
+    private func detailView(for tab: ConverterTab) -> some View {
+        switch tab {
+        case .video:
+            videoDetailView
+        case .image:
+            imageDetailView
+        case .audio:
+            audioDetailView
+        case .about:
+            aboutDetailView
         }
     }
 
     private var videoDetailView: some View {
-        VStack(spacing: 0) {
-            Group {
-                if !isVideoDropTargeted, !viewModel.selectedVideoSourceURLs.isEmpty {
-                    SelectedFilesView(
-                        urls: viewModel.selectedVideoSourceURLs,
-                        systemImage: "film.fill",
-                        isConverting: viewModel.isConverting
-                    ) {
-                        withAnimation {
-                            viewModel.clearSelectedVideoSource()
-                        }
+        Group {
+            if isCompactIOS {
+                Form {
+                    Section {
+                        videoInputArea
                     }
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                } else {
-                    DropFileView(
-                        isDropTargeted: isVideoDropTargeted,
-                        placeholder: "Drop Video Here"
-                    ) {
-                        viewModel.requestFileImport()
+                    videoFormSections
+                    Section {
+                        videoConversionControls
                     }
-                    .transition(.scale(scale: 0.98).combined(with: .opacity))
+                }
+                .formStyle(.grouped)
+            } else {
+                VStack(spacing: 0) {
+                    videoInputArea
+                        .padding(20)
+                    Divider()
+                    Form {
+                        videoFormSections
+                    }
+                    .formStyle(.grouped)
+                }
+                .safeAreaInset(edge: .bottom) {
+                    videoConversionControls
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 16)
+                        .background(.regularMaterial)
+                        .overlay(Rectangle().frame(height: 1).foregroundStyle(.separator), alignment: .top)
                 }
             }
-            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: viewModel.selectedVideoFileCount)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isVideoDropTargeted)
-            .padding(20)
-
-            Divider()
-
-            Form {
-                Section("Output Settings") {
-                    Picker("Container", selection: $viewModel.selectedOutputFormat) {
-                        ForEach(viewModel.outputFormatOptions) { format in
-                            Text("\(format.displayName) (.\(format.fileExtension))").tag(format)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .disabled(viewModel.outputFormatOptions.isEmpty)
-
-                    if viewModel.shouldShowVideoEncoderOption {
-                        Picker("Video Encoder", selection: $viewModel.selectedVideoEncoder) {
-                            ForEach(viewModel.videoEncoderOptions) { option in
-                                Text(option.rawValue).tag(option)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                        .disabled(viewModel.videoEncoderOptions.isEmpty)
-                    }
-
-                    Picker("Resolution", selection: $viewModel.selectedResolution) {
-                        ForEach(ResolutionOption.allCases) { option in
-                            Text(option.rawValue).tag(option)
-                        }
-                    }
-                    .pickerStyle(.menu)
-
-                    Picker("Frame Rate", selection: $viewModel.selectedFrameRate) {
-                        ForEach(FrameRateOption.allCases) { option in
-                            Text(option.rawValue).tag(option)
-                        }
-                    }
-                    .pickerStyle(.menu)
-
-                    if viewModel.shouldShowGIFPlaybackSpeedOption {
-                        Picker("Playback Speed", selection: $viewModel.selectedGIFPlaybackSpeed) {
-                            ForEach(GIFPlaybackSpeedOption.allCases) { option in
-                                Text(option.rawValue).tag(option)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                    }
-
-                    if viewModel.shouldShowVideoBitRateOption {
-                        Picker("Video Bit Rate", selection: $viewModel.selectedVideoBitRate) {
-                            ForEach(VideoBitRateOption.allCases) { option in
-                                Text(option.rawValue).tag(option)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                    }
-
-                    if viewModel.shouldShowVideoBitRateOption && viewModel.selectedVideoBitRate == .custom {
-                        TextField("Custom Kbps (e.g. 5000)", text: $viewModel.customVideoBitRate)
-                            .textFieldStyle(.roundedBorder)
-                    }
-
-                    if viewModel.shouldShowAudioSettings {
-                        Picker("Audio Encoder", selection: $viewModel.selectedAudioEncoder) {
-                            ForEach(viewModel.audioEncoderOptions) { option in
-                                Text(option.rawValue).tag(option)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                        .disabled(viewModel.audioEncoderOptions.isEmpty)
-
-                        Picker("Audio Mode", selection: $viewModel.selectedAudioMode) {
-                            ForEach(AudioModeOption.allCases) { option in
-                                Text(option.rawValue).tag(option)
-                            }
-                        }
-                        .pickerStyle(.menu)
-
-                        if viewModel.shouldShowAudioSampleRateOption {
-                            Picker("Sample Rate", selection: $viewModel.selectedSampleRate) {
-                                ForEach(SampleRateOption.allCases) { option in
-                                    Text(option.rawValue).tag(option)
-                                }
-                            }
-                            .pickerStyle(.menu)
-                        }
-
-                        if viewModel.shouldShowAudioBitRateOption {
-                            Picker("Audio Bit Rate", selection: $viewModel.selectedAudioBitRate) {
-                                ForEach(AudioBitRateOption.allCases) { option in
-                                    Text(option.rawValue).tag(option)
-                                }
-                            }
-                            .pickerStyle(.menu)
-                        }
-                    }
-                }
-                .disabled(viewModel.isConverting)
-
-                Section("Output Files") {
-                    if viewModel.convertedURLs.isEmpty {
-                        Text("Converted files will appear here")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.vertical, 20)
-                    } else {
-                        VStack(spacing: 10) {
-                            ForEach(Array(viewModel.convertedURLs.enumerated()), id: \.element.path) { index, url in
-                                OutputFileCardView(
-                                    url: url,
-                                    order: index + 1,
-                                    openSystemImage: "play.fill"
-                                )
-                            }
-                        }
-                        .padding(.vertical, 4)
-                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                    }
-                }
-            }
-            .formStyle(.grouped)
-        }
-        .safeAreaInset(edge: .bottom) {
-            videoConversionControls
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
-                .background(.regularMaterial)
-                .overlay(Rectangle().frame(height: 1).foregroundStyle(.separator), alignment: .top)
         }
         .navigationTitle("Convert Video")
         .onDrop(of: [.fileURL], isTargeted: $isVideoDropTargeted) { providers in
@@ -217,117 +161,286 @@ struct ContentView: View {
         }
     }
 
-    private var imageDetailView: some View {
-        VStack(spacing: 0) {
-            Group {
-                if !isImageDropTargeted, !viewModel.selectedImageSourceURLs.isEmpty {
-                    SelectedFilesView(
-                        urls: viewModel.selectedImageSourceURLs,
-                        systemImage: "photo.fill",
-                        isConverting: viewModel.isImageConverting
-                    ) {
-                        withAnimation {
-                            viewModel.clearSelectedImageSource()
-                        }
+    @ViewBuilder
+    private var videoInputArea: some View {
+        Group {
+            if !isVideoDropTargeted, !viewModel.selectedVideoSourceURLs.isEmpty {
+                SelectedFilesView(
+                    urls: viewModel.selectedVideoSourceURLs,
+                    systemImage: "film.fill",
+                    isConverting: viewModel.isConverting
+                ) {
+                    withAnimation {
+                        viewModel.clearSelectedVideoSource()
                     }
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                } else {
-                    DropFileView(
-                        isDropTargeted: isImageDropTargeted,
-                        placeholder: "Drop Image Here"
-                    ) {
-                        viewModel.requestFileImport()
-                    }
-                    .transition(.scale(scale: 0.98).combined(with: .opacity))
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            } else {
+                DropFileView(
+                    isDropTargeted: isVideoDropTargeted,
+                    placeholder: "Drop Video Here"
+                ) {
+                    viewModel.requestFileImport()
+                }
+                .transition(.scale(scale: 0.98).combined(with: .opacity))
+            }
+        }
+        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: viewModel.selectedVideoFileCount)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isVideoDropTargeted)
+    }
+
+    @ViewBuilder
+    private var videoFormSections: some View {
+        Section("Output Settings") {
+            Picker("Container", selection: $viewModel.selectedOutputFormat) {
+                ForEach(viewModel.outputFormatOptions) { format in
+                    Text("\(format.displayName) (.\(format.fileExtension))").tag(format)
                 }
             }
-            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: viewModel.selectedImageFileCount)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isImageDropTargeted)
-            .padding(20)
+            .pickerStyle(.menu)
+            .disabled(viewModel.outputFormatOptions.isEmpty)
 
-            Divider()
-
-            Form {
-                Section("Output Settings") {
-                    Picker("Container", selection: $viewModel.selectedImageOutputFormat) {
-                        ForEach(viewModel.imageOutputFormatOptions) { format in
-                            Text("\(format.displayName) (.\(format.fileExtension))").tag(format)
-                        }
+            if viewModel.shouldShowVideoEncoderOption {
+                Picker("Video Encoder", selection: $viewModel.selectedVideoEncoder) {
+                    ForEach(viewModel.videoEncoderOptions) { option in
+                        Text(option.rawValue).tag(option)
                     }
-                    .pickerStyle(.menu)
-                    .disabled(viewModel.imageOutputFormatOptions.isEmpty)
+                }
+                .pickerStyle(.menu)
+                .disabled(viewModel.videoEncoderOptions.isEmpty)
+            }
 
-                    Picker("Resolution", selection: $viewModel.selectedImageResolution) {
-                        ForEach(ResolutionOption.allCases) { option in
+            Picker("Resolution", selection: $viewModel.selectedResolution) {
+                ForEach(ResolutionOption.allCases) { option in
+                    Text(option.rawValue).tag(option)
+                }
+            }
+            .pickerStyle(.menu)
+
+            Picker("Frame Rate", selection: $viewModel.selectedFrameRate) {
+                ForEach(FrameRateOption.allCases) { option in
+                    Text(option.rawValue).tag(option)
+                }
+            }
+            .pickerStyle(.menu)
+
+            if viewModel.shouldShowGIFPlaybackSpeedOption {
+                Picker("Playback Speed", selection: $viewModel.selectedGIFPlaybackSpeed) {
+                    ForEach(GIFPlaybackSpeedOption.allCases) { option in
+                        Text(option.rawValue).tag(option)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+
+            if viewModel.shouldShowVideoBitRateOption {
+                Picker("Video Bit Rate", selection: $viewModel.selectedVideoBitRate) {
+                    ForEach(VideoBitRateOption.allCases) { option in
+                        Text(option.rawValue).tag(option)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+
+            if viewModel.shouldShowVideoBitRateOption && viewModel.selectedVideoBitRate == .custom {
+                TextField("Custom Kbps (e.g. 5000)", text: $viewModel.customVideoBitRate)
+                    .textFieldStyle(.roundedBorder)
+            }
+
+            if viewModel.shouldShowAudioSettings {
+                Picker("Audio Encoder", selection: $viewModel.selectedAudioEncoder) {
+                    ForEach(viewModel.audioEncoderOptions) { option in
+                        Text(option.rawValue).tag(option)
+                    }
+                }
+                .pickerStyle(.menu)
+                .disabled(viewModel.audioEncoderOptions.isEmpty)
+
+                Picker("Audio Mode", selection: $viewModel.selectedAudioMode) {
+                    ForEach(AudioModeOption.allCases) { option in
+                        Text(option.rawValue).tag(option)
+                    }
+                }
+                .pickerStyle(.menu)
+
+                if viewModel.shouldShowAudioSampleRateOption {
+                    Picker("Sample Rate", selection: $viewModel.selectedSampleRate) {
+                        ForEach(SampleRateOption.allCases) { option in
                             Text(option.rawValue).tag(option)
                         }
                     }
                     .pickerStyle(.menu)
-
-                    if viewModel.shouldShowImageQualityOption {
-                        Picker("Quality", selection: $viewModel.selectedImageQuality) {
-                            ForEach(ImageQualityOption.allCases) { option in
-                                Text(option.rawValue).tag(option)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                    }
-
-                    if viewModel.shouldShowPNGCompressionOption {
-                        Picker("PNG Compression", selection: $viewModel.selectedPNGCompressionLevel) {
-                            ForEach(PNGCompressionLevelOption.allCases) { option in
-                                Text(option.rawValue).tag(option)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                    }
-
-                    if viewModel.shouldShowPreserveAnimationOption {
-                        Toggle("Preserve Animation", isOn: $viewModel.preserveImageAnimation)
-                    }
-
-                    if let hint = viewModel.imageFormatHintMessage {
-                        Text(hint)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
                 }
-                .disabled(viewModel.isImageConverting)
 
-                Section("Output Files") {
-                    if viewModel.convertedImageURLs.isEmpty {
-                        Text("Converted files will appear here")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.vertical, 20)
-                    } else {
-                        VStack(spacing: 10) {
-                            ForEach(Array(viewModel.convertedImageURLs.enumerated()), id: \.element.path) { index, url in
-                                OutputFileCardView(
-                                    url: url,
-                                    order: index + 1,
-                                    openSystemImage: "photo.fill"
-                                )
-                            }
+                if viewModel.shouldShowAudioBitRateOption {
+                    Picker("Audio Bit Rate", selection: $viewModel.selectedAudioBitRate) {
+                        ForEach(AudioBitRateOption.allCases) { option in
+                            Text(option.rawValue).tag(option)
                         }
-                        .padding(.vertical, 4)
-                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
                     }
+                    .pickerStyle(.menu)
                 }
             }
-            .formStyle(.grouped)
         }
-        .safeAreaInset(edge: .bottom) {
-            imageConversionControls
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
-                .background(.regularMaterial)
-                .overlay(Rectangle().frame(height: 1).foregroundStyle(.separator), alignment: .top)
+        .disabled(viewModel.isConverting)
+
+        Section("Output Files") {
+            if viewModel.convertedURLs.isEmpty {
+                Text("Converted files will appear here")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 20)
+            } else {
+                VStack(spacing: 10) {
+                    ForEach(Array(viewModel.convertedURLs.enumerated()), id: \.element.path) { index, url in
+                        OutputFileCardView(
+                            url: url,
+                            order: index + 1,
+                            openSystemImage: "play.fill"
+                        )
+                    }
+                }
+                .padding(.vertical, 4)
+                .transition(.opacity.combined(with: .scale(scale: 0.95)))
+            }
+        }
+    }
+
+    private var imageDetailView: some View {
+        Group {
+            if isCompactIOS {
+                Form {
+                    Section {
+                        imageInputArea
+                    }
+                    imageFormSections
+                    Section {
+                        imageConversionControls
+                    }
+                }
+                .formStyle(.grouped)
+            } else {
+                VStack(spacing: 0) {
+                    imageInputArea
+                        .padding(20)
+                    Divider()
+                    Form {
+                        imageFormSections
+                    }
+                    .formStyle(.grouped)
+                }
+                .safeAreaInset(edge: .bottom) {
+                    imageConversionControls
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 16)
+                        .background(.regularMaterial)
+                        .overlay(Rectangle().frame(height: 1).foregroundStyle(.separator), alignment: .top)
+                }
+            }
         }
         .navigationTitle("Convert Image")
         .onDrop(of: [.fileURL], isTargeted: $isImageDropTargeted) { providers in
             viewModel.handleImageDrop(providers: providers)
+        }
+    }
+
+    @ViewBuilder
+    private var imageInputArea: some View {
+        Group {
+            if !isImageDropTargeted, !viewModel.selectedImageSourceURLs.isEmpty {
+                SelectedFilesView(
+                    urls: viewModel.selectedImageSourceURLs,
+                    systemImage: "photo.fill",
+                    isConverting: viewModel.isImageConverting
+                ) {
+                    withAnimation {
+                        viewModel.clearSelectedImageSource()
+                    }
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            } else {
+                DropFileView(
+                    isDropTargeted: isImageDropTargeted,
+                    placeholder: "Drop Image Here"
+                ) {
+                    viewModel.requestFileImport()
+                }
+                .transition(.scale(scale: 0.98).combined(with: .opacity))
+            }
+        }
+        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: viewModel.selectedImageFileCount)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isImageDropTargeted)
+    }
+
+    @ViewBuilder
+    private var imageFormSections: some View {
+        Section("Output Settings") {
+            Picker("Container", selection: $viewModel.selectedImageOutputFormat) {
+                ForEach(viewModel.imageOutputFormatOptions) { format in
+                    Text("\(format.displayName) (.\(format.fileExtension))").tag(format)
+                }
+            }
+            .pickerStyle(.menu)
+            .disabled(viewModel.imageOutputFormatOptions.isEmpty)
+
+            Picker("Resolution", selection: $viewModel.selectedImageResolution) {
+                ForEach(ResolutionOption.allCases) { option in
+                    Text(option.rawValue).tag(option)
+                }
+            }
+            .pickerStyle(.menu)
+
+            if viewModel.shouldShowImageQualityOption {
+                Picker("Quality", selection: $viewModel.selectedImageQuality) {
+                    ForEach(ImageQualityOption.allCases) { option in
+                        Text(option.rawValue).tag(option)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+
+            if viewModel.shouldShowPNGCompressionOption {
+                Picker("PNG Compression", selection: $viewModel.selectedPNGCompressionLevel) {
+                    ForEach(PNGCompressionLevelOption.allCases) { option in
+                        Text(option.rawValue).tag(option)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+
+            if viewModel.shouldShowPreserveAnimationOption {
+                Toggle("Preserve Animation", isOn: $viewModel.preserveImageAnimation)
+            }
+
+            if let hint = viewModel.imageFormatHintMessage {
+                Text(hint)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .disabled(viewModel.isImageConverting)
+
+        Section("Output Files") {
+            if viewModel.convertedImageURLs.isEmpty {
+                Text("Converted files will appear here")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 20)
+            } else {
+                VStack(spacing: 10) {
+                    ForEach(Array(viewModel.convertedImageURLs.enumerated()), id: \.element.path) { index, url in
+                        OutputFileCardView(
+                            url: url,
+                            order: index + 1,
+                            openSystemImage: "photo.fill"
+                        )
+                    }
+                }
+                .padding(.vertical, 4)
+                .transition(.opacity.combined(with: .scale(scale: 0.95)))
+            }
         }
     }
 
@@ -341,7 +454,7 @@ struct ContentView: View {
                 }
             } label: {
                 Label(
-                    viewModel.isConverting ? "Cancel" : "Start Conversion",
+                    viewModel.isConverting ? "Cancel" : "Start",
                     systemImage: viewModel.isConverting ? "xmark.circle.fill" : "play.fill"
                 )
                 .font(.body.bold())
@@ -382,7 +495,7 @@ struct ContentView: View {
                 }
             } label: {
                 Label(
-                    viewModel.isImageConverting ? "Cancel" : "Start Conversion",
+                    viewModel.isImageConverting ? "Cancel" : "Start",
                     systemImage: viewModel.isImageConverting ? "xmark.circle.fill" : "play.fill"
                 )
                 .font(.body.bold())
@@ -423,7 +536,7 @@ struct ContentView: View {
                 }
             } label: {
                 Label(
-                    viewModel.isAudioConverting ? "Cancel" : "Start Conversion",
+                    viewModel.isAudioConverting ? "Cancel" : "Start",
                     systemImage: viewModel.isAudioConverting ? "xmark.circle.fill" : "play.fill"
                 )
                 .font(.body.bold())
@@ -528,7 +641,7 @@ struct ContentView: View {
             .background(
                 ZStack {
                     RoundedRectangle(cornerRadius: 24)
-                        .fill(isDropTargeted ? Color.accentColor.opacity(0.04) : Color(nsColor: .controlBackgroundColor).opacity(0.5))
+                        .fill(isDropTargeted ? Color.accentColor.opacity(0.04) : cardBackgroundColor.opacity(0.5))
 
                     RoundedRectangle(cornerRadius: 24)
                         .strokeBorder(
@@ -607,6 +720,7 @@ struct ContentView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(isConverting)
+                #if os(macOS)
                 .onHover { inside in
                     if inside {
                         NSCursor.pointingHand.push()
@@ -614,6 +728,7 @@ struct ContentView: View {
                         NSCursor.pop()
                     }
                 }
+                #endif
             }
         }
         .padding(20)
@@ -858,116 +973,36 @@ struct ContentView: View {
     }
 
     private var audioDetailView: some View {
-        VStack(spacing: 0) {
-            Group {
-                if !isAudioDropTargeted, !viewModel.selectedAudioSourceURLs.isEmpty {
-                    SelectedFilesView(
-                        urls: viewModel.selectedAudioSourceURLs,
-                        systemImage: "waveform",
-                        isConverting: viewModel.isAudioConverting
-                    ) {
-                        withAnimation {
-                            viewModel.clearSelectedAudioSource()
-                        }
+        Group {
+            if isCompactIOS {
+                Form {
+                    Section {
+                        audioInputArea
                     }
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                } else {
-                    DropFileView(
-                        isDropTargeted: isAudioDropTargeted,
-                        placeholder: "Drop Audio Here"
-                    ) {
-                        viewModel.requestFileImport()
+                    audioFormSections
+                    Section {
+                        audioConversionControls
                     }
-                    .transition(.scale(scale: 0.98).combined(with: .opacity))
+                }
+                .formStyle(.grouped)
+            } else {
+                VStack(spacing: 0) {
+                    audioInputArea
+                        .padding(20)
+                    Divider()
+                    Form {
+                        audioFormSections
+                    }
+                    .formStyle(.grouped)
+                }
+                .safeAreaInset(edge: .bottom) {
+                    audioConversionControls
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 16)
+                        .background(.regularMaterial)
+                        .overlay(Rectangle().frame(height: 1).foregroundStyle(.separator), alignment: .top)
                 }
             }
-            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: viewModel.selectedAudioFileCount)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isAudioDropTargeted)
-            .padding(20)
-
-            Divider()
-
-            Form {
-                Section("Output Settings") {
-                    Picker("Container", selection: $viewModel.selectedAudioOutputFormat) {
-                        ForEach(viewModel.audioOutputFormatOptions) { format in
-                            Text("\(format.displayName) (.\(format.fileExtension))").tag(format)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .disabled(viewModel.audioOutputFormatOptions.isEmpty)
-
-                    Picker("Audio Encoder", selection: $viewModel.selectedAudioOutputEncoder) {
-                        ForEach(viewModel.audioOutputEncoderOptions) { option in
-                            Text(option.rawValue).tag(option)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .disabled(viewModel.audioOutputEncoderOptions.isEmpty)
-
-                    Picker("Audio Mode", selection: $viewModel.selectedAudioOutputMode) {
-                        ForEach(AudioModeOption.allCases) { option in
-                            Text(option.rawValue).tag(option)
-                        }
-                    }
-                    .pickerStyle(.menu)
-
-                    if viewModel.shouldShowAudioOutputSampleRateOption {
-                        Picker("Sample Rate", selection: $viewModel.selectedAudioOutputSampleRate) {
-                            ForEach(SampleRateOption.allCases) { option in
-                                Text(option.rawValue).tag(option)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                    }
-
-                    if viewModel.shouldShowAudioOutputBitRateOption {
-                        Picker("Audio Bit Rate", selection: $viewModel.selectedAudioOutputBitRate) {
-                            ForEach(AudioBitRateOption.allCases) { option in
-                                Text(option.rawValue).tag(option)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                    }
-
-                    if let hint = viewModel.audioFormatHintMessage {
-                        Text(hint)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .disabled(viewModel.isAudioConverting)
-
-                Section("Output Files") {
-                    if viewModel.convertedAudioURLs.isEmpty {
-                        Text("Converted files will appear here")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.vertical, 20)
-                    } else {
-                        VStack(spacing: 10) {
-                            ForEach(Array(viewModel.convertedAudioURLs.enumerated()), id: \.element.path) { index, url in
-                                OutputFileCardView(
-                                    url: url,
-                                    order: index + 1,
-                                    openSystemImage: "music.note"
-                                )
-                            }
-                        }
-                        .padding(.vertical, 4)
-                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                    }
-                }
-            }
-            .formStyle(.grouped)
-        }
-        .safeAreaInset(edge: .bottom) {
-            audioConversionControls
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
-                .background(.regularMaterial)
-                .overlay(Rectangle().frame(height: 1).foregroundStyle(.separator), alignment: .top)
         }
         .navigationTitle("Convert Audio")
         .onDrop(of: [.fileURL], isTargeted: $isAudioDropTargeted) { providers in
@@ -975,11 +1010,114 @@ struct ContentView: View {
         }
     }
 
+    @ViewBuilder
+    private var audioInputArea: some View {
+        Group {
+            if !isAudioDropTargeted, !viewModel.selectedAudioSourceURLs.isEmpty {
+                SelectedFilesView(
+                    urls: viewModel.selectedAudioSourceURLs,
+                    systemImage: "waveform",
+                    isConverting: viewModel.isAudioConverting
+                ) {
+                    withAnimation {
+                        viewModel.clearSelectedAudioSource()
+                    }
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            } else {
+                DropFileView(
+                    isDropTargeted: isAudioDropTargeted,
+                    placeholder: "Drop Audio Here"
+                ) {
+                    viewModel.requestFileImport()
+                }
+                .transition(.scale(scale: 0.98).combined(with: .opacity))
+            }
+        }
+        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: viewModel.selectedAudioFileCount)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isAudioDropTargeted)
+    }
+
+    @ViewBuilder
+    private var audioFormSections: some View {
+        Section("Output Settings") {
+            Picker("Container", selection: $viewModel.selectedAudioOutputFormat) {
+                ForEach(viewModel.audioOutputFormatOptions) { format in
+                    Text("\(format.displayName) (.\(format.fileExtension))").tag(format)
+                }
+            }
+            .pickerStyle(.menu)
+            .disabled(viewModel.audioOutputFormatOptions.isEmpty)
+
+            Picker("Audio Encoder", selection: $viewModel.selectedAudioOutputEncoder) {
+                ForEach(viewModel.audioOutputEncoderOptions) { option in
+                    Text(option.rawValue).tag(option)
+                }
+            }
+            .pickerStyle(.menu)
+            .disabled(viewModel.audioOutputEncoderOptions.isEmpty)
+
+            Picker("Audio Mode", selection: $viewModel.selectedAudioOutputMode) {
+                ForEach(AudioModeOption.allCases) { option in
+                    Text(option.rawValue).tag(option)
+                }
+            }
+            .pickerStyle(.menu)
+
+            if viewModel.shouldShowAudioOutputSampleRateOption {
+                Picker("Sample Rate", selection: $viewModel.selectedAudioOutputSampleRate) {
+                    ForEach(SampleRateOption.allCases) { option in
+                        Text(option.rawValue).tag(option)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+
+            if viewModel.shouldShowAudioOutputBitRateOption {
+                Picker("Audio Bit Rate", selection: $viewModel.selectedAudioOutputBitRate) {
+                    ForEach(AudioBitRateOption.allCases) { option in
+                        Text(option.rawValue).tag(option)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+
+            if let hint = viewModel.audioFormatHintMessage {
+                Text(hint)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .disabled(viewModel.isAudioConverting)
+
+        Section("Output Files") {
+            if viewModel.convertedAudioURLs.isEmpty {
+                Text("Converted files will appear here")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 20)
+            } else {
+                VStack(spacing: 10) {
+                    ForEach(Array(viewModel.convertedAudioURLs.enumerated()), id: \.element.path) { index, url in
+                        OutputFileCardView(
+                            url: url,
+                            order: index + 1,
+                            openSystemImage: "music.note"
+                        )
+                    }
+                }
+                .padding(.vertical, 4)
+                .transition(.opacity.combined(with: .scale(scale: 0.95)))
+            }
+        }
+    }
+
     private var aboutDetailView: some View {
         ScrollView {
             VStack(spacing: 24) {
                 VStack(spacing: 16) {
-                    Image(nsImage: NSImage(named: "AppIcon") ?? NSImage(systemSymbolName: "app.dashed", accessibilityDescription: nil) ?? NSImage())
+                    appIconImage
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .frame(width: 128, height: 128)
@@ -1023,7 +1161,11 @@ struct ContentView: View {
                     Button("Open Source Licenses") {
                         isShowingOpenSourceLicenses = true
                     }
+                    #if os(macOS)
                     .buttonStyle(.link)
+                    #else
+                    .buttonStyle(.borderless)
+                    #endif
                     .font(.callout)
 
                     Divider()
@@ -1093,7 +1235,7 @@ struct ContentView: View {
                 .padding()
                 .background(
                     RoundedRectangle(cornerRadius: 16)
-                        .fill(Color(nsColor: .controlBackgroundColor))
+                        .fill(cardBackgroundColor)
                         .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
                 )
 
@@ -1124,6 +1266,67 @@ struct ContentView: View {
         default:
             return "Version"
         }
+    }
+
+    private var sidebarView: some View {
+        Group {
+            #if os(macOS)
+            List(selection: $selectedTab) {
+                sidebarTabItems
+            }
+            #else
+            List {
+                sidebarTabItems
+            }
+            #endif
+        }
+        .listStyle(.sidebar)
+        .navigationTitle("MyConverter")
+        .navigationSplitViewColumnWidth(min: 220, ideal: 250)
+    }
+
+    @ViewBuilder
+    private var sidebarTabItems: some View {
+        ForEach(ConverterTab.allCases) { tab in
+            #if os(macOS)
+            Label(tab.title, systemImage: tab.systemImage)
+                .tag(tab)
+            #else
+            Button {
+                selectedTab = tab
+            } label: {
+                HStack(spacing: 10) {
+                    Label(tab.title, systemImage: tab.systemImage)
+                    Spacer(minLength: 8)
+                    if selectedTab == tab {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(Color.accentColor)
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+            .foregroundStyle(.primary)
+            .buttonStyle(.plain)
+            .listRowBackground(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(selectedTab == tab ? Color.accentColor.opacity(0.16) : Color.clear)
+            )
+            #endif
+        }
+    }
+
+    private var appIconImage: Image {
+        #if os(macOS)
+        if let image = NSImage(named: "AppIcon")
+            ?? NSImage(systemSymbolName: "app.dashed", accessibilityDescription: nil) {
+            return Image(nsImage: image)
+        }
+        #elseif os(iOS)
+        if let image = UIImage(named: "AppIcon") {
+            return Image(uiImage: image)
+        }
+        #endif
+        return Image(systemName: "app.dashed")
     }
 
     private var openSourceLicensesSheet: some View {

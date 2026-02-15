@@ -38,7 +38,9 @@ struct AudioSourceCapabilities {
 enum VideoConversionEngine {
     typealias ProgressHandler = @Sendable (Double) async -> Void
     private static let ffmpegIntrospectionCacheQueue = DispatchQueue(label: "myconverter.video.ffmpeg.introspection.cache")
+    #if os(macOS)
     nonisolated(unsafe) private static var ffmpegIntrospectionCache: [String: FFmpegIntrospection] = [:]
+    #endif
     private static let preferredExportPresets = [
         AVAssetExportPresetPassthrough,
         AVAssetExportPresetHighestQuality,
