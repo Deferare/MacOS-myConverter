@@ -40,12 +40,12 @@ struct ImageFormatOption: Identifiable, Hashable, Sendable {
         let displayName =
             profile?.displayName ??
             utType?.localizedDescription ??
-            prettifyIdentifier(identifier)
+            FormatOptionUtilities.prettifiedIdentifier(identifier)
 
         let fileExtension =
             profile?.fileExtension ??
             utType?.preferredFilenameExtension ??
-            guessedFileExtension(from: identifier)
+            FormatOptionUtilities.guessedFileExtension(from: identifier)
 
         return ImageFormatOption(
             id: normalizedIdentifier,
@@ -63,7 +63,7 @@ struct ImageFormatOption: Identifiable, Hashable, Sendable {
     }
 
     nonisolated static func fromFFmpegExtension(_ fileExtension: String, muxer: String) -> ImageFormatOption {
-        let normalizedExtension = normalizedFileExtension(fileExtension)
+        let normalizedExtension = FormatOptionUtilities.normalizedFileExtension(fileExtension)
         let normalizedMuxer = muxer.lowercased()
 
         let extensionUTType = UTType(filenameExtension: normalizedExtension)
@@ -91,7 +91,9 @@ struct ImageFormatOption: Identifiable, Hashable, Sendable {
             resolvedUTType?.preferredFilenameExtension ??
             normalizedExtension
 
-        let resolvedRequiredMuxers = uniqueStrings((profile?.ffmpegRequiredMuxers ?? []) + [normalizedMuxer])
+        let resolvedRequiredMuxers = FormatOptionUtilities.uniqueNonEmptyStrings(
+            (profile?.ffmpegRequiredMuxers ?? []) + [normalizedMuxer]
+        )
 
         return ImageFormatOption(
             id: resolvedIdentifier,
@@ -109,7 +111,7 @@ struct ImageFormatOption: Identifiable, Hashable, Sendable {
     }
 
     nonisolated static func isLikelyImageFileExtension(_ fileExtension: String) -> Bool {
-        let normalizedExtension = normalizedFileExtension(fileExtension)
+        let normalizedExtension = FormatOptionUtilities.normalizedFileExtension(fileExtension)
         guard !normalizedExtension.isEmpty else { return false }
 
         if let utType = UTType(filenameExtension: normalizedExtension), utType.conforms(to: .image) {
@@ -138,20 +140,12 @@ struct ImageFormatOption: Identifiable, Hashable, Sendable {
     }
 
     nonisolated static func deduplicatedAndSorted(_ formats: [ImageFormatOption]) -> [ImageFormatOption] {
-        var byID: [String: ImageFormatOption] = [:]
-
-        for format in formats {
-            let key = format.normalizedID
-            if let existing = byID[key] {
-                byID[key] = existing.merged(with: format)
-            } else {
-                byID[key] = format
-            }
-        }
-
-        return byID.values.sorted { lhs, rhs in
-            lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
-        }
+        FormatOptionUtilities.deduplicatedAndSorted(
+            formats,
+            normalizedID: { $0.normalizedID },
+            merge: { $0.merged(with: $1) },
+            displayName: { $0.displayName }
+        )
     }
 
     nonisolated func merged(with other: ImageFormatOption) -> ImageFormatOption {
@@ -163,60 +157,15 @@ struct ImageFormatOption: Identifiable, Hashable, Sendable {
             supportsCompressionQuality: supportsCompressionQuality || other.supportsCompressionQuality,
             supportsAnimation: supportsAnimation || other.supportsAnimation,
             supportsPNGCompressionLevel: supportsPNGCompressionLevel || other.supportsPNGCompressionLevel,
-            ffmpegEncoderCandidates: Self.uniqueStrings(ffmpegEncoderCandidates + other.ffmpegEncoderCandidates),
-            ffmpegRequiredMuxers: Self.uniqueStrings(ffmpegRequiredMuxers + other.ffmpegRequiredMuxers),
+            ffmpegEncoderCandidates: FormatOptionUtilities.uniqueNonEmptyStrings(
+                ffmpegEncoderCandidates + other.ffmpegEncoderCandidates
+            ),
+            ffmpegRequiredMuxers: FormatOptionUtilities.uniqueNonEmptyStrings(
+                ffmpegRequiredMuxers + other.ffmpegRequiredMuxers
+            ),
             preferredFFmpegMuxer: preferredFFmpegMuxer ?? other.preferredFFmpegMuxer,
             allowsFFmpegAutomaticCodec: allowsFFmpegAutomaticCodec || other.allowsFFmpegAutomaticCodec
         )
-    }
-
-    nonisolated private static func uniqueStrings(_ values: [String]) -> [String] {
-        var seen = Set<String>()
-        var result: [String] = []
-
-        for value in values {
-            guard !value.isEmpty else { continue }
-            if seen.insert(value).inserted {
-                result.append(value)
-            }
-        }
-
-        return result
-    }
-
-    nonisolated private static func prettifyIdentifier(_ identifier: String) -> String {
-        let token = identifier
-            .split(separator: ".")
-            .last
-            .map(String.init) ?? identifier
-
-        return token
-            .replacingOccurrences(of: "-", with: " ")
-            .replacingOccurrences(of: "_", with: " ")
-            .uppercased()
-    }
-
-    nonisolated private static func guessedFileExtension(from identifier: String) -> String {
-        let token = identifier
-            .split(separator: ".")
-            .last
-            .map(String.init) ?? "img"
-
-        return normalizedFileExtension(token)
-    }
-
-    nonisolated private static func normalizedFileExtension(_ fileExtension: String) -> String {
-        var normalized = fileExtension.lowercased()
-        if normalized.hasPrefix(".") {
-            normalized.removeFirst()
-        }
-
-        normalized = normalized
-            .replacingOccurrences(of: "-", with: "")
-            .replacingOccurrences(of: "_", with: "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        return normalized
     }
 }
 

@@ -1513,60 +1513,137 @@ final class ContentViewModel: ObservableObject {
     // MARK: - Progress
 
     private func updateConversionProgress(_ rawProgress: Double) {
-        conversionProgress = min(max(rawProgress, 0), 1)
+        conversionProgress = clampedProgress(rawProgress)
     }
 
     private func updateImageConversionProgress(_ rawProgress: Double) {
-        imageConversionProgress = min(max(rawProgress, 0), 1)
+        imageConversionProgress = clampedProgress(rawProgress)
     }
 
     private func updateAudioConversionProgress(_ rawProgress: Double) {
-        audioConversionProgress = min(max(rawProgress, 0), 1)
+        audioConversionProgress = clampedProgress(rawProgress)
     }
 
     // MARK: - Persistence
+
+    private func clampedProgress(_ rawProgress: Double) -> Double {
+        min(max(rawProgress, 0), 1)
+    }
 
     private func sourceIdentifier(for url: URL) -> String {
         url.standardizedFileURL.path
     }
 
-    private func scheduleVideoFormatChangeHandling() {
-        pendingVideoFormatChangeTask?.cancel()
-        pendingVideoFormatChangeTask = Task { @MainActor [weak self] in
+    private func makeDeferredMainActorTask(
+        action: @escaping @MainActor (ContentViewModel) -> Void
+    ) -> Task<Void, Never> {
+        Task { @MainActor [weak self] in
             await Task.yield()
             guard let self else { return }
-            self.refreshVideoCodecOptions()
-            self.persistCurrentSettingsIfNeeded()
+            action(self)
+        }
+    }
+
+    private func saveSettings<Value: Encodable>(
+        _ settings: Value,
+        forKey storageKey: String,
+        failureContext: String
+    ) {
+        do {
+            let data = try JSONEncoder().encode(settings)
+            UserDefaults.standard.set(data, forKey: storageKey)
+        } catch {
+            print("\(failureContext): \(error.localizedDescription)")
+        }
+    }
+
+    private func loadSettings<Value: Decodable>(
+        _ type: Value.Type,
+        forKey storageKey: String,
+        failureContext: String
+    ) -> Value? {
+        guard let data = UserDefaults.standard.data(forKey: storageKey) else {
+            return nil
+        }
+
+        do {
+            return try JSONDecoder().decode(type, from: data)
+        } catch {
+            print("\(failureContext): \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    private func buildConversionStatus(
+        isConverting: Bool,
+        currentBatchIndex: Int,
+        totalBatchCount: Int,
+        isAnalyzingSource: Bool,
+        conversionErrorMessage: String?,
+        validationMessage: String?,
+        compatibilityWarningMessage: String?,
+        hintMessage: String? = nil
+    ) -> (message: String, level: ConversionStatusLevel) {
+        if isConverting {
+            if totalBatchCount > 1 {
+                let current = max(1, currentBatchIndex)
+                return ("Converting file \(current)/\(totalBatchCount)...", .normal)
+            }
+            return ("Conversion in progress...", .normal)
+        }
+
+        if isAnalyzingSource {
+            return ("Analyzing source compatibility...", .normal)
+        }
+
+        if let conversionErrorMessage, !conversionErrorMessage.isEmpty {
+            return (conversionErrorMessage, .error)
+        }
+
+        if let validationMessage {
+            return (validationMessage, .error)
+        }
+
+        if let compatibilityWarningMessage, !compatibilityWarningMessage.isEmpty {
+            return (compatibilityWarningMessage, .warning)
+        }
+
+        if let hintMessage, !hintMessage.isEmpty {
+            return (hintMessage, .warning)
+        }
+
+        return ("Ready", .normal)
+    }
+
+    private func scheduleVideoFormatChangeHandling() {
+        pendingVideoFormatChangeTask?.cancel()
+        pendingVideoFormatChangeTask = makeDeferredMainActorTask { viewModel in
+            viewModel.refreshVideoCodecOptions()
+            viewModel.persistCurrentSettingsIfNeeded()
         }
     }
 
     private func scheduleVideoOptionNormalizationAndPersist() {
         pendingVideoOptionNormalizationTask?.cancel()
-        pendingVideoOptionNormalizationTask = Task { @MainActor [weak self] in
-            await Task.yield()
-            guard let self else { return }
-            self.normalizeVideoOptionDependencies()
-            self.persistCurrentSettingsIfNeeded()
+        pendingVideoOptionNormalizationTask = makeDeferredMainActorTask { viewModel in
+            viewModel.normalizeVideoOptionDependencies()
+            viewModel.persistCurrentSettingsIfNeeded()
         }
     }
 
     private func scheduleAudioFormatChangeHandling() {
         pendingAudioFormatChangeTask?.cancel()
-        pendingAudioFormatChangeTask = Task { @MainActor [weak self] in
-            await Task.yield()
-            guard let self else { return }
-            self.refreshAudioCodecOptions()
-            self.persistCurrentAudioSettingsIfNeeded()
+        pendingAudioFormatChangeTask = makeDeferredMainActorTask { viewModel in
+            viewModel.refreshAudioCodecOptions()
+            viewModel.persistCurrentAudioSettingsIfNeeded()
         }
     }
 
     private func scheduleAudioOptionNormalizationAndPersist() {
         pendingAudioOptionNormalizationTask?.cancel()
-        pendingAudioOptionNormalizationTask = Task { @MainActor [weak self] in
-            await Task.yield()
-            guard let self else { return }
-            self.normalizeAudioOptionDependencies()
-            self.persistCurrentAudioSettingsIfNeeded()
+        pendingAudioOptionNormalizationTask = makeDeferredMainActorTask { viewModel in
+            viewModel.normalizeAudioOptionDependencies()
+            viewModel.persistCurrentAudioSettingsIfNeeded()
         }
     }
 
@@ -1808,167 +1885,101 @@ final class ContentViewModel: ObservableObject {
 
     private func savePersistedSettings() {
         let persisted = videoSettingsBySourceID.mapValues { PersistedVideoConversionSettings(from: $0) }
-        do {
-            let data = try JSONEncoder().encode(persisted)
-            UserDefaults.standard.set(data, forKey: videoSettingsStorageKey)
-        } catch {
-            print("Failed to persist video settings: \(error.localizedDescription)")
-        }
+        saveSettings(
+            persisted,
+            forKey: videoSettingsStorageKey,
+            failureContext: "Failed to persist video settings"
+        )
     }
 
     private func savePersistedImageSettings() {
         let persisted = imageSettingsBySourceID.mapValues { PersistedImageConversionSettings(from: $0) }
-        do {
-            let data = try JSONEncoder().encode(persisted)
-            UserDefaults.standard.set(data, forKey: imageSettingsStorageKey)
-        } catch {
-            print("Failed to persist image settings: \(error.localizedDescription)")
-        }
+        saveSettings(
+            persisted,
+            forKey: imageSettingsStorageKey,
+            failureContext: "Failed to persist image settings"
+        )
     }
 
     private func savePersistedAudioSettings() {
         let persisted = audioSettingsBySourceID.mapValues { PersistedAudioConversionSettings(from: $0) }
-        do {
-            let data = try JSONEncoder().encode(persisted)
-            UserDefaults.standard.set(data, forKey: audioSettingsStorageKey)
-        } catch {
-            print("Failed to persist audio settings: \(error.localizedDescription)")
-        }
+        saveSettings(
+            persisted,
+            forKey: audioSettingsStorageKey,
+            failureContext: "Failed to persist audio settings"
+        )
     }
 
     private func loadPersistedSettings() -> [String: VideoConversionSettings] {
-        guard let data = UserDefaults.standard.data(forKey: videoSettingsStorageKey) else {
+        guard let decoded = loadSettings(
+            [String: PersistedVideoConversionSettings].self,
+            forKey: videoSettingsStorageKey,
+            failureContext: "Failed to load persisted video settings"
+        ) else {
             return [:]
         }
-
-        do {
-            let decoded = try JSONDecoder().decode([String: PersistedVideoConversionSettings].self, from: data)
-            return decoded.mapValues { $0.restoredSettings }
-        } catch {
-            print("Failed to load persisted video settings: \(error.localizedDescription)")
-            return [:]
-        }
+        return decoded.mapValues { $0.restoredSettings }
     }
 
     private func loadPersistedImageSettings() -> [String: ImageConversionSettings] {
-        guard let data = UserDefaults.standard.data(forKey: imageSettingsStorageKey) else {
+        guard let decoded = loadSettings(
+            [String: PersistedImageConversionSettings].self,
+            forKey: imageSettingsStorageKey,
+            failureContext: "Failed to load persisted image settings"
+        ) else {
             return [:]
         }
-
-        do {
-            let decoded = try JSONDecoder().decode([String: PersistedImageConversionSettings].self, from: data)
-            return decoded.mapValues { $0.restoredSettings }
-        } catch {
-            print("Failed to load persisted image settings: \(error.localizedDescription)")
-            return [:]
-        }
+        return decoded.mapValues { $0.restoredSettings }
     }
 
     private func loadPersistedAudioSettings() -> [String: AudioConversionSettings] {
-        guard let data = UserDefaults.standard.data(forKey: audioSettingsStorageKey) else {
+        guard let decoded = loadSettings(
+            [String: PersistedAudioConversionSettings].self,
+            forKey: audioSettingsStorageKey,
+            failureContext: "Failed to load persisted audio settings"
+        ) else {
             return [:]
         }
-
-        do {
-            let decoded = try JSONDecoder().decode([String: PersistedAudioConversionSettings].self, from: data)
-            return decoded.mapValues { $0.restoredSettings }
-        } catch {
-            print("Failed to load persisted audio settings: \(error.localizedDescription)")
-            return [:]
-        }
+        return decoded.mapValues { $0.restoredSettings }
     }
 
     // MARK: - Status
 
     private var conversionStatus: (message: String, level: ConversionStatusLevel) {
-        if isConverting {
-            if totalVideoBatchCount > 1 {
-                let current = max(1, currentVideoBatchIndex)
-                return ("Converting file \(current)/\(totalVideoBatchCount)...", .normal)
-            }
-            return ("Conversion in progress...", .normal)
-        }
-
-        if isAnalyzingSource {
-            return ("Analyzing source compatibility...", .normal)
-        }
-
-        if let error = conversionErrorMessage, !error.isEmpty {
-            return (error, .error)
-        }
-
-        if let validation = videoSettingsValidationMessage {
-            return (validation, .error)
-        }
-
-        if let warning = sourceCompatibilityWarningMessage, !warning.isEmpty {
-            return (warning, .warning)
-        }
-
-        return ("Ready", .normal)
+        buildConversionStatus(
+            isConverting: isConverting,
+            currentBatchIndex: currentVideoBatchIndex,
+            totalBatchCount: totalVideoBatchCount,
+            isAnalyzingSource: isAnalyzingSource,
+            conversionErrorMessage: conversionErrorMessage,
+            validationMessage: videoSettingsValidationMessage,
+            compatibilityWarningMessage: sourceCompatibilityWarningMessage
+        )
     }
 
     private var imageConversionStatus: (message: String, level: ConversionStatusLevel) {
-        if isImageConverting {
-            if totalImageBatchCount > 1 {
-                let current = max(1, currentImageBatchIndex)
-                return ("Converting file \(current)/\(totalImageBatchCount)...", .normal)
-            }
-            return ("Conversion in progress...", .normal)
-        }
-
-        if isAnalyzingImageSource {
-            return ("Analyzing source compatibility...", .normal)
-        }
-
-        if let error = imageConversionErrorMessage, !error.isEmpty {
-            return (error, .error)
-        }
-
-        if let validation = imageSettingsValidationMessage {
-            return (validation, .error)
-        }
-
-        if let warning = imageSourceCompatibilityWarningMessage, !warning.isEmpty {
-            return (warning, .warning)
-        }
-
-        if let hint = imageFormatHintMessage, !hint.isEmpty {
-            return (hint, .warning)
-        }
-
-        return ("Ready", .normal)
+        buildConversionStatus(
+            isConverting: isImageConverting,
+            currentBatchIndex: currentImageBatchIndex,
+            totalBatchCount: totalImageBatchCount,
+            isAnalyzingSource: isAnalyzingImageSource,
+            conversionErrorMessage: imageConversionErrorMessage,
+            validationMessage: imageSettingsValidationMessage,
+            compatibilityWarningMessage: imageSourceCompatibilityWarningMessage,
+            hintMessage: imageFormatHintMessage
+        )
     }
 
     private var audioConversionStatus: (message: String, level: ConversionStatusLevel) {
-        if isAudioConverting {
-            if totalAudioBatchCount > 1 {
-                let current = max(1, currentAudioBatchIndex)
-                return ("Converting file \(current)/\(totalAudioBatchCount)...", .normal)
-            }
-            return ("Conversion in progress...", .normal)
-        }
-
-        if isAnalyzingAudioSource {
-            return ("Analyzing source compatibility...", .normal)
-        }
-
-        if let error = audioConversionErrorMessage, !error.isEmpty {
-            return (error, .error)
-        }
-
-        if let validation = audioSettingsValidationMessage {
-            return (validation, .error)
-        }
-
-        if let warning = audioSourceCompatibilityWarningMessage, !warning.isEmpty {
-            return (warning, .warning)
-        }
-
-        if let hint = audioFormatHintMessage, !hint.isEmpty {
-            return (hint, .warning)
-        }
-
-        return ("Ready", .normal)
+        buildConversionStatus(
+            isConverting: isAudioConverting,
+            currentBatchIndex: currentAudioBatchIndex,
+            totalBatchCount: totalAudioBatchCount,
+            isAnalyzingSource: isAnalyzingAudioSource,
+            conversionErrorMessage: audioConversionErrorMessage,
+            validationMessage: audioSettingsValidationMessage,
+            compatibilityWarningMessage: audioSourceCompatibilityWarningMessage,
+            hintMessage: audioFormatHintMessage
+        )
     }
 }

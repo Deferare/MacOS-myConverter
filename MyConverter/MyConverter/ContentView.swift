@@ -1172,15 +1172,11 @@ struct ContentView: View {
 
     private var sidebarHeader: some View {
         HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.accentColor)
-                    .frame(width: 36, height: 36)
-                
-                Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(.white)
-            }
+            appIconImage
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 36, height: 36)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             
             VStack(alignment: .leading, spacing: 0) {
                 Text("MyConverter")
@@ -1211,7 +1207,7 @@ struct ContentView: View {
         if let image = NSImage(named: "AppIcon") {
             return Image(nsImage: image)
         }
-        return Image(systemName: "arrow.triangle.2.circlepath.circle.fill")
+        return Image(systemName: "circle.hexagonpath.fill")
     }
 
     private var openSourceLicensesSheet: some View {

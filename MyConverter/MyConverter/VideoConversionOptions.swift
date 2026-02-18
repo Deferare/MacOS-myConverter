@@ -43,7 +43,7 @@ struct VideoFormatOption: Identifiable, Hashable, Sendable {
     }
 
     static func fromFFmpegExtension(_ fileExtension: String, muxer: String) -> VideoFormatOption {
-        let normalizedExtension = normalizedFileExtension(fileExtension)
+        let normalizedExtension = FormatOptionUtilities.normalizedFileExtension(fileExtension)
         let normalizedMuxer = muxer.lowercased()
         let extensionUTType = UTType(filenameExtension: normalizedExtension)
         let profile = VideoFormatProfile.byFileExtension[normalizedExtension]
@@ -63,7 +63,9 @@ struct VideoFormatOption: Identifiable, Hashable, Sendable {
             extensionUTType?.preferredFilenameExtension ??
             normalizedExtension
 
-        let resolvedMuxers = uniqueStrings((profile?.ffmpegRequiredMuxers ?? []) + [normalizedMuxer])
+        let resolvedMuxers = FormatOptionUtilities.uniqueLowercasedTrimmedStrings(
+            (profile?.ffmpegRequiredMuxers ?? []) + [normalizedMuxer]
+        )
 
         return VideoFormatOption(
             id: resolvedID,
@@ -83,37 +85,27 @@ struct VideoFormatOption: Identifiable, Hashable, Sendable {
     }
 
     static func deduplicatedAndSorted(_ formats: [VideoFormatOption]) -> [VideoFormatOption] {
-        var byID: [String: VideoFormatOption] = [:]
-
-        for format in formats {
-            let key = format.normalizedID
-            if let existing = byID[key] {
-                byID[key] = existing.merged(with: format)
-            } else {
-                byID[key] = format
-            }
-        }
-
-        return byID.values.sorted { lhs, rhs in
-            lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
-        }
+        FormatOptionUtilities.deduplicatedAndSorted(
+            formats,
+            normalizedID: { $0.normalizedID },
+            merge: { $0.merged(with: $1) },
+            displayName: { $0.displayName }
+        )
     }
 
     static func defaultSelection(from formats: [VideoFormatOption]) -> VideoFormatOption? {
         let normalized = deduplicatedAndSorted(formats)
         guard !normalized.isEmpty else { return nil }
 
-        if let preferred = normalized.first(where: { $0.fileExtension.lowercased() == "mp4" }) {
-            return preferred
-        }
-        if let preferred = normalized.first(where: { $0.fileExtension.lowercased() == "mov" }) {
-            return preferred
-        }
-        return normalized.first
+        return FormatOptionUtilities.firstPreferredOption(
+            in: normalized,
+            preferredExtensions: ["mp4", "mov"],
+            fileExtension: { $0.fileExtension }
+        )
     }
 
     static func isLikelyVideoFileExtension(_ fileExtension: String) -> Bool {
-        let normalized = normalizedFileExtension(fileExtension)
+        let normalized = FormatOptionUtilities.normalizedFileExtension(fileExtension)
         guard !normalized.isEmpty else { return false }
 
         if let utType = UTType(filenameExtension: normalized),
@@ -154,40 +146,13 @@ struct VideoFormatOption: Identifiable, Hashable, Sendable {
             supportsAudioTrack: supportsAudioTrack && other.supportsAudioTrack,
             supportsVideoEncoderSelection: supportsVideoEncoderSelection && other.supportsVideoEncoderSelection,
             usesGIFPalettePipeline: usesGIFPalettePipeline || other.usesGIFPalettePipeline,
-            ffmpegRequiredMuxers: Self.uniqueStrings(ffmpegRequiredMuxers + other.ffmpegRequiredMuxers),
+            ffmpegRequiredMuxers: FormatOptionUtilities.uniqueLowercasedTrimmedStrings(
+                ffmpegRequiredMuxers + other.ffmpegRequiredMuxers
+            ),
             preferredFFmpegMuxer: preferredFFmpegMuxer ?? other.preferredFFmpegMuxer,
             allowsFFmpegAutomaticVideoCodec: allowsFFmpegAutomaticVideoCodec || other.allowsFFmpegAutomaticVideoCodec,
             allowsFFmpegAutomaticAudioCodec: allowsFFmpegAutomaticAudioCodec || other.allowsFFmpegAutomaticAudioCodec
         )
-    }
-
-    private static func uniqueStrings(_ values: [String]) -> [String] {
-        var seen = Set<String>()
-        var result: [String] = []
-
-        for value in values {
-            let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            guard !normalized.isEmpty else { continue }
-            if seen.insert(normalized).inserted {
-                result.append(normalized)
-            }
-        }
-
-        return result
-    }
-
-    private static func normalizedFileExtension(_ fileExtension: String) -> String {
-        var normalized = fileExtension.lowercased()
-        if normalized.hasPrefix(".") {
-            normalized.removeFirst()
-        }
-
-        normalized = normalized
-            .replacingOccurrences(of: "-", with: "")
-            .replacingOccurrences(of: "_", with: "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        return normalized
     }
 
     private static let knownVideoExtensions: Set<String> = [
@@ -452,7 +417,7 @@ struct AudioFormatOption: Identifiable, Hashable, Sendable {
     }
 
     static func fromFFmpegExtension(_ fileExtension: String, muxer: String) -> AudioFormatOption {
-        let normalizedExtension = normalizedFileExtension(fileExtension)
+        let normalizedExtension = FormatOptionUtilities.normalizedFileExtension(fileExtension)
         let normalizedMuxer = muxer.lowercased()
         let extensionUTType = UTType(filenameExtension: normalizedExtension)
         let profile = AudioFormatProfile.byFileExtension[normalizedExtension]
@@ -472,7 +437,9 @@ struct AudioFormatOption: Identifiable, Hashable, Sendable {
             extensionUTType?.preferredFilenameExtension ??
             normalizedExtension
 
-        let resolvedMuxers = uniqueStrings((profile?.ffmpegRequiredMuxers ?? []) + [normalizedMuxer])
+        let resolvedMuxers = FormatOptionUtilities.uniqueLowercasedTrimmedStrings(
+            (profile?.ffmpegRequiredMuxers ?? []) + [normalizedMuxer]
+        )
 
         return AudioFormatOption(
             id: resolvedID,
@@ -485,38 +452,27 @@ struct AudioFormatOption: Identifiable, Hashable, Sendable {
     }
 
     static func deduplicatedAndSorted(_ formats: [AudioFormatOption]) -> [AudioFormatOption] {
-        var byID: [String: AudioFormatOption] = [:]
-
-        for format in formats {
-            let key = format.normalizedID
-            if let existing = byID[key] {
-                byID[key] = existing.merged(with: format)
-            } else {
-                byID[key] = format
-            }
-        }
-
-        return byID.values.sorted { lhs, rhs in
-            lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
-        }
+        FormatOptionUtilities.deduplicatedAndSorted(
+            formats,
+            normalizedID: { $0.normalizedID },
+            merge: { $0.merged(with: $1) },
+            displayName: { $0.displayName }
+        )
     }
 
     static func defaultSelection(from formats: [AudioFormatOption]) -> AudioFormatOption? {
         let normalized = deduplicatedAndSorted(formats)
         guard !normalized.isEmpty else { return nil }
 
-        let preferredExtensions = ["m4a", "mp3", "wav", "flac"]
-        for ext in preferredExtensions {
-            if let preferred = normalized.first(where: { $0.fileExtension.lowercased() == ext }) {
-                return preferred
-            }
-        }
-
-        return normalized.first
+        return FormatOptionUtilities.firstPreferredOption(
+            in: normalized,
+            preferredExtensions: ["m4a", "mp3", "wav", "flac"],
+            fileExtension: { $0.fileExtension }
+        )
     }
 
     static func isLikelyAudioFileExtension(_ fileExtension: String) -> Bool {
-        let normalized = normalizedFileExtension(fileExtension)
+        let normalized = FormatOptionUtilities.normalizedFileExtension(fileExtension)
         guard !normalized.isEmpty else { return false }
 
         if let utType = UTType(filenameExtension: normalized),
@@ -532,39 +488,12 @@ struct AudioFormatOption: Identifiable, Hashable, Sendable {
             id: id,
             displayName: displayName.count >= other.displayName.count ? displayName : other.displayName,
             fileExtension: fileExtension,
-            ffmpegRequiredMuxers: Self.uniqueStrings(ffmpegRequiredMuxers + other.ffmpegRequiredMuxers),
+            ffmpegRequiredMuxers: FormatOptionUtilities.uniqueLowercasedTrimmedStrings(
+                ffmpegRequiredMuxers + other.ffmpegRequiredMuxers
+            ),
             preferredFFmpegMuxer: preferredFFmpegMuxer ?? other.preferredFFmpegMuxer,
             allowsFFmpegAutomaticAudioCodec: allowsFFmpegAutomaticAudioCodec || other.allowsFFmpegAutomaticAudioCodec
         )
-    }
-
-    private static func uniqueStrings(_ values: [String]) -> [String] {
-        var seen = Set<String>()
-        var result: [String] = []
-
-        for value in values {
-            let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            guard !normalized.isEmpty else { continue }
-            if seen.insert(normalized).inserted {
-                result.append(normalized)
-            }
-        }
-
-        return result
-    }
-
-    private static func normalizedFileExtension(_ fileExtension: String) -> String {
-        var normalized = fileExtension.lowercased()
-        if normalized.hasPrefix(".") {
-            normalized.removeFirst()
-        }
-
-        normalized = normalized
-            .replacingOccurrences(of: "-", with: "")
-            .replacingOccurrences(of: "_", with: "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        return normalized
     }
 
     private static let knownAudioExtensions: Set<String> = [
