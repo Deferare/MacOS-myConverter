@@ -759,10 +759,10 @@ final class ContentViewModel: ObservableObject {
         var unique: [URL] = []
 
         for url in urls {
-            let standardized = url.standardizedFileURL
-            let key = sourceIdentifier(for: standardized)
+            // Preserve the original URL object to keep any attached security scope.
+            let key = sourceIdentifier(for: url)
             if seen.insert(key).inserted {
-                unique.append(standardized)
+                unique.append(url)
             }
         }
 

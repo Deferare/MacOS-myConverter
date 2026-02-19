@@ -186,21 +186,24 @@ enum VideoConversionEngine {
 
         guard let introspection = try? inspectFFmpeg(at: ffmpegPath),
               isFFmpegAudioFormatSupported(format, introspection: introspection) else {
-            let fallback = format.allowsFFmpegAutomaticAudioCodec ? [AudioEncoderOption.auto] : []
+            let fallback: [AudioEncoderOption] = []
             capabilityCacheQueue.sync {
                 audioFormatEncoderOptionsCache[cacheKey] = fallback
             }
             return fallback
         }
 
-        let options = AudioEncoderOption.allCases.filter { option in
-            option.isCompatible(with: format) &&
-                (option.codecCandidates.isEmpty || option.codecCandidates.contains(where: { introspection.audioEncoders.contains($0) }))
+        let explicitOptions = AudioEncoderOption.allCases.filter { option in
+            guard option != .auto else { return false }
+            return option.isCompatible(with: format) &&
+                option.codecCandidates.contains(where: { introspection.audioEncoders.contains($0) })
         }
 
-        let resolved = options.isEmpty
-            ? (format.allowsFFmpegAutomaticAudioCodec ? [AudioEncoderOption.auto] : [])
-            : options
+        var resolved = explicitOptions
+        if format.allowsFFmpegAutomaticAudioCodec, !explicitOptions.isEmpty {
+            resolved.insert(.auto, at: 0)
+        }
+
         capabilityCacheQueue.sync {
             audioFormatEncoderOptionsCache[cacheKey] = resolved
         }
@@ -605,6 +608,10 @@ enum VideoConversionEngine {
         onProgress: @escaping ProgressHandler
     ) async throws {
         try OutputPathUtilities.removeFileIfExists(at: outputURL)
+        let stagedInputURL = try stageInputForFFmpeg(inputURL)
+        defer {
+            try? OutputPathUtilities.removeFileIfExists(at: stagedInputURL)
+        }
 
         let availableVideoCodecs = outputSettings.videoCodecCandidates.filter { introspection.videoEncoders.contains($0) }
         let videoCodecs = codecCandidates(
@@ -638,7 +645,7 @@ enum VideoConversionEngine {
                     operation: {
                         try await runFFmpeg(
                             ffmpegPath: ffmpegPath,
-                            inputURL: inputURL,
+                            inputURL: stagedInputURL,
                             outputURL: outputURL,
                             outputSettings: outputSettings,
                             videoCodec: videoCodec,
@@ -669,6 +676,10 @@ enum VideoConversionEngine {
         onProgress: @escaping ProgressHandler
     ) async throws {
         try OutputPathUtilities.removeFileIfExists(at: outputURL)
+        let stagedInputURL = try stageInputForFFmpeg(inputURL)
+        defer {
+            try? OutputPathUtilities.removeFileIfExists(at: stagedInputURL)
+        }
 
         let availableAudioCodecs = outputSettings.audioCodecCandidates.filter { introspection.audioEncoders.contains($0) }
         let audioCodecs = codecCandidates(
@@ -687,7 +698,7 @@ enum VideoConversionEngine {
                 operation: {
                     try await runAudioFFmpeg(
                         ffmpegPath: ffmpegPath,
-                        inputURL: inputURL,
+                        inputURL: stagedInputURL,
                         outputURL: outputURL,
                         outputSettings: outputSettings,
                         audioCodec: audioCodec,
@@ -714,6 +725,30 @@ enum VideoConversionEngine {
             return allowAutomatic ? [nil] : []
         }
         return availableCodecs.map(Optional.init)
+    }
+
+    private static func stageInputForFFmpeg(_ inputURL: URL) throws -> URL {
+        do {
+            return try OutputPathUtilities.stageInputURL(for: inputURL)
+        } catch let stagingError as OutputPathUtilities.StagedInputError {
+            switch stagingError {
+            case .stagingDirectoryCreationFailed(let path, let message):
+                throw ConversionError.ffmpegFailed(
+                    -1,
+                    "Failed to prepare ffmpeg staging directory (\(path)): \(message)"
+                )
+            case .stagingCopyFailed(let sourcePath, let destinationPath, let message):
+                throw ConversionError.ffmpegFailed(
+                    -1,
+                    "Failed to stage input file for ffmpeg. Source: \(sourcePath), Destination: \(destinationPath), Detail: \(message)"
+                )
+            }
+        } catch {
+            throw ConversionError.ffmpegFailed(
+                -1,
+                "Failed to stage input file for ffmpeg: \(error.localizedDescription)"
+            )
+        }
     }
 
     private static func attemptFFmpegOperation(
@@ -924,10 +959,20 @@ enum VideoConversionEngine {
 
     private static func isFFmpegAudioFormatSupported(_ format: AudioFormatOption, introspection: FFmpegIntrospection) -> Bool {
         if format.ffmpegRequiredMuxers.isEmpty {
-            return true
+            return hasCompatibleAudioEncoder(format, introspection: introspection)
         }
 
-        return format.ffmpegRequiredMuxers.contains(where: { introspection.muxers.contains($0) })
+        let hasMuxer = format.ffmpegRequiredMuxers.contains(where: { introspection.muxers.contains($0) })
+        guard hasMuxer else { return false }
+        return hasCompatibleAudioEncoder(format, introspection: introspection)
+    }
+
+    private static func hasCompatibleAudioEncoder(_ format: AudioFormatOption, introspection: FFmpegIntrospection) -> Bool {
+        AudioEncoderOption.allCases.contains { option in
+            guard option != .auto else { return false }
+            guard option.isCompatible(with: format) else { return false }
+            return option.codecCandidates.contains(where: { introspection.audioEncoders.contains($0) })
+        }
     }
 
     private static func inspectFFmpeg(at ffmpegPath: String) throws -> FFmpegIntrospection {
@@ -1609,6 +1654,10 @@ enum ConversionError: LocalizedError {
             if output.localizedCaseInsensitiveContains("operation not permitted") ||
                 output.localizedCaseInsensitiveContains("permission denied") {
                 return "Conversion failed due to file permission issues. Please check input file permissions."
+            }
+            if output.localizedCaseInsensitiveContains("unknown encoder") ||
+                output.localizedCaseInsensitiveContains("encoder not found") {
+                return "Selected output format is not supported by the bundled ffmpeg encoders."
             }
             return "FFmpeg conversion failed."
         case .outputSaveFailed:

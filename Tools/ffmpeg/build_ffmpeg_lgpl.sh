@@ -7,6 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 OUTPUT_BINARY="${SCRIPT_DIR}/ffmpeg"
 ARCH="${FFMPEG_ARCH:-arm64}"
 JOBS="${FFMPEG_JOBS:-$(sysctl -n hw.ncpu 2>/dev/null || echo 8)}"
+ENABLE_MP3_ENCODER="${ENABLE_MP3_ENCODER:-0}"
 WORK_DIR="${TMPDIR:-/tmp}/myconverter-ffmpeg-${VERSION}-$$"
 SRC_ARCHIVE="${WORK_DIR}/ffmpeg-${VERSION}.tar.xz"
 SRC_DIR="${WORK_DIR}/ffmpeg-${VERSION}"
@@ -34,18 +35,49 @@ fi
 cd "${SRC_DIR}"
 
 echo "Configuring LGPL-only FFmpeg build"
-./configure \
-  --prefix="${INSTALL_DIR}" \
-  --arch="${ARCH}" \
-  --cc=/usr/bin/clang \
-  --disable-debug \
-  --disable-doc \
-  --disable-ffplay \
-  --disable-ffprobe \
-  --disable-network \
-  --disable-shared \
-  --enable-static \
-  --enable-ffmpeg
+EXTRA_CONFIGURE_ARG=""
+
+if [ "${ENABLE_MP3_ENCODER}" = "1" ]; then
+  if ! command -v pkg-config >/dev/null 2>&1; then
+    echo "error: ENABLE_MP3_ENCODER=1 requires pkg-config."
+    exit 1
+  fi
+  if ! pkg-config --exists libmp3lame; then
+    echo "error: ENABLE_MP3_ENCODER=1 requires libmp3lame (e.g. brew install lame pkg-config)."
+    exit 1
+  fi
+  EXTRA_CONFIGURE_ARG="--enable-libmp3lame"
+  echo "MP3 encoder enabled via libmp3lame."
+fi
+
+if [ -n "${EXTRA_CONFIGURE_ARG}" ]; then
+  ./configure \
+    --prefix="${INSTALL_DIR}" \
+    --arch="${ARCH}" \
+    --cc=/usr/bin/clang \
+    --disable-debug \
+    --disable-doc \
+    --disable-ffplay \
+    --disable-ffprobe \
+    --disable-network \
+    --disable-shared \
+    --enable-static \
+    --enable-ffmpeg \
+    "${EXTRA_CONFIGURE_ARG}"
+else
+  ./configure \
+    --prefix="${INSTALL_DIR}" \
+    --arch="${ARCH}" \
+    --cc=/usr/bin/clang \
+    --disable-debug \
+    --disable-doc \
+    --disable-ffplay \
+    --disable-ffprobe \
+    --disable-network \
+    --disable-shared \
+    --enable-static \
+    --enable-ffmpeg
+fi
 
 echo "Building FFmpeg with ${JOBS} jobs"
 make -j"${JOBS}"
@@ -78,3 +110,11 @@ fi
 echo "Built LGPL-only ffmpeg binary: ${OUTPUT_BINARY}"
 "${OUTPUT_BINARY}" -version | head -n 3
 "${OUTPUT_BINARY}" -L | sed -n '1,16p'
+
+if [ "${ENABLE_MP3_ENCODER}" = "1" ]; then
+  if ! "${OUTPUT_BINARY}" -hide_banner -encoders 2>/dev/null | grep -Eq '(^|[[:space:]])(libmp3lame|mp3)([[:space:]]|$)'; then
+    echo "error: MP3 encoder verification failed. libmp3lame/mp3 encoder not found in built binary."
+    exit 1
+  fi
+  echo "MP3 encoder verification passed."
+fi

@@ -25,6 +25,13 @@ Optional version override:
 Tools/ffmpeg/build_ffmpeg_lgpl.sh 7.1
 ```
 
+Optional MP3 encoder build (`libmp3lame` required):
+
+```sh
+brew install lame pkg-config
+ENABLE_MP3_ENCODER=1 Tools/ffmpeg/build_ffmpeg_lgpl.sh
+```
+
 The script replaces `Tools/ffmpeg/ffmpeg` and validates:
 
 - `-version` does not contain `--enable-gpl`
@@ -34,6 +41,7 @@ The script replaces `Tools/ffmpeg/ffmpeg` and validates:
 Codec note:
 
 - This baseline build does not bundle external codec libraries (for example `libx264`, `libx265`, `libmp3lame`).
+- MP3 conversion requires an FFmpeg build that includes an MP3 encoder (`libmp3lame` or `mp3`).
 - The app introspects available encoders at runtime, so unsupported encoder options may be hidden automatically.
 
 ## Build-time GPL guard

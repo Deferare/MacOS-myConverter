@@ -240,6 +240,10 @@ enum ImageConversionEngine {
         onProgress: @escaping ProgressHandler
     ) async throws {
         let introspection = try inspectFFmpeg(at: ffmpegPath)
+        let stagedInputURL = try stageInputForFFmpeg(inputURL)
+        defer {
+            try? OutputPathUtilities.removeFileIfExists(at: stagedInputURL)
+        }
 
         let selectedCodec = outputSettings.containerFormat.ffmpegEncoderCandidates.first(where: { introspection.encoders.contains($0) })
 
@@ -258,7 +262,7 @@ enum ImageConversionEngine {
             "-y",
             "-hide_banner",
             "-loglevel", "error",
-            "-i", inputURL.path
+            "-i", stagedInputURL.path
         ]
 
         if let resolution = outputSettings.resolution {
@@ -297,6 +301,30 @@ enum ImageConversionEngine {
         }
 
         reportProgress(1.0, onProgress: onProgress)
+    }
+
+    nonisolated private static func stageInputForFFmpeg(_ inputURL: URL) throws -> URL {
+        do {
+            return try OutputPathUtilities.stageInputURL(for: inputURL)
+        } catch let stagingError as OutputPathUtilities.StagedInputError {
+            switch stagingError {
+            case .stagingDirectoryCreationFailed(let path, let message):
+                throw ImageConversionError.ffmpegFailed(
+                    -1,
+                    "Failed to prepare ffmpeg staging directory (\(path)): \(message)"
+                )
+            case .stagingCopyFailed(let sourcePath, let destinationPath, let message):
+                throw ImageConversionError.ffmpegFailed(
+                    -1,
+                    "Failed to stage input file for ffmpeg. Source: \(sourcePath), Destination: \(destinationPath), Detail: \(message)"
+                )
+            }
+        } catch {
+            throw ImageConversionError.ffmpegFailed(
+                -1,
+                "Failed to stage input file for ffmpeg: \(error.localizedDescription)"
+            )
+        }
     }
 
     nonisolated private static func appendFFmpegFormatArguments(
