@@ -4,8 +4,8 @@ import UniformTypeIdentifiers
 
 enum ConverterTab: String, CaseIterable, Identifiable {
     case video
-    case image
     case audio
+    case image
     case about
 
     var id: String { rawValue }
@@ -13,11 +13,11 @@ enum ConverterTab: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .video:
-            return "Convert Video"
+            return "Video"
         case .image:
-            return "Convert Image"
+            return "Image"
         case .audio:
-            return "Convert Audio"
+            return "Audio"
         case .about:
             return "About"
         }
