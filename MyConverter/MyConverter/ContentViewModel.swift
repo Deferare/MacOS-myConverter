@@ -422,9 +422,7 @@ final class ContentViewModel: ObservableObject {
         sourceURL != nil &&
             !isConverting &&
             !isAnalyzingSource &&
-            sourceCompatibilityErrorMessage == nil &&
-            isVideoSettingsValid &&
-            availableOutputFormats.contains(where: { $0.normalizedID == selectedOutputFormat.normalizedID })
+            videoSettingsValidationMessage == nil
     }
 
     var selectedVideoSourceURLs: [URL] {
@@ -465,6 +463,9 @@ final class ContentViewModel: ObservableObject {
         if let sourceCompatibilityErrorMessage {
             return sourceCompatibilityErrorMessage
         }
+        if sourceURL != nil && requiresFFmpegForCurrentVideoSettings && !VideoConversionEngine.isFFmpegAvailable() {
+            return "Selected output settings require ffmpeg. Install ffmpeg or reset advanced options to Auto/Original."
+        }
         if shouldShowVideoBitRateOption && selectedVideoBitRate == .custom && normalizedCustomVideoBitRateKbps == nil {
             return "Please enter an integer greater than 1 for Custom Bitrate (Kbps)."
         }
@@ -481,7 +482,7 @@ final class ContentViewModel: ObservableObject {
     }
 
     var outputFormatOptions: [VideoFormatOption] {
-        if availableOutputFormats.isEmpty {
+        if sourceURL == nil && availableOutputFormats.isEmpty {
             return VideoConversionEngine.defaultOutputFormats()
         }
         return availableOutputFormats
@@ -531,6 +532,37 @@ final class ContentViewModel: ObservableObject {
         return value
     }
 
+    private var requiresFFmpegForCurrentVideoSettings: Bool {
+        if selectedOutputFormat.avFileType == nil {
+            return true
+        }
+        if selectedOutputFormat.usesGIFPalettePipeline {
+            return true
+        }
+        if selectedVideoEncoder != .auto {
+            return true
+        }
+        if selectedResolution != .original || selectedFrameRate != .original {
+            return true
+        }
+        if shouldShowVideoBitRateOption && selectedVideoBitRate != .auto {
+            return true
+        }
+        if !shouldShowAudioSettings {
+            return false
+        }
+        if selectedAudioEncoder != .auto {
+            return true
+        }
+        if selectedAudioMode != .auto {
+            return true
+        }
+        if shouldShowAudioBitRateOption && selectedAudioBitRate != .auto {
+            return true
+        }
+        return false
+    }
+
     // MARK: - Image Computed Properties
 
     var imageSourceIsAnimated: Bool {
@@ -574,7 +606,7 @@ final class ContentViewModel: ObservableObject {
     }
 
     var imageOutputFormatOptions: [ImageFormatOption] {
-        if availableImageOutputFormats.isEmpty {
+        if imageSourceURL == nil && availableImageOutputFormats.isEmpty {
             return ImageConversionEngine.defaultOutputFormats()
         }
         return availableImageOutputFormats
@@ -708,7 +740,7 @@ final class ContentViewModel: ObservableObject {
         switch selectedTab {
         case .video:
             let mkvType = UTType(filenameExtension: "mkv")
-            return [.movie, .audiovisualContent, mkvType].compactMap { $0 }
+            return [.movie, .video, mkvType].compactMap { $0 }
         case .image:
             return [.image]
         case .audio:
@@ -735,6 +767,40 @@ final class ContentViewModel: ObservableObject {
         }
 
         return unique
+    }
+
+    private func inferredUTType(for url: URL) -> UTType? {
+        let fileExtension = url.pathExtension.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !fileExtension.isEmpty else { return nil }
+        return UTType(filenameExtension: fileExtension)
+    }
+
+    private func isVideoInputURL(_ url: URL) -> Bool {
+        if let type = inferredUTType(for: url),
+           type.conforms(to: .movie) || type.conforms(to: .video) {
+            return true
+        }
+        return VideoFormatOption.isLikelyVideoFileExtension(url.pathExtension)
+    }
+
+    private func isImageInputURL(_ url: URL) -> Bool {
+        if let type = inferredUTType(for: url),
+           type.conforms(to: .image) {
+            return true
+        }
+        return ImageFormatOption.isLikelyImageFileExtension(url.pathExtension)
+    }
+
+    private func isAudioInputURL(_ url: URL) -> Bool {
+        if let type = inferredUTType(for: url),
+           type.conforms(to: .audio) ||
+            type.conforms(to: .movie) ||
+            type.conforms(to: .video) ||
+            type.conforms(to: .audiovisualContent) {
+            return true
+        }
+        return AudioFormatOption.isLikelyAudioFileExtension(url.pathExtension) ||
+            VideoFormatOption.isLikelyVideoFileExtension(url.pathExtension)
     }
 
     func clearSelectedSource() {
@@ -812,11 +878,17 @@ final class ContentViewModel: ObservableObject {
             guard !selected.isEmpty else { return }
             switch selectedTab {
             case .video:
-                applySelectedVideoSources(selected)
+                let filtered = selected.filter(isVideoInputURL)
+                guard !filtered.isEmpty else { return }
+                applySelectedVideoSources(filtered)
             case .image:
-                applySelectedImageSources(selected)
+                let filtered = selected.filter(isImageInputURL)
+                guard !filtered.isEmpty else { return }
+                applySelectedImageSources(filtered)
             case .audio:
-                applySelectedAudioSources(selected)
+                let filtered = selected.filter(isAudioInputURL)
+                guard !filtered.isEmpty else { return }
+                applySelectedAudioSources(filtered)
             case .about:
                 break
             }
@@ -830,25 +902,26 @@ final class ContentViewModel: ObservableObject {
     }
 
     func handleVideoDrop(providers: [NSItemProvider]) -> Bool {
-        handleDroppedFiles(providers: providers) { [weak self] urls in
+        handleDroppedFiles(providers: providers, accept: isVideoInputURL) { [weak self] urls in
             self?.applySelectedVideoSources(urls)
         }
     }
 
     func handleImageDrop(providers: [NSItemProvider]) -> Bool {
-        handleDroppedFiles(providers: providers) { [weak self] urls in
+        handleDroppedFiles(providers: providers, accept: isImageInputURL) { [weak self] urls in
             self?.applySelectedImageSources(urls)
         }
     }
 
     func handleAudioDrop(providers: [NSItemProvider]) -> Bool {
-        handleDroppedFiles(providers: providers) { [weak self] urls in
+        handleDroppedFiles(providers: providers, accept: isAudioInputURL) { [weak self] urls in
             self?.applySelectedAudioSources(urls)
         }
     }
 
     private func handleDroppedFiles(
         providers: [NSItemProvider],
+        accept: @escaping (URL) -> Bool,
         onResolvedURLs: @escaping @MainActor ([URL]) -> Void
     ) -> Bool {
         let fileProviders = providers.filter { $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) }
@@ -884,10 +957,11 @@ final class ContentViewModel: ObservableObject {
         group.notify(queue: .main) { [weak self] in
             guard let self else { return }
             let unique = self.uniqueStandardizedURLs(resolvedURLs)
-            guard !unique.isEmpty else { return }
+            let accepted = unique.filter(accept)
+            guard !accepted.isEmpty else { return }
 
             Task { @MainActor in
-                onResolvedURLs(unique)
+                onResolvedURLs(accepted)
             }
         }
 
@@ -915,7 +989,7 @@ final class ContentViewModel: ObservableObject {
         let sourceID = sourceIdentifier(for: newPrimarySourceURL)
         let stored = videoSettingsBySourceID[sourceID] ?? VideoConversionSettings()
         applyStoredSettings(stored)
-        analyzeSourceCompatibility(for: newPrimarySourceURL)
+        analyzeSourceCompatibility(for: selectedVideoSourceURLs)
     }
 
     func moveSelectedImageSource(from draggedURL: URL, to targetURL: URL) {
@@ -941,7 +1015,7 @@ final class ContentViewModel: ObservableObject {
         let sourceID = sourceIdentifier(for: newPrimarySourceURL)
         let stored = imageSettingsBySourceID[sourceID] ?? ImageConversionSettings()
         applyStoredImageSettings(stored)
-        analyzeImageSourceCompatibility(for: newPrimarySourceURL)
+        analyzeImageSourceCompatibility(for: selectedImageSourceURLs)
     }
 
     func moveSelectedAudioSource(from draggedURL: URL, to targetURL: URL) {
@@ -965,7 +1039,7 @@ final class ContentViewModel: ObservableObject {
         let sourceID = sourceIdentifier(for: newPrimarySourceURL)
         let stored = audioSettingsBySourceID[sourceID] ?? AudioConversionSettings()
         applyStoredAudioSettings(stored)
-        analyzeAudioSourceCompatibility(for: newPrimarySourceURL)
+        analyzeAudioSourceCompatibility(for: selectedAudioSourceURLs)
     }
 
     private func reorderedURLsByMoving(_ draggedURL: URL, to targetURL: URL, in urls: [URL]) -> [URL]? {
@@ -985,6 +1059,46 @@ final class ContentViewModel: ObservableObject {
         let movedURL = reordered.remove(at: sourceIndex)
         reordered.insert(movedURL, at: destinationIndex)
         return reordered
+    }
+
+    private func labeledCapabilityMessage(_ message: String, for sourceURL: URL, totalCount: Int) -> String {
+        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "" }
+        if totalCount <= 1 {
+            return trimmed
+        }
+        return "\(sourceURL.lastPathComponent): \(trimmed)"
+    }
+
+    private func joinedCapabilityMessages(_ messages: [String]) -> String? {
+        var seen = Set<String>()
+        var uniqueMessages: [String] = []
+
+        for message in messages {
+            let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+            if seen.insert(trimmed).inserted {
+                uniqueMessages.append(trimmed)
+            }
+        }
+
+        guard !uniqueMessages.isEmpty else { return nil }
+        return uniqueMessages.joined(separator: "\n")
+    }
+
+    private func intersectVideoFormats(_ lhs: [VideoFormatOption], _ rhs: [VideoFormatOption]) -> [VideoFormatOption] {
+        let rhsIDs = Set(rhs.map(\.normalizedID))
+        return lhs.filter { rhsIDs.contains($0.normalizedID) }
+    }
+
+    private func intersectImageFormats(_ lhs: [ImageFormatOption], _ rhs: [ImageFormatOption]) -> [ImageFormatOption] {
+        let rhsIDs = Set(rhs.map(\.normalizedID))
+        return lhs.filter { rhsIDs.contains($0.normalizedID) }
+    }
+
+    private func intersectAudioFormats(_ lhs: [AudioFormatOption], _ rhs: [AudioFormatOption]) -> [AudioFormatOption] {
+        let rhsIDs = Set(rhs.map(\.normalizedID))
+        return lhs.filter { rhsIDs.contains($0.normalizedID) }
     }
 
     // MARK: - Conversion Control
@@ -1050,35 +1164,75 @@ final class ContentViewModel: ObservableObject {
         let stored = videoSettingsBySourceID[sourceID] ?? VideoConversionSettings()
         applyStoredSettings(stored)
 
-        analyzeSourceCompatibility(for: firstURL)
+        analyzeSourceCompatibility(for: uniqueURLs)
     }
 
-    private func analyzeSourceCompatibility(for url: URL) {
+    private func analyzeSourceCompatibility(for urls: [URL]) {
+        let selection = uniqueStandardizedURLs(urls)
+        let expectedSourceIDs = selection.map(sourceIdentifier(for:))
+        guard !selection.isEmpty else {
+            isAnalyzingSource = false
+            availableOutputFormats = []
+            sourceCompatibilityErrorMessage = nil
+            sourceCompatibilityWarningMessage = nil
+            return
+        }
+
         isAnalyzingSource = true
 
         sourceAnalysisTask = Task { [weak self] in
             guard let self else { return }
 
-            let shouldStopSourceAccessing = url.startAccessingSecurityScopedResource()
-            defer {
-                if shouldStopSourceAccessing {
-                    url.stopAccessingSecurityScopedResource()
+            var isInitialized = false
+            var commonFormats: [VideoFormatOption] = []
+            var warnings: [String] = []
+            var errors: [String] = []
+
+            for source in selection {
+                guard !Task.isCancelled else { return }
+
+                let shouldStopSourceAccessing = source.startAccessingSecurityScopedResource()
+                defer {
+                    if shouldStopSourceAccessing {
+                        source.stopAccessingSecurityScopedResource()
+                    }
+                }
+
+                let capabilities = await VideoConversionEngine.sourceCapabilities(for: source)
+
+                if isInitialized {
+                    commonFormats = self.intersectVideoFormats(commonFormats, capabilities.availableOutputFormats)
+                } else {
+                    commonFormats = capabilities.availableOutputFormats
+                    isInitialized = true
+                }
+
+                if let warning = capabilities.warningMessage {
+                    warnings.append(self.labeledCapabilityMessage(warning, for: source, totalCount: selection.count))
+                }
+                if let error = capabilities.errorMessage {
+                    errors.append(self.labeledCapabilityMessage(error, for: source, totalCount: selection.count))
                 }
             }
 
-            let capabilities = await VideoConversionEngine.sourceCapabilities(for: url)
-
             guard !Task.isCancelled else { return }
-            guard let currentSourceURL = self.sourceURL else { return }
-            guard self.sourceIdentifier(for: url) == self.sourceIdentifier(for: currentSourceURL) else { return }
+            guard self.selectedVideoSourceURLs.map({ self.sourceIdentifier(for: $0) }) == expectedSourceIDs else { return }
 
+            let resolvedFormats = VideoFormatOption.deduplicatedAndSorted(commonFormats)
             self.isAnalyzingSource = false
-            self.availableOutputFormats = capabilities.availableOutputFormats
-            self.sourceCompatibilityWarningMessage = capabilities.warningMessage
-            self.sourceCompatibilityErrorMessage = capabilities.errorMessage
+            self.availableOutputFormats = resolvedFormats
+            self.sourceCompatibilityWarningMessage = self.joinedCapabilityMessages(warnings)
 
-            if let first = capabilities.availableOutputFormats.first,
-               !capabilities.availableOutputFormats.contains(where: { $0.normalizedID == self.selectedOutputFormat.normalizedID }) {
+            if let joinedErrors = self.joinedCapabilityMessages(errors) {
+                self.sourceCompatibilityErrorMessage = joinedErrors
+            } else if selection.count > 1 && resolvedFormats.isEmpty {
+                self.sourceCompatibilityErrorMessage = "No common output container is available for the selected files."
+            } else {
+                self.sourceCompatibilityErrorMessage = nil
+            }
+
+            if let first = resolvedFormats.first,
+               !resolvedFormats.contains(where: { $0.normalizedID == self.selectedOutputFormat.normalizedID }) {
                 self.selectedOutputFormat = first
             }
 
@@ -1115,39 +1269,87 @@ final class ContentViewModel: ObservableObject {
         let stored = imageSettingsBySourceID[sourceID] ?? ImageConversionSettings()
         applyStoredImageSettings(stored)
 
-        analyzeImageSourceCompatibility(for: firstURL)
+        analyzeImageSourceCompatibility(for: uniqueURLs)
     }
 
-    private func analyzeImageSourceCompatibility(for url: URL) {
+    private func analyzeImageSourceCompatibility(for urls: [URL]) {
+        let selection = uniqueStandardizedURLs(urls)
+        let expectedSourceIDs = selection.map(sourceIdentifier(for:))
+        guard !selection.isEmpty else {
+            isAnalyzingImageSource = false
+            availableImageOutputFormats = []
+            imageSourceFrameCount = 0
+            imageSourceHasAlpha = false
+            imageSourceCompatibilityErrorMessage = nil
+            imageSourceCompatibilityWarningMessage = nil
+            return
+        }
+
         isAnalyzingImageSource = true
 
         imageSourceAnalysisTask = Task { [weak self] in
             guard let self else { return }
 
-            let shouldStopSourceAccessing = url.startAccessingSecurityScopedResource()
-            defer {
-                if shouldStopSourceAccessing {
-                    url.stopAccessingSecurityScopedResource()
+            let primarySourceID = expectedSourceIDs.first
+            var primaryFrameCount = 0
+            var primaryHasAlpha = false
+            var isInitialized = false
+            var commonFormats: [ImageFormatOption] = []
+            var warnings: [String] = []
+            var errors: [String] = []
+
+            for source in selection {
+                guard !Task.isCancelled else { return }
+
+                let shouldStopSourceAccessing = source.startAccessingSecurityScopedResource()
+                defer {
+                    if shouldStopSourceAccessing {
+                        source.stopAccessingSecurityScopedResource()
+                    }
+                }
+
+                let capabilities = await ImageConversionEngine.sourceCapabilities(for: source)
+                let sourceID = sourceIdentifier(for: source)
+                if sourceID == primarySourceID {
+                    primaryFrameCount = capabilities.frameCount
+                    primaryHasAlpha = capabilities.hasAlpha
+                }
+
+                if isInitialized {
+                    commonFormats = self.intersectImageFormats(commonFormats, capabilities.availableOutputFormats)
+                } else {
+                    commonFormats = capabilities.availableOutputFormats
+                    isInitialized = true
+                }
+
+                if let warning = capabilities.warningMessage {
+                    warnings.append(self.labeledCapabilityMessage(warning, for: source, totalCount: selection.count))
+                }
+                if let error = capabilities.errorMessage {
+                    errors.append(self.labeledCapabilityMessage(error, for: source, totalCount: selection.count))
                 }
             }
 
-            let capabilities = await ImageConversionEngine.sourceCapabilities(for: url)
-
             guard !Task.isCancelled else { return }
-            guard let currentSourceURL = self.imageSourceURL else { return }
-            guard self.sourceIdentifier(for: url) == self.sourceIdentifier(for: currentSourceURL) else { return }
+            guard self.selectedImageSourceURLs.map({ self.sourceIdentifier(for: $0) }) == expectedSourceIDs else { return }
 
+            let resolvedFormats = ImageFormatOption.deduplicatedAndSorted(commonFormats)
             self.isAnalyzingImageSource = false
-            self.availableImageOutputFormats = capabilities.availableOutputFormats.isEmpty
-                ? ImageConversionEngine.defaultOutputFormats()
-                : capabilities.availableOutputFormats
-            self.imageSourceCompatibilityWarningMessage = capabilities.warningMessage
-            self.imageSourceCompatibilityErrorMessage = capabilities.errorMessage
-            self.imageSourceFrameCount = capabilities.frameCount
-            self.imageSourceHasAlpha = capabilities.hasAlpha
+            self.availableImageOutputFormats = resolvedFormats
+            self.imageSourceCompatibilityWarningMessage = self.joinedCapabilityMessages(warnings)
+            self.imageSourceFrameCount = primaryFrameCount
+            self.imageSourceHasAlpha = primaryHasAlpha
 
-            if let first = capabilities.availableOutputFormats.first,
-               !capabilities.availableOutputFormats.contains(where: { $0.normalizedID == self.selectedImageOutputFormat.normalizedID }) {
+            if let joinedErrors = self.joinedCapabilityMessages(errors) {
+                self.imageSourceCompatibilityErrorMessage = joinedErrors
+            } else if selection.count > 1 && resolvedFormats.isEmpty {
+                self.imageSourceCompatibilityErrorMessage = "No common output format is available for the selected files."
+            } else {
+                self.imageSourceCompatibilityErrorMessage = nil
+            }
+
+            if let first = resolvedFormats.first,
+               !resolvedFormats.contains(where: { $0.normalizedID == self.selectedImageOutputFormat.normalizedID }) {
                 self.selectedImageOutputFormat = first
             }
 
@@ -1181,35 +1383,75 @@ final class ContentViewModel: ObservableObject {
         let stored = audioSettingsBySourceID[sourceID] ?? AudioConversionSettings()
         applyStoredAudioSettings(stored)
 
-        analyzeAudioSourceCompatibility(for: firstURL)
+        analyzeAudioSourceCompatibility(for: uniqueURLs)
     }
 
-    private func analyzeAudioSourceCompatibility(for url: URL) {
+    private func analyzeAudioSourceCompatibility(for urls: [URL]) {
+        let selection = uniqueStandardizedURLs(urls)
+        let expectedSourceIDs = selection.map(sourceIdentifier(for:))
+        guard !selection.isEmpty else {
+            isAnalyzingAudioSource = false
+            availableAudioOutputFormats = []
+            audioSourceCompatibilityErrorMessage = nil
+            audioSourceCompatibilityWarningMessage = nil
+            return
+        }
+
         isAnalyzingAudioSource = true
 
         audioSourceAnalysisTask = Task { [weak self] in
             guard let self else { return }
 
-            let shouldStopSourceAccessing = url.startAccessingSecurityScopedResource()
-            defer {
-                if shouldStopSourceAccessing {
-                    url.stopAccessingSecurityScopedResource()
+            var isInitialized = false
+            var commonFormats: [AudioFormatOption] = []
+            var warnings: [String] = []
+            var errors: [String] = []
+
+            for source in selection {
+                guard !Task.isCancelled else { return }
+
+                let shouldStopSourceAccessing = source.startAccessingSecurityScopedResource()
+                defer {
+                    if shouldStopSourceAccessing {
+                        source.stopAccessingSecurityScopedResource()
+                    }
+                }
+
+                let capabilities = await VideoConversionEngine.sourceCapabilitiesForAudio(for: source)
+
+                if isInitialized {
+                    commonFormats = self.intersectAudioFormats(commonFormats, capabilities.availableOutputFormats)
+                } else {
+                    commonFormats = capabilities.availableOutputFormats
+                    isInitialized = true
+                }
+
+                if let warning = capabilities.warningMessage {
+                    warnings.append(self.labeledCapabilityMessage(warning, for: source, totalCount: selection.count))
+                }
+                if let error = capabilities.errorMessage {
+                    errors.append(self.labeledCapabilityMessage(error, for: source, totalCount: selection.count))
                 }
             }
 
-            let capabilities = await VideoConversionEngine.sourceCapabilitiesForAudio(for: url)
-
             guard !Task.isCancelled else { return }
-            guard let currentSourceURL = self.audioSourceURL else { return }
-            guard self.sourceIdentifier(for: url) == self.sourceIdentifier(for: currentSourceURL) else { return }
+            guard self.selectedAudioSourceURLs.map({ self.sourceIdentifier(for: $0) }) == expectedSourceIDs else { return }
 
+            let resolvedFormats = AudioFormatOption.deduplicatedAndSorted(commonFormats)
             self.isAnalyzingAudioSource = false
-            self.availableAudioOutputFormats = capabilities.availableOutputFormats
-            self.audioSourceCompatibilityWarningMessage = capabilities.warningMessage
-            self.audioSourceCompatibilityErrorMessage = capabilities.errorMessage
+            self.availableAudioOutputFormats = resolvedFormats
+            self.audioSourceCompatibilityWarningMessage = self.joinedCapabilityMessages(warnings)
 
-            if let first = capabilities.availableOutputFormats.first,
-               !capabilities.availableOutputFormats.contains(where: { $0.normalizedID == self.selectedAudioOutputFormat.normalizedID }) {
+            if let joinedErrors = self.joinedCapabilityMessages(errors) {
+                self.audioSourceCompatibilityErrorMessage = joinedErrors
+            } else if selection.count > 1 && resolvedFormats.isEmpty {
+                self.audioSourceCompatibilityErrorMessage = "No common audio output format is available for the selected files."
+            } else {
+                self.audioSourceCompatibilityErrorMessage = nil
+            }
+
+            if let first = resolvedFormats.first,
+               !resolvedFormats.contains(where: { $0.normalizedID == self.selectedAudioOutputFormat.normalizedID }) {
                 self.selectedAudioOutputFormat = first
             }
 
@@ -1397,6 +1639,70 @@ final class ContentViewModel: ObservableObject {
         refreshAudioCodecOptions()
     }
 
+    private func validateVideoOutputSettings(for sourceURL: URL) async -> String? {
+        if requiresFFmpegForCurrentVideoSettings && !VideoConversionEngine.isFFmpegAvailable() {
+            return "Selected output settings require ffmpeg. Install ffmpeg or reset advanced options to Auto/Original."
+        }
+
+        let capabilities = await VideoConversionEngine.sourceCapabilities(for: sourceURL)
+        if let error = capabilities.errorMessage {
+            return error
+        }
+
+        let isFormatAvailable = capabilities.availableOutputFormats.contains {
+            $0.normalizedID == selectedOutputFormat.normalizedID
+        }
+        if !isFormatAvailable {
+            return "Selected container is not available for this source."
+        }
+
+        return nil
+    }
+
+    private func validateImageOutputSettings(for sourceURL: URL) async -> String? {
+        let capabilities = await ImageConversionEngine.sourceCapabilities(for: sourceURL)
+        if let error = capabilities.errorMessage {
+            return error
+        }
+
+        let isFormatAvailable = capabilities.availableOutputFormats.contains {
+            $0.normalizedID == selectedImageOutputFormat.normalizedID
+        }
+        if !isFormatAvailable {
+            return "Selected output format is not available for this source."
+        }
+
+        if capabilities.frameCount > 1 &&
+            preserveImageAnimation &&
+            selectedImageOutputFormat.supportsAnimation &&
+            !ImageConversionEngine.isFFmpegAvailable() {
+            return "Animated output requires ffmpeg for the selected format."
+        }
+
+        return nil
+    }
+
+    private func validateAudioOutputSettings(for sourceURL: URL) async -> String? {
+        let capabilities = await VideoConversionEngine.sourceCapabilitiesForAudio(for: sourceURL)
+        if let error = capabilities.errorMessage {
+            return error
+        }
+
+        let isFormatAvailable = capabilities.availableOutputFormats.contains {
+            $0.normalizedID == selectedAudioOutputFormat.normalizedID
+        }
+        if !isFormatAvailable {
+            return "Selected output format is not available for this source."
+        }
+
+        return nil
+    }
+
+    private func skippedFilesSummary(prefix: String, entries: [String]) -> String? {
+        guard !entries.isEmpty else { return nil }
+        return ([prefix] + entries).joined(separator: "\n")
+    }
+
     // MARK: - Video Convert
 
     private func convert() async {
@@ -1433,6 +1739,7 @@ final class ContentViewModel: ObservableObject {
             let outputDirectory = try VideoConversionEngine.sandboxOutputDirectory(
                 bundleIdentifier: Bundle.main.bundleIdentifier
             )
+            var skippedEntries: [String] = []
 
             for (index, currentSourceURL) in sourceURLs.enumerated() {
                 try Task.checkCancellation()
@@ -1443,6 +1750,12 @@ final class ContentViewModel: ObservableObject {
                     if shouldStopSourceAccessing {
                         currentSourceURL.stopAccessingSecurityScopedResource()
                     }
+                }
+
+                if let validationMessage = await validateVideoOutputSettings(for: currentSourceURL) {
+                    skippedEntries.append("\(currentSourceURL.lastPathComponent): \(validationMessage)")
+                    removeProcessedVideoSource(currentSourceURL)
+                    continue
                 }
 
                 let destinationURL = VideoConversionEngine.uniqueOutputURL(
@@ -1479,6 +1792,9 @@ final class ContentViewModel: ObservableObject {
             }
 
             conversionProgress = 1
+            if let summary = skippedFilesSummary(prefix: "Some video files were skipped:", entries: skippedEntries) {
+                conversionErrorMessage = summary
+            }
         } catch is CancellationError {
             conversionProgress = 0
             conversionErrorMessage = nil
@@ -1519,6 +1835,7 @@ final class ContentViewModel: ObservableObject {
             let outputDirectory = try VideoConversionEngine.sandboxOutputDirectory(
                 bundleIdentifier: Bundle.main.bundleIdentifier
             )
+            var skippedEntries: [String] = []
 
             for (index, currentSourceURL) in sourceURLs.enumerated() {
                 try Task.checkCancellation()
@@ -1529,6 +1846,12 @@ final class ContentViewModel: ObservableObject {
                     if shouldStopSourceAccessing {
                         currentSourceURL.stopAccessingSecurityScopedResource()
                     }
+                }
+
+                if let validationMessage = await validateImageOutputSettings(for: currentSourceURL) {
+                    skippedEntries.append("\(currentSourceURL.lastPathComponent): \(validationMessage)")
+                    removeProcessedImageSource(currentSourceURL)
+                    continue
                 }
 
                 let destinationURL = ImageConversionEngine.uniqueOutputURL(
@@ -1564,6 +1887,9 @@ final class ContentViewModel: ObservableObject {
             }
 
             imageConversionProgress = 1
+            if let summary = skippedFilesSummary(prefix: "Some image files were skipped:", entries: skippedEntries) {
+                imageConversionErrorMessage = summary
+            }
         } catch is CancellationError {
             imageConversionProgress = 0
             imageConversionErrorMessage = nil
@@ -1601,6 +1927,7 @@ final class ContentViewModel: ObservableObject {
             let outputDirectory = try VideoConversionEngine.sandboxOutputDirectory(
                 bundleIdentifier: Bundle.main.bundleIdentifier
             )
+            var skippedEntries: [String] = []
 
             for (index, currentSourceURL) in sourceURLs.enumerated() {
                 try Task.checkCancellation()
@@ -1611,6 +1938,12 @@ final class ContentViewModel: ObservableObject {
                     if shouldStopSourceAccessing {
                         currentSourceURL.stopAccessingSecurityScopedResource()
                     }
+                }
+
+                if let validationMessage = await validateAudioOutputSettings(for: currentSourceURL) {
+                    skippedEntries.append("\(currentSourceURL.lastPathComponent): \(validationMessage)")
+                    removeProcessedAudioSource(currentSourceURL)
+                    continue
                 }
 
                 let destinationURL = VideoConversionEngine.uniqueOutputURL(
@@ -1647,6 +1980,9 @@ final class ContentViewModel: ObservableObject {
             }
 
             audioConversionProgress = 1
+            if let summary = skippedFilesSummary(prefix: "Some audio files were skipped:", entries: skippedEntries) {
+                audioConversionErrorMessage = summary
+            }
         } catch is CancellationError {
             audioConversionProgress = 0
             audioConversionErrorMessage = nil

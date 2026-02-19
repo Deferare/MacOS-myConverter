@@ -329,7 +329,7 @@ enum VideoConversionEngine {
         let defaultFormats = defaultOutputFormats()
 
         do {
-            try await ensureAssetReadable(asset)
+            try await ensureAssetHasVideoTrack(asset)
             let avSupported = await supportedOutputFormatsWithAVFoundation(for: asset)
             if ffmpegAvailable {
                 return VideoSourceCapabilities(
@@ -351,6 +351,12 @@ enum VideoConversionEngine {
                 availableOutputFormats: avSupported,
                 warningMessage: nil,
                 errorMessage: nil
+            )
+        } catch ConversionError.noVideoTrackFound {
+            return VideoSourceCapabilities(
+                availableOutputFormats: [],
+                warningMessage: nil,
+                errorMessage: "No video track found in this source."
             )
         } catch {
             if ffmpegAvailable {
@@ -1495,6 +1501,19 @@ enum VideoConversionEngine {
         }
     }
 
+    private static func ensureAssetHasVideoTrack(_ asset: AVURLAsset) async throws {
+        let isPlayable = try await asset.load(.isPlayable)
+        _ = try await asset.load(.duration)
+        guard isPlayable else {
+            throw ConversionError.unreadableAsset
+        }
+
+        let videoTracks = try await asset.loadTracks(withMediaType: .video)
+        if videoTracks.isEmpty {
+            throw ConversionError.noVideoTrackFound
+        }
+    }
+
     private static func ensureAssetHasAudioTrack(_ asset: AVURLAsset) async throws {
         let isPlayable = try await asset.load(.isPlayable)
         _ = try await asset.load(.duration)
@@ -1553,6 +1572,7 @@ enum ConversionError: LocalizedError {
     case unsupportedSource
     case unreadableAsset
     case noTracksFound
+    case noVideoTrackFound
     case invalidCustomVideoBitRate(String)
     case noCompatiblePreset([String])
     case cannotCreateExportSession(String)
@@ -1571,6 +1591,8 @@ enum ConversionError: LocalizedError {
             return "Could not parse input video file."
         case .noTracksFound:
             return "No video/audio tracks found."
+        case .noVideoTrackFound:
+            return "No video track found."
         case .invalidCustomVideoBitRate:
             return "Custom Video Bit Rate must be an integer greater than 1 (Kbps)."
         case .noCompatiblePreset:
@@ -1625,6 +1647,8 @@ enum ConversionError: LocalizedError {
             return "Unsupported codec/container for this source."
         case .noTracksFound:
             return "Video/Audio track not detected."
+        case .noVideoTrackFound:
+            return "Video track not detected."
         }
     }
 }
