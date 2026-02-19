@@ -25,12 +25,14 @@ Optional version override:
 Tools/ffmpeg/build_ffmpeg_lgpl.sh 7.1
 ```
 
-Optional MP3 encoder build (`libmp3lame` required):
+Optional MP3 encoder build:
 
 ```sh
-brew install lame pkg-config
 ENABLE_MP3_ENCODER=1 Tools/ffmpeg/build_ffmpeg_lgpl.sh
 ```
+
+When `ENABLE_MP3_ENCODER=1` is set, the script downloads and builds static `libmp3lame`
+from source, then links it into FFmpeg.
 
 The script replaces `Tools/ffmpeg/ffmpeg` and validates:
 

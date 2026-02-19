@@ -98,18 +98,24 @@ enum VideoConversionEngine {
 
         guard let introspection = try? inspectFFmpeg(at: ffmpegPath),
               isFFmpegFormatSupported(format, introspection: introspection) else {
+            let fallback = format.avFileType == nil ? [VideoEncoderOption]() : [.auto]
             capabilityCacheQueue.sync {
-                videoEncoderOptionsCache[cacheKey] = [.auto]
+                videoEncoderOptionsCache[cacheKey] = fallback
             }
-            return [.auto]
+            return fallback
         }
 
-        let options = VideoEncoderOption.allCases.filter { option in
-            option.isCompatible(with: format) &&
-                (option.codecCandidates.isEmpty || option.codecCandidates.contains(where: { introspection.videoEncoders.contains($0) }))
+        let explicitOptions = VideoEncoderOption.allCases.filter { option in
+            guard option != .auto else { return false }
+            return option.isCompatible(with: format) &&
+                option.codecCandidates.contains(where: { introspection.videoEncoders.contains($0) })
         }
 
-        let resolved = options.isEmpty ? [.auto] : options
+        var resolved = explicitOptions
+        if format.allowsFFmpegAutomaticVideoCodec, !explicitOptions.isEmpty {
+            resolved.insert(.auto, at: 0)
+        }
+
         capabilityCacheQueue.sync {
             videoEncoderOptionsCache[cacheKey] = resolved
         }
@@ -132,18 +138,24 @@ enum VideoConversionEngine {
 
         guard let introspection = try? inspectFFmpeg(at: ffmpegPath),
               isFFmpegFormatSupported(format, introspection: introspection) else {
+            let fallback = format.avFileType == nil ? [AudioEncoderOption]() : [.auto]
             capabilityCacheQueue.sync {
-                videoFormatAudioEncoderOptionsCache[cacheKey] = [.auto]
+                videoFormatAudioEncoderOptionsCache[cacheKey] = fallback
             }
-            return [.auto]
+            return fallback
         }
 
-        let options = AudioEncoderOption.allCases.filter { option in
-            option.isCompatible(with: format) &&
-                (option.codecCandidates.isEmpty || option.codecCandidates.contains(where: { introspection.audioEncoders.contains($0) }))
+        let explicitOptions = AudioEncoderOption.allCases.filter { option in
+            guard option != .auto else { return false }
+            return option.isCompatible(with: format) &&
+                option.codecCandidates.contains(where: { introspection.audioEncoders.contains($0) })
         }
 
-        let resolved = options.isEmpty ? [.auto] : options
+        var resolved = explicitOptions
+        if format.allowsFFmpegAutomaticAudioCodec, !explicitOptions.isEmpty {
+            resolved.insert(.auto, at: 0)
+        }
+
         capabilityCacheQueue.sync {
             videoFormatAudioEncoderOptionsCache[cacheKey] = resolved
         }
@@ -287,7 +299,7 @@ enum VideoConversionEngine {
     static func sourceCapabilitiesForAudio(for inputURL: URL) async -> AudioSourceCapabilities {
         let defaultFormats = defaultAudioOutputFormats()
 
-        guard isFFmpegAvailable() else {
+        guard let ffmpegPath = findFFmpegPath() else {
             return AudioSourceCapabilities(
                 availableOutputFormats: [],
                 warningMessage: nil,
@@ -313,21 +325,37 @@ enum VideoConversionEngine {
             )
         } catch ConversionError.noTracksFound {
             return AudioSourceCapabilities(
-                availableOutputFormats: defaultFormats,
+                availableOutputFormats: [],
                 warningMessage: nil,
                 errorMessage: "No audio track found in this source."
             )
         } catch {
+            let hasAudioTrack = await ffmpegCanReadMappedStream(
+                ffmpegPath: ffmpegPath,
+                inputURL: inputURL,
+                mapSpecifier: "0:a:0",
+                frameArguments: ["-frames:a", "1"]
+            )
+
+            if hasAudioTrack {
+                return AudioSourceCapabilities(
+                    availableOutputFormats: defaultFormats,
+                    warningMessage: "Could not analyze this source with AVFoundation. ffmpeg conversion will be attempted.",
+                    errorMessage: nil
+                )
+            }
+
             return AudioSourceCapabilities(
-                availableOutputFormats: defaultFormats,
-                warningMessage: "Could not analyze this source with AVFoundation. ffmpeg conversion will be attempted.",
-                errorMessage: nil
+                availableOutputFormats: [],
+                warningMessage: nil,
+                errorMessage: "No readable audio track found in this source."
             )
         }
     }
 
     static func sourceCapabilities(for inputURL: URL) async -> VideoSourceCapabilities {
-        let ffmpegAvailable = isFFmpegAvailable()
+        let ffmpegPath = findFFmpegPath()
+        let ffmpegAvailable = ffmpegPath != nil
         let asset = AVURLAsset(url: inputURL)
         let defaultFormats = defaultOutputFormats()
 
@@ -362,10 +390,25 @@ enum VideoConversionEngine {
                 errorMessage: "No video track found in this source."
             )
         } catch {
-            if ffmpegAvailable {
+            if let ffmpegPath {
+                let hasVideoTrack = await ffmpegCanReadMappedStream(
+                    ffmpegPath: ffmpegPath,
+                    inputURL: inputURL,
+                    mapSpecifier: "0:v:0",
+                    frameArguments: ["-frames:v", "1"]
+                )
+
+                if !hasVideoTrack {
+                    return VideoSourceCapabilities(
+                        availableOutputFormats: [],
+                        warningMessage: nil,
+                        errorMessage: "No readable video track found in this source."
+                    )
+                }
+
                 return VideoSourceCapabilities(
                     availableOutputFormats: defaultFormats,
-                    warningMessage: nil,
+                    warningMessage: "Could not analyze this source with AVFoundation. ffmpeg conversion will be attempted.",
                     errorMessage: nil
                 )
             }
@@ -751,6 +794,39 @@ enum VideoConversionEngine {
         }
     }
 
+    private static func ffmpegCanReadMappedStream(
+        ffmpegPath: String,
+        inputURL: URL,
+        mapSpecifier: String,
+        frameArguments: [String]
+    ) async -> Bool {
+        let stagedInputURL: URL
+        do {
+            stagedInputURL = try stageInputForFFmpeg(inputURL)
+        } catch {
+            return false
+        }
+        defer {
+            try? OutputPathUtilities.removeFileIfExists(at: stagedInputURL)
+        }
+
+        let arguments = [
+            "-hide_banner",
+            "-loglevel", "error",
+            "-i", stagedInputURL.path,
+            "-map", mapSpecifier
+        ] + frameArguments + [
+            "-f", "null",
+            "-"
+        ]
+
+        guard let result = try? await runCommand(path: ffmpegPath, arguments: arguments) else {
+            return false
+        }
+
+        return result.terminationStatus == 0
+    }
+
     private static func attemptFFmpegOperation(
         outputURL: URL,
         operation: () async throws -> Void
@@ -954,7 +1030,9 @@ enum VideoConversionEngine {
         }
 
         let hasMuxer = format.ffmpegRequiredMuxers.contains(where: { introspection.muxers.contains($0) })
-        return hasMuxer
+        guard hasMuxer else { return false }
+        guard hasCompatibleVideoEncoder(format, introspection: introspection) else { return false }
+        return hasCompatibleAudioEncoder(for: format, introspection: introspection)
     }
 
     private static func isFFmpegAudioFormatSupported(_ format: AudioFormatOption, introspection: FFmpegIntrospection) -> Bool {
@@ -969,6 +1047,28 @@ enum VideoConversionEngine {
 
     private static func hasCompatibleAudioEncoder(_ format: AudioFormatOption, introspection: FFmpegIntrospection) -> Bool {
         AudioEncoderOption.allCases.contains { option in
+            guard option != .auto else { return false }
+            guard option.isCompatible(with: format) else { return false }
+            return option.codecCandidates.contains(where: { introspection.audioEncoders.contains($0) })
+        }
+    }
+
+    private static func hasCompatibleVideoEncoder(_ format: VideoFormatOption, introspection: FFmpegIntrospection) -> Bool {
+        if !format.supportsVideoEncoderSelection {
+            return format.allowsFFmpegAutomaticVideoCodec
+        }
+
+        return VideoEncoderOption.allCases.contains { option in
+            guard option != .auto else { return false }
+            guard option.isCompatible(with: format) else { return false }
+            return option.codecCandidates.contains(where: { introspection.videoEncoders.contains($0) })
+        }
+    }
+
+    private static func hasCompatibleAudioEncoder(for format: VideoFormatOption, introspection: FFmpegIntrospection) -> Bool {
+        guard format.supportsAudioTrack else { return true }
+
+        return AudioEncoderOption.allCases.contains { option in
             guard option != .auto else { return false }
             guard option.isCompatible(with: format) else { return false }
             return option.codecCandidates.contains(where: { introspection.audioEncoders.contains($0) })

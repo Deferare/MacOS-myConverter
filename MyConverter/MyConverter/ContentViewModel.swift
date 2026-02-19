@@ -489,14 +489,20 @@ final class ContentViewModel: ObservableObject {
     }
 
     var videoEncoderOptions: [VideoEncoderOption] {
-        availableVideoEncoders.isEmpty ? [.auto] : availableVideoEncoders
+        if !availableVideoEncoders.isEmpty {
+            return availableVideoEncoders
+        }
+        return selectedOutputFormat.avFileType == nil ? [] : [.auto]
     }
 
     var audioEncoderOptions: [AudioEncoderOption] {
         if !shouldShowAudioSettings {
             return []
         }
-        return availableAudioEncoders.isEmpty ? [.auto] : availableAudioEncoders
+        if !availableAudioEncoders.isEmpty {
+            return availableAudioEncoders
+        }
+        return selectedOutputFormat.avFileType == nil ? [] : [.auto]
     }
 
     var shouldShowVideoEncoderOption: Bool {
@@ -702,7 +708,10 @@ final class ContentViewModel: ObservableObject {
         if !availableAudioOutputEncoders.isEmpty {
             return availableAudioOutputEncoders
         }
-        return selectedAudioOutputFormat.allowsFFmpegAutomaticAudioCodec ? [.auto] : []
+        if audioSourceURL == nil && selectedAudioOutputFormat.allowsFFmpegAutomaticAudioCodec {
+            return [.auto]
+        }
+        return []
     }
 
     var shouldShowAudioOutputSampleRateOption: Bool {
@@ -2280,9 +2289,14 @@ final class ContentViewModel: ObservableObject {
         let format = selectedAudioOutputFormat
         availableAudioOutputEncoders = VideoConversionEngine.availableAudioEncoders(for: format)
 
-        let effectiveOptions = availableAudioOutputEncoders.isEmpty && format.allowsFFmpegAutomaticAudioCodec
-            ? [.auto]
-            : availableAudioOutputEncoders
+        let effectiveOptions: [AudioEncoderOption]
+        if !availableAudioOutputEncoders.isEmpty {
+            effectiveOptions = availableAudioOutputEncoders
+        } else if audioSourceURL == nil && format.allowsFFmpegAutomaticAudioCodec {
+            effectiveOptions = [.auto]
+        } else {
+            effectiveOptions = []
+        }
 
         if let preferred = preferredAudioOutputEncoder(for: format, from: effectiveOptions),
            !effectiveOptions.contains(selectedAudioOutputEncoder) {

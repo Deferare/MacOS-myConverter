@@ -137,9 +137,11 @@ enum ImageConversionEngine {
 
     nonisolated private static func sourceCapabilitiesSync(for inputURL: URL) -> ImageSourceCapabilities {
         let availableOutputFormats = defaultOutputFormats()
+        let ffmpegPath = findFFmpegPath()
 
         guard let source = CGImageSourceCreateWithURL(inputURL as CFURL, nil) else {
-            if isFFmpegAvailable() {
+            if let ffmpegPath,
+               ffmpegCanDecodeSource(ffmpegPath: ffmpegPath, inputURL: inputURL) {
                 return ImageSourceCapabilities(
                     availableOutputFormats: availableOutputFormats,
                     warningMessage: "Image metadata could not be read by ImageIO. Conversion will rely on ffmpeg.",
@@ -150,7 +152,7 @@ enum ImageConversionEngine {
             }
 
             return ImageSourceCapabilities(
-                availableOutputFormats: availableOutputFormats,
+                availableOutputFormats: [],
                 warningMessage: nil,
                 errorMessage: "Could not parse input image file.",
                 frameCount: 0,
@@ -161,7 +163,7 @@ enum ImageConversionEngine {
         let frameCount = CGImageSourceGetCount(source)
         guard frameCount > 0 else {
             return ImageSourceCapabilities(
-                availableOutputFormats: availableOutputFormats,
+                availableOutputFormats: [],
                 warningMessage: nil,
                 errorMessage: "No image frame found in source file.",
                 frameCount: 0,
@@ -184,7 +186,7 @@ enum ImageConversionEngine {
         var warnings: [String] = []
         if frameCount > 1 {
             warnings.append("Animated image detected.")
-            if !isFFmpegAvailable() {
+            if ffmpegPath == nil {
                 warnings.append("ffmpeg is unavailable, so only the first frame can be exported.")
             }
         }
@@ -325,6 +327,35 @@ enum ImageConversionEngine {
                 "Failed to stage input file for ffmpeg: \(error.localizedDescription)"
             )
         }
+    }
+
+    nonisolated private static func ffmpegCanDecodeSource(
+        ffmpegPath: String,
+        inputURL: URL
+    ) -> Bool {
+        let stagedInputURL: URL
+        do {
+            stagedInputURL = try stageInputForFFmpeg(inputURL)
+        } catch {
+            return false
+        }
+        defer {
+            try? OutputPathUtilities.removeFileIfExists(at: stagedInputURL)
+        }
+
+        let result = runCommandSync(
+            path: ffmpegPath,
+            arguments: [
+                "-hide_banner",
+                "-loglevel", "error",
+                "-i", stagedInputURL.path,
+                "-map", "0:v:0",
+                "-frames:v", "1",
+                "-f", "null",
+                "-"
+            ]
+        )
+        return result.terminationStatus == 0
     }
 
     nonisolated private static func appendFFmpegFormatArguments(
