@@ -725,10 +725,10 @@ struct ContentView: View {
         HStack(spacing: 16) {
             ZStack {
                 Circle()
-                    .fill(Color.green.opacity(0.12))
-                    .frame(width: 40, height: 40)
+                    .fill(Color.green.opacity(0.1))
+                    .frame(width: 36, height: 36)
                 Image(systemName: "checkmark")
-                    .font(.system(size: 16, weight: .black))
+                    .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(.green)
             }
 
@@ -742,51 +742,58 @@ struct ContentView: View {
                         .background(Capsule().fill(Color.primary.opacity(0.05)))
 
                     Text(url.lastPathComponent)
-                        .font(.subheadline.weight(.bold))
+                        .font(.system(size: 14, weight: .bold))
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
 
                 Text(url.deletingLastPathComponent().path)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary.opacity(0.7))
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary.opacity(0.6))
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
 
             Spacer()
 
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 Button {
                     NSWorkspace.shared.activateFileViewerSelecting([url])
                 } label: {
                     Image(systemName: "folder")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 32, height: 32)
+                        .background(Circle().fill(Color.primary.opacity(0.05)))
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.plain)
                 .help("Show in Finder")
 
                 Button {
                     NSWorkspace.shared.open(url)
                 } label: {
-                    Label("Open", systemImage: openSystemImage)
-                        .font(.system(size: 13, weight: .bold))
+                    Text("Open")
+                        .font(.system(size: 12, weight: .bold))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(Color.accentColor))
+                        .foregroundStyle(.white)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.regular)
+                .buttonStyle(.plain)
             }
         }
-        .padding(14)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
         .background(
-            RoundedRectangle(cornerRadius: 20)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(.background.opacity(0.4))
                 .background(.thinMaterial)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 20)
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
                         .stroke(Color.primary.opacity(0.06), lineWidth: 1)
                 )
         )
-        .shadow(color: .black.opacity(0.02), radius: 5, x: 0, y: 2)
+        .shadow(color: .black.opacity(0.02), radius: 6, x: 0, y: 3)
     }
 
     private func conversionResultView(
@@ -1200,26 +1207,27 @@ struct ContentView: View {
     }
 
     private var sidebarHeader: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 14) {
             appIconImage
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .frame(width: 36, height: 36)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .frame(width: 40, height: 40)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
             
-            VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: -2) {
                 Text("MyConverter")
-                    .font(.headline.weight(.heavy))
-                Text("Ultimate Tool")
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                Text("Personal Media Tool")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.secondary.opacity(0.8))
             }
             
             Spacer()
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 24)
-        .padding(.bottom, 12)
+        .padding(.horizontal, 20)
+        .padding(.top, 28)
+        .padding(.bottom, 16)
     }
 
     @ViewBuilder
