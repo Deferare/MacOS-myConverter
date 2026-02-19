@@ -79,24 +79,18 @@ enum ImageConversionEngine {
         format: ImageFormatOption,
         in outputDirectory: URL
     ) -> URL {
-        let baseName = sourceURL.deletingPathExtension().lastPathComponent
-        let ext = format.fileExtension
-        var candidate = outputDirectory.appendingPathComponent("\(baseName).\(ext)")
-        var index = 1
-
-        while FileManager.default.fileExists(atPath: candidate.path) {
-            candidate = outputDirectory.appendingPathComponent("\(baseName)_converted_\(index).\(ext)")
-            index += 1
-        }
-
-        return candidate
+        OutputPathUtilities.uniqueOutputURL(
+            for: sourceURL,
+            fileExtension: format.fileExtension,
+            in: outputDirectory
+        )
     }
 
     nonisolated static func temporaryOutputURL(for sourceURL: URL, format: ImageFormatOption) -> URL {
-        let baseName = sourceURL.deletingPathExtension().lastPathComponent
-        let ext = format.fileExtension
-        return FileManager.default.temporaryDirectory
-            .appendingPathComponent("\(baseName)_working_\(UUID().uuidString).\(ext)")
+        OutputPathUtilities.temporaryOutputURL(
+            for: sourceURL,
+            fileExtension: format.fileExtension
+        )
     }
 
     nonisolated static func convert(
@@ -105,7 +99,7 @@ enum ImageConversionEngine {
         outputSettings: ImageOutputSettings,
         onProgress: @escaping ProgressHandler
     ) async throws -> URL {
-        try removeFileIfExists(at: outputURL)
+        try OutputPathUtilities.removeFileIfExists(at: outputURL)
 
         let requiresAnimatedOutput =
             outputSettings.sourceIsAnimated &&
@@ -229,7 +223,7 @@ enum ImageConversionEngine {
             )
             return outputURL
         } catch {
-            try? removeFileIfExists(at: outputURL)
+            try? OutputPathUtilities.removeFileIfExists(at: outputURL)
             if !allowFallbackOnFailure ||
                 (outputSettings.sourceIsAnimated && outputSettings.preserveAnimation && outputSettings.containerFormat.supportsAnimation) {
                 throw error
@@ -355,7 +349,7 @@ enum ImageConversionEngine {
             throw ImageConversionError.unsupportedOutputFormat(outputSettings.containerFormat)
         }
 
-        try removeFileIfExists(at: outputURL)
+        try OutputPathUtilities.removeFileIfExists(at: outputURL)
         reportProgress(0, onProgress: onProgress)
         try Task.checkCancellation()
 
@@ -921,12 +915,6 @@ enum ImageConversionEngine {
             return (process.terminationStatus, output)
         } catch {
             return (-1, error.localizedDescription)
-        }
-    }
-
-    nonisolated private static func removeFileIfExists(at url: URL) throws {
-        if FileManager.default.fileExists(atPath: url.path) {
-            try FileManager.default.removeItem(at: url)
         }
     }
 
