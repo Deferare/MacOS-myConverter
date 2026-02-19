@@ -43,7 +43,7 @@ struct ContentView: View {
             detailView(for: selectedTab)
         }
         .navigationSplitViewStyle(.balanced)
-        .frame(minWidth: 980, minHeight: 620)
+        .frame(minWidth: 880, minHeight: 620)
     }
 
 
@@ -1176,19 +1176,11 @@ struct ContentView: View {
     }
 
     private var appVersionText: String {
-        let shortVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
-        let buildVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
-
-        switch (shortVersion, buildVersion) {
-        case let (.some(short), .some(build)) where short != build:
-            return "Version \(short) (\(build))"
-        case let (.some(short), _):
-            return "Version \(short)"
-        case let (_, .some(build)):
-            return "Version \(build)"
-        default:
+        guard let shortVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
+              !shortVersion.isEmpty else {
             return "Version"
         }
+        return "Version \(shortVersion)"
     }
 
     private var sidebarView: some View {
