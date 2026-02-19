@@ -1252,6 +1252,58 @@ final class ContentViewModel: ObservableObject {
         print("Audio conversion failed: \(audioConversionErrorMessage ?? error.localizedDescription)")
     }
 
+    private func removeProcessedVideoSource(_ processedURL: URL) {
+        let processedID = sourceIdentifier(for: processedURL)
+        let remainingSources = selectedVideoSourceURLs.filter { sourceIdentifier(for: $0) != processedID }
+
+        sourceURL = remainingSources.first
+        queuedSourceURLs = Array(remainingSources.dropFirst())
+
+        guard sourceURL == nil else { return }
+
+        sourceCompatibilityErrorMessage = nil
+        sourceCompatibilityWarningMessage = nil
+        isAnalyzingSource = false
+        availableOutputFormats = VideoConversionEngine.defaultOutputFormats()
+        ensureSelectedVideoOutputFormatIsAvailable()
+        refreshVideoCodecOptions()
+    }
+
+    private func removeProcessedImageSource(_ processedURL: URL) {
+        let processedID = sourceIdentifier(for: processedURL)
+        let remainingSources = selectedImageSourceURLs.filter { sourceIdentifier(for: $0) != processedID }
+
+        imageSourceURL = remainingSources.first
+        queuedImageSourceURLs = Array(remainingSources.dropFirst())
+
+        guard imageSourceURL == nil else { return }
+
+        imageSourceFrameCount = 0
+        imageSourceHasAlpha = false
+        imageSourceCompatibilityErrorMessage = nil
+        imageSourceCompatibilityWarningMessage = nil
+        isAnalyzingImageSource = false
+        availableImageOutputFormats = ImageConversionEngine.defaultOutputFormats()
+        ensureSelectedImageOutputFormatIsAvailable()
+    }
+
+    private func removeProcessedAudioSource(_ processedURL: URL) {
+        let processedID = sourceIdentifier(for: processedURL)
+        let remainingSources = selectedAudioSourceURLs.filter { sourceIdentifier(for: $0) != processedID }
+
+        audioSourceURL = remainingSources.first
+        queuedAudioSourceURLs = Array(remainingSources.dropFirst())
+
+        guard audioSourceURL == nil else { return }
+
+        audioSourceCompatibilityErrorMessage = nil
+        audioSourceCompatibilityWarningMessage = nil
+        isAnalyzingAudioSource = false
+        availableAudioOutputFormats = VideoConversionEngine.defaultAudioOutputFormats()
+        ensureSelectedAudioOutputFormatIsAvailable()
+        refreshAudioCodecOptions()
+    }
+
     // MARK: - Video Convert
 
     private func convert() async {
@@ -1330,6 +1382,7 @@ final class ContentViewModel: ObservableObject {
                 let savedURL = try VideoConversionEngine.saveConvertedOutput(from: output, to: destinationURL)
                 convertedURL = savedURL
                 convertedURLs.append(savedURL)
+                removeProcessedVideoSource(currentSourceURL)
             }
 
             conversionProgress = 1
@@ -1414,6 +1467,7 @@ final class ContentViewModel: ObservableObject {
                 let savedURL = try VideoConversionEngine.saveConvertedOutput(from: output, to: destinationURL)
                 convertedImageURL = savedURL
                 convertedImageURLs.append(savedURL)
+                removeProcessedImageSource(currentSourceURL)
             }
 
             imageConversionProgress = 1
@@ -1496,6 +1550,7 @@ final class ContentViewModel: ObservableObject {
                 let savedURL = try VideoConversionEngine.saveConvertedOutput(from: output, to: destinationURL)
                 convertedAudioURL = savedURL
                 convertedAudioURLs.append(savedURL)
+                removeProcessedAudioSource(currentSourceURL)
             }
 
             audioConversionProgress = 1
