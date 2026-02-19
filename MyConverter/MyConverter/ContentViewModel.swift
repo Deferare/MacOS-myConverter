@@ -894,6 +894,99 @@ final class ContentViewModel: ObservableObject {
         return true
     }
 
+    func moveSelectedVideoSource(from draggedURL: URL, to targetURL: URL) {
+        guard !isConverting else { return }
+        let previousPrimaryID = sourceURL.map(sourceIdentifier(for:))
+        guard let reordered = reorderedURLsByMoving(draggedURL, to: targetURL, in: selectedVideoSourceURLs) else {
+            return
+        }
+
+        sourceURL = reordered.first
+        queuedSourceURLs = Array(reordered.dropFirst())
+
+        guard let newPrimarySourceURL = sourceURL else { return }
+        guard sourceIdentifier(for: newPrimarySourceURL) != previousPrimaryID else { return }
+
+        sourceAnalysisTask?.cancel()
+        sourceAnalysisTask = nil
+        sourceCompatibilityErrorMessage = nil
+        sourceCompatibilityWarningMessage = nil
+
+        let sourceID = sourceIdentifier(for: newPrimarySourceURL)
+        let stored = videoSettingsBySourceID[sourceID] ?? VideoConversionSettings()
+        applyStoredSettings(stored)
+        analyzeSourceCompatibility(for: newPrimarySourceURL)
+    }
+
+    func moveSelectedImageSource(from draggedURL: URL, to targetURL: URL) {
+        guard !isImageConverting else { return }
+        let previousPrimaryID = imageSourceURL.map(sourceIdentifier(for:))
+        guard let reordered = reorderedURLsByMoving(draggedURL, to: targetURL, in: selectedImageSourceURLs) else {
+            return
+        }
+
+        imageSourceURL = reordered.first
+        queuedImageSourceURLs = Array(reordered.dropFirst())
+
+        guard let newPrimarySourceURL = imageSourceURL else { return }
+        guard sourceIdentifier(for: newPrimarySourceURL) != previousPrimaryID else { return }
+
+        imageSourceAnalysisTask?.cancel()
+        imageSourceAnalysisTask = nil
+        imageSourceFrameCount = 0
+        imageSourceHasAlpha = false
+        imageSourceCompatibilityErrorMessage = nil
+        imageSourceCompatibilityWarningMessage = nil
+
+        let sourceID = sourceIdentifier(for: newPrimarySourceURL)
+        let stored = imageSettingsBySourceID[sourceID] ?? ImageConversionSettings()
+        applyStoredImageSettings(stored)
+        analyzeImageSourceCompatibility(for: newPrimarySourceURL)
+    }
+
+    func moveSelectedAudioSource(from draggedURL: URL, to targetURL: URL) {
+        guard !isAudioConverting else { return }
+        let previousPrimaryID = audioSourceURL.map(sourceIdentifier(for:))
+        guard let reordered = reorderedURLsByMoving(draggedURL, to: targetURL, in: selectedAudioSourceURLs) else {
+            return
+        }
+
+        audioSourceURL = reordered.first
+        queuedAudioSourceURLs = Array(reordered.dropFirst())
+
+        guard let newPrimarySourceURL = audioSourceURL else { return }
+        guard sourceIdentifier(for: newPrimarySourceURL) != previousPrimaryID else { return }
+
+        audioSourceAnalysisTask?.cancel()
+        audioSourceAnalysisTask = nil
+        audioSourceCompatibilityErrorMessage = nil
+        audioSourceCompatibilityWarningMessage = nil
+
+        let sourceID = sourceIdentifier(for: newPrimarySourceURL)
+        let stored = audioSettingsBySourceID[sourceID] ?? AudioConversionSettings()
+        applyStoredAudioSettings(stored)
+        analyzeAudioSourceCompatibility(for: newPrimarySourceURL)
+    }
+
+    private func reorderedURLsByMoving(_ draggedURL: URL, to targetURL: URL, in urls: [URL]) -> [URL]? {
+        let draggedID = sourceIdentifier(for: draggedURL)
+        let targetID = sourceIdentifier(for: targetURL)
+        guard draggedID != targetID else { return nil }
+
+        var reordered = urls
+        guard
+            let sourceIndex = reordered.firstIndex(where: { sourceIdentifier(for: $0) == draggedID }),
+            let destinationIndex = reordered.firstIndex(where: { sourceIdentifier(for: $0) == targetID }),
+            sourceIndex != destinationIndex
+        else {
+            return nil
+        }
+
+        let movedURL = reordered.remove(at: sourceIndex)
+        reordered.insert(movedURL, at: destinationIndex)
+        return reordered
+    }
+
     // MARK: - Conversion Control
 
     func startConversion() {

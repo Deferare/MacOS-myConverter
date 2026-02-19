@@ -17,6 +17,7 @@ struct ContentView: View {
     @State private var isVideoDropTargeted = false
     @State private var isImageDropTargeted = false
     @State private var isAudioDropTargeted = false
+    @State private var draggedSelectedFileURL: URL?
     @State private var isShowingOpenSourceLicenses = false
 
     private var fileDropAreaHeight: CGFloat {
@@ -98,6 +99,8 @@ struct ContentView: View {
                     withAnimation {
                         viewModel.clearSelectedVideoSource()
                     }
+                } onReorder: { draggedURL, targetURL in
+                    viewModel.moveSelectedVideoSource(from: draggedURL, to: targetURL)
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             } else {
@@ -270,6 +273,8 @@ struct ContentView: View {
                     withAnimation {
                         viewModel.clearSelectedImageSource()
                     }
+                } onReorder: { draggedURL, targetURL in
+                    viewModel.moveSelectedImageSource(from: draggedURL, to: targetURL)
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             } else {
@@ -552,7 +557,8 @@ struct ContentView: View {
         urls: [URL],
         systemImage: String,
         isConverting: Bool,
-        onClear: @escaping () -> Void
+        onClear: @escaping () -> Void,
+        onReorder: @escaping (_ draggedURL: URL, _ targetURL: URL) -> Void
     ) -> some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 12) {
@@ -597,13 +603,34 @@ struct ContentView: View {
                             order: index + 1,
                             systemImage: systemImage
                         )
+                        .onDrag {
+                            guard !isConverting else {
+                                return NSItemProvider()
+                            }
+                            draggedSelectedFileURL = url
+                            return NSItemProvider(object: NSString(string: url.path))
+                        }
+                        .onDrop(
+                            of: [UTType.text],
+                            delegate: SelectedFileReorderDropDelegate(
+                                targetURL: url,
+                                urls: urls,
+                                draggedURL: $draggedSelectedFileURL,
+                                isEnabled: !isConverting,
+                                onMove: { draggedURL, targetURL in
+                                    withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                                        onReorder(draggedURL, targetURL)
+                                    }
+                                }
+                            )
+                        )
                     }
                 }
                 .padding(.horizontal, 2)
             }
 
             HStack {
-                Text("Ready for conversion")
+                Text(isConverting ? "Ready for conversion" : "Ready for conversion · Drag cards to reorder")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
@@ -900,6 +927,8 @@ struct ContentView: View {
                     withAnimation {
                         viewModel.clearSelectedAudioSource()
                     }
+                } onReorder: { draggedURL, targetURL in
+                    viewModel.moveSelectedAudioSource(from: draggedURL, to: targetURL)
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             } else {
@@ -1255,6 +1284,38 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 560, minHeight: 420)
+    }
+}
+
+private struct SelectedFileReorderDropDelegate: DropDelegate {
+    let targetURL: URL
+    let urls: [URL]
+    @Binding var draggedURL: URL?
+    let isEnabled: Bool
+    let onMove: (_ draggedURL: URL, _ targetURL: URL) -> Void
+
+    func validateDrop(info: DropInfo) -> Bool {
+        isEnabled && info.hasItemsConforming(to: [UTType.text.identifier])
+    }
+
+    func dropEntered(info: DropInfo) {
+        guard isEnabled else { return }
+        guard let draggedURL else { return }
+        guard draggedURL.path != targetURL.path else { return }
+        guard urls.contains(where: { $0.path == draggedURL.path }) else { return }
+        guard urls.contains(where: { $0.path == targetURL.path }) else { return }
+
+        onMove(draggedURL, targetURL)
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        guard isEnabled else { return nil }
+        return DropProposal(operation: .move)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggedURL = nil
+        return isEnabled
     }
 }
 
