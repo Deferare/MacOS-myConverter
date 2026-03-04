@@ -1,4 +1,5 @@
 import Combine
+import AppKit
 import Foundation
 import UniformTypeIdentifiers
 
@@ -1712,6 +1713,259 @@ final class ContentViewModel: ObservableObject {
         return ([prefix] + entries).joined(separator: "\n")
     }
 
+    private func selectDestinationURLs(
+        for sourceURLs: [URL],
+        fileExtension: String,
+        outputLabel: String
+    ) -> [String: URL]? {
+        guard let firstSourceURL = sourceURLs.first else {
+            return [:]
+        }
+
+        guard let firstDestinationURL = presentSavePanel(
+            for: firstSourceURL,
+            fileExtension: fileExtension,
+            outputLabel: outputLabel,
+            currentIndex: 1,
+            totalCount: sourceURLs.count
+        ) else {
+            return nil
+        }
+
+        var selected: [String: URL] = [
+            sourceIdentifier(for: firstSourceURL): firstDestinationURL
+        ]
+
+        guard sourceURLs.count > 1 else {
+            return selected
+        }
+
+        let outputDirectory = firstDestinationURL.deletingLastPathComponent()
+        var reservedPaths: Set<String> = [firstDestinationURL.standardizedFileURL.path]
+
+        for sourceURL in sourceURLs.dropFirst() {
+            let destinationURL = uniqueBatchDestinationURL(
+                for: sourceURL,
+                fileExtension: fileExtension,
+                in: outputDirectory,
+                reservedPaths: reservedPaths
+            )
+            selected[sourceIdentifier(for: sourceURL)] = destinationURL
+            reservedPaths.insert(destinationURL.standardizedFileURL.path)
+        }
+
+        return selected
+    }
+
+    private func presentSavePanel(
+        for sourceURL: URL,
+        fileExtension: String,
+        outputLabel: String,
+        currentIndex: Int,
+        totalCount: Int
+    ) -> URL? {
+        let panel = NSSavePanel()
+        let suggestedURL = OutputPathUtilities.uniqueOutputURL(
+            for: sourceURL,
+            fileExtension: fileExtension,
+            in: sourceURL.deletingLastPathComponent()
+        )
+
+        panel.canCreateDirectories = true
+        panel.canSelectHiddenExtension = true
+        panel.isExtensionHidden = false
+        panel.directoryURL = suggestedURL.deletingLastPathComponent()
+        panel.nameFieldStringValue = suggestedURL.lastPathComponent
+        panel.prompt = "Save"
+        panel.title = totalCount > 1
+            ? "Save \(outputLabel) Output \(currentIndex)/\(totalCount)"
+            : "Save \(outputLabel) Output"
+        panel.message = totalCount > 1
+            ? "Choose where to save the first file. Remaining files will be saved to the same folder."
+            : "Choose where to save \(sourceURL.lastPathComponent)."
+
+        if let contentType = UTType(filenameExtension: fileExtension) {
+            panel.allowedContentTypes = [contentType]
+        }
+
+        guard panel.runModal() == .OK, let selectedURL = panel.url else {
+            return nil
+        }
+
+        return normalizedDestinationURL(selectedURL, fileExtension: fileExtension)
+    }
+
+    private func normalizedDestinationURL(_ url: URL, fileExtension: String) -> URL {
+        let normalizedExtension = fileExtension
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+
+        guard !normalizedExtension.isEmpty else {
+            return url
+        }
+
+        if url.pathExtension.lowercased() == normalizedExtension {
+            return url
+        }
+
+        if url.pathExtension.isEmpty {
+            return url.appendingPathExtension(normalizedExtension)
+        }
+
+        return url.deletingPathExtension().appendingPathExtension(normalizedExtension)
+    }
+
+    private func uniqueBatchDestinationURL(
+        for sourceURL: URL,
+        fileExtension: String,
+        in outputDirectory: URL,
+        reservedPaths: Set<String>
+    ) -> URL {
+        let baseName = sourceURL.deletingPathExtension().lastPathComponent.isEmpty
+            ? "output"
+            : sourceURL.deletingPathExtension().lastPathComponent
+        let ext = fileExtension.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        var candidate = outputDirectory.appendingPathComponent("\(baseName).\(ext)")
+        var index = 1
+
+        while reservedPaths.contains(candidate.standardizedFileURL.path) ||
+            FileManager.default.fileExists(atPath: candidate.path) {
+            candidate = outputDirectory.appendingPathComponent("\(baseName)_converted_\(index).\(ext)")
+            index += 1
+        }
+
+        return candidate
+    }
+
+    private func remappedBatchDestinationURLs(
+        sourceURLs: [URL],
+        originalDestinationsBySourceID: [String: URL],
+        outputDirectory: URL,
+        fileExtension: String
+    ) -> [String: URL] {
+        guard let firstSourceURL = sourceURLs.first else {
+            return originalDestinationsBySourceID
+        }
+
+        var remapped: [String: URL] = [:]
+        var reservedPaths: Set<String> = []
+
+        if let originalFirstDestinationURL = originalDestinationsBySourceID[sourceIdentifier(for: firstSourceURL)] {
+            let preferredFirstDestinationURL = normalizedDestinationURL(
+                outputDirectory.appendingPathComponent(originalFirstDestinationURL.lastPathComponent),
+                fileExtension: fileExtension
+            )
+
+            let firstDestinationURL: URL
+            if FileManager.default.fileExists(atPath: preferredFirstDestinationURL.path) {
+                firstDestinationURL = uniqueBatchDestinationURL(
+                    for: firstSourceURL,
+                    fileExtension: fileExtension,
+                    in: outputDirectory,
+                    reservedPaths: reservedPaths
+                )
+            } else {
+                firstDestinationURL = preferredFirstDestinationURL
+            }
+
+            remapped[sourceIdentifier(for: firstSourceURL)] = firstDestinationURL
+            reservedPaths.insert(firstDestinationURL.standardizedFileURL.path)
+        }
+
+        for sourceURL in sourceURLs.dropFirst() {
+            let destinationURL = uniqueBatchDestinationURL(
+                for: sourceURL,
+                fileExtension: fileExtension,
+                in: outputDirectory,
+                reservedPaths: reservedPaths
+            )
+            remapped[sourceIdentifier(for: sourceURL)] = destinationURL
+            reservedPaths.insert(destinationURL.standardizedFileURL.path)
+        }
+
+        return remapped
+    }
+
+    private func presentBatchDirectoryAccessPanel(
+        suggestedDirectory: URL,
+        outputLabel: String
+    ) -> URL? {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+        panel.directoryURL = suggestedDirectory
+        panel.prompt = "Choose Folder"
+        panel.title = "Choose \(outputLabel) Output Folder"
+        panel.message = "Batch conversion needs folder access. Select a folder to save all converted files."
+
+        guard panel.runModal() == .OK else {
+            return nil
+        }
+        return panel.url
+    }
+
+    private func prepareBatchDirectoryAccess(
+        sourceURLs: [URL],
+        destinationURLsBySourceID: [String: URL],
+        fileExtension: String,
+        outputLabel: String
+    ) -> (destinationURLsBySourceID: [String: URL], batchDirectoryURL: URL?, shouldStopAccessing: Bool)? {
+        guard sourceURLs.count > 1 else {
+            return (destinationURLsBySourceID, nil, false)
+        }
+
+        guard let firstSourceURL = sourceURLs.first,
+              let firstDestinationURL = destinationURLsBySourceID[sourceIdentifier(for: firstSourceURL)] else {
+            return nil
+        }
+
+        let initialDirectoryURL = firstDestinationURL.deletingLastPathComponent()
+        let initialAccess = initialDirectoryURL.startAccessingSecurityScopedResource()
+        if initialAccess {
+            return (destinationURLsBySourceID, initialDirectoryURL, true)
+        }
+
+        guard let grantedDirectoryURL = presentBatchDirectoryAccessPanel(
+            suggestedDirectory: initialDirectoryURL,
+            outputLabel: outputLabel
+        ) else {
+            return nil
+        }
+
+        let grantedAccess = grantedDirectoryURL.startAccessingSecurityScopedResource()
+        guard grantedAccess else {
+            return nil
+        }
+
+        let remappedDestinations = remappedBatchDestinationURLs(
+            sourceURLs: sourceURLs,
+            originalDestinationsBySourceID: destinationURLsBySourceID,
+            outputDirectory: grantedDirectoryURL,
+            fileExtension: fileExtension
+        )
+        return (remappedDestinations, grantedDirectoryURL, true)
+    }
+
+    private func saveConvertedOutput(from sourceURL: URL, to destinationURL: URL) throws -> URL {
+        let destinationDirectoryURL = destinationURL.deletingLastPathComponent()
+        let shouldStopDestinationAccessing = destinationURL.startAccessingSecurityScopedResource()
+        let shouldStopDirectoryAccessing = destinationDirectoryURL.startAccessingSecurityScopedResource()
+
+        defer {
+            if shouldStopDestinationAccessing {
+                destinationURL.stopAccessingSecurityScopedResource()
+            }
+            if shouldStopDirectoryAccessing {
+                destinationDirectoryURL.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        return try VideoConversionEngine.saveConvertedOutput(from: sourceURL, to: destinationURL)
+    }
+
     // MARK: - Video Convert
 
     private func convert() async {
@@ -1732,8 +1986,32 @@ final class ContentViewModel: ObservableObject {
             return
         }
 
-        prepareConversionStartState()
         let sourceURLs = [sourceURL] + queuedSourceURLs
+        guard var destinationURLsBySourceID = selectDestinationURLs(
+            for: sourceURLs,
+            fileExtension: selectedOutputFormat.fileExtension,
+            outputLabel: "Video"
+        ) else {
+            return
+        }
+        guard let batchAccess = prepareBatchDirectoryAccess(
+            sourceURLs: sourceURLs,
+            destinationURLsBySourceID: destinationURLsBySourceID,
+            fileExtension: selectedOutputFormat.fileExtension,
+            outputLabel: "Video"
+        ) else {
+            return
+        }
+        destinationURLsBySourceID = batchAccess.destinationURLsBySourceID
+        let batchDirectoryURL = batchAccess.batchDirectoryURL
+        let shouldStopBatchAccessing = batchAccess.shouldStopAccessing
+        defer {
+            if shouldStopBatchAccessing, let batchDirectoryURL {
+                batchDirectoryURL.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        prepareConversionStartState()
         totalVideoBatchCount = sourceURLs.count
         currentVideoBatchIndex = 0
 
@@ -1745,9 +2023,6 @@ final class ContentViewModel: ObservableObject {
             }
             try Task.checkCancellation()
 
-            let outputDirectory = try VideoConversionEngine.sandboxOutputDirectory(
-                bundleIdentifier: Bundle.main.bundleIdentifier
-            )
             var skippedEntries: [String] = []
 
             for (index, currentSourceURL) in sourceURLs.enumerated() {
@@ -1767,11 +2042,14 @@ final class ContentViewModel: ObservableObject {
                     continue
                 }
 
-                let destinationURL = VideoConversionEngine.uniqueOutputURL(
-                    for: currentSourceURL,
-                    format: selectedOutputFormat,
-                    in: outputDirectory
-                )
+                guard let destinationURL = destinationURLsBySourceID[sourceIdentifier(for: currentSourceURL)] else {
+                    throw NSError(
+                        domain: "ContentViewModel",
+                        code: -1001,
+                        userInfo: [NSLocalizedDescriptionKey: "Failed to resolve the selected output path."]
+                    )
+                }
+
                 let workingOutputURL = VideoConversionEngine.temporaryOutputURL(
                     for: currentSourceURL,
                     format: selectedOutputFormat
@@ -1794,7 +2072,7 @@ final class ContentViewModel: ObservableObject {
                 }
                 try Task.checkCancellation()
 
-                let savedURL = try VideoConversionEngine.saveConvertedOutput(from: output, to: destinationURL)
+                let savedURL = try saveConvertedOutput(from: output, to: destinationURL)
                 convertedURL = savedURL
                 convertedURLs.append(savedURL)
                 removeProcessedVideoSource(currentSourceURL)
@@ -1828,8 +2106,32 @@ final class ContentViewModel: ObservableObject {
         }
 
         let outputSettings = buildImageOutputSettings()
-        prepareImageConversionStartState()
         let sourceURLs = [sourceURL] + queuedImageSourceURLs
+        guard var destinationURLsBySourceID = selectDestinationURLs(
+            for: sourceURLs,
+            fileExtension: selectedImageOutputFormat.fileExtension,
+            outputLabel: "Image"
+        ) else {
+            return
+        }
+        guard let batchAccess = prepareBatchDirectoryAccess(
+            sourceURLs: sourceURLs,
+            destinationURLsBySourceID: destinationURLsBySourceID,
+            fileExtension: selectedImageOutputFormat.fileExtension,
+            outputLabel: "Image"
+        ) else {
+            return
+        }
+        destinationURLsBySourceID = batchAccess.destinationURLsBySourceID
+        let batchDirectoryURL = batchAccess.batchDirectoryURL
+        let shouldStopBatchAccessing = batchAccess.shouldStopAccessing
+        defer {
+            if shouldStopBatchAccessing, let batchDirectoryURL {
+                batchDirectoryURL.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        prepareImageConversionStartState()
         totalImageBatchCount = sourceURLs.count
         currentImageBatchIndex = 0
 
@@ -1841,9 +2143,6 @@ final class ContentViewModel: ObservableObject {
             }
             try Task.checkCancellation()
 
-            let outputDirectory = try VideoConversionEngine.sandboxOutputDirectory(
-                bundleIdentifier: Bundle.main.bundleIdentifier
-            )
             var skippedEntries: [String] = []
 
             for (index, currentSourceURL) in sourceURLs.enumerated() {
@@ -1863,11 +2162,14 @@ final class ContentViewModel: ObservableObject {
                     continue
                 }
 
-                let destinationURL = ImageConversionEngine.uniqueOutputURL(
-                    for: currentSourceURL,
-                    format: selectedImageOutputFormat,
-                    in: outputDirectory
-                )
+                guard let destinationURL = destinationURLsBySourceID[sourceIdentifier(for: currentSourceURL)] else {
+                    throw NSError(
+                        domain: "ContentViewModel",
+                        code: -1002,
+                        userInfo: [NSLocalizedDescriptionKey: "Failed to resolve the selected output path."]
+                    )
+                }
+
                 let workingOutputURL = ImageConversionEngine.temporaryOutputURL(
                     for: currentSourceURL,
                     format: selectedImageOutputFormat
@@ -1889,7 +2191,7 @@ final class ContentViewModel: ObservableObject {
                 }
                 try Task.checkCancellation()
 
-                let savedURL = try VideoConversionEngine.saveConvertedOutput(from: output, to: destinationURL)
+                let savedURL = try saveConvertedOutput(from: output, to: destinationURL)
                 convertedImageURL = savedURL
                 convertedImageURLs.append(savedURL)
                 removeProcessedImageSource(currentSourceURL)
@@ -1920,8 +2222,32 @@ final class ContentViewModel: ObservableObject {
         }
 
         let outputSettings = buildAudioOutputSettings()
-        prepareAudioConversionStartState()
         let sourceURLs = [sourceURL] + queuedAudioSourceURLs
+        guard var destinationURLsBySourceID = selectDestinationURLs(
+            for: sourceURLs,
+            fileExtension: selectedAudioOutputFormat.fileExtension,
+            outputLabel: "Audio"
+        ) else {
+            return
+        }
+        guard let batchAccess = prepareBatchDirectoryAccess(
+            sourceURLs: sourceURLs,
+            destinationURLsBySourceID: destinationURLsBySourceID,
+            fileExtension: selectedAudioOutputFormat.fileExtension,
+            outputLabel: "Audio"
+        ) else {
+            return
+        }
+        destinationURLsBySourceID = batchAccess.destinationURLsBySourceID
+        let batchDirectoryURL = batchAccess.batchDirectoryURL
+        let shouldStopBatchAccessing = batchAccess.shouldStopAccessing
+        defer {
+            if shouldStopBatchAccessing, let batchDirectoryURL {
+                batchDirectoryURL.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        prepareAudioConversionStartState()
         totalAudioBatchCount = sourceURLs.count
         currentAudioBatchIndex = 0
 
@@ -1933,9 +2259,6 @@ final class ContentViewModel: ObservableObject {
             }
             try Task.checkCancellation()
 
-            let outputDirectory = try VideoConversionEngine.sandboxOutputDirectory(
-                bundleIdentifier: Bundle.main.bundleIdentifier
-            )
             var skippedEntries: [String] = []
 
             for (index, currentSourceURL) in sourceURLs.enumerated() {
@@ -1955,11 +2278,14 @@ final class ContentViewModel: ObservableObject {
                     continue
                 }
 
-                let destinationURL = VideoConversionEngine.uniqueOutputURL(
-                    for: currentSourceURL,
-                    format: selectedAudioOutputFormat,
-                    in: outputDirectory
-                )
+                guard let destinationURL = destinationURLsBySourceID[sourceIdentifier(for: currentSourceURL)] else {
+                    throw NSError(
+                        domain: "ContentViewModel",
+                        code: -1003,
+                        userInfo: [NSLocalizedDescriptionKey: "Failed to resolve the selected output path."]
+                    )
+                }
+
                 let workingOutputURL = VideoConversionEngine.temporaryOutputURL(
                     for: currentSourceURL,
                     format: selectedAudioOutputFormat
@@ -1982,7 +2308,7 @@ final class ContentViewModel: ObservableObject {
                 }
                 try Task.checkCancellation()
 
-                let savedURL = try VideoConversionEngine.saveConvertedOutput(from: output, to: destinationURL)
+                let savedURL = try saveConvertedOutput(from: output, to: destinationURL)
                 convertedAudioURL = savedURL
                 convertedAudioURLs.append(savedURL)
                 removeProcessedAudioSource(currentSourceURL)
