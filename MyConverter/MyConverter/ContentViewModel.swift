@@ -1809,80 +1809,128 @@ final class ContentViewModel: ObservableObject {
         )
     }
 
-    private func applyStoredSettings(_ settings: VideoConversionSettings) {
-        isApplyingStoredSettings = true
-        defer { isApplyingStoredSettings = false }
+    private func withSettingsApplicationFlag(
+        _ keyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
+        operation: () -> Void
+    ) {
+        self[keyPath: keyPath] = true
+        defer { self[keyPath: keyPath] = false }
+        operation()
+    }
 
-        if let normalizedID = VideoFormatOption.legacyNormalizedID(from: settings.outputFormatID),
-           let matchingFormat = outputFormatOptions.first(where: { $0.normalizedID == normalizedID }) {
-            selectedOutputFormat = matchingFormat
+    private func applyStoredFormatSelection<Format>(
+        storedFormatID: String,
+        normalizeStoredID: (String) -> String?,
+        options: [Format],
+        selectedFormatKeyPath: ReferenceWritableKeyPath<ContentViewModel, Format>,
+        formatNormalizedID: (Format) -> String
+    ) {
+        guard let normalizedStoredID = normalizeStoredID(storedFormatID),
+              let matchingFormat = options.first(where: { formatNormalizedID($0) == normalizedStoredID }) else {
+            return
         }
-        selectedVideoEncoder = settings.videoEncoder
-        selectedResolution = settings.resolution
-        selectedFrameRate = settings.frameRate
-        selectedGIFPlaybackSpeed = settings.gifPlaybackSpeed
-        selectedVideoBitRate = settings.videoBitRate
-        customVideoBitRate = settings.customVideoBitRate
-        selectedAudioEncoder = settings.audioEncoder
-        selectedAudioMode = settings.audioMode
-        selectedSampleRate = settings.sampleRate
-        selectedAudioBitRate = settings.audioBitRate
+        self[keyPath: selectedFormatKeyPath] = matchingFormat
+    }
+
+    private func applyStoredSettings(_ settings: VideoConversionSettings) {
+        withSettingsApplicationFlag(\.isApplyingStoredSettings) {
+            applyStoredFormatSelection(
+                storedFormatID: settings.outputFormatID,
+                normalizeStoredID: VideoFormatOption.legacyNormalizedID(from:),
+                options: outputFormatOptions,
+                selectedFormatKeyPath: \.selectedOutputFormat,
+                formatNormalizedID: { $0.normalizedID }
+            )
+            selectedVideoEncoder = settings.videoEncoder
+            selectedResolution = settings.resolution
+            selectedFrameRate = settings.frameRate
+            selectedGIFPlaybackSpeed = settings.gifPlaybackSpeed
+            selectedVideoBitRate = settings.videoBitRate
+            customVideoBitRate = settings.customVideoBitRate
+            selectedAudioEncoder = settings.audioEncoder
+            selectedAudioMode = settings.audioMode
+            selectedSampleRate = settings.sampleRate
+            selectedAudioBitRate = settings.audioBitRate
+        }
         ensureSelectedVideoOutputFormatIsAvailable()
         refreshVideoCodecOptions()
     }
 
     private func applyStoredImageSettings(_ settings: ImageConversionSettings) {
-        isApplyingStoredImageSettings = true
-        defer { isApplyingStoredImageSettings = false }
-
-        if let matchingFormat = imageOutputFormatOptions.first(where: { $0.normalizedID == settings.outputFormatID.lowercased() }) {
-            selectedImageOutputFormat = matchingFormat
+        withSettingsApplicationFlag(\.isApplyingStoredImageSettings) {
+            applyStoredFormatSelection(
+                storedFormatID: settings.outputFormatID,
+                normalizeStoredID: { $0.lowercased() },
+                options: imageOutputFormatOptions,
+                selectedFormatKeyPath: \.selectedImageOutputFormat,
+                formatNormalizedID: { $0.normalizedID }
+            )
+            selectedImageResolution = settings.resolution
+            selectedImageQuality = settings.quality
+            selectedPNGCompressionLevel = settings.pngCompressionLevel
+            preserveImageAnimation = settings.preserveAnimation
         }
-        selectedImageResolution = settings.resolution
-        selectedImageQuality = settings.quality
-        selectedPNGCompressionLevel = settings.pngCompressionLevel
-        preserveImageAnimation = settings.preserveAnimation
         ensureSelectedImageOutputFormatIsAvailable()
     }
 
     private func applyStoredAudioSettings(_ settings: AudioConversionSettings) {
-        isApplyingStoredAudioSettings = true
-        defer { isApplyingStoredAudioSettings = false }
-
-        if let matchingFormat = audioOutputFormatOptions.first(where: { $0.normalizedID == settings.outputFormatID.lowercased() }) {
-            selectedAudioOutputFormat = matchingFormat
+        withSettingsApplicationFlag(\.isApplyingStoredAudioSettings) {
+            applyStoredFormatSelection(
+                storedFormatID: settings.outputFormatID,
+                normalizeStoredID: { $0.lowercased() },
+                options: audioOutputFormatOptions,
+                selectedFormatKeyPath: \.selectedAudioOutputFormat,
+                formatNormalizedID: { $0.normalizedID }
+            )
+            selectedAudioOutputEncoder = settings.audioEncoder
+            selectedAudioOutputMode = settings.audioMode
+            selectedAudioOutputSampleRate = settings.sampleRate
+            selectedAudioOutputBitRate = settings.audioBitRate
         }
-        selectedAudioOutputEncoder = settings.audioEncoder
-        selectedAudioOutputMode = settings.audioMode
-        selectedAudioOutputSampleRate = settings.sampleRate
-        selectedAudioOutputBitRate = settings.audioBitRate
         ensureSelectedAudioOutputFormatIsAvailable()
         refreshAudioCodecOptions()
     }
 
-    private func ensureSelectedImageOutputFormatIsAvailable() {
-        let options = imageOutputFormatOptions
+    private func ensureSelectedFormatIsAvailable<Format>(
+        options: [Format],
+        selectedFormatKeyPath: ReferenceWritableKeyPath<ContentViewModel, Format>,
+        formatNormalizedID: (Format) -> String,
+        preferredSelection: ([Format]) -> Format?
+    ) {
         guard !options.isEmpty else { return }
-        if !options.contains(where: { $0.normalizedID == selectedImageOutputFormat.normalizedID }), let first = options.first {
-            selectedImageOutputFormat = first
+        let selectedFormat = self[keyPath: selectedFormatKeyPath]
+        guard !options.contains(where: { formatNormalizedID($0) == formatNormalizedID(selectedFormat) }),
+              let preferredFormat = preferredSelection(options) else {
+            return
         }
+        self[keyPath: selectedFormatKeyPath] = preferredFormat
+    }
+
+    private func ensureSelectedImageOutputFormatIsAvailable() {
+        ensureSelectedFormatIsAvailable(
+            options: imageOutputFormatOptions,
+            selectedFormatKeyPath: \.selectedImageOutputFormat,
+            formatNormalizedID: { $0.normalizedID },
+            preferredSelection: { $0.first }
+        )
     }
 
     private func ensureSelectedAudioOutputFormatIsAvailable() {
-        let options = audioOutputFormatOptions
-        guard !options.isEmpty else { return }
-        if !options.contains(where: { $0.normalizedID == selectedAudioOutputFormat.normalizedID }),
-           let preferred = AudioFormatOption.defaultSelection(from: options) {
-            selectedAudioOutputFormat = preferred
-        }
+        ensureSelectedFormatIsAvailable(
+            options: audioOutputFormatOptions,
+            selectedFormatKeyPath: \.selectedAudioOutputFormat,
+            formatNormalizedID: { $0.normalizedID },
+            preferredSelection: AudioFormatOption.defaultSelection(from:)
+        )
     }
 
     private func ensureSelectedVideoOutputFormatIsAvailable() {
-        let options = outputFormatOptions
-        guard !options.isEmpty else { return }
-        if !options.contains(where: { $0.normalizedID == selectedOutputFormat.normalizedID }), let preferred = VideoFormatOption.defaultSelection(from: options) {
-            selectedOutputFormat = preferred
-        }
+        ensureSelectedFormatIsAvailable(
+            options: outputFormatOptions,
+            selectedFormatKeyPath: \.selectedOutputFormat,
+            formatNormalizedID: { $0.normalizedID },
+            preferredSelection: VideoFormatOption.defaultSelection(from:)
+        )
     }
 
     private func refreshVideoCodecOptions() {
