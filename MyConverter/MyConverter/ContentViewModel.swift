@@ -1202,6 +1202,17 @@ final class ContentViewModel: ObservableObject {
         )
     }
 
+    private func appendConvertedOutput(
+        _ outputURL: URL,
+        primaryOutputKeyPath: ReferenceWritableKeyPath<ContentViewModel, URL?>,
+        outputsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [URL]>
+    ) {
+        self[keyPath: primaryOutputKeyPath] = outputURL
+        var outputs = self[keyPath: outputsKeyPath]
+        outputs.append(outputURL)
+        self[keyPath: outputsKeyPath] = outputs
+    }
+
     private func applyConversionError(_ error: Error) {
         if case ConversionError.exportCancelled = error {
             conversionErrorMessage = nil
@@ -1610,14 +1621,22 @@ final class ContentViewModel: ObservableObject {
                     outputSettings: outputSettings,
                     inputDurationSeconds: nil
                 ) { [weak self] progress in
-                    let base = Double(index)
-                    let total = Double(max(totalCount, 1))
-                    await self?.updateConversionProgress((base + progress) / total)
+                    guard let self else { return }
+                    await self.updateConversionProgress(
+                        self.normalizedBatchProgress(
+                            itemProgress: progress,
+                            index: index,
+                            totalCount: totalCount
+                        )
+                    )
                 }
             },
             onSavedOutput: { savedURL in
-                self.convertedURL = savedURL
-                self.convertedURLs.append(savedURL)
+                self.appendConvertedOutput(
+                    savedURL,
+                    primaryOutputKeyPath: \.convertedURL,
+                    outputsKeyPath: \.convertedURLs
+                )
             },
             onSourceProcessed: removeProcessedVideoSource(_:),
             onError: applyConversionError(_:)
@@ -1655,14 +1674,22 @@ final class ContentViewModel: ObservableObject {
                     outputURL: workingOutputURL,
                     outputSettings: outputSettings
                 ) { [weak self] progress in
-                    let base = Double(index)
-                    let total = Double(max(totalCount, 1))
-                    await self?.updateImageConversionProgress((base + progress) / total)
+                    guard let self else { return }
+                    await self.updateImageConversionProgress(
+                        self.normalizedBatchProgress(
+                            itemProgress: progress,
+                            index: index,
+                            totalCount: totalCount
+                        )
+                    )
                 }
             },
             onSavedOutput: { savedURL in
-                self.convertedImageURL = savedURL
-                self.convertedImageURLs.append(savedURL)
+                self.appendConvertedOutput(
+                    savedURL,
+                    primaryOutputKeyPath: \.convertedImageURL,
+                    outputsKeyPath: \.convertedImageURLs
+                )
             },
             onSourceProcessed: removeProcessedImageSource(_:),
             onError: applyImageConversionError(_:)
@@ -1702,14 +1729,22 @@ final class ContentViewModel: ObservableObject {
                     outputSettings: outputSettings,
                     inputDurationSeconds: nil
                 ) { [weak self] progress in
-                    let base = Double(index)
-                    let total = Double(max(totalCount, 1))
-                    await self?.updateAudioConversionProgress((base + progress) / total)
+                    guard let self else { return }
+                    await self.updateAudioConversionProgress(
+                        self.normalizedBatchProgress(
+                            itemProgress: progress,
+                            index: index,
+                            totalCount: totalCount
+                        )
+                    )
                 }
             },
             onSavedOutput: { savedURL in
-                self.convertedAudioURL = savedURL
-                self.convertedAudioURLs.append(savedURL)
+                self.appendConvertedOutput(
+                    savedURL,
+                    primaryOutputKeyPath: \.convertedAudioURL,
+                    outputsKeyPath: \.convertedAudioURLs
+                )
             },
             onSourceProcessed: removeProcessedAudioSource(_:),
             onError: applyAudioConversionError(_:)
@@ -1720,6 +1755,16 @@ final class ContentViewModel: ObservableObject {
 
     private func setProgress(_ rawProgress: Double, at keyPath: ReferenceWritableKeyPath<ContentViewModel, Double>) {
         self[keyPath: keyPath] = clampedProgress(rawProgress)
+    }
+
+    private func normalizedBatchProgress(
+        itemProgress: Double,
+        index: Int,
+        totalCount: Int
+    ) -> Double {
+        let base = Double(index)
+        let total = Double(max(totalCount, 1))
+        return (base + itemProgress) / total
     }
 
     private func updateConversionProgress(_ rawProgress: Double) {
