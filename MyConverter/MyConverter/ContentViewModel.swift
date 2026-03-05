@@ -1034,28 +1034,48 @@ final class ContentViewModel: ObservableObject {
 
     // MARK: - Conversion State / Errors
 
+    private func prepareBatchStartState(
+        runningKeyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
+        primaryOutputKeyPath: ReferenceWritableKeyPath<ContentViewModel, URL?>,
+        outputsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [URL]>,
+        errorMessageKeyPath: ReferenceWritableKeyPath<ContentViewModel, String?>,
+        progressKeyPath: ReferenceWritableKeyPath<ContentViewModel, Double>
+    ) {
+        self[keyPath: runningKeyPath] = true
+        self[keyPath: primaryOutputKeyPath] = nil
+        self[keyPath: outputsKeyPath] = []
+        self[keyPath: errorMessageKeyPath] = nil
+        self[keyPath: progressKeyPath] = 0
+    }
+
     private func prepareConversionStartState() {
-        isConverting = true
-        convertedURL = nil
-        convertedURLs = []
-        conversionErrorMessage = nil
-        conversionProgress = 0
+        prepareBatchStartState(
+            runningKeyPath: \.isConverting,
+            primaryOutputKeyPath: \.convertedURL,
+            outputsKeyPath: \.convertedURLs,
+            errorMessageKeyPath: \.conversionErrorMessage,
+            progressKeyPath: \.conversionProgress
+        )
     }
 
     private func prepareImageConversionStartState() {
-        isImageConverting = true
-        convertedImageURL = nil
-        convertedImageURLs = []
-        imageConversionErrorMessage = nil
-        imageConversionProgress = 0
+        prepareBatchStartState(
+            runningKeyPath: \.isImageConverting,
+            primaryOutputKeyPath: \.convertedImageURL,
+            outputsKeyPath: \.convertedImageURLs,
+            errorMessageKeyPath: \.imageConversionErrorMessage,
+            progressKeyPath: \.imageConversionProgress
+        )
     }
 
     private func prepareAudioConversionStartState() {
-        isAudioConverting = true
-        convertedAudioURL = nil
-        convertedAudioURLs = []
-        audioConversionErrorMessage = nil
-        audioConversionProgress = 0
+        prepareBatchStartState(
+            runningKeyPath: \.isAudioConverting,
+            primaryOutputKeyPath: \.convertedAudioURL,
+            outputsKeyPath: \.convertedAudioURLs,
+            errorMessageKeyPath: \.audioConversionErrorMessage,
+            progressKeyPath: \.audioConversionProgress
+        )
     }
 
     private func applyConversionError(_ error: Error) {
@@ -1146,63 +1166,82 @@ final class ContentViewModel: ObservableObject {
         )
     }
 
+    private func validateOutputFormatAvailability<Capability, Format>(
+        for sourceURL: URL,
+        selectedFormatNormalizedID: String,
+        unavailableMessage: String,
+        fetchCapabilities: (URL) async -> Capability,
+        availableFormats: (Capability) -> [Format],
+        errorMessage: (Capability) -> String?,
+        formatNormalizedID: (Format) -> String,
+        additionalValidation: (Capability) -> String? = { _ in nil }
+    ) async -> String? {
+        let capabilities = await fetchCapabilities(sourceURL)
+        if let error = errorMessage(capabilities) {
+            return error
+        }
+
+        let isFormatAvailable = availableFormats(capabilities).contains {
+            formatNormalizedID($0) == selectedFormatNormalizedID
+        }
+        if !isFormatAvailable {
+            return unavailableMessage
+        }
+
+        if let extraValidationMessage = additionalValidation(capabilities) {
+            return extraValidationMessage
+        }
+
+        return nil
+    }
+
     private func validateVideoOutputSettings(for sourceURL: URL) async -> String? {
         if requiresFFmpegForCurrentVideoSettings && !VideoConversionEngine.isFFmpegAvailable() {
             return "Selected output settings require ffmpeg. Install ffmpeg or reset advanced options to Auto/Original."
         }
 
-        let capabilities = await VideoConversionEngine.sourceCapabilities(for: sourceURL)
-        if let error = capabilities.errorMessage {
-            return error
-        }
-
-        let isFormatAvailable = capabilities.availableOutputFormats.contains {
-            $0.normalizedID == selectedOutputFormat.normalizedID
-        }
-        if !isFormatAvailable {
-            return "Selected container is not available for this source."
-        }
-
-        return nil
+        return await validateOutputFormatAvailability(
+            for: sourceURL,
+            selectedFormatNormalizedID: selectedOutputFormat.normalizedID,
+            unavailableMessage: "Selected container is not available for this source.",
+            fetchCapabilities: { await VideoConversionEngine.sourceCapabilities(for: $0) },
+            availableFormats: { $0.availableOutputFormats },
+            errorMessage: { $0.errorMessage },
+            formatNormalizedID: { $0.normalizedID }
+        )
     }
 
     private func validateImageOutputSettings(for sourceURL: URL) async -> String? {
-        let capabilities = await ImageConversionEngine.sourceCapabilities(for: sourceURL)
-        if let error = capabilities.errorMessage {
-            return error
-        }
-
-        let isFormatAvailable = capabilities.availableOutputFormats.contains {
-            $0.normalizedID == selectedImageOutputFormat.normalizedID
-        }
-        if !isFormatAvailable {
-            return "Selected output format is not available for this source."
-        }
-
-        if capabilities.frameCount > 1 &&
-            preserveImageAnimation &&
-            selectedImageOutputFormat.supportsAnimation &&
-            !ImageConversionEngine.isFFmpegAvailable() {
-            return "Animated output requires ffmpeg for the selected format."
-        }
-
-        return nil
+        await validateOutputFormatAvailability(
+            for: sourceURL,
+            selectedFormatNormalizedID: selectedImageOutputFormat.normalizedID,
+            unavailableMessage: "Selected output format is not available for this source.",
+            fetchCapabilities: { await ImageConversionEngine.sourceCapabilities(for: $0) },
+            availableFormats: { $0.availableOutputFormats },
+            errorMessage: { $0.errorMessage },
+            formatNormalizedID: { $0.normalizedID },
+            additionalValidation: { capabilities in
+                if capabilities.frameCount > 1 &&
+                    preserveImageAnimation &&
+                    selectedImageOutputFormat.supportsAnimation &&
+                    !ImageConversionEngine.isFFmpegAvailable() {
+                    return "Animated output requires ffmpeg for the selected format."
+                }
+                return nil
+            }
+        )
     }
 
     private func validateAudioOutputSettings(for sourceURL: URL) async -> String? {
-        let capabilities = await VideoConversionEngine.sourceCapabilitiesForAudio(for: sourceURL)
-        if let error = capabilities.errorMessage {
-            return error
-        }
-
-        let isFormatAvailable = capabilities.availableOutputFormats.contains {
-            $0.normalizedID == selectedAudioOutputFormat.normalizedID
-        }
-        if !isFormatAvailable {
-            return "Selected output format is not available for this source."
-        }
-
-        return nil
+        await validateOutputFormatAvailability(
+            for: sourceURL,
+            selectedFormatNormalizedID: selectedAudioOutputFormat.normalizedID,
+            unavailableMessage: "Selected output format is not available for this source.",
+            fetchCapabilities: { await VideoConversionEngine.sourceCapabilitiesForAudio(for: $0) },
+            availableFormats: { $0.availableOutputFormats },
+            errorMessage: { $0.errorMessage },
+            formatNormalizedID: { $0.normalizedID }
+        )
     }
 
     private func withSourceSecurityScope<T>(
@@ -1537,16 +1576,20 @@ final class ContentViewModel: ObservableObject {
 
     // MARK: - Progress
 
+    private func setProgress(_ rawProgress: Double, at keyPath: ReferenceWritableKeyPath<ContentViewModel, Double>) {
+        self[keyPath: keyPath] = clampedProgress(rawProgress)
+    }
+
     private func updateConversionProgress(_ rawProgress: Double) {
-        conversionProgress = clampedProgress(rawProgress)
+        setProgress(rawProgress, at: \.conversionProgress)
     }
 
     private func updateImageConversionProgress(_ rawProgress: Double) {
-        imageConversionProgress = clampedProgress(rawProgress)
+        setProgress(rawProgress, at: \.imageConversionProgress)
     }
 
     private func updateAudioConversionProgress(_ rawProgress: Double) {
-        audioConversionProgress = clampedProgress(rawProgress)
+        setProgress(rawProgress, at: \.audioConversionProgress)
     }
 
     // MARK: - Persistence
