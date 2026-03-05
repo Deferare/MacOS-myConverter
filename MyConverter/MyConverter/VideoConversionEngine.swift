@@ -647,62 +647,49 @@ enum VideoConversionEngine {
         onProgress: @escaping ProgressHandler
     ) async throws {
         try OutputPathUtilities.removeFileIfExists(at: outputURL)
-        let stagedInputURL = try stageInputForFFmpeg(inputURL)
-        defer {
-            try? OutputPathUtilities.removeFileIfExists(at: stagedInputURL)
-        }
+        try await withStagedFFmpegInput(for: inputURL) { stagedInputURL in
+            let availableVideoCodecs = outputSettings.videoCodecCandidates.filter { introspection.videoEncoders.contains($0) }
+            let videoCodecs = codecCandidates(
+                availableCodecs: availableVideoCodecs,
+                allowAutomatic: outputSettings.containerFormat.allowsFFmpegAutomaticVideoCodec
+            )
 
-        let availableVideoCodecs = outputSettings.videoCodecCandidates.filter { introspection.videoEncoders.contains($0) }
-        let videoCodecs = codecCandidates(
-            availableCodecs: availableVideoCodecs,
-            allowAutomatic: outputSettings.containerFormat.allowsFFmpegAutomaticVideoCodec
-        )
+            let audioCodecs: [String?]
+            if !outputSettings.containerFormat.supportsAudioTrack {
+                audioCodecs = [nil]
+            } else {
+                let availableAudioCodecs = outputSettings.audioCodecCandidates.filter { introspection.audioEncoders.contains($0) }
+                audioCodecs = codecCandidates(
+                    availableCodecs: availableAudioCodecs,
+                    allowAutomatic: outputSettings.containerFormat.allowsFFmpegAutomaticAudioCodec
+                )
+            }
 
-        let audioCodecs: [String?]
-        if !outputSettings.containerFormat.supportsAudioTrack {
-            audioCodecs = [nil]
-        } else {
-            let availableAudioCodecs = outputSettings.audioCodecCandidates.filter { introspection.audioEncoders.contains($0) }
-            audioCodecs = codecCandidates(
-                availableCodecs: availableAudioCodecs,
-                allowAutomatic: outputSettings.containerFormat.allowsFFmpegAutomaticAudioCodec
+            guard !videoCodecs.isEmpty else {
+                throw ConversionError.ffmpegFailed(-1, "No supported video encoder found for selected format.")
+            }
+            guard !audioCodecs.isEmpty else {
+                throw ConversionError.ffmpegFailed(-1, "No supported audio encoder found for selected format.")
+            }
+
+            try await performFFmpegAttempts(
+                codecPairs: codecPairs(videoCodecs: videoCodecs, audioCodecs: audioCodecs),
+                outputURL: outputURL,
+                operation: { videoCodec, audioCodec in
+                    try await runFFmpeg(
+                        ffmpegPath: ffmpegPath,
+                        inputURL: stagedInputURL,
+                        outputURL: outputURL,
+                        outputSettings: outputSettings,
+                        videoCodec: videoCodec,
+                        audioCodec: audioCodec,
+                        inputDurationSeconds: inputDurationSeconds,
+                        onProgress: onProgress
+                    )
+                },
+                fallbackErrorMessage: "No supported video/audio encoder combination found."
             )
         }
-
-        guard !videoCodecs.isEmpty else {
-            throw ConversionError.ffmpegFailed(-1, "No supported video encoder found for selected format.")
-        }
-        guard !audioCodecs.isEmpty else {
-            throw ConversionError.ffmpegFailed(-1, "No supported audio encoder found for selected format.")
-        }
-
-        var lastError: Error?
-        for videoCodec in videoCodecs {
-            for audioCodec in audioCodecs {
-                if let error = try await attemptFFmpegOperation(
-                    outputURL: outputURL,
-                    operation: {
-                        try await runFFmpeg(
-                            ffmpegPath: ffmpegPath,
-                            inputURL: stagedInputURL,
-                            outputURL: outputURL,
-                            outputSettings: outputSettings,
-                            videoCodec: videoCodec,
-                            audioCodec: audioCodec,
-                            inputDurationSeconds: inputDurationSeconds,
-                            onProgress: onProgress
-                        )
-                    }
-                ) {
-                    lastError = error
-                    continue
-                }
-
-                return
-            }
-        }
-
-        throw lastError ?? ConversionError.ffmpegFailed(-1, "No supported video/audio encoder combination found.")
     }
 
     private static func convertAudioWithFFmpeg(
@@ -715,26 +702,21 @@ enum VideoConversionEngine {
         onProgress: @escaping ProgressHandler
     ) async throws {
         try OutputPathUtilities.removeFileIfExists(at: outputURL)
-        let stagedInputURL = try stageInputForFFmpeg(inputURL)
-        defer {
-            try? OutputPathUtilities.removeFileIfExists(at: stagedInputURL)
-        }
+        try await withStagedFFmpegInput(for: inputURL) { stagedInputURL in
+            let availableAudioCodecs = outputSettings.audioCodecCandidates.filter { introspection.audioEncoders.contains($0) }
+            let audioCodecs = codecCandidates(
+                availableCodecs: availableAudioCodecs,
+                allowAutomatic: outputSettings.containerFormat.allowsFFmpegAutomaticAudioCodec
+            )
 
-        let availableAudioCodecs = outputSettings.audioCodecCandidates.filter { introspection.audioEncoders.contains($0) }
-        let audioCodecs = codecCandidates(
-            availableCodecs: availableAudioCodecs,
-            allowAutomatic: outputSettings.containerFormat.allowsFFmpegAutomaticAudioCodec
-        )
+            guard !audioCodecs.isEmpty else {
+                throw ConversionError.ffmpegFailed(-1, "No supported audio encoder found for selected format.")
+            }
 
-        guard !audioCodecs.isEmpty else {
-            throw ConversionError.ffmpegFailed(-1, "No supported audio encoder found for selected format.")
-        }
-
-        var lastError: Error?
-        for audioCodec in audioCodecs {
-            if let error = try await attemptFFmpegOperation(
+            try await performFFmpegAttempts(
+                codecPairs: audioCodecPairs(audioCodecs),
                 outputURL: outputURL,
-                operation: {
+                operation: { _, audioCodec in
                     try await runAudioFFmpeg(
                         ffmpegPath: ffmpegPath,
                         inputURL: stagedInputURL,
@@ -744,16 +726,10 @@ enum VideoConversionEngine {
                         inputDurationSeconds: inputDurationSeconds,
                         onProgress: onProgress
                     )
-                }
-            ) {
-                lastError = error
-                continue
-            }
-
-            return
+                },
+                fallbackErrorMessage: "No supported audio encoder found for selected format."
+            )
         }
-
-        throw lastError ?? ConversionError.ffmpegFailed(-1, "No supported audio encoder found for selected format.")
     }
 
     private static func codecCandidates(
@@ -764,6 +740,61 @@ enum VideoConversionEngine {
             return allowAutomatic ? [nil] : []
         }
         return availableCodecs.map(Optional.init)
+    }
+
+    private static func withStagedFFmpegInput<T>(
+        for inputURL: URL,
+        operation: (URL) async throws -> T
+    ) async throws -> T {
+        let stagedInputURL = try stageInputForFFmpeg(inputURL)
+        defer {
+            try? OutputPathUtilities.removeFileIfExists(at: stagedInputURL)
+        }
+        return try await operation(stagedInputURL)
+    }
+
+    private static func codecPairs(
+        videoCodecs: [String?],
+        audioCodecs: [String?]
+    ) -> [(video: String?, audio: String?)] {
+        var pairs: [(video: String?, audio: String?)] = []
+        pairs.reserveCapacity(videoCodecs.count * audioCodecs.count)
+
+        for videoCodec in videoCodecs {
+            for audioCodec in audioCodecs {
+                pairs.append((video: videoCodec, audio: audioCodec))
+            }
+        }
+
+        return pairs
+    }
+
+    private static func audioCodecPairs(_ audioCodecs: [String?]) -> [(video: String?, audio: String?)] {
+        audioCodecs.map { (video: nil, audio: $0) }
+    }
+
+    private static func performFFmpegAttempts(
+        codecPairs: [(video: String?, audio: String?)],
+        outputURL: URL,
+        operation: (String?, String?) async throws -> Void,
+        fallbackErrorMessage: String
+    ) async throws {
+        var lastError: Error?
+        for codecPair in codecPairs {
+            if let error = try await attemptFFmpegOperation(
+                outputURL: outputURL,
+                operation: {
+                    try await operation(codecPair.video, codecPair.audio)
+                }
+            ) {
+                lastError = error
+                continue
+            }
+
+            return
+        }
+
+        throw lastError ?? ConversionError.ffmpegFailed(-1, fallbackErrorMessage)
     }
 
     private static func stageInputForFFmpeg(_ inputURL: URL) throws -> URL {
