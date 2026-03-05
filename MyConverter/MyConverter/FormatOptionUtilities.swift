@@ -2,6 +2,23 @@ import Foundation
 import UniformTypeIdentifiers
 
 enum FormatOptionUtilities {
+    nonisolated private static func uniqueStrings(
+        _ values: [String],
+        transform: (String) -> String?
+    ) -> [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+
+        for value in values {
+            guard let transformed = transform(value) else { continue }
+            if seen.insert(transformed).inserted {
+                result.append(transformed)
+            }
+        }
+
+        return result
+    }
+
     nonisolated static func normalizedFileExtension(_ fileExtension: String) -> String {
         var normalized = fileExtension.lowercased()
         if normalized.hasPrefix(".") {
@@ -17,32 +34,16 @@ enum FormatOptionUtilities {
     }
 
     nonisolated static func uniqueLowercasedTrimmedStrings(_ values: [String]) -> [String] {
-        var seen = Set<String>()
-        var result: [String] = []
-
-        for value in values {
+        uniqueStrings(values) { value in
             let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            guard !normalized.isEmpty else { continue }
-            if seen.insert(normalized).inserted {
-                result.append(normalized)
-            }
+            return normalized.isEmpty ? nil : normalized
         }
-
-        return result
     }
 
     nonisolated static func uniqueNonEmptyStrings(_ values: [String]) -> [String] {
-        var seen = Set<String>()
-        var result: [String] = []
-
-        for value in values {
-            guard !value.isEmpty else { continue }
-            if seen.insert(value).inserted {
-                result.append(value)
-            }
+        uniqueStrings(values) { value in
+            value.isEmpty ? nil : value
         }
-
-        return result
     }
 
     nonisolated static func resolveFFmpegFormatMetadata<Profile>(
