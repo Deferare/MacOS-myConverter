@@ -1634,6 +1634,14 @@ final class ContentViewModel: ObservableObject {
         }
     }
 
+    private func scheduleDeferredTask(
+        _ taskKeyPath: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>,
+        action: @escaping @MainActor (ContentViewModel) -> Void
+    ) {
+        self[keyPath: taskKeyPath]?.cancel()
+        self[keyPath: taskKeyPath] = makeDeferredMainActorTask(action: action)
+    }
+
     private func saveSettings<Value: Encodable>(
         _ settings: Value,
         forKey storageKey: String,
@@ -1664,33 +1672,74 @@ final class ContentViewModel: ObservableObject {
         }
     }
 
+    private func persistSourceSettingsIfNeeded<Settings>(
+        isApplyingStoredSettings: Bool,
+        sourceURL: URL?,
+        settingsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [String: Settings]>,
+        buildSettings: () -> Settings,
+        savePersistedSettings: () -> Void
+    ) {
+        guard !isApplyingStoredSettings, let sourceURL else { return }
+
+        var settingsBySourceID = self[keyPath: settingsKeyPath]
+        settingsBySourceID[sourceIdentifier(for: sourceURL)] = buildSettings()
+        self[keyPath: settingsKeyPath] = settingsBySourceID
+        savePersistedSettings()
+    }
+
+    private func savePersistedSourceSettings<Settings, Persisted: Encodable>(
+        settingsBySourceID: [String: Settings],
+        mapToPersisted: (Settings) -> Persisted,
+        storageKey: String,
+        failureContext: String
+    ) {
+        let persisted = settingsBySourceID.mapValues(mapToPersisted)
+        saveSettings(
+            persisted,
+            forKey: storageKey,
+            failureContext: failureContext
+        )
+    }
+
+    private func loadPersistedSourceSettings<Settings, Persisted: Decodable>(
+        _ type: [String: Persisted].Type,
+        storageKey: String,
+        failureContext: String,
+        restore: (Persisted) -> Settings
+    ) -> [String: Settings] {
+        guard let decoded = loadSettings(
+            type,
+            forKey: storageKey,
+            failureContext: failureContext
+        ) else {
+            return [:]
+        }
+        return decoded.mapValues(restore)
+    }
+
     private func scheduleVideoFormatChangeHandling() {
-        pendingVideoFormatChangeTask?.cancel()
-        pendingVideoFormatChangeTask = makeDeferredMainActorTask { viewModel in
+        scheduleDeferredTask(\.pendingVideoFormatChangeTask) { viewModel in
             viewModel.refreshVideoCodecOptions()
             viewModel.persistCurrentSettingsIfNeeded()
         }
     }
 
     private func scheduleVideoOptionNormalizationAndPersist() {
-        pendingVideoOptionNormalizationTask?.cancel()
-        pendingVideoOptionNormalizationTask = makeDeferredMainActorTask { viewModel in
+        scheduleDeferredTask(\.pendingVideoOptionNormalizationTask) { viewModel in
             viewModel.normalizeVideoOptionDependencies()
             viewModel.persistCurrentSettingsIfNeeded()
         }
     }
 
     private func scheduleAudioFormatChangeHandling() {
-        pendingAudioFormatChangeTask?.cancel()
-        pendingAudioFormatChangeTask = makeDeferredMainActorTask { viewModel in
+        scheduleDeferredTask(\.pendingAudioFormatChangeTask) { viewModel in
             viewModel.refreshAudioCodecOptions()
             viewModel.persistCurrentAudioSettingsIfNeeded()
         }
     }
 
     private func scheduleAudioOptionNormalizationAndPersist() {
-        pendingAudioOptionNormalizationTask?.cancel()
-        pendingAudioOptionNormalizationTask = makeDeferredMainActorTask { viewModel in
+        scheduleDeferredTask(\.pendingAudioOptionNormalizationTask) { viewModel in
             viewModel.normalizeAudioOptionDependencies()
             viewModel.persistCurrentAudioSettingsIfNeeded()
         }
@@ -1701,48 +1750,63 @@ final class ContentViewModel: ObservableObject {
     }
 
     private func persistCurrentVideoSettingsIfNeeded() {
-        guard !isApplyingStoredSettings, let sourceURL else { return }
-
-        videoSettingsBySourceID[sourceIdentifier(for: sourceURL)] = VideoConversionSettings(
-            outputFormatID: selectedOutputFormat.id,
-            videoEncoder: selectedVideoEncoder,
-            resolution: selectedResolution,
-            frameRate: selectedFrameRate,
-            gifPlaybackSpeed: selectedGIFPlaybackSpeed,
-            videoBitRate: selectedVideoBitRate,
-            customVideoBitRate: customVideoBitRate,
-            audioEncoder: selectedAudioEncoder,
-            audioMode: selectedAudioMode,
-            sampleRate: selectedSampleRate,
-            audioBitRate: selectedAudioBitRate
+        persistSourceSettingsIfNeeded(
+            isApplyingStoredSettings: isApplyingStoredSettings,
+            sourceURL: sourceURL,
+            settingsKeyPath: \.videoSettingsBySourceID,
+            buildSettings: {
+                VideoConversionSettings(
+                    outputFormatID: selectedOutputFormat.id,
+                    videoEncoder: selectedVideoEncoder,
+                    resolution: selectedResolution,
+                    frameRate: selectedFrameRate,
+                    gifPlaybackSpeed: selectedGIFPlaybackSpeed,
+                    videoBitRate: selectedVideoBitRate,
+                    customVideoBitRate: customVideoBitRate,
+                    audioEncoder: selectedAudioEncoder,
+                    audioMode: selectedAudioMode,
+                    sampleRate: selectedSampleRate,
+                    audioBitRate: selectedAudioBitRate
+                )
+            },
+            savePersistedSettings: savePersistedSettings
         )
-        savePersistedSettings()
     }
 
     private func persistCurrentImageSettingsIfNeeded() {
-        guard !isApplyingStoredImageSettings, let imageSourceURL else { return }
-
-        imageSettingsBySourceID[sourceIdentifier(for: imageSourceURL)] = ImageConversionSettings(
-            outputFormatID: selectedImageOutputFormat.id,
-            resolution: selectedImageResolution,
-            quality: selectedImageQuality,
-            pngCompressionLevel: selectedPNGCompressionLevel,
-            preserveAnimation: preserveImageAnimation
+        persistSourceSettingsIfNeeded(
+            isApplyingStoredSettings: isApplyingStoredImageSettings,
+            sourceURL: imageSourceURL,
+            settingsKeyPath: \.imageSettingsBySourceID,
+            buildSettings: {
+                ImageConversionSettings(
+                    outputFormatID: selectedImageOutputFormat.id,
+                    resolution: selectedImageResolution,
+                    quality: selectedImageQuality,
+                    pngCompressionLevel: selectedPNGCompressionLevel,
+                    preserveAnimation: preserveImageAnimation
+                )
+            },
+            savePersistedSettings: savePersistedImageSettings
         )
-        savePersistedImageSettings()
     }
 
     private func persistCurrentAudioSettingsIfNeeded() {
-        guard !isApplyingStoredAudioSettings, let audioSourceURL else { return }
-
-        audioSettingsBySourceID[sourceIdentifier(for: audioSourceURL)] = AudioConversionSettings(
-            outputFormatID: selectedAudioOutputFormat.id,
-            audioEncoder: selectedAudioOutputEncoder,
-            audioMode: selectedAudioOutputMode,
-            sampleRate: selectedAudioOutputSampleRate,
-            audioBitRate: selectedAudioOutputBitRate
+        persistSourceSettingsIfNeeded(
+            isApplyingStoredSettings: isApplyingStoredAudioSettings,
+            sourceURL: audioSourceURL,
+            settingsKeyPath: \.audioSettingsBySourceID,
+            buildSettings: {
+                AudioConversionSettings(
+                    outputFormatID: selectedAudioOutputFormat.id,
+                    audioEncoder: selectedAudioOutputEncoder,
+                    audioMode: selectedAudioOutputMode,
+                    sampleRate: selectedAudioOutputSampleRate,
+                    audioBitRate: selectedAudioOutputBitRate
+                )
+            },
+            savePersistedSettings: savePersistedAudioSettings
         )
-        savePersistedAudioSettings()
     }
 
     private func applyStoredSettings(_ settings: VideoConversionSettings) {
@@ -1902,63 +1966,57 @@ final class ContentViewModel: ObservableObject {
     }
 
     private func savePersistedSettings() {
-        let persisted = videoSettingsBySourceID.mapValues { PersistedVideoConversionSettings(from: $0) }
-        saveSettings(
-            persisted,
-            forKey: videoSettingsStorageKey,
+        savePersistedSourceSettings(
+            settingsBySourceID: videoSettingsBySourceID,
+            mapToPersisted: { PersistedVideoConversionSettings(from: $0) },
+            storageKey: videoSettingsStorageKey,
             failureContext: "Failed to persist video settings"
         )
     }
 
     private func savePersistedImageSettings() {
-        let persisted = imageSettingsBySourceID.mapValues { PersistedImageConversionSettings(from: $0) }
-        saveSettings(
-            persisted,
-            forKey: imageSettingsStorageKey,
+        savePersistedSourceSettings(
+            settingsBySourceID: imageSettingsBySourceID,
+            mapToPersisted: { PersistedImageConversionSettings(from: $0) },
+            storageKey: imageSettingsStorageKey,
             failureContext: "Failed to persist image settings"
         )
     }
 
     private func savePersistedAudioSettings() {
-        let persisted = audioSettingsBySourceID.mapValues { PersistedAudioConversionSettings(from: $0) }
-        saveSettings(
-            persisted,
-            forKey: audioSettingsStorageKey,
+        savePersistedSourceSettings(
+            settingsBySourceID: audioSettingsBySourceID,
+            mapToPersisted: { PersistedAudioConversionSettings(from: $0) },
+            storageKey: audioSettingsStorageKey,
             failureContext: "Failed to persist audio settings"
         )
     }
 
     private func loadPersistedSettings() -> [String: VideoConversionSettings] {
-        guard let decoded = loadSettings(
+        loadPersistedSourceSettings(
             [String: PersistedVideoConversionSettings].self,
-            forKey: videoSettingsStorageKey,
-            failureContext: "Failed to load persisted video settings"
-        ) else {
-            return [:]
-        }
-        return decoded.mapValues { $0.restoredSettings }
+            storageKey: videoSettingsStorageKey,
+            failureContext: "Failed to load persisted video settings",
+            restore: { $0.restoredSettings }
+        )
     }
 
     private func loadPersistedImageSettings() -> [String: ImageConversionSettings] {
-        guard let decoded = loadSettings(
+        loadPersistedSourceSettings(
             [String: PersistedImageConversionSettings].self,
-            forKey: imageSettingsStorageKey,
-            failureContext: "Failed to load persisted image settings"
-        ) else {
-            return [:]
-        }
-        return decoded.mapValues { $0.restoredSettings }
+            storageKey: imageSettingsStorageKey,
+            failureContext: "Failed to load persisted image settings",
+            restore: { $0.restoredSettings }
+        )
     }
 
     private func loadPersistedAudioSettings() -> [String: AudioConversionSettings] {
-        guard let decoded = loadSettings(
+        loadPersistedSourceSettings(
             [String: PersistedAudioConversionSettings].self,
-            forKey: audioSettingsStorageKey,
-            failureContext: "Failed to load persisted audio settings"
-        ) else {
-            return [:]
-        }
-        return decoded.mapValues { $0.restoredSettings }
+            storageKey: audioSettingsStorageKey,
+            failureContext: "Failed to load persisted audio settings",
+            restore: { $0.restoredSettings }
+        )
     }
 
 }
