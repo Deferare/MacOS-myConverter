@@ -728,18 +728,6 @@ final class ContentViewModel: ObservableObject {
         ContentViewModelSupport.joinedCapabilityMessages(messages)
     }
 
-    private func intersectVideoFormats(_ lhs: [VideoFormatOption], _ rhs: [VideoFormatOption]) -> [VideoFormatOption] {
-        ContentViewModelSupport.intersectVideoFormats(lhs, rhs)
-    }
-
-    private func intersectImageFormats(_ lhs: [ImageFormatOption], _ rhs: [ImageFormatOption]) -> [ImageFormatOption] {
-        ContentViewModelSupport.intersectImageFormats(lhs, rhs)
-    }
-
-    private func intersectAudioFormats(_ lhs: [AudioFormatOption], _ rhs: [AudioFormatOption]) -> [AudioFormatOption] {
-        ContentViewModelSupport.intersectAudioFormats(lhs, rhs)
-    }
-
     // MARK: - Conversion Control
 
     func startConversion() {
@@ -943,7 +931,9 @@ final class ContentViewModel: ObservableObject {
             availableFormats: { $0.availableOutputFormats },
             warningMessage: { $0.warningMessage },
             errorMessage: { $0.errorMessage },
-            intersect: { self.intersectVideoFormats($0, $1) },
+            intersect: { lhs, rhs in
+                ContentViewModelSupport.intersectFormats(lhs, rhs, normalizedID: { $0.normalizedID })
+            },
             deduplicatedAndSorted: { VideoFormatOption.deduplicatedAndSorted($0) },
             noCommonFormatsMessage: "No common output container is available for the selected files.",
             onFormatsResolved: { resolvedFormats in
@@ -1010,7 +1000,9 @@ final class ContentViewModel: ObservableObject {
             availableFormats: { $0.availableOutputFormats },
             warningMessage: { $0.warningMessage },
             errorMessage: { $0.errorMessage },
-            intersect: { self.intersectImageFormats($0, $1) },
+            intersect: { lhs, rhs in
+                ContentViewModelSupport.intersectFormats(lhs, rhs, normalizedID: { $0.normalizedID })
+            },
             deduplicatedAndSorted: { ImageFormatOption.deduplicatedAndSorted($0) },
             noCommonFormatsMessage: "No common output format is available for the selected files.",
             onCapability: { source, capabilities in
@@ -1080,7 +1072,9 @@ final class ContentViewModel: ObservableObject {
             availableFormats: { $0.availableOutputFormats },
             warningMessage: { $0.warningMessage },
             errorMessage: { $0.errorMessage },
-            intersect: { self.intersectAudioFormats($0, $1) },
+            intersect: { lhs, rhs in
+                ContentViewModelSupport.intersectFormats(lhs, rhs, normalizedID: { $0.normalizedID })
+            },
             deduplicatedAndSorted: { AudioFormatOption.deduplicatedAndSorted($0) },
             noCommonFormatsMessage: "No common audio output format is available for the selected files.",
             onFormatsResolved: { resolvedFormats in

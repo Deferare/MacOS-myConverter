@@ -95,19 +95,13 @@ enum ContentViewModelSupport {
         return uniqueMessages.joined(separator: "\n")
     }
 
-    static func intersectVideoFormats(_ lhs: [VideoFormatOption], _ rhs: [VideoFormatOption]) -> [VideoFormatOption] {
-        let rhsIDs = Set(rhs.map(\.normalizedID))
-        return lhs.filter { rhsIDs.contains($0.normalizedID) }
-    }
-
-    static func intersectImageFormats(_ lhs: [ImageFormatOption], _ rhs: [ImageFormatOption]) -> [ImageFormatOption] {
-        let rhsIDs = Set(rhs.map(\.normalizedID))
-        return lhs.filter { rhsIDs.contains($0.normalizedID) }
-    }
-
-    static func intersectAudioFormats(_ lhs: [AudioFormatOption], _ rhs: [AudioFormatOption]) -> [AudioFormatOption] {
-        let rhsIDs = Set(rhs.map(\.normalizedID))
-        return lhs.filter { rhsIDs.contains($0.normalizedID) }
+    static func intersectFormats<Format>(
+        _ lhs: [Format],
+        _ rhs: [Format],
+        normalizedID: (Format) -> String
+    ) -> [Format] {
+        let rhsIDs = Set(rhs.map(normalizedID))
+        return lhs.filter { rhsIDs.contains(normalizedID($0)) }
     }
 
     static func clampedProgress(_ rawProgress: Double) -> Double {
