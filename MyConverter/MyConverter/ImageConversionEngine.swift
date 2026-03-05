@@ -264,11 +264,13 @@ enum ImageConversionEngine {
         _ inputURL: URL,
         operation: (URL) async throws -> T
     ) async throws -> T {
-        let stagedInputURL = try stageInputForFFmpeg(inputURL)
-        defer {
-            try? OutputPathUtilities.removeFileIfExists(at: stagedInputURL)
-        }
-        return try await operation(stagedInputURL)
+        try await FFmpegStagingSupport.withStagedInput(
+            for: inputURL,
+            makeError: { code, message in
+                ImageConversionError.ffmpegFailed(code, message)
+            },
+            operation: operation
+        )
     }
 
     nonisolated private static func runFFmpegConversion(
@@ -340,26 +342,8 @@ enum ImageConversionEngine {
     }
 
     nonisolated private static func stageInputForFFmpeg(_ inputURL: URL) throws -> URL {
-        do {
-            return try OutputPathUtilities.stageInputURL(for: inputURL)
-        } catch let stagingError as OutputPathUtilities.StagedInputError {
-            switch stagingError {
-            case .stagingDirectoryCreationFailed(let path, let message):
-                throw ImageConversionError.ffmpegFailed(
-                    -1,
-                    "Failed to prepare ffmpeg staging directory (\(path)): \(message)"
-                )
-            case .stagingCopyFailed(let sourcePath, let destinationPath, let message):
-                throw ImageConversionError.ffmpegFailed(
-                    -1,
-                    "Failed to stage input file for ffmpeg. Source: \(sourcePath), Destination: \(destinationPath), Detail: \(message)"
-                )
-            }
-        } catch {
-            throw ImageConversionError.ffmpegFailed(
-                -1,
-                "Failed to stage input file for ffmpeg: \(error.localizedDescription)"
-            )
+        try FFmpegStagingSupport.stageInputURL(for: inputURL) { code, message in
+            ImageConversionError.ffmpegFailed(code, message)
         }
     }
 
