@@ -61,16 +61,23 @@ struct ContentView: View {
         }
     }
 
-    private var videoDetailView: some View {
+    private func converterDetailView<InputArea: View, FormSections: View, Controls: View>(
+        title: String,
+        isDropTargeted: Binding<Bool>,
+        onDrop: @escaping ([NSItemProvider]) -> Bool,
+        @ViewBuilder inputArea: () -> InputArea,
+        @ViewBuilder formSections: () -> FormSections,
+        @ViewBuilder controls: () -> Controls
+    ) -> some View {
         ZStack {
             detailBackground
-            
+
             VStack(spacing: 0) {
-                videoInputArea
+                inputArea()
                     .padding(24)
-                
+
                 Form {
-                    videoFormSections
+                    formSections()
                 }
                 .formStyle(.grouped)
                 .scrollContentBackground(.hidden)
@@ -78,41 +85,80 @@ struct ContentView: View {
         }
         .safeAreaInset(edge: .bottom) {
             bottomControlContainer {
-                videoConversionControls
+                controls()
             }
         }
-        .navigationTitle("Convert Video")
-        .onDrop(of: [.fileURL], isTargeted: $isVideoDropTargeted) { providers in
-            viewModel.handleVideoDrop(providers: providers)
-        }
+        .navigationTitle(title)
+        .onDrop(of: [.fileURL], isTargeted: isDropTargeted, perform: onDrop)
     }
 
-    @ViewBuilder
-    private var videoInputArea: some View {
+    private var videoDetailView: some View {
+        converterDetailView(
+            title: "Convert Video",
+            isDropTargeted: $isVideoDropTargeted,
+            onDrop: { providers in
+                viewModel.handleVideoDrop(providers: providers)
+            },
+            inputArea: {
+                videoInputArea
+            },
+            formSections: {
+                videoFormSections
+            },
+            controls: {
+                videoConversionControls
+            }
+        )
+    }
+
+    private func converterInputArea(
+        isDropTargeted: Bool,
+        selectedURLs: [URL],
+        isConverting: Bool,
+        systemImage: String,
+        dropPlaceholder: String,
+        onClear: @escaping () -> Void,
+        onReorder: @escaping (_ draggedURL: URL, _ targetURL: URL) -> Void
+    ) -> some View {
         Group {
-            if !isVideoDropTargeted, !viewModel.selectedVideoSourceURLs.isEmpty {
+            if !isDropTargeted, !selectedURLs.isEmpty {
                 selectedFilesView(
-                    urls: viewModel.selectedVideoSourceURLs,
-                    systemImage: "film.fill",
-                    isConverting: viewModel.isConverting
-                ) {
-                    withAnimation {
-                        viewModel.clearSelectedVideoSource()
-                    }
-                } onReorder: { draggedURL, targetURL in
-                    viewModel.moveSelectedVideoSource(from: draggedURL, to: targetURL)
-                }
+                    urls: selectedURLs,
+                    systemImage: systemImage,
+                    isConverting: isConverting,
+                    onClear: onClear,
+                    onReorder: onReorder
+                )
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             } else {
                 dropFileView(
-                    isDropTargeted: isVideoDropTargeted,
-                    placeholder: "Drop Video Here"
+                    isDropTargeted: isDropTargeted,
+                    placeholder: dropPlaceholder
                 ) {
                     viewModel.requestFileImport()
                 }
                 .transition(.scale(scale: 0.98).combined(with: .opacity))
             }
         }
+    }
+
+    @ViewBuilder
+    private var videoInputArea: some View {
+        converterInputArea(
+            isDropTargeted: isVideoDropTargeted,
+            selectedURLs: viewModel.selectedVideoSourceURLs,
+            isConverting: viewModel.isConverting,
+            systemImage: "film.fill",
+            dropPlaceholder: "Drop Video Here",
+            onClear: {
+                withAnimation {
+                    viewModel.clearSelectedVideoSource()
+                }
+            },
+            onReorder: { draggedURL, targetURL in
+                viewModel.moveSelectedVideoSource(from: draggedURL, to: targetURL)
+            }
+        )
         .animation(.spring(response: 0.4, dampingFraction: 0.7), value: viewModel.selectedVideoFileCount)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isVideoDropTargeted)
     }
@@ -216,57 +262,41 @@ struct ContentView: View {
     }
 
     private var imageDetailView: some View {
-        ZStack {
-            detailBackground
-            
-            VStack(spacing: 0) {
+        converterDetailView(
+            title: "Convert Image",
+            isDropTargeted: $isImageDropTargeted,
+            onDrop: { providers in
+                viewModel.handleImageDrop(providers: providers)
+            },
+            inputArea: {
                 imageInputArea
-                    .padding(24)
-                
-                Form {
-                    imageFormSections
-                }
-                .formStyle(.grouped)
-                .scrollContentBackground(.hidden)
-            }
-        }
-        .safeAreaInset(edge: .bottom) {
-            bottomControlContainer {
+            },
+            formSections: {
+                imageFormSections
+            },
+            controls: {
                 imageConversionControls
             }
-        }
-        .navigationTitle("Convert Image")
-        .onDrop(of: [.fileURL], isTargeted: $isImageDropTargeted) { providers in
-            viewModel.handleImageDrop(providers: providers)
-        }
+        )
     }
 
     @ViewBuilder
     private var imageInputArea: some View {
-        Group {
-            if !isImageDropTargeted, !viewModel.selectedImageSourceURLs.isEmpty {
-                selectedFilesView(
-                    urls: viewModel.selectedImageSourceURLs,
-                    systemImage: "photo.fill",
-                    isConverting: viewModel.isImageConverting
-                ) {
-                    withAnimation {
-                        viewModel.clearSelectedImageSource()
-                    }
-                } onReorder: { draggedURL, targetURL in
-                    viewModel.moveSelectedImageSource(from: draggedURL, to: targetURL)
+        converterInputArea(
+            isDropTargeted: isImageDropTargeted,
+            selectedURLs: viewModel.selectedImageSourceURLs,
+            isConverting: viewModel.isImageConverting,
+            systemImage: "photo.fill",
+            dropPlaceholder: "Drop Image Here",
+            onClear: {
+                withAnimation {
+                    viewModel.clearSelectedImageSource()
                 }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            } else {
-                dropFileView(
-                    isDropTargeted: isImageDropTargeted,
-                    placeholder: "Drop Image Here"
-                ) {
-                    viewModel.requestFileImport()
-                }
-                .transition(.scale(scale: 0.98).combined(with: .opacity))
+            },
+            onReorder: { draggedURL, targetURL in
+                viewModel.moveSelectedImageSource(from: draggedURL, to: targetURL)
             }
-        }
+        )
         .animation(.spring(response: 0.4, dampingFraction: 0.7), value: viewModel.selectedImageFileCount)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isImageDropTargeted)
     }
@@ -325,10 +355,10 @@ struct ContentView: View {
     private var videoConversionControls: some View {
         conversionControlBar(
             statusMessage: viewModel.conversionStatusMessage,
-            statusColor: videoConversionStatusColor,
+            statusColor: statusColor(for: viewModel.conversionStatusLevel),
             progress: viewModel.displayedConversionProgress,
             progressText: viewModel.progressPercentageText,
-            progressTint: videoProgressTintColor,
+            progressTint: progressTintColor(for: viewModel.displayedConversionProgress),
             isConverting: viewModel.isConverting,
             canConvert: viewModel.canConvert,
             onStart: { viewModel.startConversion() },
@@ -339,10 +369,10 @@ struct ContentView: View {
     private var imageConversionControls: some View {
         conversionControlBar(
             statusMessage: viewModel.imageConversionStatusMessage,
-            statusColor: imageConversionStatusColor,
+            statusColor: statusColor(for: viewModel.imageConversionStatusLevel),
             progress: viewModel.displayedImageConversionProgress,
             progressText: viewModel.imageProgressPercentageText,
-            progressTint: imageProgressTintColor,
+            progressTint: progressTintColor(for: viewModel.displayedImageConversionProgress),
             isConverting: viewModel.isImageConverting,
             canConvert: viewModel.canConvertImage,
             onStart: { viewModel.startImageConversion() },
@@ -353,10 +383,10 @@ struct ContentView: View {
     private var audioConversionControls: some View {
         conversionControlBar(
             statusMessage: viewModel.audioConversionStatusMessage,
-            statusColor: audioConversionStatusColor,
+            statusColor: statusColor(for: viewModel.audioConversionStatusLevel),
             progress: viewModel.displayedAudioConversionProgress,
             progressText: viewModel.audioProgressPercentageText,
-            progressTint: audioProgressTintColor,
+            progressTint: progressTintColor(for: viewModel.displayedAudioConversionProgress),
             isConverting: viewModel.isAudioConverting,
             canConvert: viewModel.canConvertAudio,
             onStart: { viewModel.startAudioConversion() },
@@ -420,28 +450,8 @@ struct ContentView: View {
         }
     }
 
-    private var videoProgressTintColor: Color {
-        viewModel.displayedConversionProgress > 0 ? .accentColor : .clear
-    }
-
-    private var imageProgressTintColor: Color {
-        viewModel.displayedImageConversionProgress > 0 ? .accentColor : .clear
-    }
-
-    private var audioProgressTintColor: Color {
-        viewModel.displayedAudioConversionProgress > 0 ? .accentColor : .clear
-    }
-
-    private var videoConversionStatusColor: Color {
-        statusColor(for: viewModel.conversionStatusLevel)
-    }
-
-    private var imageConversionStatusColor: Color {
-        statusColor(for: viewModel.imageConversionStatusLevel)
-    }
-
-    private var audioConversionStatusColor: Color {
-        statusColor(for: viewModel.audioConversionStatusLevel)
+    private func progressTintColor(for progress: Double) -> Color {
+        progress > 0 ? .accentColor : .clear
     }
 
     private func statusColor(for level: ContentViewModel.ConversionStatusLevel) -> Color {
@@ -618,6 +628,114 @@ struct ContentView: View {
                 )
         )
         .clipShape(RoundedRectangle(cornerRadius: 24))
+    }
+
+    @ViewBuilder
+    private var audioInputArea: some View {
+        converterInputArea(
+            isDropTargeted: isAudioDropTargeted,
+            selectedURLs: viewModel.selectedAudioSourceURLs,
+            isConverting: viewModel.isAudioConverting,
+            systemImage: "waveform",
+            dropPlaceholder: "Drop Audio Here",
+            onClear: {
+                withAnimation {
+                    viewModel.clearSelectedAudioSource()
+                }
+            },
+            onReorder: { draggedURL, targetURL in
+                viewModel.moveSelectedAudioSource(from: draggedURL, to: targetURL)
+            }
+        )
+        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: viewModel.selectedAudioFileCount)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isAudioDropTargeted)
+    }
+
+    private var audioDetailView: some View {
+        converterDetailView(
+            title: "Convert Audio",
+            isDropTargeted: $isAudioDropTargeted,
+            onDrop: { providers in
+                viewModel.handleAudioDrop(providers: providers)
+            },
+            inputArea: {
+                audioInputArea
+            },
+            formSections: {
+                audioFormSections
+            },
+            controls: {
+                audioConversionControls
+            }
+        )
+    }
+
+    private var detailBackground: some View {
+        Color(nsColor: .windowBackgroundColor)
+            .ignoresSafeArea()
+    }
+
+    private func bottomControlContainer<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .padding(.horizontal, 24)
+            .padding(.vertical, 20)
+            .background(.ultraThinMaterial)
+            .overlay(Rectangle().frame(height: 1).foregroundStyle(.primary.opacity(0.05)), alignment: .top)
+    }
+
+    @ViewBuilder
+    private var audioFormSections: some View {
+        Section("Output Settings") {
+            Picker("Container", selection: $viewModel.selectedAudioOutputFormat) {
+                ForEach(viewModel.audioOutputFormatOptions) { format in
+                    Text("\(format.displayName) (.\(format.fileExtension))").tag(format)
+                }
+            }
+            .pickerStyle(.menu)
+            .disabled(viewModel.audioOutputFormatOptions.isEmpty)
+
+            Picker("Audio Encoder", selection: $viewModel.selectedAudioOutputEncoder) {
+                ForEach(viewModel.audioOutputEncoderOptions) { option in
+                    Text(option.rawValue).tag(option)
+                }
+            }
+            .pickerStyle(.menu)
+            .disabled(viewModel.audioOutputEncoderOptions.isEmpty)
+
+            Picker("Audio Mode", selection: $viewModel.selectedAudioOutputMode) {
+                ForEach(AudioModeOption.allCases) { option in
+                    Text(option.rawValue).tag(option)
+                }
+            }
+            .pickerStyle(.menu)
+
+            if viewModel.shouldShowAudioOutputSampleRateOption {
+                Picker("Sample Rate", selection: $viewModel.selectedAudioOutputSampleRate) {
+                    ForEach(SampleRateOption.allCases) { option in
+                        Text(option.rawValue).tag(option)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+
+            if viewModel.shouldShowAudioOutputBitRateOption {
+                Picker("Audio Bit Rate", selection: $viewModel.selectedAudioOutputBitRate) {
+                    ForEach(AudioBitRateOption.allCases) { option in
+                        Text(option.rawValue).tag(option)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+
+            if let hint = viewModel.audioFormatHintMessage {
+                Text(hint)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .disabled(viewModel.isAudioConverting)
+
+        outputFilesSection(urls: viewModel.convertedAudioURLs, openSystemImage: "music.note")
     }
 
     private func selectedFileCardView(
@@ -841,130 +959,6 @@ struct ContentView: View {
 
     private var cardBackgroundColor: Color {
         Color(nsColor: .controlBackgroundColor)
-    }
-
-    private var audioDetailView: some View {
-        ZStack {
-            detailBackground
-            
-            VStack(spacing: 0) {
-                audioInputArea
-                    .padding(24)
-                
-                Form {
-                    audioFormSections
-                }
-                .formStyle(.grouped)
-                .scrollContentBackground(.hidden)
-            }
-        }
-        .safeAreaInset(edge: .bottom) {
-            bottomControlContainer {
-                audioConversionControls
-            }
-        }
-        .navigationTitle("Convert Audio")
-        .onDrop(of: [.fileURL], isTargeted: $isAudioDropTargeted) { providers in
-            viewModel.handleAudioDrop(providers: providers)
-        }
-    }
-
-    private var detailBackground: some View {
-        Color(nsColor: .windowBackgroundColor)
-            .ignoresSafeArea()
-    }
-
-    private func bottomControlContainer<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        content()
-            .padding(.horizontal, 24)
-            .padding(.vertical, 20)
-            .background(.ultraThinMaterial)
-            .overlay(Rectangle().frame(height: 1).foregroundStyle(.primary.opacity(0.05)), alignment: .top)
-    }
-
-    @ViewBuilder
-    private var audioInputArea: some View {
-        Group {
-            if !isAudioDropTargeted, !viewModel.selectedAudioSourceURLs.isEmpty {
-                selectedFilesView(
-                    urls: viewModel.selectedAudioSourceURLs,
-                    systemImage: "waveform",
-                    isConverting: viewModel.isAudioConverting
-                ) {
-                    withAnimation {
-                        viewModel.clearSelectedAudioSource()
-                    }
-                } onReorder: { draggedURL, targetURL in
-                    viewModel.moveSelectedAudioSource(from: draggedURL, to: targetURL)
-                }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            } else {
-                dropFileView(
-                    isDropTargeted: isAudioDropTargeted,
-                    placeholder: "Drop Audio Here"
-                ) {
-                    viewModel.requestFileImport()
-                }
-                .transition(.scale(scale: 0.98).combined(with: .opacity))
-            }
-        }
-        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: viewModel.selectedAudioFileCount)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isAudioDropTargeted)
-    }
-
-    @ViewBuilder
-    private var audioFormSections: some View {
-        Section("Output Settings") {
-            Picker("Container", selection: $viewModel.selectedAudioOutputFormat) {
-                ForEach(viewModel.audioOutputFormatOptions) { format in
-                    Text("\(format.displayName) (.\(format.fileExtension))").tag(format)
-                }
-            }
-            .pickerStyle(.menu)
-            .disabled(viewModel.audioOutputFormatOptions.isEmpty)
-
-            Picker("Audio Encoder", selection: $viewModel.selectedAudioOutputEncoder) {
-                ForEach(viewModel.audioOutputEncoderOptions) { option in
-                    Text(option.rawValue).tag(option)
-                }
-            }
-            .pickerStyle(.menu)
-            .disabled(viewModel.audioOutputEncoderOptions.isEmpty)
-
-            Picker("Audio Mode", selection: $viewModel.selectedAudioOutputMode) {
-                ForEach(AudioModeOption.allCases) { option in
-                    Text(option.rawValue).tag(option)
-                }
-            }
-            .pickerStyle(.menu)
-
-            if viewModel.shouldShowAudioOutputSampleRateOption {
-                Picker("Sample Rate", selection: $viewModel.selectedAudioOutputSampleRate) {
-                    ForEach(SampleRateOption.allCases) { option in
-                        Text(option.rawValue).tag(option)
-                    }
-                }
-                .pickerStyle(.menu)
-            }
-
-            if viewModel.shouldShowAudioOutputBitRateOption {
-                Picker("Audio Bit Rate", selection: $viewModel.selectedAudioOutputBitRate) {
-                    ForEach(AudioBitRateOption.allCases) { option in
-                        Text(option.rawValue).tag(option)
-                    }
-                }
-                .pickerStyle(.menu)
-            }
-
-            if let hint = viewModel.audioFormatHintMessage {
-                Text(hint)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .disabled(viewModel.isAudioConverting)
-
-        outputFilesSection(urls: viewModel.convertedAudioURLs, openSystemImage: "music.note")
     }
 
     private var aboutDetailView: some View {
