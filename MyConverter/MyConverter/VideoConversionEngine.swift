@@ -292,21 +292,43 @@ enum VideoConversionEngine {
         return FFmpegBinaryLocator.findPath() != nil
     }
 
+    private static func makeVideoCapabilities(
+        availableOutputFormats: [VideoFormatOption],
+        warningMessage: String? = nil,
+        errorMessage: String? = nil
+    ) -> VideoSourceCapabilities {
+        VideoSourceCapabilities(
+            availableOutputFormats: availableOutputFormats,
+            warningMessage: warningMessage,
+            errorMessage: errorMessage
+        )
+    }
+
+    private static func makeAudioCapabilities(
+        availableOutputFormats: [AudioFormatOption],
+        warningMessage: String? = nil,
+        errorMessage: String? = nil
+    ) -> AudioSourceCapabilities {
+        AudioSourceCapabilities(
+            availableOutputFormats: availableOutputFormats,
+            warningMessage: warningMessage,
+            errorMessage: errorMessage
+        )
+    }
+
     static func sourceCapabilitiesForAudio(for inputURL: URL) async -> AudioSourceCapabilities {
         let defaultFormats = defaultAudioOutputFormats()
 
         guard let ffmpegPath = FFmpegBinaryLocator.findPath() else {
-            return AudioSourceCapabilities(
+            return makeAudioCapabilities(
                 availableOutputFormats: [],
-                warningMessage: nil,
                 errorMessage: "Audio conversion requires ffmpeg, but ffmpeg was not found."
             )
         }
 
         guard !defaultFormats.isEmpty else {
-            return AudioSourceCapabilities(
+            return makeAudioCapabilities(
                 availableOutputFormats: [],
-                warningMessage: nil,
                 errorMessage: "No compatible audio output format is available with the current ffmpeg build."
             )
         }
@@ -314,15 +336,10 @@ enum VideoConversionEngine {
         let asset = AVURLAsset(url: inputURL)
         do {
             try await ensureAssetHasAudioTrack(asset)
-            return AudioSourceCapabilities(
-                availableOutputFormats: defaultFormats,
-                warningMessage: nil,
-                errorMessage: nil
-            )
+            return makeAudioCapabilities(availableOutputFormats: defaultFormats)
         } catch ConversionError.noTracksFound {
-            return AudioSourceCapabilities(
+            return makeAudioCapabilities(
                 availableOutputFormats: [],
-                warningMessage: nil,
                 errorMessage: "No audio track found in this source."
             )
         } catch {
@@ -334,16 +351,11 @@ enum VideoConversionEngine {
             )
 
             if hasAudioTrack {
-                return AudioSourceCapabilities(
-                    availableOutputFormats: defaultFormats,
-                    warningMessage: nil,
-                    errorMessage: nil
-                )
+                return makeAudioCapabilities(availableOutputFormats: defaultFormats)
             }
 
-            return AudioSourceCapabilities(
+            return makeAudioCapabilities(
                 availableOutputFormats: [],
-                warningMessage: nil,
                 errorMessage: "No readable audio track found in this source."
             )
         }
@@ -359,30 +371,22 @@ enum VideoConversionEngine {
             try await ensureAssetHasVideoTrack(asset)
             let avSupported = await supportedOutputFormatsWithAVFoundation(for: asset)
             if ffmpegAvailable {
-                return VideoSourceCapabilities(
-                    availableOutputFormats: VideoFormatOption.deduplicatedAndSorted(defaultFormats + avSupported),
-                    warningMessage: nil,
-                    errorMessage: nil
+                return makeVideoCapabilities(
+                    availableOutputFormats: VideoFormatOption.deduplicatedAndSorted(defaultFormats + avSupported)
                 )
             }
 
             if avSupported.isEmpty {
-                return VideoSourceCapabilities(
+                return makeVideoCapabilities(
                     availableOutputFormats: [],
-                    warningMessage: nil,
                     errorMessage: "No compatible output container is available for this source."
                 )
             }
 
-            return VideoSourceCapabilities(
-                availableOutputFormats: avSupported,
-                warningMessage: nil,
-                errorMessage: nil
-            )
+            return makeVideoCapabilities(availableOutputFormats: avSupported)
         } catch ConversionError.noVideoTrackFound {
-            return VideoSourceCapabilities(
+            return makeVideoCapabilities(
                 availableOutputFormats: [],
-                warningMessage: nil,
                 errorMessage: "No video track found in this source."
             )
         } catch {
@@ -395,23 +399,17 @@ enum VideoConversionEngine {
                 )
 
                 if !hasVideoTrack {
-                    return VideoSourceCapabilities(
+                    return makeVideoCapabilities(
                         availableOutputFormats: [],
-                        warningMessage: nil,
                         errorMessage: "No readable video track found in this source."
                     )
                 }
 
-                return VideoSourceCapabilities(
-                    availableOutputFormats: defaultFormats,
-                    warningMessage: nil,
-                    errorMessage: nil
-                )
+                return makeVideoCapabilities(availableOutputFormats: defaultFormats)
             }
 
-            return VideoSourceCapabilities(
+            return makeVideoCapabilities(
                 availableOutputFormats: [],
-                warningMessage: nil,
                 errorMessage: "This source cannot be opened by AVFoundation and ffmpeg is unavailable."
             )
         }
@@ -1597,13 +1595,28 @@ enum VideoConversionEngine {
         return false
     }
 
-    private static func ensureAssetReadable(_ asset: AVURLAsset) async throws {
+    private static func validatePlayableAsset(_ asset: AVURLAsset) async throws {
         let isPlayable = try await asset.load(.isPlayable)
         _ = try await asset.load(.duration)
         guard isPlayable else {
             throw ConversionError.unreadableAsset
         }
+    }
 
+    private static func ensureAssetHasTrack(
+        _ asset: AVURLAsset,
+        mediaType: AVMediaType,
+        missingTrackError: ConversionError
+    ) async throws {
+        try await validatePlayableAsset(asset)
+        let tracks = try await asset.loadTracks(withMediaType: mediaType)
+        if tracks.isEmpty {
+            throw missingTrackError
+        }
+    }
+
+    private static func ensureAssetReadable(_ asset: AVURLAsset) async throws {
+        try await validatePlayableAsset(asset)
         let videoTracks = try await asset.loadTracks(withMediaType: .video)
         let audioTracks = try await asset.loadTracks(withMediaType: .audio)
         let hasMediaTrack = !(videoTracks.isEmpty && audioTracks.isEmpty)
@@ -1613,29 +1626,19 @@ enum VideoConversionEngine {
     }
 
     private static func ensureAssetHasVideoTrack(_ asset: AVURLAsset) async throws {
-        let isPlayable = try await asset.load(.isPlayable)
-        _ = try await asset.load(.duration)
-        guard isPlayable else {
-            throw ConversionError.unreadableAsset
-        }
-
-        let videoTracks = try await asset.loadTracks(withMediaType: .video)
-        if videoTracks.isEmpty {
-            throw ConversionError.noVideoTrackFound
-        }
+        try await ensureAssetHasTrack(
+            asset,
+            mediaType: .video,
+            missingTrackError: .noVideoTrackFound
+        )
     }
 
     private static func ensureAssetHasAudioTrack(_ asset: AVURLAsset) async throws {
-        let isPlayable = try await asset.load(.isPlayable)
-        _ = try await asset.load(.duration)
-        guard isPlayable else {
-            throw ConversionError.unreadableAsset
-        }
-
-        let audioTracks = try await asset.loadTracks(withMediaType: .audio)
-        if audioTracks.isEmpty {
-            throw ConversionError.noTracksFound
-        }
+        try await ensureAssetHasTrack(
+            asset,
+            mediaType: .audio,
+            missingTrackError: .noTracksFound
+        )
     }
 
     private static func export(
