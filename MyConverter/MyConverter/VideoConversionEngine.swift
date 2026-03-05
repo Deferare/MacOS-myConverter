@@ -1139,48 +1139,17 @@ enum VideoConversionEngine {
     }
 
     private static func parseFFmpegEncoders(from output: String, mediaFlag: Character) -> Set<String> {
-        var encoders = Set<String>()
-
-        for line in output.split(separator: "\n") {
-            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty else { continue }
-
-            let parts = trimmed.split(whereSeparator: { $0.isWhitespace })
-            guard parts.count >= 2 else { continue }
-
-            let flags = String(parts[0])
-            guard flags.count >= 6, flags.first == mediaFlag else { continue }
-            encoders.insert(String(parts[1]))
-        }
-
-        return encoders
+        FFmpegParsingSupport.parseEncoders(from: output, mediaFlag: mediaFlag)
     }
 
     private static func parseFFmpegMuxerDescriptors(from output: String) -> [FFmpegMuxerDescriptor] {
-        var descriptors: [FFmpegMuxerDescriptor] = []
-
-        for line in output.split(separator: "\n", omittingEmptySubsequences: false) {
-            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty else { continue }
-
-            let parts = trimmed.split(maxSplits: 2, whereSeparator: { $0.isWhitespace })
-            guard parts.count >= 2 else { continue }
-
-            let flags = String(parts[0])
-            guard flags.contains("E") else { continue }
-
-            let muxerNames = String(parts[1])
-                .split(separator: ",")
-                .map { String($0).lowercased() }
-                .filter { !$0.isEmpty }
-            let description = parts.count == 3 ? String(parts[2]).lowercased() : ""
-
-            for muxer in muxerNames {
-                descriptors.append(FFmpegMuxerDescriptor(name: muxer, description: description))
-            }
+        FFmpegParsingSupport.parseMuxerDescriptors(
+            from: output,
+            lowercaseDescription: true
+        )
+        .map { descriptor in
+            FFmpegMuxerDescriptor(name: descriptor.name, description: descriptor.description)
         }
-
-        return descriptors
     }
 
     private static func parseFFmpegVideoMuxerExtensions(
@@ -1211,47 +1180,7 @@ enum VideoConversionEngine {
     }
 
     private static func parseFFmpegMuxerExtensions(from output: String) -> [String] {
-        var collecting = false
-        var buffer = ""
-
-        for line in output.split(separator: "\n", omittingEmptySubsequences: false) {
-            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty else { continue }
-
-            if !collecting {
-                guard let range = trimmed.range(of: "Common extensions:", options: [.caseInsensitive]) else { continue }
-                collecting = true
-                buffer += String(trimmed[range.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
-            } else {
-                buffer += " " + trimmed
-            }
-
-            if buffer.contains(".") {
-                break
-            }
-        }
-
-        guard !buffer.isEmpty else { return [] }
-        if let periodIndex = buffer.firstIndex(of: ".") {
-            buffer = String(buffer[..<periodIndex])
-        }
-
-        let allowed = CharacterSet.alphanumerics
-        var seen = Set<String>()
-        var extensions: [String] = []
-
-        for token in buffer.split(separator: ",") {
-            let cleanedScalars = token
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-                .unicodeScalars
-                .filter { allowed.contains($0) }
-            let normalized = String(String.UnicodeScalarView(cleanedScalars)).lowercased()
-            guard !normalized.isEmpty else { continue }
-            guard seen.insert(normalized).inserted else { continue }
-            extensions.append(normalized)
-        }
-
-        return extensions
+        FFmpegParsingSupport.parseMuxerExtensions(from: output, maxTokenLength: nil)
     }
 
     private static func isLikelyVideoMuxer(_ descriptor: FFmpegMuxerDescriptor) -> Bool {

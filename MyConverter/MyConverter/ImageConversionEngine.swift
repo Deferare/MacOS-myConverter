@@ -689,50 +689,17 @@ enum ImageConversionEngine {
     }
 
     nonisolated private static func parseFFmpegEncoders(from output: String) -> Set<String> {
-        var encoders = Set<String>()
-
-        for line in output.split(separator: "\n") {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            guard !trimmed.isEmpty else { continue }
-
-            let parts = trimmed.split(whereSeparator: { $0.isWhitespace })
-            guard parts.count >= 2 else { continue }
-            let flags = String(parts[0])
-            guard flags.count >= 6, flags.first == "V" else { continue }
-
-            encoders.insert(String(parts[1]))
-        }
-
-        return encoders
+        FFmpegParsingSupport.parseEncoders(from: output, mediaFlag: "V")
     }
 
     nonisolated private static func parseFFmpegMuxerDescriptors(from output: String) -> [FFmpegMuxerDescriptor] {
-        var descriptors: [FFmpegMuxerDescriptor] = []
-
-        for line in output.split(separator: "\n", omittingEmptySubsequences: false) {
-            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty else { continue }
-
-            let parts = trimmed.split(maxSplits: 2, whereSeparator: { $0.isWhitespace })
-            guard parts.count >= 2 else { continue }
-
-            let flags = String(parts[0])
-            guard flags.contains("E") else { continue }
-
-            let nameField = String(parts[1])
-            let description = parts.count == 3 ? String(parts[2]).trimmingCharacters(in: .whitespacesAndNewlines) : ""
-
-            let names = nameField
-                .split(separator: ",")
-                .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
-                .filter { !$0.isEmpty }
-
-            for name in names {
-                descriptors.append(FFmpegMuxerDescriptor(name: name, description: description))
-            }
+        FFmpegParsingSupport.parseMuxerDescriptors(
+            from: output,
+            lowercaseDescription: false
+        )
+        .map { descriptor in
+            FFmpegMuxerDescriptor(name: descriptor.name, description: descriptor.description)
         }
-
-        return descriptors
     }
 
     nonisolated private static func parseFFmpegImageMuxerExtensions(
@@ -765,47 +732,10 @@ enum ImageConversionEngine {
     }
 
     nonisolated private static func parseFFmpegMuxerExtensions(from output: String) -> [String] {
-        var collecting = false
-        var buffer = ""
-
-        for line in output.split(separator: "\n", omittingEmptySubsequences: false) {
-            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty else { continue }
-
-            if !collecting {
-                guard let range = trimmed.range(of: "Common extensions:", options: [.caseInsensitive]) else { continue }
-                collecting = true
-                buffer += String(trimmed[range.upperBound...]).trimmingCharacters(in: .whitespaces)
-            } else {
-                buffer += " " + trimmed
-            }
-
-            if buffer.contains(".") {
-                break
-            }
-        }
-
-        guard !buffer.isEmpty else { return [] }
-        if let periodIndex = buffer.firstIndex(of: ".") {
-            buffer = String(buffer[..<periodIndex])
-        }
-
-        let allowed = CharacterSet.alphanumerics
-        var seen = Set<String>()
-        var result: [String] = []
-
-        for token in buffer.split(separator: ",") {
-            let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty else { continue }
-
-            let cleanedScalars = trimmed.unicodeScalars.filter { allowed.contains($0) }
-            let normalized = String(String.UnicodeScalarView(cleanedScalars)).lowercased()
-            guard !normalized.isEmpty, normalized.count <= 16 else { continue }
-            guard seen.insert(normalized).inserted else { continue }
-            result.append(normalized)
-        }
-
-        return result
+        FFmpegParsingSupport.parseMuxerExtensions(
+            from: output,
+            maxTokenLength: 16
+        )
     }
 
     nonisolated private static func isLikelyImageMuxer(_ descriptor: FFmpegMuxerDescriptor) -> Bool {
