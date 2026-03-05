@@ -340,7 +340,7 @@ enum VideoConversionEngine {
             if hasAudioTrack {
                 return AudioSourceCapabilities(
                     availableOutputFormats: defaultFormats,
-                    warningMessage: "Could not analyze this source with AVFoundation. ffmpeg conversion will be attempted.",
+                    warningMessage: nil,
                     errorMessage: nil
                 )
             }
@@ -408,7 +408,7 @@ enum VideoConversionEngine {
 
                 return VideoSourceCapabilities(
                     availableOutputFormats: defaultFormats,
-                    warningMessage: "Could not analyze this source with AVFoundation. ffmpeg conversion will be attempted.",
+                    warningMessage: nil,
                     errorMessage: nil
                 )
             }
