@@ -1,0 +1,105 @@
+import SwiftUI
+
+struct AudioConverterDetailView: View {
+    @ObservedObject var viewModel: ContentViewModel
+    @Binding var isDropTargeted: Bool
+    @Binding var draggedSelectedFileURL: URL?
+    let fileDropAreaHeight: CGFloat
+
+    var body: some View {
+        ConverterDetailContainer(
+            title: "Convert Audio",
+            isDropTargeted: $isDropTargeted,
+            onDrop: { providers in
+                viewModel.handleAudioDrop(providers: providers)
+            },
+            inputArea: {
+                audioInputArea
+            },
+            formSections: {
+                audioFormSections
+            },
+            controls: {
+                audioConversionControls
+            }
+        )
+    }
+
+    @ViewBuilder
+    private var audioInputArea: some View {
+        ConverterInputArea(
+            isDropTargeted: isDropTargeted,
+            selectedURLs: viewModel.selectedAudioSourceURLs,
+            isConverting: viewModel.isAudioConverting,
+            systemImage: "waveform",
+            dropPlaceholder: "Drop Audio Here",
+            fileDropAreaHeight: fileDropAreaHeight,
+            draggedSelectedFileURL: $draggedSelectedFileURL,
+            onImport: {
+                viewModel.requestFileImport()
+            },
+            onClear: {
+                withAnimation {
+                    viewModel.clearSelectedAudioSource()
+                }
+            },
+            onReorder: { draggedURL, targetURL in
+                viewModel.moveSelectedAudioSource(from: draggedURL, to: targetURL)
+            }
+        )
+        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: viewModel.selectedAudioFileCount)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isDropTargeted)
+    }
+
+    @ViewBuilder
+    private var audioFormSections: some View {
+        ConverterFormSections(
+            isConverting: viewModel.isAudioConverting,
+            outputURLs: viewModel.convertedAudioURLs
+        ) {
+            MenuPicker(
+                "Container",
+                selection: $viewModel.selectedAudioOutputFormat,
+                options: viewModel.audioOutputFormatOptions,
+                disabledWhenEmpty: true,
+                label: { "\($0.displayName) (.\($0.fileExtension))" }
+            )
+
+            MenuPicker(
+                "Audio Encoder",
+                selection: $viewModel.selectedAudioOutputEncoder,
+                options: viewModel.audioOutputEncoderOptions,
+                disabledWhenEmpty: true,
+                label: { $0.rawValue }
+            )
+
+            AudioModeAndRatePickers(
+                modeSelection: $viewModel.selectedAudioOutputMode,
+                sampleRateSelection: $viewModel.selectedAudioOutputSampleRate,
+                bitRateSelection: $viewModel.selectedAudioOutputBitRate,
+                showSampleRate: viewModel.shouldShowAudioOutputSampleRateOption,
+                showBitRate: viewModel.shouldShowAudioOutputBitRateOption
+            )
+
+            if let hint = viewModel.audioFormatHintMessage {
+                Text(hint)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var audioConversionControls: some View {
+        ConversionControlBar(
+            statusMessage: viewModel.audioConversionStatusMessage,
+            statusColor: viewModel.audioConversionStatusLevel.color,
+            progress: viewModel.displayedAudioConversionProgress,
+            progressText: viewModel.audioProgressPercentageText,
+            progressTint: viewModel.displayedAudioConversionProgress > 0 ? .accentColor : .clear,
+            isConverting: viewModel.isAudioConverting,
+            canConvert: viewModel.canConvertAudio,
+            onStart: { viewModel.startAudioConversion() },
+            onCancel: { viewModel.cancelAudioConversion() }
+        )
+    }
+}
