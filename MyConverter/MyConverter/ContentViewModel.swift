@@ -706,6 +706,65 @@ final class ContentViewModel: ObservableObject {
         return aggregated
     }
 
+    private func analyzeSourceSelection<Capability, Format>(
+        urls: [URL],
+        analysisTaskKeyPath: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>,
+        isAnalyzingKeyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
+        availableFormatsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [Format]>,
+        warningMessageKeyPath: ReferenceWritableKeyPath<ContentViewModel, String?>,
+        errorMessageKeyPath: ReferenceWritableKeyPath<ContentViewModel, String?>,
+        selectedSourceIDs: @escaping () -> [String],
+        resetForEmptySelection: () -> Void,
+        fetchCapabilities: @escaping (URL) async -> Capability,
+        availableFormats: @escaping (Capability) -> [Format],
+        warningMessage: @escaping (Capability) -> String?,
+        errorMessage: @escaping (Capability) -> String?,
+        intersect: @escaping ([Format], [Format]) -> [Format],
+        deduplicatedAndSorted: @escaping ([Format]) -> [Format],
+        noCommonFormatsMessage: String,
+        onCapability: ((URL, Capability) -> Void)? = nil,
+        onFormatsResolved: @escaping ([Format]) -> Void
+    ) {
+        let selection = uniqueStandardizedURLs(urls)
+        let expectedSourceIDs = selection.map(sourceIdentifier(for:))
+        guard !selection.isEmpty else {
+            resetForEmptySelection()
+            return
+        }
+
+        self[keyPath: isAnalyzingKeyPath] = true
+        self[keyPath: analysisTaskKeyPath] = Task { [weak self] in
+            guard let self else { return }
+            guard let aggregated = await self.aggregateSourceCapabilities(
+                for: selection,
+                fetchCapabilities: fetchCapabilities,
+                availableFormats: availableFormats,
+                warningMessage: warningMessage,
+                errorMessage: errorMessage,
+                intersect: intersect,
+                onCapability: onCapability
+            ) else {
+                return
+            }
+            guard selectedSourceIDs() == expectedSourceIDs else { return }
+
+            let resolvedFormats = deduplicatedAndSorted(aggregated.commonFormats)
+            self[keyPath: isAnalyzingKeyPath] = false
+            self[keyPath: availableFormatsKeyPath] = resolvedFormats
+            self[keyPath: warningMessageKeyPath] = self.joinedCapabilityMessages(aggregated.warnings)
+
+            if let joinedErrors = self.joinedCapabilityMessages(aggregated.errors) {
+                self[keyPath: errorMessageKeyPath] = joinedErrors
+            } else if selection.count > 1 && resolvedFormats.isEmpty {
+                self[keyPath: errorMessageKeyPath] = noCommonFormatsMessage
+            } else {
+                self[keyPath: errorMessageKeyPath] = nil
+            }
+
+            onFormatsResolved(resolvedFormats)
+        }
+    }
+
     // MARK: - Video Source / Analyze
 
     private func applySelectedVideoSources(_ urls: [URL]) {
@@ -736,54 +795,40 @@ final class ContentViewModel: ObservableObject {
     }
 
     private func analyzeSourceCompatibility(for urls: [URL]) {
-        let selection = uniqueStandardizedURLs(urls)
-        let expectedSourceIDs = selection.map(sourceIdentifier(for:))
-        guard !selection.isEmpty else {
-            isAnalyzingSource = false
-            availableOutputFormats = []
-            sourceCompatibilityErrorMessage = nil
-            sourceCompatibilityWarningMessage = nil
-            return
-        }
+        analyzeSourceSelection(
+            urls: urls,
+            analysisTaskKeyPath: \.sourceAnalysisTask,
+            isAnalyzingKeyPath: \.isAnalyzingSource,
+            availableFormatsKeyPath: \.availableOutputFormats,
+            warningMessageKeyPath: \.sourceCompatibilityWarningMessage,
+            errorMessageKeyPath: \.sourceCompatibilityErrorMessage,
+            selectedSourceIDs: {
+                self.selectedVideoSourceURLs.map { self.sourceIdentifier(for: $0) }
+            },
+            resetForEmptySelection: {
+                isAnalyzingSource = false
+                availableOutputFormats = []
+                sourceCompatibilityErrorMessage = nil
+                sourceCompatibilityWarningMessage = nil
+            },
+            fetchCapabilities: { await VideoConversionEngine.sourceCapabilities(for: $0) },
+            availableFormats: { $0.availableOutputFormats },
+            warningMessage: { $0.warningMessage },
+            errorMessage: { $0.errorMessage },
+            intersect: { self.intersectVideoFormats($0, $1) },
+            deduplicatedAndSorted: { VideoFormatOption.deduplicatedAndSorted($0) },
+            noCommonFormatsMessage: "No common output container is available for the selected files.",
+            onFormatsResolved: { resolvedFormats in
+                if let first = resolvedFormats.first,
+                   !resolvedFormats.contains(where: { $0.normalizedID == self.selectedOutputFormat.normalizedID }) {
+                    self.selectedOutputFormat = first
+                }
 
-        isAnalyzingSource = true
-
-        sourceAnalysisTask = Task { [weak self] in
-            guard let self else { return }
-            guard let aggregated = await self.aggregateSourceCapabilities(
-                for: selection,
-                fetchCapabilities: { await VideoConversionEngine.sourceCapabilities(for: $0) },
-                availableFormats: { $0.availableOutputFormats },
-                warningMessage: { $0.warningMessage },
-                errorMessage: { $0.errorMessage },
-                intersect: { self.intersectVideoFormats($0, $1) }
-            ) else {
-                return
+                self.ensureSelectedVideoOutputFormatIsAvailable()
+                self.refreshVideoCodecOptions()
+                self.persistCurrentSettingsIfNeeded()
             }
-            guard self.selectedVideoSourceURLs.map({ self.sourceIdentifier(for: $0) }) == expectedSourceIDs else { return }
-
-            let resolvedFormats = VideoFormatOption.deduplicatedAndSorted(aggregated.commonFormats)
-            self.isAnalyzingSource = false
-            self.availableOutputFormats = resolvedFormats
-            self.sourceCompatibilityWarningMessage = self.joinedCapabilityMessages(aggregated.warnings)
-
-            if let joinedErrors = self.joinedCapabilityMessages(aggregated.errors) {
-                self.sourceCompatibilityErrorMessage = joinedErrors
-            } else if selection.count > 1 && resolvedFormats.isEmpty {
-                self.sourceCompatibilityErrorMessage = "No common output container is available for the selected files."
-            } else {
-                self.sourceCompatibilityErrorMessage = nil
-            }
-
-            if let first = resolvedFormats.first,
-               !resolvedFormats.contains(where: { $0.normalizedID == self.selectedOutputFormat.normalizedID }) {
-                self.selectedOutputFormat = first
-            }
-
-            self.ensureSelectedVideoOutputFormatIsAvailable()
-            self.refreshVideoCodecOptions()
-            self.persistCurrentSettingsIfNeeded()
-        }
+        )
     }
 
     // MARK: - Image Source / Analyze
@@ -818,68 +863,55 @@ final class ContentViewModel: ObservableObject {
     }
 
     private func analyzeImageSourceCompatibility(for urls: [URL]) {
-        let selection = uniqueStandardizedURLs(urls)
-        let expectedSourceIDs = selection.map(sourceIdentifier(for:))
-        guard !selection.isEmpty else {
-            isAnalyzingImageSource = false
-            availableImageOutputFormats = []
-            imageSourceFrameCount = 0
-            imageSourceHasAlpha = false
-            imageSourceCompatibilityErrorMessage = nil
-            imageSourceCompatibilityWarningMessage = nil
-            return
-        }
+        let primarySourceID = uniqueStandardizedURLs(urls).first.map(sourceIdentifier(for:))
+        var primaryFrameCount = 0
+        var primaryHasAlpha = false
 
-        isAnalyzingImageSource = true
-
-        imageSourceAnalysisTask = Task { [weak self] in
-            guard let self else { return }
-
-            let primarySourceID = expectedSourceIDs.first
-            var primaryFrameCount = 0
-            var primaryHasAlpha = false
-            guard let aggregated = await self.aggregateSourceCapabilities(
-                for: selection,
-                fetchCapabilities: { await ImageConversionEngine.sourceCapabilities(for: $0) },
-                availableFormats: { $0.availableOutputFormats },
-                warningMessage: { $0.warningMessage },
-                errorMessage: { $0.errorMessage },
-                intersect: { self.intersectImageFormats($0, $1) },
-                onCapability: { source, capabilities in
-                    let sourceID = self.sourceIdentifier(for: source)
-                    if sourceID == primarySourceID {
-                        primaryFrameCount = capabilities.frameCount
-                        primaryHasAlpha = capabilities.hasAlpha
-                    }
+        analyzeSourceSelection(
+            urls: urls,
+            analysisTaskKeyPath: \.imageSourceAnalysisTask,
+            isAnalyzingKeyPath: \.isAnalyzingImageSource,
+            availableFormatsKeyPath: \.availableImageOutputFormats,
+            warningMessageKeyPath: \.imageSourceCompatibilityWarningMessage,
+            errorMessageKeyPath: \.imageSourceCompatibilityErrorMessage,
+            selectedSourceIDs: {
+                self.selectedImageSourceURLs.map { self.sourceIdentifier(for: $0) }
+            },
+            resetForEmptySelection: {
+                isAnalyzingImageSource = false
+                availableImageOutputFormats = []
+                imageSourceFrameCount = 0
+                imageSourceHasAlpha = false
+                imageSourceCompatibilityErrorMessage = nil
+                imageSourceCompatibilityWarningMessage = nil
+            },
+            fetchCapabilities: { await ImageConversionEngine.sourceCapabilities(for: $0) },
+            availableFormats: { $0.availableOutputFormats },
+            warningMessage: { $0.warningMessage },
+            errorMessage: { $0.errorMessage },
+            intersect: { self.intersectImageFormats($0, $1) },
+            deduplicatedAndSorted: { ImageFormatOption.deduplicatedAndSorted($0) },
+            noCommonFormatsMessage: "No common output format is available for the selected files.",
+            onCapability: { source, capabilities in
+                let sourceID = self.sourceIdentifier(for: source)
+                if sourceID == primarySourceID {
+                    primaryFrameCount = capabilities.frameCount
+                    primaryHasAlpha = capabilities.hasAlpha
                 }
-            ) else {
-                return
+            },
+            onFormatsResolved: { resolvedFormats in
+                self.imageSourceFrameCount = primaryFrameCount
+                self.imageSourceHasAlpha = primaryHasAlpha
+
+                if let first = resolvedFormats.first,
+                   !resolvedFormats.contains(where: { $0.normalizedID == self.selectedImageOutputFormat.normalizedID }) {
+                    self.selectedImageOutputFormat = first
+                }
+
+                self.ensureSelectedImageOutputFormatIsAvailable()
+                self.persistCurrentImageSettingsIfNeeded()
             }
-            guard self.selectedImageSourceURLs.map({ self.sourceIdentifier(for: $0) }) == expectedSourceIDs else { return }
-
-            let resolvedFormats = ImageFormatOption.deduplicatedAndSorted(aggregated.commonFormats)
-            self.isAnalyzingImageSource = false
-            self.availableImageOutputFormats = resolvedFormats
-            self.imageSourceCompatibilityWarningMessage = self.joinedCapabilityMessages(aggregated.warnings)
-            self.imageSourceFrameCount = primaryFrameCount
-            self.imageSourceHasAlpha = primaryHasAlpha
-
-            if let joinedErrors = self.joinedCapabilityMessages(aggregated.errors) {
-                self.imageSourceCompatibilityErrorMessage = joinedErrors
-            } else if selection.count > 1 && resolvedFormats.isEmpty {
-                self.imageSourceCompatibilityErrorMessage = "No common output format is available for the selected files."
-            } else {
-                self.imageSourceCompatibilityErrorMessage = nil
-            }
-
-            if let first = resolvedFormats.first,
-               !resolvedFormats.contains(where: { $0.normalizedID == self.selectedImageOutputFormat.normalizedID }) {
-                self.selectedImageOutputFormat = first
-            }
-
-            self.ensureSelectedImageOutputFormatIsAvailable()
-            self.persistCurrentImageSettingsIfNeeded()
-        }
+        )
     }
 
     // MARK: - Audio Source / Analyze
@@ -912,54 +944,40 @@ final class ContentViewModel: ObservableObject {
     }
 
     private func analyzeAudioSourceCompatibility(for urls: [URL]) {
-        let selection = uniqueStandardizedURLs(urls)
-        let expectedSourceIDs = selection.map(sourceIdentifier(for:))
-        guard !selection.isEmpty else {
-            isAnalyzingAudioSource = false
-            availableAudioOutputFormats = []
-            audioSourceCompatibilityErrorMessage = nil
-            audioSourceCompatibilityWarningMessage = nil
-            return
-        }
+        analyzeSourceSelection(
+            urls: urls,
+            analysisTaskKeyPath: \.audioSourceAnalysisTask,
+            isAnalyzingKeyPath: \.isAnalyzingAudioSource,
+            availableFormatsKeyPath: \.availableAudioOutputFormats,
+            warningMessageKeyPath: \.audioSourceCompatibilityWarningMessage,
+            errorMessageKeyPath: \.audioSourceCompatibilityErrorMessage,
+            selectedSourceIDs: {
+                self.selectedAudioSourceURLs.map { self.sourceIdentifier(for: $0) }
+            },
+            resetForEmptySelection: {
+                isAnalyzingAudioSource = false
+                availableAudioOutputFormats = []
+                audioSourceCompatibilityErrorMessage = nil
+                audioSourceCompatibilityWarningMessage = nil
+            },
+            fetchCapabilities: { await VideoConversionEngine.sourceCapabilitiesForAudio(for: $0) },
+            availableFormats: { $0.availableOutputFormats },
+            warningMessage: { $0.warningMessage },
+            errorMessage: { $0.errorMessage },
+            intersect: { self.intersectAudioFormats($0, $1) },
+            deduplicatedAndSorted: { AudioFormatOption.deduplicatedAndSorted($0) },
+            noCommonFormatsMessage: "No common audio output format is available for the selected files.",
+            onFormatsResolved: { resolvedFormats in
+                if let first = resolvedFormats.first,
+                   !resolvedFormats.contains(where: { $0.normalizedID == self.selectedAudioOutputFormat.normalizedID }) {
+                    self.selectedAudioOutputFormat = first
+                }
 
-        isAnalyzingAudioSource = true
-
-        audioSourceAnalysisTask = Task { [weak self] in
-            guard let self else { return }
-            guard let aggregated = await self.aggregateSourceCapabilities(
-                for: selection,
-                fetchCapabilities: { await VideoConversionEngine.sourceCapabilitiesForAudio(for: $0) },
-                availableFormats: { $0.availableOutputFormats },
-                warningMessage: { $0.warningMessage },
-                errorMessage: { $0.errorMessage },
-                intersect: { self.intersectAudioFormats($0, $1) }
-            ) else {
-                return
+                self.ensureSelectedAudioOutputFormatIsAvailable()
+                self.refreshAudioCodecOptions()
+                self.persistCurrentAudioSettingsIfNeeded()
             }
-            guard self.selectedAudioSourceURLs.map({ self.sourceIdentifier(for: $0) }) == expectedSourceIDs else { return }
-
-            let resolvedFormats = AudioFormatOption.deduplicatedAndSorted(aggregated.commonFormats)
-            self.isAnalyzingAudioSource = false
-            self.availableAudioOutputFormats = resolvedFormats
-            self.audioSourceCompatibilityWarningMessage = self.joinedCapabilityMessages(aggregated.warnings)
-
-            if let joinedErrors = self.joinedCapabilityMessages(aggregated.errors) {
-                self.audioSourceCompatibilityErrorMessage = joinedErrors
-            } else if selection.count > 1 && resolvedFormats.isEmpty {
-                self.audioSourceCompatibilityErrorMessage = "No common audio output format is available for the selected files."
-            } else {
-                self.audioSourceCompatibilityErrorMessage = nil
-            }
-
-            if let first = resolvedFormats.first,
-               !resolvedFormats.contains(where: { $0.normalizedID == self.selectedAudioOutputFormat.normalizedID }) {
-                self.selectedAudioOutputFormat = first
-            }
-
-            self.ensureSelectedAudioOutputFormatIsAvailable()
-            self.refreshAudioCodecOptions()
-            self.persistCurrentAudioSettingsIfNeeded()
-        }
+        )
     }
 
     // MARK: - Build Settings
