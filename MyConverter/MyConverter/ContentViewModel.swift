@@ -427,6 +427,43 @@ final class ContentViewModel: ObservableObject {
         )
     }
 
+    private func resetVideoConversionOutputs() {
+        convertedURL = nil
+        convertedURLs = []
+        conversionErrorMessage = nil
+    }
+
+    private func resetImageConversionOutputs() {
+        convertedImageURL = nil
+        convertedImageURLs = []
+        imageConversionErrorMessage = nil
+    }
+
+    private func resetAudioConversionOutputs() {
+        convertedAudioURL = nil
+        convertedAudioURLs = []
+        audioConversionErrorMessage = nil
+    }
+
+    private func resetVideoCompatibilityMessages() {
+        sourceCompatibilityErrorMessage = nil
+        sourceCompatibilityWarningMessage = nil
+    }
+
+    private func resetImageCompatibilityState(resetMetadata: Bool) {
+        if resetMetadata {
+            imageSourceFrameCount = 0
+            imageSourceHasAlpha = false
+        }
+        imageSourceCompatibilityErrorMessage = nil
+        imageSourceCompatibilityWarningMessage = nil
+    }
+
+    private func resetAudioCompatibilityMessages() {
+        audioSourceCompatibilityErrorMessage = nil
+        audioSourceCompatibilityWarningMessage = nil
+    }
+
     func clearSelectedSource() {
         clearSelectedVideoSource()
     }
@@ -439,13 +476,10 @@ final class ContentViewModel: ObservableObject {
             resetSelectionAndOutput: {
                 sourceURL = nil
                 queuedSourceURLs = []
-                convertedURL = nil
-                convertedURLs = []
-                conversionErrorMessage = nil
+                resetVideoConversionOutputs()
             },
             resetCompatibilityAndBatchState: {
-                sourceCompatibilityErrorMessage = nil
-                sourceCompatibilityWarningMessage = nil
+                resetVideoCompatibilityMessages()
                 isAnalyzingSource = false
                 currentVideoBatchIndex = 0
                 totalVideoBatchCount = 0
@@ -467,15 +501,10 @@ final class ContentViewModel: ObservableObject {
             resetSelectionAndOutput: {
                 imageSourceURL = nil
                 queuedImageSourceURLs = []
-                convertedImageURL = nil
-                convertedImageURLs = []
-                imageConversionErrorMessage = nil
+                resetImageConversionOutputs()
             },
             resetCompatibilityAndBatchState: {
-                imageSourceFrameCount = 0
-                imageSourceHasAlpha = false
-                imageSourceCompatibilityErrorMessage = nil
-                imageSourceCompatibilityWarningMessage = nil
+                resetImageCompatibilityState(resetMetadata: true)
                 isAnalyzingImageSource = false
                 currentImageBatchIndex = 0
                 totalImageBatchCount = 0
@@ -496,13 +525,10 @@ final class ContentViewModel: ObservableObject {
             resetSelectionAndOutput: {
                 audioSourceURL = nil
                 queuedAudioSourceURLs = []
-                convertedAudioURL = nil
-                convertedAudioURLs = []
-                audioConversionErrorMessage = nil
+                resetAudioConversionOutputs()
             },
             resetCompatibilityAndBatchState: {
-                audioSourceCompatibilityErrorMessage = nil
-                audioSourceCompatibilityWarningMessage = nil
+                resetAudioCompatibilityMessages()
                 isAnalyzingAudioSource = false
                 currentAudioBatchIndex = 0
                 totalAudioBatchCount = 0
@@ -629,8 +655,7 @@ final class ContentViewModel: ObservableObject {
                 cancelTask(&sourceAnalysisTask)
             },
             resetCompatibilityState: {
-                sourceCompatibilityErrorMessage = nil
-                sourceCompatibilityWarningMessage = nil
+                resetVideoCompatibilityMessages()
             },
             applyStoredSettingsForSourceID: { sourceID in
                 applyStoredVideoSettings(for: sourceID)
@@ -655,10 +680,7 @@ final class ContentViewModel: ObservableObject {
                 cancelTask(&imageSourceAnalysisTask)
             },
             resetCompatibilityState: {
-                imageSourceFrameCount = 0
-                imageSourceHasAlpha = false
-                imageSourceCompatibilityErrorMessage = nil
-                imageSourceCompatibilityWarningMessage = nil
+                resetImageCompatibilityState(resetMetadata: true)
             },
             applyStoredSettingsForSourceID: { sourceID in
                 applyStoredImageSettings(for: sourceID)
@@ -683,8 +705,7 @@ final class ContentViewModel: ObservableObject {
                 cancelTask(&audioSourceAnalysisTask)
             },
             resetCompatibilityState: {
-                audioSourceCompatibilityErrorMessage = nil
-                audioSourceCompatibilityWarningMessage = nil
+                resetAudioCompatibilityMessages()
             },
             applyStoredSettingsForSourceID: { sourceID in
                 applyStoredAudioSettings(for: sourceID)
@@ -889,11 +910,8 @@ final class ContentViewModel: ObservableObject {
                 assignVideoSelection(selection)
             },
             resetState: {
-                convertedURL = nil
-                convertedURLs = []
-                conversionErrorMessage = nil
-                sourceCompatibilityErrorMessage = nil
-                sourceCompatibilityWarningMessage = nil
+                resetVideoConversionOutputs()
+                resetVideoCompatibilityMessages()
             },
             applyStoredSettingsForSourceID: { sourceID in
                 applyStoredVideoSettings(for: sourceID)
@@ -953,13 +971,8 @@ final class ContentViewModel: ObservableObject {
                 assignImageSelection(selection)
             },
             resetState: {
-                imageSourceFrameCount = 0
-                imageSourceHasAlpha = false
-                convertedImageURL = nil
-                convertedImageURLs = []
-                imageConversionErrorMessage = nil
-                imageSourceCompatibilityErrorMessage = nil
-                imageSourceCompatibilityWarningMessage = nil
+                resetImageCompatibilityState(resetMetadata: true)
+                resetImageConversionOutputs()
             },
             applyStoredSettingsForSourceID: { sourceID in
                 applyStoredImageSettings(for: sourceID)
@@ -1034,11 +1047,8 @@ final class ContentViewModel: ObservableObject {
                 assignAudioSelection(selection)
             },
             resetState: {
-                convertedAudioURL = nil
-                convertedAudioURLs = []
-                audioConversionErrorMessage = nil
-                audioSourceCompatibilityErrorMessage = nil
-                audioSourceCompatibilityWarningMessage = nil
+                resetAudioConversionOutputs()
+                resetAudioCompatibilityMessages()
             },
             applyStoredSettingsForSourceID: { sourceID in
                 applyStoredAudioSettings(for: sourceID)
@@ -1249,8 +1259,7 @@ final class ContentViewModel: ObservableObject {
             from: selectedVideoSourceURLs,
             assignSelection: assignVideoSelection(_:),
             onSelectionEmptied: {
-                sourceCompatibilityErrorMessage = nil
-                sourceCompatibilityWarningMessage = nil
+                resetVideoCompatibilityMessages()
                 isAnalyzingSource = false
                 availableOutputFormats = VideoConversionEngine.defaultOutputFormats()
                 ensureSelectedVideoOutputFormatIsAvailable()
@@ -1265,10 +1274,7 @@ final class ContentViewModel: ObservableObject {
             from: selectedImageSourceURLs,
             assignSelection: assignImageSelection(_:),
             onSelectionEmptied: {
-                imageSourceFrameCount = 0
-                imageSourceHasAlpha = false
-                imageSourceCompatibilityErrorMessage = nil
-                imageSourceCompatibilityWarningMessage = nil
+                resetImageCompatibilityState(resetMetadata: true)
                 isAnalyzingImageSource = false
                 availableImageOutputFormats = ImageConversionEngine.defaultOutputFormats()
                 ensureSelectedImageOutputFormatIsAvailable()
@@ -1282,8 +1288,7 @@ final class ContentViewModel: ObservableObject {
             from: selectedAudioSourceURLs,
             assignSelection: assignAudioSelection(_:),
             onSelectionEmptied: {
-                audioSourceCompatibilityErrorMessage = nil
-                audioSourceCompatibilityWarningMessage = nil
+                resetAudioCompatibilityMessages()
                 isAnalyzingAudioSource = false
                 availableAudioOutputFormats = VideoConversionEngine.defaultAudioOutputFormats()
                 ensureSelectedAudioOutputFormatIsAvailable()
