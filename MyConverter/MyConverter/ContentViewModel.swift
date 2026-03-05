@@ -763,6 +763,57 @@ final class ContentViewModel: ObservableObject {
         task?.cancel()
     }
 
+    private struct AggregatedSourceCapabilities<Format> {
+        var commonFormats: [Format] = []
+        var warnings: [String] = []
+        var errors: [String] = []
+    }
+
+    private func aggregateSourceCapabilities<Capability, Format>(
+        for selection: [URL],
+        fetchCapabilities: @escaping (URL) async -> Capability,
+        availableFormats: (Capability) -> [Format],
+        warningMessage: (Capability) -> String?,
+        errorMessage: (Capability) -> String?,
+        intersect: ([Format], [Format]) -> [Format],
+        onCapability: ((URL, Capability) -> Void)? = nil
+    ) async -> AggregatedSourceCapabilities<Format>? {
+        var isInitialized = false
+        var aggregated = AggregatedSourceCapabilities<Format>()
+
+        for source in selection {
+            guard !Task.isCancelled else { return nil }
+
+            let shouldStopSourceAccessing = source.startAccessingSecurityScopedResource()
+            defer {
+                if shouldStopSourceAccessing {
+                    source.stopAccessingSecurityScopedResource()
+                }
+            }
+
+            let capabilities = await fetchCapabilities(source)
+            onCapability?(source, capabilities)
+
+            let formats = availableFormats(capabilities)
+            if isInitialized {
+                aggregated.commonFormats = intersect(aggregated.commonFormats, formats)
+            } else {
+                aggregated.commonFormats = formats
+                isInitialized = true
+            }
+
+            if let warning = warningMessage(capabilities) {
+                aggregated.warnings.append(labeledCapabilityMessage(warning, for: source, totalCount: selection.count))
+            }
+            if let error = errorMessage(capabilities) {
+                aggregated.errors.append(labeledCapabilityMessage(error, for: source, totalCount: selection.count))
+            }
+        }
+
+        guard !Task.isCancelled else { return nil }
+        return aggregated
+    }
+
     // MARK: - Video Source / Analyze
 
     private func applySelectedVideoSources(_ urls: [URL]) {
@@ -801,48 +852,24 @@ final class ContentViewModel: ObservableObject {
 
         sourceAnalysisTask = Task { [weak self] in
             guard let self else { return }
-
-            var isInitialized = false
-            var commonFormats: [VideoFormatOption] = []
-            var warnings: [String] = []
-            var errors: [String] = []
-
-            for source in selection {
-                guard !Task.isCancelled else { return }
-
-                let shouldStopSourceAccessing = source.startAccessingSecurityScopedResource()
-                defer {
-                    if shouldStopSourceAccessing {
-                        source.stopAccessingSecurityScopedResource()
-                    }
-                }
-
-                let capabilities = await VideoConversionEngine.sourceCapabilities(for: source)
-
-                if isInitialized {
-                    commonFormats = self.intersectVideoFormats(commonFormats, capabilities.availableOutputFormats)
-                } else {
-                    commonFormats = capabilities.availableOutputFormats
-                    isInitialized = true
-                }
-
-                if let warning = capabilities.warningMessage {
-                    warnings.append(self.labeledCapabilityMessage(warning, for: source, totalCount: selection.count))
-                }
-                if let error = capabilities.errorMessage {
-                    errors.append(self.labeledCapabilityMessage(error, for: source, totalCount: selection.count))
-                }
+            guard let aggregated = await self.aggregateSourceCapabilities(
+                for: selection,
+                fetchCapabilities: { await VideoConversionEngine.sourceCapabilities(for: $0) },
+                availableFormats: { $0.availableOutputFormats },
+                warningMessage: { $0.warningMessage },
+                errorMessage: { $0.errorMessage },
+                intersect: { self.intersectVideoFormats($0, $1) }
+            ) else {
+                return
             }
-
-            guard !Task.isCancelled else { return }
             guard self.selectedVideoSourceURLs.map({ self.sourceIdentifier(for: $0) }) == expectedSourceIDs else { return }
 
-            let resolvedFormats = VideoFormatOption.deduplicatedAndSorted(commonFormats)
+            let resolvedFormats = VideoFormatOption.deduplicatedAndSorted(aggregated.commonFormats)
             self.isAnalyzingSource = false
             self.availableOutputFormats = resolvedFormats
-            self.sourceCompatibilityWarningMessage = self.joinedCapabilityMessages(warnings)
+            self.sourceCompatibilityWarningMessage = self.joinedCapabilityMessages(aggregated.warnings)
 
-            if let joinedErrors = self.joinedCapabilityMessages(errors) {
+            if let joinedErrors = self.joinedCapabilityMessages(aggregated.errors) {
                 self.sourceCompatibilityErrorMessage = joinedErrors
             } else if selection.count > 1 && resolvedFormats.isEmpty {
                 self.sourceCompatibilityErrorMessage = "No common output container is available for the selected files."
@@ -907,54 +934,33 @@ final class ContentViewModel: ObservableObject {
             let primarySourceID = expectedSourceIDs.first
             var primaryFrameCount = 0
             var primaryHasAlpha = false
-            var isInitialized = false
-            var commonFormats: [ImageFormatOption] = []
-            var warnings: [String] = []
-            var errors: [String] = []
-
-            for source in selection {
-                guard !Task.isCancelled else { return }
-
-                let shouldStopSourceAccessing = source.startAccessingSecurityScopedResource()
-                defer {
-                    if shouldStopSourceAccessing {
-                        source.stopAccessingSecurityScopedResource()
+            guard let aggregated = await self.aggregateSourceCapabilities(
+                for: selection,
+                fetchCapabilities: { await ImageConversionEngine.sourceCapabilities(for: $0) },
+                availableFormats: { $0.availableOutputFormats },
+                warningMessage: { $0.warningMessage },
+                errorMessage: { $0.errorMessage },
+                intersect: { self.intersectImageFormats($0, $1) },
+                onCapability: { source, capabilities in
+                    let sourceID = self.sourceIdentifier(for: source)
+                    if sourceID == primarySourceID {
+                        primaryFrameCount = capabilities.frameCount
+                        primaryHasAlpha = capabilities.hasAlpha
                     }
                 }
-
-                let capabilities = await ImageConversionEngine.sourceCapabilities(for: source)
-                let sourceID = sourceIdentifier(for: source)
-                if sourceID == primarySourceID {
-                    primaryFrameCount = capabilities.frameCount
-                    primaryHasAlpha = capabilities.hasAlpha
-                }
-
-                if isInitialized {
-                    commonFormats = self.intersectImageFormats(commonFormats, capabilities.availableOutputFormats)
-                } else {
-                    commonFormats = capabilities.availableOutputFormats
-                    isInitialized = true
-                }
-
-                if let warning = capabilities.warningMessage {
-                    warnings.append(self.labeledCapabilityMessage(warning, for: source, totalCount: selection.count))
-                }
-                if let error = capabilities.errorMessage {
-                    errors.append(self.labeledCapabilityMessage(error, for: source, totalCount: selection.count))
-                }
+            ) else {
+                return
             }
-
-            guard !Task.isCancelled else { return }
             guard self.selectedImageSourceURLs.map({ self.sourceIdentifier(for: $0) }) == expectedSourceIDs else { return }
 
-            let resolvedFormats = ImageFormatOption.deduplicatedAndSorted(commonFormats)
+            let resolvedFormats = ImageFormatOption.deduplicatedAndSorted(aggregated.commonFormats)
             self.isAnalyzingImageSource = false
             self.availableImageOutputFormats = resolvedFormats
-            self.imageSourceCompatibilityWarningMessage = self.joinedCapabilityMessages(warnings)
+            self.imageSourceCompatibilityWarningMessage = self.joinedCapabilityMessages(aggregated.warnings)
             self.imageSourceFrameCount = primaryFrameCount
             self.imageSourceHasAlpha = primaryHasAlpha
 
-            if let joinedErrors = self.joinedCapabilityMessages(errors) {
+            if let joinedErrors = self.joinedCapabilityMessages(aggregated.errors) {
                 self.imageSourceCompatibilityErrorMessage = joinedErrors
             } else if selection.count > 1 && resolvedFormats.isEmpty {
                 self.imageSourceCompatibilityErrorMessage = "No common output format is available for the selected files."
@@ -1010,48 +1016,24 @@ final class ContentViewModel: ObservableObject {
 
         audioSourceAnalysisTask = Task { [weak self] in
             guard let self else { return }
-
-            var isInitialized = false
-            var commonFormats: [AudioFormatOption] = []
-            var warnings: [String] = []
-            var errors: [String] = []
-
-            for source in selection {
-                guard !Task.isCancelled else { return }
-
-                let shouldStopSourceAccessing = source.startAccessingSecurityScopedResource()
-                defer {
-                    if shouldStopSourceAccessing {
-                        source.stopAccessingSecurityScopedResource()
-                    }
-                }
-
-                let capabilities = await VideoConversionEngine.sourceCapabilitiesForAudio(for: source)
-
-                if isInitialized {
-                    commonFormats = self.intersectAudioFormats(commonFormats, capabilities.availableOutputFormats)
-                } else {
-                    commonFormats = capabilities.availableOutputFormats
-                    isInitialized = true
-                }
-
-                if let warning = capabilities.warningMessage {
-                    warnings.append(self.labeledCapabilityMessage(warning, for: source, totalCount: selection.count))
-                }
-                if let error = capabilities.errorMessage {
-                    errors.append(self.labeledCapabilityMessage(error, for: source, totalCount: selection.count))
-                }
+            guard let aggregated = await self.aggregateSourceCapabilities(
+                for: selection,
+                fetchCapabilities: { await VideoConversionEngine.sourceCapabilitiesForAudio(for: $0) },
+                availableFormats: { $0.availableOutputFormats },
+                warningMessage: { $0.warningMessage },
+                errorMessage: { $0.errorMessage },
+                intersect: { self.intersectAudioFormats($0, $1) }
+            ) else {
+                return
             }
-
-            guard !Task.isCancelled else { return }
             guard self.selectedAudioSourceURLs.map({ self.sourceIdentifier(for: $0) }) == expectedSourceIDs else { return }
 
-            let resolvedFormats = AudioFormatOption.deduplicatedAndSorted(commonFormats)
+            let resolvedFormats = AudioFormatOption.deduplicatedAndSorted(aggregated.commonFormats)
             self.isAnalyzingAudioSource = false
             self.availableAudioOutputFormats = resolvedFormats
-            self.audioSourceCompatibilityWarningMessage = self.joinedCapabilityMessages(warnings)
+            self.audioSourceCompatibilityWarningMessage = self.joinedCapabilityMessages(aggregated.warnings)
 
-            if let joinedErrors = self.joinedCapabilityMessages(errors) {
+            if let joinedErrors = self.joinedCapabilityMessages(aggregated.errors) {
                 self.audioSourceCompatibilityErrorMessage = joinedErrors
             } else if selection.count > 1 && resolvedFormats.isEmpty {
                 self.audioSourceCompatibilityErrorMessage = "No common audio output format is available for the selected files."
