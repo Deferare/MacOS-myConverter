@@ -52,6 +52,31 @@ enum VideoConversionEngine {
         AVAssetExportPresetLowQuality
     ]
 
+    private static func cachedCapabilityValue<Value>(
+        readCached: () -> Value?,
+        storeCached: (Value) -> Void,
+        build: () -> Value
+    ) -> Value {
+        if let cached = readCached() {
+            return cached
+        }
+
+        let resolved = build()
+        storeCached(resolved)
+        return resolved
+    }
+
+    private static func resolvedEncoderOptions<Option: Equatable>(
+        explicitOptions: [Option],
+        allowsAutomatic: Bool,
+        automaticOption: Option
+    ) -> [Option] {
+        guard allowsAutomatic, !explicitOptions.isEmpty else {
+            return explicitOptions
+        }
+        return [automaticOption] + explicitOptions
+    }
+
     static func defaultOutputFormats() -> [VideoFormatOption] {
         let avFormats = VideoFormatOption.avFoundationDefaultFormats
 
@@ -59,23 +84,23 @@ enum VideoConversionEngine {
             return avFormats
         }
 
-        if let cached = capabilityCacheQueue.sync(execute: { defaultVideoFormatsCache[ffmpegPath] }) {
-            return cached
-        }
+        return cachedCapabilityValue(
+            readCached: { capabilityCacheQueue.sync(execute: { defaultVideoFormatsCache[ffmpegPath] }) },
+            storeCached: { resolved in
+                capabilityCacheQueue.sync {
+                    defaultVideoFormatsCache[ffmpegPath] = resolved
+                }
+            }
+        ) {
+            guard let introspection = try? inspectFFmpeg(at: ffmpegPath) else {
+                return avFormats
+            }
 
-        guard let introspection = try? inspectFFmpeg(at: ffmpegPath) else {
-            return avFormats
+            let discovered = ffmpegDiscoveredFormats(from: introspection)
+            let candidates = VideoFormatOption.deduplicatedAndSorted(avFormats + VideoFormatOption.ffmpegKnownFormats + discovered)
+            let supportedFFmpegFormats = candidates.filter { isFFmpegFormatSupported($0, introspection: introspection) }
+            return VideoFormatOption.deduplicatedAndSorted(supportedFFmpegFormats + avFormats)
         }
-
-        let discovered = ffmpegDiscoveredFormats(from: introspection)
-        let candidates = VideoFormatOption.deduplicatedAndSorted(avFormats + VideoFormatOption.ffmpegKnownFormats + discovered)
-        let supportedFFmpegFormats = candidates.filter { isFFmpegFormatSupported($0, introspection: introspection) }
-        let resolved = VideoFormatOption.deduplicatedAndSorted(supportedFFmpegFormats + avFormats)
-
-        capabilityCacheQueue.sync {
-            defaultVideoFormatsCache[ffmpegPath] = resolved
-        }
-        return resolved
     }
 
     static func availableVideoEncoders(for format: VideoFormatOption) -> [VideoEncoderOption] {
@@ -88,34 +113,31 @@ enum VideoConversionEngine {
         }
 
         let cacheKey = makeCapabilityCacheKey(path: ffmpegPath, normalizedID: format.normalizedID)
-        if let cached = capabilityCacheQueue.sync(execute: { videoEncoderOptionsCache[cacheKey] }) {
-            return cached
-        }
-
-        guard let introspection = try? inspectFFmpeg(at: ffmpegPath),
-              isFFmpegFormatSupported(format, introspection: introspection) else {
-            let fallback = format.avFileType == nil ? [VideoEncoderOption]() : [.auto]
-            capabilityCacheQueue.sync {
-                videoEncoderOptionsCache[cacheKey] = fallback
+        return cachedCapabilityValue(
+            readCached: { capabilityCacheQueue.sync(execute: { videoEncoderOptionsCache[cacheKey] }) },
+            storeCached: { resolved in
+                capabilityCacheQueue.sync {
+                    videoEncoderOptionsCache[cacheKey] = resolved
+                }
             }
-            return fallback
-        }
+        ) {
+            guard let introspection = try? inspectFFmpeg(at: ffmpegPath),
+                  isFFmpegFormatSupported(format, introspection: introspection) else {
+                return format.avFileType == nil ? [VideoEncoderOption]() : [.auto]
+            }
 
-        let explicitOptions = VideoEncoderOption.allCases.filter { option in
-            guard option != .auto else { return false }
-            return option.isCompatible(with: format) &&
-                option.codecCandidates.contains(where: { introspection.videoEncoders.contains($0) })
-        }
+            let explicitOptions = VideoEncoderOption.allCases.filter { option in
+                guard option != .auto else { return false }
+                return option.isCompatible(with: format) &&
+                    option.codecCandidates.contains(where: { introspection.videoEncoders.contains($0) })
+            }
 
-        var resolved = explicitOptions
-        if format.allowsFFmpegAutomaticVideoCodec, !explicitOptions.isEmpty {
-            resolved.insert(.auto, at: 0)
+            return resolvedEncoderOptions(
+                explicitOptions: explicitOptions,
+                allowsAutomatic: format.allowsFFmpegAutomaticVideoCodec,
+                automaticOption: .auto
+            )
         }
-
-        capabilityCacheQueue.sync {
-            videoEncoderOptionsCache[cacheKey] = resolved
-        }
-        return resolved
     }
 
     static func availableAudioEncoders(for format: VideoFormatOption) -> [AudioEncoderOption] {
@@ -128,34 +150,31 @@ enum VideoConversionEngine {
         }
 
         let cacheKey = makeCapabilityCacheKey(path: ffmpegPath, normalizedID: format.normalizedID)
-        if let cached = capabilityCacheQueue.sync(execute: { videoFormatAudioEncoderOptionsCache[cacheKey] }) {
-            return cached
-        }
-
-        guard let introspection = try? inspectFFmpeg(at: ffmpegPath),
-              isFFmpegFormatSupported(format, introspection: introspection) else {
-            let fallback = format.avFileType == nil ? [AudioEncoderOption]() : [.auto]
-            capabilityCacheQueue.sync {
-                videoFormatAudioEncoderOptionsCache[cacheKey] = fallback
+        return cachedCapabilityValue(
+            readCached: { capabilityCacheQueue.sync(execute: { videoFormatAudioEncoderOptionsCache[cacheKey] }) },
+            storeCached: { resolved in
+                capabilityCacheQueue.sync {
+                    videoFormatAudioEncoderOptionsCache[cacheKey] = resolved
+                }
             }
-            return fallback
-        }
+        ) {
+            guard let introspection = try? inspectFFmpeg(at: ffmpegPath),
+                  isFFmpegFormatSupported(format, introspection: introspection) else {
+                return format.avFileType == nil ? [AudioEncoderOption]() : [.auto]
+            }
 
-        let explicitOptions = AudioEncoderOption.allCases.filter { option in
-            guard option != .auto else { return false }
-            return option.isCompatible(with: format) &&
-                option.codecCandidates.contains(where: { introspection.audioEncoders.contains($0) })
-        }
+            let explicitOptions = AudioEncoderOption.allCases.filter { option in
+                guard option != .auto else { return false }
+                return option.isCompatible(with: format) &&
+                    option.codecCandidates.contains(where: { introspection.audioEncoders.contains($0) })
+            }
 
-        var resolved = explicitOptions
-        if format.allowsFFmpegAutomaticAudioCodec, !explicitOptions.isEmpty {
-            resolved.insert(.auto, at: 0)
+            return resolvedEncoderOptions(
+                explicitOptions: explicitOptions,
+                allowsAutomatic: format.allowsFFmpegAutomaticAudioCodec,
+                automaticOption: .auto
+            )
         }
-
-        capabilityCacheQueue.sync {
-            videoFormatAudioEncoderOptionsCache[cacheKey] = resolved
-        }
-        return resolved
     }
 
     static func defaultAudioOutputFormats() -> [AudioFormatOption] {
@@ -165,21 +184,22 @@ enum VideoConversionEngine {
             return knownFormats
         }
 
-        if let cached = capabilityCacheQueue.sync(execute: { defaultAudioFormatsCache[ffmpegPath] }) {
-            return cached
-        }
+        return cachedCapabilityValue(
+            readCached: { capabilityCacheQueue.sync(execute: { defaultAudioFormatsCache[ffmpegPath] }) },
+            storeCached: { resolved in
+                capabilityCacheQueue.sync {
+                    defaultAudioFormatsCache[ffmpegPath] = resolved
+                }
+            }
+        ) {
+            guard let introspection = try? inspectFFmpeg(at: ffmpegPath) else {
+                return knownFormats
+            }
 
-        guard let introspection = try? inspectFFmpeg(at: ffmpegPath) else {
-            return knownFormats
+            let discovered = ffmpegDiscoveredAudioFormats(from: introspection)
+            let candidates = AudioFormatOption.deduplicatedAndSorted(knownFormats + discovered)
+            return candidates.filter { isFFmpegAudioFormatSupported($0, introspection: introspection) }
         }
-
-        let discovered = ffmpegDiscoveredAudioFormats(from: introspection)
-        let candidates = AudioFormatOption.deduplicatedAndSorted(knownFormats + discovered)
-        let resolved = candidates.filter { isFFmpegAudioFormatSupported($0, introspection: introspection) }
-        capabilityCacheQueue.sync {
-            defaultAudioFormatsCache[ffmpegPath] = resolved
-        }
-        return resolved
     }
 
     static func availableAudioEncoders(for format: AudioFormatOption) -> [AudioEncoderOption] {
@@ -188,34 +208,31 @@ enum VideoConversionEngine {
         }
 
         let cacheKey = makeCapabilityCacheKey(path: ffmpegPath, normalizedID: format.normalizedID)
-        if let cached = capabilityCacheQueue.sync(execute: { audioFormatEncoderOptionsCache[cacheKey] }) {
-            return cached
-        }
-
-        guard let introspection = try? inspectFFmpeg(at: ffmpegPath),
-              isFFmpegAudioFormatSupported(format, introspection: introspection) else {
-            let fallback: [AudioEncoderOption] = []
-            capabilityCacheQueue.sync {
-                audioFormatEncoderOptionsCache[cacheKey] = fallback
+        return cachedCapabilityValue(
+            readCached: { capabilityCacheQueue.sync(execute: { audioFormatEncoderOptionsCache[cacheKey] }) },
+            storeCached: { resolved in
+                capabilityCacheQueue.sync {
+                    audioFormatEncoderOptionsCache[cacheKey] = resolved
+                }
             }
-            return fallback
-        }
+        ) {
+            guard let introspection = try? inspectFFmpeg(at: ffmpegPath),
+                  isFFmpegAudioFormatSupported(format, introspection: introspection) else {
+                return []
+            }
 
-        let explicitOptions = AudioEncoderOption.allCases.filter { option in
-            guard option != .auto else { return false }
-            return option.isCompatible(with: format) &&
-                option.codecCandidates.contains(where: { introspection.audioEncoders.contains($0) })
-        }
+            let explicitOptions = AudioEncoderOption.allCases.filter { option in
+                guard option != .auto else { return false }
+                return option.isCompatible(with: format) &&
+                    option.codecCandidates.contains(where: { introspection.audioEncoders.contains($0) })
+            }
 
-        var resolved = explicitOptions
-        if format.allowsFFmpegAutomaticAudioCodec, !explicitOptions.isEmpty {
-            resolved.insert(.auto, at: 0)
+            return resolvedEncoderOptions(
+                explicitOptions: explicitOptions,
+                allowsAutomatic: format.allowsFFmpegAutomaticAudioCodec,
+                automaticOption: .auto
+            )
         }
-
-        capabilityCacheQueue.sync {
-            audioFormatEncoderOptionsCache[cacheKey] = resolved
-        }
-        return resolved
     }
 
     static func sandboxOutputDirectory(bundleIdentifier: String?) throws -> URL {
