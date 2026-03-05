@@ -1523,42 +1523,93 @@ final class ContentViewModel: ObservableObject {
         }
     }
 
+    private func performMediaBatchConversion<OutputSettings>(
+        canConvert: Bool,
+        primarySourceURL: URL?,
+        queuedSourceURLs: [URL],
+        missingSourceLog: String,
+        fileExtension: String,
+        outputLabel: String,
+        destinationErrorCode: Int,
+        runningKeyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
+        progressKeyPath: ReferenceWritableKeyPath<ContentViewModel, Double>,
+        errorMessageKeyPath: ReferenceWritableKeyPath<ContentViewModel, String?>,
+        currentBatchIndexKeyPath: ReferenceWritableKeyPath<ContentViewModel, Int>,
+        totalBatchCountKeyPath: ReferenceWritableKeyPath<ContentViewModel, Int>,
+        skippedSummaryPrefix: String,
+        treatExportCancellationAsCancelled: Bool = false,
+        startState: () -> Void,
+        buildOutputSettings: () throws -> OutputSettings,
+        validate: @escaping (URL) async -> String?,
+        makeWorkingOutputURL: @escaping (URL) -> URL,
+        runConversion: @escaping (URL, URL, OutputSettings, Int, Int) async throws -> URL,
+        onSavedOutput: @escaping (URL) -> Void,
+        onSourceProcessed: @escaping (URL) -> Void,
+        onError: (Error) -> Void
+    ) async {
+        guard canConvert, let primarySourceURL else {
+            if primarySourceURL == nil {
+                print(missingSourceLog)
+            }
+            return
+        }
+
+        let outputSettings: OutputSettings
+        do {
+            outputSettings = try buildOutputSettings()
+        } catch {
+            onError(error)
+            return
+        }
+
+        guard let batchContext = prepareBatchContext(
+            primarySourceURL: primarySourceURL,
+            queuedSourceURLs: queuedSourceURLs,
+            fileExtension: fileExtension,
+            outputLabel: outputLabel
+        ) else {
+            return
+        }
+
+        let sourceURLs = batchContext.sourceURLs
+        let destinationURLsBySourceID = batchContext.destinationURLsBySourceID
+        defer { batchContext.stopAccessingBatchDirectory() }
+
+        startState()
+        await executeBatchConversion(
+            sourceURLs: sourceURLs,
+            destinationURLsBySourceID: destinationURLsBySourceID,
+            destinationErrorCode: destinationErrorCode,
+            runningKeyPath: runningKeyPath,
+            progressKeyPath: progressKeyPath,
+            errorMessageKeyPath: errorMessageKeyPath,
+            currentBatchIndexKeyPath: currentBatchIndexKeyPath,
+            totalBatchCountKeyPath: totalBatchCountKeyPath,
+            skippedSummaryPrefix: skippedSummaryPrefix,
+            treatExportCancellationAsCancelled: treatExportCancellationAsCancelled,
+            validate: validate,
+            makeWorkingOutputURL: makeWorkingOutputURL,
+            runConversion: { sourceURL, workingOutputURL, index, totalCount in
+                try await runConversion(sourceURL, workingOutputURL, outputSettings, index, totalCount)
+            },
+            onSavedOutput: onSavedOutput,
+            onSourceProcessed: onSourceProcessed,
+            onError: onError
+        )
+    }
+
     // MARK: - Video Convert
 
     private func convert() async {
         defer { conversionTask = nil }
 
-        guard canConvert, let sourceURL else {
-            if sourceURL == nil {
-                print("No file to convert.")
-            }
-            return
-        }
-
-        let outputSettings: VideoOutputSettings
-        do {
-            outputSettings = try buildVideoOutputSettings()
-        } catch {
-            applyConversionError(error)
-            return
-        }
-
-        guard let batchContext = prepareBatchContext(
+        await performMediaBatchConversion(
+            canConvert: canConvert,
             primarySourceURL: sourceURL,
             queuedSourceURLs: queuedSourceURLs,
+            missingSourceLog: "No file to convert.",
             fileExtension: selectedOutputFormat.fileExtension,
-            outputLabel: "Video"
-        ) else {
-            return
-        }
-        let sourceURLs = batchContext.sourceURLs
-        let destinationURLsBySourceID = batchContext.destinationURLsBySourceID
-        defer { batchContext.stopAccessingBatchDirectory() }
-
-        prepareConversionStartState()
-        await executeBatchConversion(
-            sourceURLs: sourceURLs,
-            destinationURLsBySourceID: destinationURLsBySourceID,
+            outputLabel: "Video",
             destinationErrorCode: -1001,
             runningKeyPath: \.isConverting,
             progressKeyPath: \.conversionProgress,
@@ -1567,11 +1618,13 @@ final class ContentViewModel: ObservableObject {
             totalBatchCountKeyPath: \.totalVideoBatchCount,
             skippedSummaryPrefix: "Some video files were skipped:",
             treatExportCancellationAsCancelled: true,
+            startState: { self.prepareConversionStartState() },
+            buildOutputSettings: { try self.buildVideoOutputSettings() },
             validate: { await self.validateVideoOutputSettings(for: $0) },
             makeWorkingOutputURL: { sourceURL in
                 VideoConversionEngine.temporaryOutputURL(for: sourceURL, format: self.selectedOutputFormat)
             },
-            runConversion: { sourceURL, workingOutputURL, index, totalCount in
+            runConversion: { sourceURL, workingOutputURL, outputSettings, index, totalCount in
                 try await VideoConversionEngine.convert(
                     inputURL: sourceURL,
                     outputURL: workingOutputURL,
@@ -1597,30 +1650,13 @@ final class ContentViewModel: ObservableObject {
     private func convertImage() async {
         defer { imageConversionTask = nil }
 
-        guard canConvertImage, let sourceURL = imageSourceURL else {
-            if imageSourceURL == nil {
-                print("No image file to convert.")
-            }
-            return
-        }
-
-        let outputSettings = buildImageOutputSettings()
-        guard let batchContext = prepareBatchContext(
-            primarySourceURL: sourceURL,
+        await performMediaBatchConversion(
+            canConvert: canConvertImage,
+            primarySourceURL: imageSourceURL,
             queuedSourceURLs: queuedImageSourceURLs,
+            missingSourceLog: "No image file to convert.",
             fileExtension: selectedImageOutputFormat.fileExtension,
-            outputLabel: "Image"
-        ) else {
-            return
-        }
-        let sourceURLs = batchContext.sourceURLs
-        let destinationURLsBySourceID = batchContext.destinationURLsBySourceID
-        defer { batchContext.stopAccessingBatchDirectory() }
-
-        prepareImageConversionStartState()
-        await executeBatchConversion(
-            sourceURLs: sourceURLs,
-            destinationURLsBySourceID: destinationURLsBySourceID,
+            outputLabel: "Image",
             destinationErrorCode: -1002,
             runningKeyPath: \.isImageConverting,
             progressKeyPath: \.imageConversionProgress,
@@ -1628,11 +1664,13 @@ final class ContentViewModel: ObservableObject {
             currentBatchIndexKeyPath: \.currentImageBatchIndex,
             totalBatchCountKeyPath: \.totalImageBatchCount,
             skippedSummaryPrefix: "Some image files were skipped:",
+            startState: { self.prepareImageConversionStartState() },
+            buildOutputSettings: { self.buildImageOutputSettings() },
             validate: { await self.validateImageOutputSettings(for: $0) },
             makeWorkingOutputURL: { sourceURL in
                 ImageConversionEngine.temporaryOutputURL(for: sourceURL, format: self.selectedImageOutputFormat)
             },
-            runConversion: { sourceURL, workingOutputURL, index, totalCount in
+            runConversion: { sourceURL, workingOutputURL, outputSettings, index, totalCount in
                 try await ImageConversionEngine.convert(
                     inputURL: sourceURL,
                     outputURL: workingOutputURL,
@@ -1657,30 +1695,13 @@ final class ContentViewModel: ObservableObject {
     private func convertAudio() async {
         defer { audioConversionTask = nil }
 
-        guard canConvertAudio, let sourceURL = audioSourceURL else {
-            if audioSourceURL == nil {
-                print("No audio file to convert.")
-            }
-            return
-        }
-
-        let outputSettings = buildAudioOutputSettings()
-        guard let batchContext = prepareBatchContext(
-            primarySourceURL: sourceURL,
+        await performMediaBatchConversion(
+            canConvert: canConvertAudio,
+            primarySourceURL: audioSourceURL,
             queuedSourceURLs: queuedAudioSourceURLs,
+            missingSourceLog: "No audio file to convert.",
             fileExtension: selectedAudioOutputFormat.fileExtension,
-            outputLabel: "Audio"
-        ) else {
-            return
-        }
-        let sourceURLs = batchContext.sourceURLs
-        let destinationURLsBySourceID = batchContext.destinationURLsBySourceID
-        defer { batchContext.stopAccessingBatchDirectory() }
-
-        prepareAudioConversionStartState()
-        await executeBatchConversion(
-            sourceURLs: sourceURLs,
-            destinationURLsBySourceID: destinationURLsBySourceID,
+            outputLabel: "Audio",
             destinationErrorCode: -1003,
             runningKeyPath: \.isAudioConverting,
             progressKeyPath: \.audioConversionProgress,
@@ -1689,11 +1710,13 @@ final class ContentViewModel: ObservableObject {
             totalBatchCountKeyPath: \.totalAudioBatchCount,
             skippedSummaryPrefix: "Some audio files were skipped:",
             treatExportCancellationAsCancelled: true,
+            startState: { self.prepareAudioConversionStartState() },
+            buildOutputSettings: { self.buildAudioOutputSettings() },
             validate: { await self.validateAudioOutputSettings(for: $0) },
             makeWorkingOutputURL: { sourceURL in
                 VideoConversionEngine.temporaryOutputURL(for: sourceURL, format: self.selectedAudioOutputFormat)
             },
-            runConversion: { sourceURL, workingOutputURL, index, totalCount in
+            runConversion: { sourceURL, workingOutputURL, outputSettings, index, totalCount in
                 try await VideoConversionEngine.convertAudio(
                     inputURL: sourceURL,
                     outputURL: workingOutputURL,
