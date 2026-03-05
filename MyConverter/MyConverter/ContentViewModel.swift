@@ -1257,6 +1257,19 @@ final class ContentViewModel: ObservableObject {
         return try await operation()
     }
 
+    private func prepareBatchContext(
+        primarySourceURL: URL,
+        queuedSourceURLs: [URL],
+        fileExtension: String,
+        outputLabel: String
+    ) -> PreparedBatchConversionContext? {
+        BatchConversionSupport.prepareContext(
+            sourceURLs: [primarySourceURL] + queuedSourceURLs,
+            fileExtension: fileExtension,
+            outputLabel: outputLabel
+        )
+    }
+
     private func runBatchConversionLoop(
         sourceURLs: [URL],
         destinationURLsBySourceID: [String: URL],
@@ -1313,6 +1326,67 @@ final class ContentViewModel: ObservableObject {
         return skippedEntries
     }
 
+    private func executeBatchConversion(
+        sourceURLs: [URL],
+        destinationURLsBySourceID: [String: URL],
+        destinationErrorCode: Int,
+        runningKeyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
+        progressKeyPath: ReferenceWritableKeyPath<ContentViewModel, Double>,
+        errorMessageKeyPath: ReferenceWritableKeyPath<ContentViewModel, String?>,
+        currentBatchIndexKeyPath: ReferenceWritableKeyPath<ContentViewModel, Int>,
+        totalBatchCountKeyPath: ReferenceWritableKeyPath<ContentViewModel, Int>,
+        skippedSummaryPrefix: String,
+        treatExportCancellationAsCancelled: Bool = false,
+        validate: @escaping (URL) async -> String?,
+        makeWorkingOutputURL: @escaping (URL) -> URL,
+        runConversion: @escaping (URL, URL, Int, Int) async throws -> URL,
+        onSavedOutput: @escaping (URL) -> Void,
+        onSourceProcessed: @escaping (URL) -> Void,
+        onError: (Error) -> Void
+    ) async {
+        self[keyPath: totalBatchCountKeyPath] = sourceURLs.count
+        self[keyPath: currentBatchIndexKeyPath] = 0
+
+        do {
+            defer {
+                self[keyPath: runningKeyPath] = false
+                self[keyPath: currentBatchIndexKeyPath] = 0
+                self[keyPath: totalBatchCountKeyPath] = 0
+            }
+            try Task.checkCancellation()
+
+            let skippedEntries = try await runBatchConversionLoop(
+                sourceURLs: sourceURLs,
+                destinationURLsBySourceID: destinationURLsBySourceID,
+                destinationErrorCode: destinationErrorCode,
+                validate: validate,
+                makeWorkingOutputURL: makeWorkingOutputURL,
+                runConversion: runConversion,
+                onSavedOutput: onSavedOutput,
+                onSourceProcessed: onSourceProcessed,
+                onBatchIndexChanged: { index in
+                    self[keyPath: currentBatchIndexKeyPath] = index
+                }
+            )
+
+            setProgress(1, at: progressKeyPath)
+            if let summary = BatchConversionSupport.skippedFilesSummary(
+                prefix: skippedSummaryPrefix,
+                entries: skippedEntries
+            ) {
+                self[keyPath: errorMessageKeyPath] = summary
+            }
+        } catch is CancellationError {
+            setProgress(0, at: progressKeyPath)
+            self[keyPath: errorMessageKeyPath] = nil
+        } catch ConversionError.exportCancelled where treatExportCancellationAsCancelled {
+            setProgress(0, at: progressKeyPath)
+            self[keyPath: errorMessageKeyPath] = nil
+        } catch {
+            onError(error)
+        }
+    }
+
     // MARK: - Video Convert
 
     private func convert() async {
@@ -1333,8 +1407,9 @@ final class ContentViewModel: ObservableObject {
             return
         }
 
-        guard let batchContext = BatchConversionSupport.prepareContext(
-            sourceURLs: [sourceURL] + queuedSourceURLs,
+        guard let batchContext = prepareBatchContext(
+            primarySourceURL: sourceURL,
+            queuedSourceURLs: queuedSourceURLs,
             fileExtension: selectedOutputFormat.fileExtension,
             outputLabel: "Video"
         ) else {
@@ -1345,65 +1420,40 @@ final class ContentViewModel: ObservableObject {
         defer { batchContext.stopAccessingBatchDirectory() }
 
         prepareConversionStartState()
-        totalVideoBatchCount = sourceURLs.count
-        currentVideoBatchIndex = 0
-
-        do {
-            defer {
-                isConverting = false
-                currentVideoBatchIndex = 0
-                totalVideoBatchCount = 0
-            }
-            try Task.checkCancellation()
-
-            let skippedEntries = try await runBatchConversionLoop(
-                sourceURLs: sourceURLs,
-                destinationURLsBySourceID: destinationURLsBySourceID,
-                destinationErrorCode: -1001,
-                validate: { await self.validateVideoOutputSettings(for: $0) },
-                makeWorkingOutputURL: { sourceURL in
-                    VideoConversionEngine.temporaryOutputURL(for: sourceURL, format: self.selectedOutputFormat)
-                },
-                runConversion: { sourceURL, workingOutputURL, index, totalCount in
-                    try await VideoConversionEngine.convert(
-                        inputURL: sourceURL,
-                        outputURL: workingOutputURL,
-                        outputSettings: outputSettings,
-                        inputDurationSeconds: nil
-                    ) { [weak self] progress in
-                        let base = Double(index)
-                        let total = Double(max(totalCount, 1))
-                        await self?.updateConversionProgress((base + progress) / total)
-                    }
-                },
-                onSavedOutput: { savedURL in
-                    self.convertedURL = savedURL
-                    self.convertedURLs.append(savedURL)
-                },
-                onSourceProcessed: { sourceURL in
-                    self.removeProcessedVideoSource(sourceURL)
-                },
-                onBatchIndexChanged: { index in
-                    self.currentVideoBatchIndex = index
+        await executeBatchConversion(
+            sourceURLs: sourceURLs,
+            destinationURLsBySourceID: destinationURLsBySourceID,
+            destinationErrorCode: -1001,
+            runningKeyPath: \.isConverting,
+            progressKeyPath: \.conversionProgress,
+            errorMessageKeyPath: \.conversionErrorMessage,
+            currentBatchIndexKeyPath: \.currentVideoBatchIndex,
+            totalBatchCountKeyPath: \.totalVideoBatchCount,
+            skippedSummaryPrefix: "Some video files were skipped:",
+            treatExportCancellationAsCancelled: true,
+            validate: { await self.validateVideoOutputSettings(for: $0) },
+            makeWorkingOutputURL: { sourceURL in
+                VideoConversionEngine.temporaryOutputURL(for: sourceURL, format: self.selectedOutputFormat)
+            },
+            runConversion: { sourceURL, workingOutputURL, index, totalCount in
+                try await VideoConversionEngine.convert(
+                    inputURL: sourceURL,
+                    outputURL: workingOutputURL,
+                    outputSettings: outputSettings,
+                    inputDurationSeconds: nil
+                ) { [weak self] progress in
+                    let base = Double(index)
+                    let total = Double(max(totalCount, 1))
+                    await self?.updateConversionProgress((base + progress) / total)
                 }
-            )
-
-            conversionProgress = 1
-            if let summary = BatchConversionSupport.skippedFilesSummary(
-                prefix: "Some video files were skipped:",
-                entries: skippedEntries
-            ) {
-                conversionErrorMessage = summary
-            }
-        } catch is CancellationError {
-            conversionProgress = 0
-            conversionErrorMessage = nil
-        } catch ConversionError.exportCancelled {
-            conversionProgress = 0
-            conversionErrorMessage = nil
-        } catch {
-            applyConversionError(error)
-        }
+            },
+            onSavedOutput: { savedURL in
+                self.convertedURL = savedURL
+                self.convertedURLs.append(savedURL)
+            },
+            onSourceProcessed: removeProcessedVideoSource(_:),
+            onError: applyConversionError(_:)
+        )
     }
 
     // MARK: - Image Convert
@@ -1419,8 +1469,9 @@ final class ContentViewModel: ObservableObject {
         }
 
         let outputSettings = buildImageOutputSettings()
-        guard let batchContext = BatchConversionSupport.prepareContext(
-            sourceURLs: [sourceURL] + queuedImageSourceURLs,
+        guard let batchContext = prepareBatchContext(
+            primarySourceURL: sourceURL,
+            queuedSourceURLs: queuedImageSourceURLs,
             fileExtension: selectedImageOutputFormat.fileExtension,
             outputLabel: "Image"
         ) else {
@@ -1431,61 +1482,38 @@ final class ContentViewModel: ObservableObject {
         defer { batchContext.stopAccessingBatchDirectory() }
 
         prepareImageConversionStartState()
-        totalImageBatchCount = sourceURLs.count
-        currentImageBatchIndex = 0
-
-        do {
-            defer {
-                isImageConverting = false
-                currentImageBatchIndex = 0
-                totalImageBatchCount = 0
-            }
-            try Task.checkCancellation()
-
-            let skippedEntries = try await runBatchConversionLoop(
-                sourceURLs: sourceURLs,
-                destinationURLsBySourceID: destinationURLsBySourceID,
-                destinationErrorCode: -1002,
-                validate: { await self.validateImageOutputSettings(for: $0) },
-                makeWorkingOutputURL: { sourceURL in
-                    ImageConversionEngine.temporaryOutputURL(for: sourceURL, format: self.selectedImageOutputFormat)
-                },
-                runConversion: { sourceURL, workingOutputURL, index, totalCount in
-                    try await ImageConversionEngine.convert(
-                        inputURL: sourceURL,
-                        outputURL: workingOutputURL,
-                        outputSettings: outputSettings
-                    ) { [weak self] progress in
-                        let base = Double(index)
-                        let total = Double(max(totalCount, 1))
-                        await self?.updateImageConversionProgress((base + progress) / total)
-                    }
-                },
-                onSavedOutput: { savedURL in
-                    self.convertedImageURL = savedURL
-                    self.convertedImageURLs.append(savedURL)
-                },
-                onSourceProcessed: { sourceURL in
-                    self.removeProcessedImageSource(sourceURL)
-                },
-                onBatchIndexChanged: { index in
-                    self.currentImageBatchIndex = index
+        await executeBatchConversion(
+            sourceURLs: sourceURLs,
+            destinationURLsBySourceID: destinationURLsBySourceID,
+            destinationErrorCode: -1002,
+            runningKeyPath: \.isImageConverting,
+            progressKeyPath: \.imageConversionProgress,
+            errorMessageKeyPath: \.imageConversionErrorMessage,
+            currentBatchIndexKeyPath: \.currentImageBatchIndex,
+            totalBatchCountKeyPath: \.totalImageBatchCount,
+            skippedSummaryPrefix: "Some image files were skipped:",
+            validate: { await self.validateImageOutputSettings(for: $0) },
+            makeWorkingOutputURL: { sourceURL in
+                ImageConversionEngine.temporaryOutputURL(for: sourceURL, format: self.selectedImageOutputFormat)
+            },
+            runConversion: { sourceURL, workingOutputURL, index, totalCount in
+                try await ImageConversionEngine.convert(
+                    inputURL: sourceURL,
+                    outputURL: workingOutputURL,
+                    outputSettings: outputSettings
+                ) { [weak self] progress in
+                    let base = Double(index)
+                    let total = Double(max(totalCount, 1))
+                    await self?.updateImageConversionProgress((base + progress) / total)
                 }
-            )
-
-            imageConversionProgress = 1
-            if let summary = BatchConversionSupport.skippedFilesSummary(
-                prefix: "Some image files were skipped:",
-                entries: skippedEntries
-            ) {
-                imageConversionErrorMessage = summary
-            }
-        } catch is CancellationError {
-            imageConversionProgress = 0
-            imageConversionErrorMessage = nil
-        } catch {
-            applyImageConversionError(error)
-        }
+            },
+            onSavedOutput: { savedURL in
+                self.convertedImageURL = savedURL
+                self.convertedImageURLs.append(savedURL)
+            },
+            onSourceProcessed: removeProcessedImageSource(_:),
+            onError: applyImageConversionError(_:)
+        )
     }
 
     // MARK: - Audio Convert
@@ -1501,8 +1529,9 @@ final class ContentViewModel: ObservableObject {
         }
 
         let outputSettings = buildAudioOutputSettings()
-        guard let batchContext = BatchConversionSupport.prepareContext(
-            sourceURLs: [sourceURL] + queuedAudioSourceURLs,
+        guard let batchContext = prepareBatchContext(
+            primarySourceURL: sourceURL,
+            queuedSourceURLs: queuedAudioSourceURLs,
             fileExtension: selectedAudioOutputFormat.fileExtension,
             outputLabel: "Audio"
         ) else {
@@ -1513,65 +1542,40 @@ final class ContentViewModel: ObservableObject {
         defer { batchContext.stopAccessingBatchDirectory() }
 
         prepareAudioConversionStartState()
-        totalAudioBatchCount = sourceURLs.count
-        currentAudioBatchIndex = 0
-
-        do {
-            defer {
-                isAudioConverting = false
-                currentAudioBatchIndex = 0
-                totalAudioBatchCount = 0
-            }
-            try Task.checkCancellation()
-
-            let skippedEntries = try await runBatchConversionLoop(
-                sourceURLs: sourceURLs,
-                destinationURLsBySourceID: destinationURLsBySourceID,
-                destinationErrorCode: -1003,
-                validate: { await self.validateAudioOutputSettings(for: $0) },
-                makeWorkingOutputURL: { sourceURL in
-                    VideoConversionEngine.temporaryOutputURL(for: sourceURL, format: self.selectedAudioOutputFormat)
-                },
-                runConversion: { sourceURL, workingOutputURL, index, totalCount in
-                    try await VideoConversionEngine.convertAudio(
-                        inputURL: sourceURL,
-                        outputURL: workingOutputURL,
-                        outputSettings: outputSettings,
-                        inputDurationSeconds: nil
-                    ) { [weak self] progress in
-                        let base = Double(index)
-                        let total = Double(max(totalCount, 1))
-                        await self?.updateAudioConversionProgress((base + progress) / total)
-                    }
-                },
-                onSavedOutput: { savedURL in
-                    self.convertedAudioURL = savedURL
-                    self.convertedAudioURLs.append(savedURL)
-                },
-                onSourceProcessed: { sourceURL in
-                    self.removeProcessedAudioSource(sourceURL)
-                },
-                onBatchIndexChanged: { index in
-                    self.currentAudioBatchIndex = index
+        await executeBatchConversion(
+            sourceURLs: sourceURLs,
+            destinationURLsBySourceID: destinationURLsBySourceID,
+            destinationErrorCode: -1003,
+            runningKeyPath: \.isAudioConverting,
+            progressKeyPath: \.audioConversionProgress,
+            errorMessageKeyPath: \.audioConversionErrorMessage,
+            currentBatchIndexKeyPath: \.currentAudioBatchIndex,
+            totalBatchCountKeyPath: \.totalAudioBatchCount,
+            skippedSummaryPrefix: "Some audio files were skipped:",
+            treatExportCancellationAsCancelled: true,
+            validate: { await self.validateAudioOutputSettings(for: $0) },
+            makeWorkingOutputURL: { sourceURL in
+                VideoConversionEngine.temporaryOutputURL(for: sourceURL, format: self.selectedAudioOutputFormat)
+            },
+            runConversion: { sourceURL, workingOutputURL, index, totalCount in
+                try await VideoConversionEngine.convertAudio(
+                    inputURL: sourceURL,
+                    outputURL: workingOutputURL,
+                    outputSettings: outputSettings,
+                    inputDurationSeconds: nil
+                ) { [weak self] progress in
+                    let base = Double(index)
+                    let total = Double(max(totalCount, 1))
+                    await self?.updateAudioConversionProgress((base + progress) / total)
                 }
-            )
-
-            audioConversionProgress = 1
-            if let summary = BatchConversionSupport.skippedFilesSummary(
-                prefix: "Some audio files were skipped:",
-                entries: skippedEntries
-            ) {
-                audioConversionErrorMessage = summary
-            }
-        } catch is CancellationError {
-            audioConversionProgress = 0
-            audioConversionErrorMessage = nil
-        } catch ConversionError.exportCancelled {
-            audioConversionProgress = 0
-            audioConversionErrorMessage = nil
-        } catch {
-            applyAudioConversionError(error)
-        }
+            },
+            onSavedOutput: { savedURL in
+                self.convertedAudioURL = savedURL
+                self.convertedAudioURLs.append(savedURL)
+            },
+            onSourceProcessed: removeProcessedAudioSource(_:),
+            onError: applyAudioConversionError(_:)
+        )
     }
 
     // MARK: - Progress
