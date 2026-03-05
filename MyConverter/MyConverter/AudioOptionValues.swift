@@ -1,0 +1,77 @@
+enum AudioModeOption: String, CaseIterable, Identifiable {
+    case auto = "Auto"
+    case stereo = "Stereo"
+    case mono = "Mono"
+
+    var id: String { rawValue }
+
+    var channelCount: Int? {
+        switch self {
+        case .auto:
+            return nil
+        case .stereo:
+            return 2
+        case .mono:
+            return 1
+        }
+    }
+}
+
+enum SampleRateOption: String, CaseIterable, Identifiable {
+    case hz48000 = "48000 HZ"
+    case hz44100 = "44100 HZ"
+    case hz32000 = "32000 HZ"
+    case hz16000 = "16000 HZ"
+
+    var id: String { rawValue }
+
+    var hertz: Int {
+        switch self {
+        case .hz48000:
+            return 48000
+        case .hz44100:
+            return 44100
+        case .hz32000:
+            return 32000
+        case .hz16000:
+            return 16000
+        }
+    }
+}
+
+enum AudioBitRateOption: String, CaseIterable, Identifiable {
+    case auto = "Auto"
+    case kbps320 = "320 Kbps"
+    case kbps256 = "256 Kbps"
+    case kbps192 = "192 Kbps"
+    case kbps160 = "160 Kbps"
+    case kbps128 = "128 Kbps"
+    case kbps96 = "96 Kbps"
+    case kbps80 = "80 Kbps"
+    case kbps64 = "64 Kbps"
+
+    var id: String { rawValue }
+
+    var kbps: Int? {
+        switch self {
+        case .auto:
+            return nil
+        case .kbps320:
+            return 320
+        case .kbps256:
+            return 256
+        case .kbps192:
+            return 192
+        case .kbps160:
+            return 160
+        case .kbps128:
+            return 128
+        case .kbps96:
+            return 96
+        case .kbps80:
+            return 80
+        case .kbps64:
+            return 64
+        }
+    }
+}
