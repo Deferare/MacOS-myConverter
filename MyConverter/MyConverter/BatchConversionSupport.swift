@@ -201,18 +201,12 @@ enum BatchConversionSupport {
         let baseName = sourceURL.deletingPathExtension().lastPathComponent.isEmpty
             ? "output"
             : sourceURL.deletingPathExtension().lastPathComponent
-        let ext = fileExtension.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        var candidate = outputDirectory.appendingPathComponent("\(baseName).\(ext)")
-        var index = 1
-
-        while reservedPaths.contains(candidate.standardizedFileURL.path) ||
-            FileManager.default.fileExists(atPath: candidate.path) {
-            candidate = outputDirectory.appendingPathComponent("\(baseName)_converted_\(index).\(ext)")
-            index += 1
-        }
-
-        return candidate
+        return OutputPathUtilities.uniqueOutputURL(
+            forBaseName: baseName,
+            fileExtension: fileExtension,
+            in: outputDirectory,
+            reservedPaths: reservedPaths
+        )
     }
 
     private static func assignAutoBatchDestinations(

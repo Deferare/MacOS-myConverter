@@ -15,17 +15,49 @@ enum OutputPathUtilities {
         fileExtension: String,
         in outputDirectory: URL
     ) -> URL {
-        let baseName = sourceURL.deletingPathExtension().lastPathComponent
-        let ext = fileExtension
-        var candidate = outputDirectory.appendingPathComponent("\(baseName).\(ext)")
-        var index = 1
+        uniqueOutputURL(
+            forBaseName: sourceURL.deletingPathExtension().lastPathComponent,
+            fileExtension: fileExtension,
+            in: outputDirectory
+        )
+    }
 
-        while FileManager.default.fileExists(atPath: candidate.path) {
-            candidate = outputDirectory.appendingPathComponent("\(baseName)_converted_\(index).\(ext)")
-            index += 1
+    nonisolated static func uniqueOutputURL(
+        forBaseName baseName: String,
+        fileExtension: String,
+        in outputDirectory: URL,
+        reservedPaths: Set<String> = []
+    ) -> URL {
+        let trimmedBaseName = baseName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let effectiveBaseName = trimmedBaseName.isEmpty ? "output" : trimmedBaseName
+        let ext = fileExtension.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        func makeCandidate(suffix: Int?) -> URL {
+            let resolvedBaseName: String
+            if let suffix {
+                resolvedBaseName = "\(effectiveBaseName)_converted_\(suffix)"
+            } else {
+                resolvedBaseName = effectiveBaseName
+            }
+
+            if ext.isEmpty {
+                return outputDirectory.appendingPathComponent(resolvedBaseName)
+            }
+            return outputDirectory.appendingPathComponent("\(resolvedBaseName).\(ext)")
         }
 
-        return candidate
+        var index = 0
+        while true {
+            let candidate = makeCandidate(suffix: index == 0 ? nil : index)
+            let standardizedPath = candidate.standardizedFileURL.path
+            let isReserved = reservedPaths.contains(standardizedPath)
+            let existsOnDisk = FileManager.default.fileExists(atPath: candidate.path)
+
+            if !isReserved && !existsOnDisk {
+                return candidate
+            }
+            index += 1
+        }
     }
 
     nonisolated static func temporaryOutputURL(
