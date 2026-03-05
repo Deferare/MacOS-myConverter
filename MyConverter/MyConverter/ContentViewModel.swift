@@ -1847,12 +1847,12 @@ final class ContentViewModel: ObservableObject {
             ? VideoConversionEngine.availableAudioEncoders(for: format)
             : []
 
-        if let preferredVideo = preferredVideoEncoder(from: availableVideoEncoders),
+        if let preferredVideo = ContentViewModelSupport.preferredVideoEncoder(from: availableVideoEncoders),
            !availableVideoEncoders.contains(selectedVideoEncoder) {
             selectedVideoEncoder = preferredVideo
         }
         if format.supportsAudioTrack,
-           let preferredAudio = preferredAudioEncoder(from: availableAudioEncoders),
+           let preferredAudio = ContentViewModelSupport.preferredAudioEncoder(from: availableAudioEncoders),
            !availableAudioEncoders.contains(selectedAudioEncoder) {
             selectedAudioEncoder = preferredAudio
         }
@@ -1873,51 +1873,12 @@ final class ContentViewModel: ObservableObject {
             effectiveOptions = []
         }
 
-        if let preferred = preferredAudioOutputEncoder(for: format, from: effectiveOptions),
+        if let preferred = ContentViewModelSupport.preferredAudioOutputEncoder(for: format, from: effectiveOptions),
            !effectiveOptions.contains(selectedAudioOutputEncoder) {
             selectedAudioOutputEncoder = preferred
         }
 
         normalizeAudioOptionDependencies()
-    }
-
-    private func preferredVideoEncoder(from options: [VideoEncoderOption]) -> VideoEncoderOption? {
-        guard !options.isEmpty else { return nil }
-        if options.contains(.h264GPU) { return .h264GPU }
-        if options.contains(.h264CPU) { return .h264CPU }
-        if options.contains(.auto) { return .auto }
-        return options.first
-    }
-
-    private func preferredAudioEncoder(from options: [AudioEncoderOption]) -> AudioEncoderOption? {
-        guard !options.isEmpty else { return nil }
-        if options.contains(.aac) { return .aac }
-        if options.contains(.auto) { return .auto }
-        return options.first
-    }
-
-    private func preferredAudioOutputEncoder(for format: AudioFormatOption, from options: [AudioEncoderOption]) -> AudioEncoderOption? {
-        guard !options.isEmpty else { return nil }
-
-        switch format.fileExtension.lowercased() {
-        case "m4a", "aac":
-            if options.contains(.aac) { return .aac }
-        case "mp3":
-            if options.contains(.mp3) { return .mp3 }
-        case "wav", "aiff", "aif", "caf":
-            if options.contains(.pcm) { return .pcm }
-        case "flac":
-            if options.contains(.flac) { return .flac }
-        case "opus", "ogg", "oga":
-            if options.contains(.opus) { return .opus }
-        default:
-            break
-        }
-
-        if options.contains(.aac) { return .aac }
-        if options.contains(.mp3) { return .mp3 }
-        if options.contains(.auto) { return .auto }
-        return options.first
     }
 
     private func normalizeVideoOptionDependencies() {
@@ -1947,7 +1908,10 @@ final class ContentViewModel: ObservableObject {
         let options = audioOutputEncoderOptions
         if !options.isEmpty,
            !options.contains(selectedAudioOutputEncoder),
-           let preferred = preferredAudioOutputEncoder(for: selectedAudioOutputFormat, from: options) {
+           let preferred = ContentViewModelSupport.preferredAudioOutputEncoder(
+               for: selectedAudioOutputFormat,
+               from: options
+           ) {
             selectedAudioOutputEncoder = preferred
         }
 
