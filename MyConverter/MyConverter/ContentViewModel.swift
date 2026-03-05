@@ -376,6 +376,57 @@ final class ContentViewModel: ObservableObject {
         applySelection(filtered)
     }
 
+    private func assignVideoSelection(_ urls: [URL]) {
+        assignPrimaryAndQueuedSources(
+            urls,
+            primaryKeyPath: \.sourceURL,
+            queuedKeyPath: \.queuedSourceURLs
+        )
+    }
+
+    private func assignImageSelection(_ urls: [URL]) {
+        assignPrimaryAndQueuedSources(
+            urls,
+            primaryKeyPath: \.imageSourceURL,
+            queuedKeyPath: \.queuedImageSourceURLs
+        )
+    }
+
+    private func assignAudioSelection(_ urls: [URL]) {
+        assignPrimaryAndQueuedSources(
+            urls,
+            primaryKeyPath: \.audioSourceURL,
+            queuedKeyPath: \.queuedAudioSourceURLs
+        )
+    }
+
+    private func applyStoredVideoSettings(for sourceID: String) {
+        applyStoredSettingsForSource(
+            sourceID: sourceID,
+            settingsBySourceID: videoSettingsBySourceID,
+            defaultSettings: VideoConversionSettings(),
+            apply: applyStoredSettings(_:)
+        )
+    }
+
+    private func applyStoredImageSettings(for sourceID: String) {
+        applyStoredSettingsForSource(
+            sourceID: sourceID,
+            settingsBySourceID: imageSettingsBySourceID,
+            defaultSettings: ImageConversionSettings(),
+            apply: applyStoredImageSettings(_:)
+        )
+    }
+
+    private func applyStoredAudioSettings(for sourceID: String) {
+        applyStoredSettingsForSource(
+            sourceID: sourceID,
+            settingsBySourceID: audioSettingsBySourceID,
+            defaultSettings: AudioConversionSettings(),
+            apply: applyStoredAudioSettings(_:)
+        )
+    }
+
     func clearSelectedSource() {
         clearSelectedVideoSource()
     }
@@ -572,11 +623,7 @@ final class ContentViewModel: ObservableObject {
             currentPrimaryURL: sourceURL,
             selectedSourceURLs: selectedVideoSourceURLs,
             assignSelection: { reordered in
-                assignPrimaryAndQueuedSources(
-                    reordered,
-                    primaryKeyPath: \.sourceURL,
-                    queuedKeyPath: \.queuedSourceURLs
-                )
+                assignVideoSelection(reordered)
             },
             cancelAnalysisTask: {
                 cancelTask(&sourceAnalysisTask)
@@ -586,12 +633,7 @@ final class ContentViewModel: ObservableObject {
                 sourceCompatibilityWarningMessage = nil
             },
             applyStoredSettingsForSourceID: { sourceID in
-                applyStoredSettingsForSource(
-                    sourceID: sourceID,
-                    settingsBySourceID: videoSettingsBySourceID,
-                    defaultSettings: VideoConversionSettings(),
-                    apply: applyStoredSettings(_:)
-                )
+                applyStoredVideoSettings(for: sourceID)
             },
             analyzeSelection: { urls in
                 analyzeSourceCompatibility(for: urls)
@@ -607,11 +649,7 @@ final class ContentViewModel: ObservableObject {
             currentPrimaryURL: imageSourceURL,
             selectedSourceURLs: selectedImageSourceURLs,
             assignSelection: { reordered in
-                assignPrimaryAndQueuedSources(
-                    reordered,
-                    primaryKeyPath: \.imageSourceURL,
-                    queuedKeyPath: \.queuedImageSourceURLs
-                )
+                assignImageSelection(reordered)
             },
             cancelAnalysisTask: {
                 cancelTask(&imageSourceAnalysisTask)
@@ -623,12 +661,7 @@ final class ContentViewModel: ObservableObject {
                 imageSourceCompatibilityWarningMessage = nil
             },
             applyStoredSettingsForSourceID: { sourceID in
-                applyStoredSettingsForSource(
-                    sourceID: sourceID,
-                    settingsBySourceID: imageSettingsBySourceID,
-                    defaultSettings: ImageConversionSettings(),
-                    apply: applyStoredImageSettings(_:)
-                )
+                applyStoredImageSettings(for: sourceID)
             },
             analyzeSelection: { urls in
                 analyzeImageSourceCompatibility(for: urls)
@@ -644,11 +677,7 @@ final class ContentViewModel: ObservableObject {
             currentPrimaryURL: audioSourceURL,
             selectedSourceURLs: selectedAudioSourceURLs,
             assignSelection: { reordered in
-                assignPrimaryAndQueuedSources(
-                    reordered,
-                    primaryKeyPath: \.audioSourceURL,
-                    queuedKeyPath: \.queuedAudioSourceURLs
-                )
+                assignAudioSelection(reordered)
             },
             cancelAnalysisTask: {
                 cancelTask(&audioSourceAnalysisTask)
@@ -658,12 +687,7 @@ final class ContentViewModel: ObservableObject {
                 audioSourceCompatibilityWarningMessage = nil
             },
             applyStoredSettingsForSourceID: { sourceID in
-                applyStoredSettingsForSource(
-                    sourceID: sourceID,
-                    settingsBySourceID: audioSettingsBySourceID,
-                    defaultSettings: AudioConversionSettings(),
-                    apply: applyStoredAudioSettings(_:)
-                )
+                applyStoredAudioSettings(for: sourceID)
             },
             analyzeSelection: { urls in
                 analyzeAudioSourceCompatibility(for: urls)
@@ -862,11 +886,7 @@ final class ContentViewModel: ObservableObject {
                 cancelTask(&sourceAnalysisTask)
             },
             assignSelection: { selection in
-                assignPrimaryAndQueuedSources(
-                    selection,
-                    primaryKeyPath: \.sourceURL,
-                    queuedKeyPath: \.queuedSourceURLs
-                )
+                assignVideoSelection(selection)
             },
             resetState: {
                 convertedURL = nil
@@ -876,12 +896,7 @@ final class ContentViewModel: ObservableObject {
                 sourceCompatibilityWarningMessage = nil
             },
             applyStoredSettingsForSourceID: { sourceID in
-                applyStoredSettingsForSource(
-                    sourceID: sourceID,
-                    settingsBySourceID: videoSettingsBySourceID,
-                    defaultSettings: VideoConversionSettings(),
-                    apply: applyStoredSettings(_:)
-                )
+                applyStoredVideoSettings(for: sourceID)
             },
             analyzeSelection: { selection in
                 analyzeSourceCompatibility(for: selection)
@@ -935,11 +950,7 @@ final class ContentViewModel: ObservableObject {
                 cancelTask(&imageSourceAnalysisTask)
             },
             assignSelection: { selection in
-                assignPrimaryAndQueuedSources(
-                    selection,
-                    primaryKeyPath: \.imageSourceURL,
-                    queuedKeyPath: \.queuedImageSourceURLs
-                )
+                assignImageSelection(selection)
             },
             resetState: {
                 imageSourceFrameCount = 0
@@ -951,12 +962,7 @@ final class ContentViewModel: ObservableObject {
                 imageSourceCompatibilityWarningMessage = nil
             },
             applyStoredSettingsForSourceID: { sourceID in
-                applyStoredSettingsForSource(
-                    sourceID: sourceID,
-                    settingsBySourceID: imageSettingsBySourceID,
-                    defaultSettings: ImageConversionSettings(),
-                    apply: applyStoredImageSettings(_:)
-                )
+                applyStoredImageSettings(for: sourceID)
             },
             analyzeSelection: { selection in
                 analyzeImageSourceCompatibility(for: selection)
@@ -1025,11 +1031,7 @@ final class ContentViewModel: ObservableObject {
                 cancelTask(&audioSourceAnalysisTask)
             },
             assignSelection: { selection in
-                assignPrimaryAndQueuedSources(
-                    selection,
-                    primaryKeyPath: \.audioSourceURL,
-                    queuedKeyPath: \.queuedAudioSourceURLs
-                )
+                assignAudioSelection(selection)
             },
             resetState: {
                 convertedAudioURL = nil
@@ -1039,12 +1041,7 @@ final class ContentViewModel: ObservableObject {
                 audioSourceCompatibilityWarningMessage = nil
             },
             applyStoredSettingsForSourceID: { sourceID in
-                applyStoredSettingsForSource(
-                    sourceID: sourceID,
-                    settingsBySourceID: audioSettingsBySourceID,
-                    defaultSettings: AudioConversionSettings(),
-                    apply: applyStoredAudioSettings(_:)
-                )
+                applyStoredAudioSettings(for: sourceID)
             },
             analyzeSelection: { selection in
                 analyzeAudioSourceCompatibility(for: selection)
@@ -1239,13 +1236,7 @@ final class ContentViewModel: ObservableObject {
         removeProcessedSource(
             processedURL,
             from: selectedVideoSourceURLs,
-            assignSelection: { remainingSources in
-                assignPrimaryAndQueuedSources(
-                    remainingSources,
-                    primaryKeyPath: \.sourceURL,
-                    queuedKeyPath: \.queuedSourceURLs
-                )
-            },
+            assignSelection: assignVideoSelection(_:),
             onSelectionEmptied: {
                 sourceCompatibilityErrorMessage = nil
                 sourceCompatibilityWarningMessage = nil
@@ -1261,13 +1252,7 @@ final class ContentViewModel: ObservableObject {
         removeProcessedSource(
             processedURL,
             from: selectedImageSourceURLs,
-            assignSelection: { remainingSources in
-                assignPrimaryAndQueuedSources(
-                    remainingSources,
-                    primaryKeyPath: \.imageSourceURL,
-                    queuedKeyPath: \.queuedImageSourceURLs
-                )
-            },
+            assignSelection: assignImageSelection(_:),
             onSelectionEmptied: {
                 imageSourceFrameCount = 0
                 imageSourceHasAlpha = false
@@ -1284,13 +1269,7 @@ final class ContentViewModel: ObservableObject {
         removeProcessedSource(
             processedURL,
             from: selectedAudioSourceURLs,
-            assignSelection: { remainingSources in
-                assignPrimaryAndQueuedSources(
-                    remainingSources,
-                    primaryKeyPath: \.audioSourceURL,
-                    queuedKeyPath: \.queuedAudioSourceURLs
-                )
-            },
+            assignSelection: assignAudioSelection(_:),
             onSelectionEmptied: {
                 audioSourceCompatibilityErrorMessage = nil
                 audioSourceCompatibilityWarningMessage = nil
