@@ -458,6 +458,72 @@ final class ContentViewModel: ObservableObject {
         task = nil
     }
 
+    private func applySelectedSources(
+        _ urls: [URL],
+        cancelAnalysisTask: () -> Void,
+        assignSelection: (URL, [URL]) -> Void,
+        resetState: () -> Void,
+        applyStoredSettingsForSourceID: (String) -> Void,
+        analyzeSelection: ([URL]) -> Void
+    ) {
+        let uniqueURLs = uniqueStandardizedURLs(urls)
+        guard let firstURL = uniqueURLs.first else { return }
+
+        cancelAnalysisTask()
+        assignSelection(firstURL, Array(uniqueURLs.dropFirst()))
+        resetState()
+
+        let sourceID = sourceIdentifier(for: firstURL)
+        applyStoredSettingsForSourceID(sourceID)
+        analyzeSelection(uniqueURLs)
+    }
+
+    private func moveSelectedSource(
+        from draggedURL: URL,
+        to targetURL: URL,
+        isConversionRunning: Bool,
+        currentPrimaryURL: URL?,
+        selectedSourceURLs: [URL],
+        assignSelection: ([URL]) -> Void,
+        cancelAnalysisTask: () -> Void,
+        resetCompatibilityState: () -> Void,
+        applyStoredSettingsForSourceID: (String) -> Void,
+        analyzeSelection: ([URL]) -> Void
+    ) {
+        guard !isConversionRunning else { return }
+        let previousPrimaryID = currentPrimaryURL.map(sourceIdentifier(for:))
+        guard let reordered = reorderedURLsByMoving(draggedURL, to: targetURL, in: selectedSourceURLs) else {
+            return
+        }
+
+        assignSelection(reordered)
+
+        guard let newPrimarySourceURL = reordered.first else { return }
+        guard sourceIdentifier(for: newPrimarySourceURL) != previousPrimaryID else { return }
+
+        cancelAnalysisTask()
+        resetCompatibilityState()
+
+        let sourceID = sourceIdentifier(for: newPrimarySourceURL)
+        applyStoredSettingsForSourceID(sourceID)
+        analyzeSelection(reordered)
+    }
+
+    private func removeProcessedSource(
+        _ processedURL: URL,
+        from selectedSourceURLs: [URL],
+        assignSelection: ([URL]) -> Void,
+        onSelectionEmptied: () -> Void
+    ) {
+        let processedID = sourceIdentifier(for: processedURL)
+        let remainingSources = selectedSourceURLs.filter { sourceIdentifier(for: $0) != processedID }
+        assignSelection(remainingSources)
+        guard !remainingSources.isEmpty else {
+            onSelectionEmptied()
+            return
+        }
+    }
+
     func clearSelectedSource() {
         clearSelectedVideoSource()
     }
@@ -621,74 +687,89 @@ final class ContentViewModel: ObservableObject {
     }
 
     func moveSelectedVideoSource(from draggedURL: URL, to targetURL: URL) {
-        guard !isConverting else { return }
-        let previousPrimaryID = sourceURL.map(sourceIdentifier(for:))
-        guard let reordered = reorderedURLsByMoving(draggedURL, to: targetURL, in: selectedVideoSourceURLs) else {
-            return
-        }
-
-        sourceURL = reordered.first
-        queuedSourceURLs = Array(reordered.dropFirst())
-
-        guard let newPrimarySourceURL = sourceURL else { return }
-        guard sourceIdentifier(for: newPrimarySourceURL) != previousPrimaryID else { return }
-
-        cancelTask(&sourceAnalysisTask)
-        sourceCompatibilityErrorMessage = nil
-        sourceCompatibilityWarningMessage = nil
-
-        let sourceID = sourceIdentifier(for: newPrimarySourceURL)
-        let stored = videoSettingsBySourceID[sourceID] ?? VideoConversionSettings()
-        applyStoredSettings(stored)
-        analyzeSourceCompatibility(for: selectedVideoSourceURLs)
+        moveSelectedSource(
+            from: draggedURL,
+            to: targetURL,
+            isConversionRunning: isConverting,
+            currentPrimaryURL: sourceURL,
+            selectedSourceURLs: selectedVideoSourceURLs,
+            assignSelection: { reordered in
+                sourceURL = reordered.first
+                queuedSourceURLs = Array(reordered.dropFirst())
+            },
+            cancelAnalysisTask: {
+                cancelTask(&sourceAnalysisTask)
+            },
+            resetCompatibilityState: {
+                sourceCompatibilityErrorMessage = nil
+                sourceCompatibilityWarningMessage = nil
+            },
+            applyStoredSettingsForSourceID: { sourceID in
+                let stored = videoSettingsBySourceID[sourceID] ?? VideoConversionSettings()
+                applyStoredSettings(stored)
+            },
+            analyzeSelection: { urls in
+                analyzeSourceCompatibility(for: urls)
+            }
+        )
     }
 
     func moveSelectedImageSource(from draggedURL: URL, to targetURL: URL) {
-        guard !isImageConverting else { return }
-        let previousPrimaryID = imageSourceURL.map(sourceIdentifier(for:))
-        guard let reordered = reorderedURLsByMoving(draggedURL, to: targetURL, in: selectedImageSourceURLs) else {
-            return
-        }
-
-        imageSourceURL = reordered.first
-        queuedImageSourceURLs = Array(reordered.dropFirst())
-
-        guard let newPrimarySourceURL = imageSourceURL else { return }
-        guard sourceIdentifier(for: newPrimarySourceURL) != previousPrimaryID else { return }
-
-        cancelTask(&imageSourceAnalysisTask)
-        imageSourceFrameCount = 0
-        imageSourceHasAlpha = false
-        imageSourceCompatibilityErrorMessage = nil
-        imageSourceCompatibilityWarningMessage = nil
-
-        let sourceID = sourceIdentifier(for: newPrimarySourceURL)
-        let stored = imageSettingsBySourceID[sourceID] ?? ImageConversionSettings()
-        applyStoredImageSettings(stored)
-        analyzeImageSourceCompatibility(for: selectedImageSourceURLs)
+        moveSelectedSource(
+            from: draggedURL,
+            to: targetURL,
+            isConversionRunning: isImageConverting,
+            currentPrimaryURL: imageSourceURL,
+            selectedSourceURLs: selectedImageSourceURLs,
+            assignSelection: { reordered in
+                imageSourceURL = reordered.first
+                queuedImageSourceURLs = Array(reordered.dropFirst())
+            },
+            cancelAnalysisTask: {
+                cancelTask(&imageSourceAnalysisTask)
+            },
+            resetCompatibilityState: {
+                imageSourceFrameCount = 0
+                imageSourceHasAlpha = false
+                imageSourceCompatibilityErrorMessage = nil
+                imageSourceCompatibilityWarningMessage = nil
+            },
+            applyStoredSettingsForSourceID: { sourceID in
+                let stored = imageSettingsBySourceID[sourceID] ?? ImageConversionSettings()
+                applyStoredImageSettings(stored)
+            },
+            analyzeSelection: { urls in
+                analyzeImageSourceCompatibility(for: urls)
+            }
+        )
     }
 
     func moveSelectedAudioSource(from draggedURL: URL, to targetURL: URL) {
-        guard !isAudioConverting else { return }
-        let previousPrimaryID = audioSourceURL.map(sourceIdentifier(for:))
-        guard let reordered = reorderedURLsByMoving(draggedURL, to: targetURL, in: selectedAudioSourceURLs) else {
-            return
-        }
-
-        audioSourceURL = reordered.first
-        queuedAudioSourceURLs = Array(reordered.dropFirst())
-
-        guard let newPrimarySourceURL = audioSourceURL else { return }
-        guard sourceIdentifier(for: newPrimarySourceURL) != previousPrimaryID else { return }
-
-        cancelTask(&audioSourceAnalysisTask)
-        audioSourceCompatibilityErrorMessage = nil
-        audioSourceCompatibilityWarningMessage = nil
-
-        let sourceID = sourceIdentifier(for: newPrimarySourceURL)
-        let stored = audioSettingsBySourceID[sourceID] ?? AudioConversionSettings()
-        applyStoredAudioSettings(stored)
-        analyzeAudioSourceCompatibility(for: selectedAudioSourceURLs)
+        moveSelectedSource(
+            from: draggedURL,
+            to: targetURL,
+            isConversionRunning: isAudioConverting,
+            currentPrimaryURL: audioSourceURL,
+            selectedSourceURLs: selectedAudioSourceURLs,
+            assignSelection: { reordered in
+                audioSourceURL = reordered.first
+                queuedAudioSourceURLs = Array(reordered.dropFirst())
+            },
+            cancelAnalysisTask: {
+                cancelTask(&audioSourceAnalysisTask)
+            },
+            resetCompatibilityState: {
+                audioSourceCompatibilityErrorMessage = nil
+                audioSourceCompatibilityWarningMessage = nil
+            },
+            applyStoredSettingsForSourceID: { sourceID in
+                let stored = audioSettingsBySourceID[sourceID] ?? AudioConversionSettings()
+                applyStoredAudioSettings(stored)
+            },
+            analyzeSelection: { urls in
+                analyzeAudioSourceCompatibility(for: urls)
+            }
+        )
     }
 
     private func reorderedURLsByMoving(_ draggedURL: URL, to targetURL: URL, in urls: [URL]) -> [URL]? {
@@ -817,24 +898,30 @@ final class ContentViewModel: ObservableObject {
     // MARK: - Video Source / Analyze
 
     private func applySelectedVideoSources(_ urls: [URL]) {
-        let uniqueURLs = uniqueStandardizedURLs(urls)
-        guard let firstURL = uniqueURLs.first else { return }
-
-        cancelTask(&sourceAnalysisTask)
-
-        sourceURL = firstURL
-        queuedSourceURLs = Array(uniqueURLs.dropFirst())
-        convertedURL = nil
-        convertedURLs = []
-        conversionErrorMessage = nil
-        sourceCompatibilityErrorMessage = nil
-        sourceCompatibilityWarningMessage = nil
-
-        let sourceID = sourceIdentifier(for: firstURL)
-        let stored = videoSettingsBySourceID[sourceID] ?? VideoConversionSettings()
-        applyStoredSettings(stored)
-
-        analyzeSourceCompatibility(for: uniqueURLs)
+        applySelectedSources(
+            urls,
+            cancelAnalysisTask: {
+                cancelTask(&sourceAnalysisTask)
+            },
+            assignSelection: { selectedSourceURL, queuedURLs in
+                sourceURL = selectedSourceURL
+                queuedSourceURLs = queuedURLs
+            },
+            resetState: {
+                convertedURL = nil
+                convertedURLs = []
+                conversionErrorMessage = nil
+                sourceCompatibilityErrorMessage = nil
+                sourceCompatibilityWarningMessage = nil
+            },
+            applyStoredSettingsForSourceID: { sourceID in
+                let stored = videoSettingsBySourceID[sourceID] ?? VideoConversionSettings()
+                applyStoredSettings(stored)
+            },
+            analyzeSelection: { selection in
+                analyzeSourceCompatibility(for: selection)
+            }
+        )
     }
 
     private func analyzeSourceCompatibility(for urls: [URL]) {
@@ -891,26 +978,32 @@ final class ContentViewModel: ObservableObject {
     // MARK: - Image Source / Analyze
 
     private func applySelectedImageSources(_ urls: [URL]) {
-        let uniqueURLs = uniqueStandardizedURLs(urls)
-        guard let firstURL = uniqueURLs.first else { return }
-
-        cancelTask(&imageSourceAnalysisTask)
-
-        imageSourceURL = firstURL
-        queuedImageSourceURLs = Array(uniqueURLs.dropFirst())
-        imageSourceFrameCount = 0
-        imageSourceHasAlpha = false
-        convertedImageURL = nil
-        convertedImageURLs = []
-        imageConversionErrorMessage = nil
-        imageSourceCompatibilityErrorMessage = nil
-        imageSourceCompatibilityWarningMessage = nil
-
-        let sourceID = sourceIdentifier(for: firstURL)
-        let stored = imageSettingsBySourceID[sourceID] ?? ImageConversionSettings()
-        applyStoredImageSettings(stored)
-
-        analyzeImageSourceCompatibility(for: uniqueURLs)
+        applySelectedSources(
+            urls,
+            cancelAnalysisTask: {
+                cancelTask(&imageSourceAnalysisTask)
+            },
+            assignSelection: { selectedSourceURL, queuedURLs in
+                imageSourceURL = selectedSourceURL
+                queuedImageSourceURLs = queuedURLs
+            },
+            resetState: {
+                imageSourceFrameCount = 0
+                imageSourceHasAlpha = false
+                convertedImageURL = nil
+                convertedImageURLs = []
+                imageConversionErrorMessage = nil
+                imageSourceCompatibilityErrorMessage = nil
+                imageSourceCompatibilityWarningMessage = nil
+            },
+            applyStoredSettingsForSourceID: { sourceID in
+                let stored = imageSettingsBySourceID[sourceID] ?? ImageConversionSettings()
+                applyStoredImageSettings(stored)
+            },
+            analyzeSelection: { selection in
+                analyzeImageSourceCompatibility(for: selection)
+            }
+        )
     }
 
     private func analyzeImageSourceCompatibility(for urls: [URL]) {
@@ -981,24 +1074,30 @@ final class ContentViewModel: ObservableObject {
     // MARK: - Audio Source / Analyze
 
     private func applySelectedAudioSources(_ urls: [URL]) {
-        let uniqueURLs = uniqueStandardizedURLs(urls)
-        guard let firstURL = uniqueURLs.first else { return }
-
-        cancelTask(&audioSourceAnalysisTask)
-
-        audioSourceURL = firstURL
-        queuedAudioSourceURLs = Array(uniqueURLs.dropFirst())
-        convertedAudioURL = nil
-        convertedAudioURLs = []
-        audioConversionErrorMessage = nil
-        audioSourceCompatibilityErrorMessage = nil
-        audioSourceCompatibilityWarningMessage = nil
-
-        let sourceID = sourceIdentifier(for: firstURL)
-        let stored = audioSettingsBySourceID[sourceID] ?? AudioConversionSettings()
-        applyStoredAudioSettings(stored)
-
-        analyzeAudioSourceCompatibility(for: uniqueURLs)
+        applySelectedSources(
+            urls,
+            cancelAnalysisTask: {
+                cancelTask(&audioSourceAnalysisTask)
+            },
+            assignSelection: { selectedSourceURL, queuedURLs in
+                audioSourceURL = selectedSourceURL
+                queuedAudioSourceURLs = queuedURLs
+            },
+            resetState: {
+                convertedAudioURL = nil
+                convertedAudioURLs = []
+                audioConversionErrorMessage = nil
+                audioSourceCompatibilityErrorMessage = nil
+                audioSourceCompatibilityWarningMessage = nil
+            },
+            applyStoredSettingsForSourceID: { sourceID in
+                let stored = audioSettingsBySourceID[sourceID] ?? AudioConversionSettings()
+                applyStoredAudioSettings(stored)
+            },
+            analyzeSelection: { selection in
+                analyzeAudioSourceCompatibility(for: selection)
+            }
+        )
     }
 
     private func analyzeAudioSourceCompatibility(for urls: [URL]) {
@@ -1179,55 +1278,61 @@ final class ContentViewModel: ObservableObject {
     }
 
     private func removeProcessedVideoSource(_ processedURL: URL) {
-        let processedID = sourceIdentifier(for: processedURL)
-        let remainingSources = selectedVideoSourceURLs.filter { sourceIdentifier(for: $0) != processedID }
-
-        sourceURL = remainingSources.first
-        queuedSourceURLs = Array(remainingSources.dropFirst())
-
-        guard sourceURL == nil else { return }
-
-        sourceCompatibilityErrorMessage = nil
-        sourceCompatibilityWarningMessage = nil
-        isAnalyzingSource = false
-        availableOutputFormats = VideoConversionEngine.defaultOutputFormats()
-        ensureSelectedVideoOutputFormatIsAvailable()
-        refreshVideoCodecOptions()
+        removeProcessedSource(
+            processedURL,
+            from: selectedVideoSourceURLs,
+            assignSelection: { remainingSources in
+                sourceURL = remainingSources.first
+                queuedSourceURLs = Array(remainingSources.dropFirst())
+            },
+            onSelectionEmptied: {
+                sourceCompatibilityErrorMessage = nil
+                sourceCompatibilityWarningMessage = nil
+                isAnalyzingSource = false
+                availableOutputFormats = VideoConversionEngine.defaultOutputFormats()
+                ensureSelectedVideoOutputFormatIsAvailable()
+                refreshVideoCodecOptions()
+            }
+        )
     }
 
     private func removeProcessedImageSource(_ processedURL: URL) {
-        let processedID = sourceIdentifier(for: processedURL)
-        let remainingSources = selectedImageSourceURLs.filter { sourceIdentifier(for: $0) != processedID }
-
-        imageSourceURL = remainingSources.first
-        queuedImageSourceURLs = Array(remainingSources.dropFirst())
-
-        guard imageSourceURL == nil else { return }
-
-        imageSourceFrameCount = 0
-        imageSourceHasAlpha = false
-        imageSourceCompatibilityErrorMessage = nil
-        imageSourceCompatibilityWarningMessage = nil
-        isAnalyzingImageSource = false
-        availableImageOutputFormats = ImageConversionEngine.defaultOutputFormats()
-        ensureSelectedImageOutputFormatIsAvailable()
+        removeProcessedSource(
+            processedURL,
+            from: selectedImageSourceURLs,
+            assignSelection: { remainingSources in
+                imageSourceURL = remainingSources.first
+                queuedImageSourceURLs = Array(remainingSources.dropFirst())
+            },
+            onSelectionEmptied: {
+                imageSourceFrameCount = 0
+                imageSourceHasAlpha = false
+                imageSourceCompatibilityErrorMessage = nil
+                imageSourceCompatibilityWarningMessage = nil
+                isAnalyzingImageSource = false
+                availableImageOutputFormats = ImageConversionEngine.defaultOutputFormats()
+                ensureSelectedImageOutputFormatIsAvailable()
+            }
+        )
     }
 
     private func removeProcessedAudioSource(_ processedURL: URL) {
-        let processedID = sourceIdentifier(for: processedURL)
-        let remainingSources = selectedAudioSourceURLs.filter { sourceIdentifier(for: $0) != processedID }
-
-        audioSourceURL = remainingSources.first
-        queuedAudioSourceURLs = Array(remainingSources.dropFirst())
-
-        guard audioSourceURL == nil else { return }
-
-        audioSourceCompatibilityErrorMessage = nil
-        audioSourceCompatibilityWarningMessage = nil
-        isAnalyzingAudioSource = false
-        availableAudioOutputFormats = VideoConversionEngine.defaultAudioOutputFormats()
-        ensureSelectedAudioOutputFormatIsAvailable()
-        refreshAudioCodecOptions()
+        removeProcessedSource(
+            processedURL,
+            from: selectedAudioSourceURLs,
+            assignSelection: { remainingSources in
+                audioSourceURL = remainingSources.first
+                queuedAudioSourceURLs = Array(remainingSources.dropFirst())
+            },
+            onSelectionEmptied: {
+                audioSourceCompatibilityErrorMessage = nil
+                audioSourceCompatibilityWarningMessage = nil
+                isAnalyzingAudioSource = false
+                availableAudioOutputFormats = VideoConversionEngine.defaultAudioOutputFormats()
+                ensureSelectedAudioOutputFormatIsAvailable()
+                refreshAudioCodecOptions()
+            }
+        )
     }
 
     private func validateVideoOutputSettings(for sourceURL: URL) async -> String? {
