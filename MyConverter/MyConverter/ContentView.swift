@@ -6,9 +6,6 @@
 //
 
 import SwiftUI
-import StoreKit
-import UniformTypeIdentifiers
-import AppKit
 
 struct ContentView: View {
     @StateObject private var viewModel = ContentViewModel()
@@ -18,7 +15,6 @@ struct ContentView: View {
     @State private var isImageDropTargeted = false
     @State private var isAudioDropTargeted = false
     @State private var draggedSelectedFileURL: URL?
-    @State private var isShowingOpenSourceLicenses = false
 
     private var fileDropAreaHeight: CGFloat {
         240
@@ -38,7 +34,7 @@ struct ContentView: View {
     @ViewBuilder
     private var rootNavigationView: some View {
         NavigationSplitView {
-            sidebarView
+            SidebarView(selectedTab: $selectedTab)
         } detail: {
             detailView(for: selectedTab)
         }
@@ -61,39 +57,8 @@ struct ContentView: View {
         }
     }
 
-    private func converterDetailView<InputArea: View, FormSections: View, Controls: View>(
-        title: String,
-        isDropTargeted: Binding<Bool>,
-        onDrop: @escaping ([NSItemProvider]) -> Bool,
-        @ViewBuilder inputArea: () -> InputArea,
-        @ViewBuilder formSections: () -> FormSections,
-        @ViewBuilder controls: () -> Controls
-    ) -> some View {
-        ZStack {
-            detailBackground
-
-            VStack(spacing: 0) {
-                inputArea()
-                    .padding(24)
-
-                Form {
-                    formSections()
-                }
-                .formStyle(.grouped)
-                .scrollContentBackground(.hidden)
-            }
-        }
-        .safeAreaInset(edge: .bottom) {
-            bottomControlContainer {
-                controls()
-            }
-        }
-        .navigationTitle(title)
-        .onDrop(of: [.fileURL], isTargeted: isDropTargeted, perform: onDrop)
-    }
-
     private var videoDetailView: some View {
-        converterDetailView(
+        ConverterDetailContainer(
             title: "Convert Video",
             isDropTargeted: $isVideoDropTargeted,
             onDrop: { providers in
@@ -111,110 +76,19 @@ struct ContentView: View {
         )
     }
 
-    private func converterInputArea(
-        isDropTargeted: Bool,
-        selectedURLs: [URL],
-        isConverting: Bool,
-        systemImage: String,
-        dropPlaceholder: String,
-        onClear: @escaping () -> Void,
-        onReorder: @escaping (_ draggedURL: URL, _ targetURL: URL) -> Void
-    ) -> some View {
-        Group {
-            if !isDropTargeted, !selectedURLs.isEmpty {
-                selectedFilesView(
-                    urls: selectedURLs,
-                    systemImage: systemImage,
-                    isConverting: isConverting,
-                    onClear: onClear,
-                    onReorder: onReorder
-                )
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            } else {
-                dropFileView(
-                    isDropTargeted: isDropTargeted,
-                    placeholder: dropPlaceholder
-                ) {
-                    viewModel.requestFileImport()
-                }
-                .transition(.scale(scale: 0.98).combined(with: .opacity))
-            }
-        }
-    }
-
-    private func menuPicker<Option: Identifiable & Hashable>(
-        _ title: String,
-        selection: Binding<Option>,
-        options: [Option],
-        disabledWhenEmpty: Bool = false,
-        label: @escaping (Option) -> String
-    ) -> some View {
-        Picker(title, selection: selection) {
-            ForEach(options) { option in
-                Text(label(option)).tag(option)
-            }
-        }
-        .pickerStyle(.menu)
-        .disabled(disabledWhenEmpty && options.isEmpty)
-    }
-
-    @ViewBuilder
-    private func converterFormSections<SettingsContent: View>(
-        isConverting: Bool,
-        outputURLs: [URL],
-        openSystemImage: String,
-        @ViewBuilder settingsContent: () -> SettingsContent
-    ) -> some View {
-        Section("Output Settings") {
-            settingsContent()
-        }
-        .disabled(isConverting)
-
-        outputFilesSection(urls: outputURLs, openSystemImage: openSystemImage)
-    }
-
-    @ViewBuilder
-    private func audioModeAndRatePickers(
-        modeSelection: Binding<AudioModeOption>,
-        sampleRateSelection: Binding<SampleRateOption>,
-        bitRateSelection: Binding<AudioBitRateOption>,
-        showSampleRate: Bool,
-        showBitRate: Bool
-    ) -> some View {
-        menuPicker(
-            "Audio Mode",
-            selection: modeSelection,
-            options: Array(AudioModeOption.allCases),
-            label: { $0.rawValue }
-        )
-
-        if showSampleRate {
-            menuPicker(
-                "Sample Rate",
-                selection: sampleRateSelection,
-                options: Array(SampleRateOption.allCases),
-                label: { $0.rawValue }
-            )
-        }
-
-        if showBitRate {
-            menuPicker(
-                "Audio Bit Rate",
-                selection: bitRateSelection,
-                options: Array(AudioBitRateOption.allCases),
-                label: { $0.rawValue }
-            )
-        }
-    }
-
     @ViewBuilder
     private var videoInputArea: some View {
-        converterInputArea(
+        ConverterInputArea(
             isDropTargeted: isVideoDropTargeted,
             selectedURLs: viewModel.selectedVideoSourceURLs,
             isConverting: viewModel.isConverting,
             systemImage: "film.fill",
             dropPlaceholder: "Drop Video Here",
+            fileDropAreaHeight: fileDropAreaHeight,
+            draggedSelectedFileURL: $draggedSelectedFileURL,
+            onImport: {
+                viewModel.requestFileImport()
+            },
             onClear: {
                 withAnimation {
                     viewModel.clearSelectedVideoSource()
@@ -230,12 +104,11 @@ struct ContentView: View {
 
     @ViewBuilder
     private var videoFormSections: some View {
-        converterFormSections(
+        ConverterFormSections(
             isConverting: viewModel.isConverting,
-            outputURLs: viewModel.convertedURLs,
-            openSystemImage: "play.fill"
+            outputURLs: viewModel.convertedURLs
         ) {
-            menuPicker(
+            MenuPicker(
                 "Container",
                 selection: $viewModel.selectedOutputFormat,
                 options: viewModel.outputFormatOptions,
@@ -244,7 +117,7 @@ struct ContentView: View {
             )
 
             if viewModel.shouldShowVideoEncoderOption {
-                menuPicker(
+                MenuPicker(
                     "Video Encoder",
                     selection: $viewModel.selectedVideoEncoder,
                     options: viewModel.videoEncoderOptions,
@@ -253,14 +126,14 @@ struct ContentView: View {
                 )
             }
 
-            menuPicker(
+            MenuPicker(
                 "Resolution",
                 selection: $viewModel.selectedResolution,
                 options: Array(ResolutionOption.allCases),
                 label: { $0.rawValue }
             )
 
-            menuPicker(
+            MenuPicker(
                 "Frame Rate",
                 selection: $viewModel.selectedFrameRate,
                 options: Array(FrameRateOption.allCases),
@@ -268,7 +141,7 @@ struct ContentView: View {
             )
 
             if viewModel.shouldShowGIFPlaybackSpeedOption {
-                menuPicker(
+                MenuPicker(
                     "Playback Speed",
                     selection: $viewModel.selectedGIFPlaybackSpeed,
                     options: Array(GIFPlaybackSpeedOption.allCases),
@@ -277,7 +150,7 @@ struct ContentView: View {
             }
 
             if viewModel.shouldShowVideoBitRateOption {
-                menuPicker(
+                MenuPicker(
                     "Video Bit Rate",
                     selection: $viewModel.selectedVideoBitRate,
                     options: Array(VideoBitRateOption.allCases),
@@ -291,7 +164,7 @@ struct ContentView: View {
             }
 
             if viewModel.shouldShowAudioSettings {
-                menuPicker(
+                MenuPicker(
                     "Audio Encoder",
                     selection: $viewModel.selectedAudioEncoder,
                     options: viewModel.audioEncoderOptions,
@@ -299,7 +172,7 @@ struct ContentView: View {
                     label: { $0.rawValue }
                 )
 
-                audioModeAndRatePickers(
+                AudioModeAndRatePickers(
                     modeSelection: $viewModel.selectedAudioMode,
                     sampleRateSelection: $viewModel.selectedSampleRate,
                     bitRateSelection: $viewModel.selectedAudioBitRate,
@@ -311,7 +184,7 @@ struct ContentView: View {
     }
 
     private var imageDetailView: some View {
-        converterDetailView(
+        ConverterDetailContainer(
             title: "Convert Image",
             isDropTargeted: $isImageDropTargeted,
             onDrop: { providers in
@@ -331,12 +204,17 @@ struct ContentView: View {
 
     @ViewBuilder
     private var imageInputArea: some View {
-        converterInputArea(
+        ConverterInputArea(
             isDropTargeted: isImageDropTargeted,
             selectedURLs: viewModel.selectedImageSourceURLs,
             isConverting: viewModel.isImageConverting,
             systemImage: "photo.fill",
             dropPlaceholder: "Drop Image Here",
+            fileDropAreaHeight: fileDropAreaHeight,
+            draggedSelectedFileURL: $draggedSelectedFileURL,
+            onImport: {
+                viewModel.requestFileImport()
+            },
             onClear: {
                 withAnimation {
                     viewModel.clearSelectedImageSource()
@@ -352,12 +230,11 @@ struct ContentView: View {
 
     @ViewBuilder
     private var imageFormSections: some View {
-        converterFormSections(
+        ConverterFormSections(
             isConverting: viewModel.isImageConverting,
-            outputURLs: viewModel.convertedImageURLs,
-            openSystemImage: "photo.fill"
+            outputURLs: viewModel.convertedImageURLs
         ) {
-            menuPicker(
+            MenuPicker(
                 "Container",
                 selection: $viewModel.selectedImageOutputFormat,
                 options: viewModel.imageOutputFormatOptions,
@@ -365,7 +242,7 @@ struct ContentView: View {
                 label: { "\($0.displayName) (.\($0.fileExtension))" }
             )
 
-            menuPicker(
+            MenuPicker(
                 "Resolution",
                 selection: $viewModel.selectedImageResolution,
                 options: Array(ResolutionOption.allCases),
@@ -373,7 +250,7 @@ struct ContentView: View {
             )
 
             if viewModel.shouldShowImageQualityOption {
-                menuPicker(
+                MenuPicker(
                     "Quality",
                     selection: $viewModel.selectedImageQuality,
                     options: Array(ImageQualityOption.allCases),
@@ -382,7 +259,7 @@ struct ContentView: View {
             }
 
             if viewModel.shouldShowPNGCompressionOption {
-                menuPicker(
+                MenuPicker(
                     "PNG Compression",
                     selection: $viewModel.selectedPNGCompressionLevel,
                     options: Array(PNGCompressionLevelOption.allCases),
@@ -403,7 +280,7 @@ struct ContentView: View {
     }
 
     private var videoConversionControls: some View {
-        conversionControlBar(
+        ConversionControlBar(
             statusMessage: viewModel.conversionStatusMessage,
             statusColor: statusColor(for: viewModel.conversionStatusLevel),
             progress: viewModel.displayedConversionProgress,
@@ -417,7 +294,7 @@ struct ContentView: View {
     }
 
     private var imageConversionControls: some View {
-        conversionControlBar(
+        ConversionControlBar(
             statusMessage: viewModel.imageConversionStatusMessage,
             statusColor: statusColor(for: viewModel.imageConversionStatusLevel),
             progress: viewModel.displayedImageConversionProgress,
@@ -431,7 +308,7 @@ struct ContentView: View {
     }
 
     private var audioConversionControls: some View {
-        conversionControlBar(
+        ConversionControlBar(
             statusMessage: viewModel.audioConversionStatusMessage,
             statusColor: statusColor(for: viewModel.audioConversionStatusLevel),
             progress: viewModel.displayedAudioConversionProgress,
@@ -442,62 +319,6 @@ struct ContentView: View {
             onStart: { viewModel.startAudioConversion() },
             onCancel: { viewModel.cancelAudioConversion() }
         )
-    }
-
-    private func conversionControlBar(
-        statusMessage: String,
-        statusColor: Color,
-        progress: Double,
-        progressText: String,
-        progressTint: Color,
-        isConverting: Bool,
-        canConvert: Bool,
-        onStart: @escaping () -> Void,
-        onCancel: @escaping () -> Void
-    ) -> some View {
-        HStack(spacing: 24) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .lastTextBaseline) {
-                    Text(statusMessage)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(statusColor)
-                        .lineLimit(1)
-
-                    Spacer()
-
-                    Text(progressText)
-                        .font(.system(.caption, design: .monospaced).weight(.bold))
-                        .foregroundStyle(.secondary)
-                }
-
-                ProgressView(value: progress, total: 1.0)
-                    .progressViewStyle(.linear)
-                    .tint(progressTint)
-                    .scaleEffect(x: 1, y: 2, anchor: .center)
-                    .clipShape(Capsule())
-                    .animation(.spring(), value: progress)
-            }
-
-            Button {
-                if isConverting {
-                    onCancel()
-                } else {
-                    onStart()
-                }
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: isConverting ? "stop.fill" : "play.fill")
-                        .font(.system(size: 14, weight: .black))
-                    Text(isConverting ? "Cancel" : "Start Conversion")
-                        .font(.system(size: 14, weight: .bold))
-                }
-                .frame(minWidth: 150, minHeight: 44)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .disabled(isConverting ? false : !canConvert)
-            .shadow(color: (isConverting || canConvert) ? Color.accentColor.opacity(0.2) : .clear, radius: 10, x: 0, y: 4)
-        }
     }
 
     private func progressTintColor(for progress: Double) -> Color {
@@ -515,179 +336,20 @@ struct ContentView: View {
         }
     }
 
-    private func dropFileView(
-        isDropTargeted: Bool,
-        placeholder: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            VStack(spacing: 20) {
-                ZStack {
-                    Circle()
-                        .fill(isDropTargeted ? Color.accentColor.opacity(0.15) : Color.accentColor.opacity(0.05))
-                        .frame(width: 88, height: 88)
-                        .blur(radius: isDropTargeted ? 10 : 0)
-                        .scaleEffect(isDropTargeted ? 1.15 : 1.0)
-                    
-                    Circle()
-                        .stroke(Color.accentColor.opacity(isDropTargeted ? 0.3 : 0.1), lineWidth: 1)
-                        .frame(width: 104, height: 104)
-                        .scaleEffect(isDropTargeted ? 1.05 : 1.0)
-
-                    Image(systemName: isDropTargeted ? "arrow.down.circle.fill" : "plus.circle.fill")
-                        .font(.system(size: 38, weight: .light))
-                        .foregroundStyle(isDropTargeted ? Color.accentColor : Color.secondary.opacity(0.6))
-                        .symbolRenderingMode(.hierarchical)
-                        .scaleEffect(isDropTargeted ? 1.1 : 1.0)
-                }
-
-                VStack(spacing: 8) {
-                    Text(isDropTargeted ? "Drop to Import" : placeholder)
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(isDropTargeted ? Color.accentColor : .primary)
-
-                    Text(isDropTargeted ? "Release to start conversion setup" : "or click to browse local files")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .opacity(0.8)
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: fileDropAreaHeight)
-            .background(
-                ZStack {
-                    RoundedRectangle(cornerRadius: 24)
-                        .fill(isDropTargeted ? Color.accentColor.opacity(0.03) : Color.primary.opacity(0.01))
-
-                    RoundedRectangle(cornerRadius: 24)
-                        .strokeBorder(
-                            isDropTargeted ? Color.accentColor.opacity(0.5) : Color.secondary.opacity(0.2),
-                            style: StrokeStyle(lineWidth: isDropTargeted ? 2 : 1, dash: isDropTargeted ? [] : [4, 4])
-                        )
-                }
-            )
-            .contentShape(Rectangle())
-            .scaleEffect(isDropTargeted ? 1.01 : 1.0)
-        }
-        .buttonStyle(.plain)
-        .animation(.spring(response: 0.35, dampingFraction: 0.7), value: isDropTargeted)
-    }
-
-    private func selectedFilesView(
-        urls: [URL],
-        systemImage: String,
-        isConverting: Bool,
-        onClear: @escaping () -> Void,
-        onReorder: @escaping (_ draggedURL: URL, _ targetURL: URL) -> Void
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(spacing: 12) {
-                Image(systemName: systemImage)
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(Color.accentColor)
-                    .symbolRenderingMode(.hierarchical)
-
-                Text("Selected Files")
-                    .font(.headline)
-
-                Text("\(urls.count)")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 2)
-                    .background(
-                        Capsule().fill(Color.secondary.opacity(0.1))
-                    )
-
-                Spacer()
-                
-                if !isConverting {
-                    Button(action: onClear) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.title3)
-                            .foregroundStyle(Color.secondary.opacity(0.5))
-                            .contentShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .onHover { inside in
-                        if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
-                    }
-                }
-            }
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 14) {
-                    ForEach(Array(urls.enumerated()), id: \.element.path) { index, url in
-                        selectedFileCardView(
-                            url: url,
-                            order: index + 1,
-                            systemImage: systemImage
-                        )
-                        .onDrag {
-                            guard !isConverting else {
-                                return NSItemProvider()
-                            }
-                            draggedSelectedFileURL = url
-                            return NSItemProvider(object: NSString(string: url.path))
-                        }
-                        .onDrop(
-                            of: [UTType.text],
-                            delegate: SelectedFileReorderDropDelegate(
-                                targetURL: url,
-                                urls: urls,
-                                draggedURL: $draggedSelectedFileURL,
-                                isEnabled: !isConverting,
-                                onMove: { draggedURL, targetURL in
-                                    withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
-                                        onReorder(draggedURL, targetURL)
-                                    }
-                                }
-                            )
-                        )
-                    }
-                }
-                .padding(.horizontal, 2)
-            }
-
-            HStack {
-                Text(isConverting ? "Ready for conversion" : "Ready for conversion · Drag cards to reorder")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                Spacer()
-
-                Button {
-                    viewModel.requestFileImport()
-                } label: {
-                    Label("Add Files", systemImage: "plus")
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.regular)
-                .disabled(isConverting)
-            }
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity, minHeight: fileDropAreaHeight, maxHeight: fileDropAreaHeight)
-        .background(
-            RoundedRectangle(cornerRadius: 24)
-                .fill(.background.opacity(0.4).shadow(.inner(color: .white.opacity(0.1), radius: 0, x: 0, y: 1)))
-                .background(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 24)
-                        .stroke(Color.primary.opacity(0.06), lineWidth: 1)
-                )
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 24))
-    }
 
     @ViewBuilder
     private var audioInputArea: some View {
-        converterInputArea(
+        ConverterInputArea(
             isDropTargeted: isAudioDropTargeted,
             selectedURLs: viewModel.selectedAudioSourceURLs,
             isConverting: viewModel.isAudioConverting,
             systemImage: "waveform",
             dropPlaceholder: "Drop Audio Here",
+            fileDropAreaHeight: fileDropAreaHeight,
+            draggedSelectedFileURL: $draggedSelectedFileURL,
+            onImport: {
+                viewModel.requestFileImport()
+            },
             onClear: {
                 withAnimation {
                     viewModel.clearSelectedAudioSource()
@@ -702,7 +364,7 @@ struct ContentView: View {
     }
 
     private var audioDetailView: some View {
-        converterDetailView(
+        ConverterDetailContainer(
             title: "Convert Audio",
             isDropTargeted: $isAudioDropTargeted,
             onDrop: { providers in
@@ -720,27 +382,13 @@ struct ContentView: View {
         )
     }
 
-    private var detailBackground: some View {
-        Color(nsColor: .windowBackgroundColor)
-            .ignoresSafeArea()
-    }
-
-    private func bottomControlContainer<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        content()
-            .padding(.horizontal, 24)
-            .padding(.vertical, 20)
-            .background(.ultraThinMaterial)
-            .overlay(Rectangle().frame(height: 1).foregroundStyle(.primary.opacity(0.05)), alignment: .top)
-    }
-
     @ViewBuilder
     private var audioFormSections: some View {
-        converterFormSections(
+        ConverterFormSections(
             isConverting: viewModel.isAudioConverting,
-            outputURLs: viewModel.convertedAudioURLs,
-            openSystemImage: "music.note"
+            outputURLs: viewModel.convertedAudioURLs
         ) {
-            menuPicker(
+            MenuPicker(
                 "Container",
                 selection: $viewModel.selectedAudioOutputFormat,
                 options: viewModel.audioOutputFormatOptions,
@@ -748,7 +396,7 @@ struct ContentView: View {
                 label: { "\($0.displayName) (.\($0.fileExtension))" }
             )
 
-            menuPicker(
+            MenuPicker(
                 "Audio Encoder",
                 selection: $viewModel.selectedAudioOutputEncoder,
                 options: viewModel.audioOutputEncoderOptions,
@@ -756,7 +404,7 @@ struct ContentView: View {
                 label: { $0.rawValue }
             )
 
-            audioModeAndRatePickers(
+            AudioModeAndRatePickers(
                 modeSelection: $viewModel.selectedAudioOutputMode,
                 sampleRateSelection: $viewModel.selectedAudioOutputSampleRate,
                 bitRateSelection: $viewModel.selectedAudioOutputBitRate,
@@ -772,543 +420,8 @@ struct ContentView: View {
         }
     }
 
-    private func selectedFileCardView(
-        url: URL,
-        order: Int,
-        systemImage: String
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.accentColor.opacity(0.1))
-                        .frame(width: 28, height: 28)
-                    Image(systemName: systemImage)
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(Color.accentColor)
-                }
-
-                Spacer()
-
-                Text("\(order)")
-                    .font(.system(.caption2, design: .monospaced).weight(.bold))
-                    .foregroundStyle(.secondary.opacity(0.6))
-            }
-
-            Spacer(minLength: 4)
-
-            Text(url.lastPathComponent)
-                .font(.subheadline.weight(.semibold))
-                .lineLimit(2)
-                .truncationMode(.middle)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            HStack {
-                Text(url.pathExtension.uppercased())
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(
-                        Capsule().fill(Color.primary.opacity(0.05))
-                    )
-                Spacer()
-            }
-        }
-        .padding(12)
-        .frame(width: 140, height: 120)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.background.opacity(0.4))
-                .background(.thinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.primary.opacity(0.08), lineWidth: 1)
-                )
-        )
-        .shadow(color: .black.opacity(0.03), radius: 5, x: 0, y: 2)
-    }
-
-    private func outputFileCardView(
-        url: URL,
-        order: Int,
-        openSystemImage: String
-    ) -> some View {
-        HStack(spacing: 16) {
-            ZStack {
-                Circle()
-                    .fill(Color.green.opacity(0.1))
-                    .frame(width: 36, height: 36)
-                Image(systemName: "checkmark")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(.green)
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 8) {
-                    Text("\(order)")
-                        .font(.system(.caption2, design: .monospaced).weight(.bold))
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Capsule().fill(Color.primary.opacity(0.05)))
-
-                    Text(url.lastPathComponent)
-                        .font(.system(size: 14, weight: .bold))
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
-
-                Text(url.deletingLastPathComponent().path)
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary.opacity(0.6))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
-
-            Spacer()
-
-            HStack(spacing: 10) {
-                Button {
-                    NSWorkspace.shared.activateFileViewerSelecting([url])
-                } label: {
-                    Image(systemName: "folder")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 32, height: 32)
-                        .background(Circle().fill(Color.primary.opacity(0.05)))
-                }
-                .buttonStyle(.plain)
-                .help("Show in Finder")
-
-                Button {
-                    NSWorkspace.shared.open(url)
-                } label: {
-                    Text("Open")
-                        .font(.system(size: 12, weight: .bold))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 6)
-                        .background(Capsule().fill(Color.accentColor))
-                        .foregroundStyle(.white)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(.background.opacity(0.4))
-                .background(.thinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .stroke(Color.primary.opacity(0.06), lineWidth: 1)
-                )
-        )
-        .shadow(color: .black.opacity(0.02), radius: 6, x: 0, y: 3)
-    }
-
-    private func conversionResultView(
-        url: URL,
-        detailText: String,
-        openSystemImage: String
-    ) -> some View {
-        VStack(spacing: 16) {
-            HStack(spacing: 12) {
-                ZStack {
-                    Circle()
-                        .fill(Color.green.opacity(0.15))
-                        .frame(width: 44, height: 44)
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundStyle(.green)
-                }
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Conversion Completed")
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-                    Text(detailText)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-            }
-
-            Divider()
-
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("Output File")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                }
-
-                HStack(spacing: 8) {
-                    Image(systemName: "doc.text.fill")
-                        .foregroundStyle(.secondary)
-                    Text(url.lastPathComponent)
-                        .font(.subheadline.weight(.medium))
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .textSelection(.enabled)
-                }
-                .padding(10)
-                .background(Color.secondary.opacity(0.05))
-                .cornerRadius(8)
-            }
-
-            HStack(spacing: 12) {
-                Button {
-                    NSWorkspace.shared.activateFileViewerSelecting([url])
-                } label: {
-                    Text("Show in Finder")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.regular)
-
-                Button {
-                    NSWorkspace.shared.open(url)
-                } label: {
-                    Label("Open", systemImage: openSystemImage)
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.regular)
-            }
-        }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(cardBackgroundColor)
-                .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 2)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.green.opacity(0.4), lineWidth: 1)
-                )
-        )
-    }
-
-    private var cardBackgroundColor: Color {
-        Color(nsColor: .controlBackgroundColor)
-    }
-
     private var aboutDetailView: some View {
-        ScrollView {
-            VStack(spacing: 32) {
-                VStack(spacing: 20) {
-                    appIconImage
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 140, height: 140)
-                        .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
-                        .shadow(color: .black.opacity(0.12), radius: 10, x: 0, y: 4)
-
-                    VStack(spacing: 8) {
-                        Text("MyConverter")
-                            .font(.system(size: 36, weight: .black))
-
-                        Text(appVersionText)
-                            .font(.headline)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .padding(.top, 60)
-
-                VStack(alignment: .leading, spacing: 20) {
-                    Group {
-                        aboutSection(title: "Developer", value: "JiHoon K (Deferare)")
-                        Divider()
-                        aboutSection(title: "Contact", value: "deferare@icloud.com", isLink: true)
-                        Divider()
-                        aboutSection(title: "License", value: "© 2026 Deferare. All rights reserved.")
-                    }
-
-                    Button("Open Source Licenses") {
-                        isShowingOpenSourceLicenses = true
-                    }
-                    .buttonStyle(.link)
-                    .font(.subheadline.weight(.medium))
-
-                    Divider()
-
-                    Text("Support Development")
-                        .font(.headline)
-
-                    Text("MyConverter is a labor of love. If you find it useful, consider supporting its continued development.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-
-                    if donationStore.isLoadingProducts {
-                        HStack {
-                            ProgressView()
-                                .controlSize(.small)
-                            Text("Loading support options...")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                    } else if donationStore.products.isEmpty {
-                        Button("Reload Support Options") {
-                            Task {
-                                await donationStore.loadProducts()
-                            }
-                        }
-                        .buttonStyle(.bordered)
-                    } else {
-                        HStack(spacing: 12) {
-                            ForEach(donationStore.products.sorted(by: { $0.price < $1.price }), id: \.id) { product in
-                                Button {
-                                    Task {
-                                        await donationStore.purchase(product)
-                                    }
-                                } label: {
-                                    VStack(spacing: 6) {
-                                        Text(donationStore.suggestedAmountText(for: product.id))
-                                            .font(.subheadline.weight(.bold))
-                                        Text(product.displayPrice)
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-
-                                        if donationStore.purchasingProductID == product.id {
-                                            ProgressView()
-                                                .controlSize(.small)
-                                        }
-                                    }
-                                    .frame(maxWidth: .infinity, minHeight: 60)
-                                }
-                                .buttonStyle(.bordered)
-                                .disabled(
-                                    donationStore.isLoadingProducts ||
-                                    (donationStore.purchasingProductID != nil && donationStore.purchasingProductID != product.id)
-                                )
-                            }
-                        }
-
-                        Text("Thank you for your support!")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                    }
-
-                    if let statusMessage = donationStore.statusMessage {
-                        Text(statusMessage)
-                            .font(.caption)
-                            .foregroundStyle(donationStore.statusIsError ? .red : .secondary)
-                    }
-                }
-                .padding(32)
-                .background(
-                    RoundedRectangle(cornerRadius: 24)
-                        .fill(Color.primary.opacity(0.02))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 24)
-                                .stroke(Color.primary.opacity(0.05), lineWidth: 1)
-                        )
-                )
-
-                Text("Built with SwiftUI & FFmpeg")
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(.tertiary)
-                    .padding(.bottom, 40)
-            }
-            .padding(.horizontal, 40)
-            .frame(maxWidth: 640)
-            .frame(maxWidth: .infinity)
-        }
-        .navigationTitle("About")
-        .task {
-            await donationStore.loadProductsIfNeeded()
-        }
-        .sheet(isPresented: $isShowingOpenSourceLicenses) {
-            openSourceLicensesSheet
-        }
-    }
-
-    private func aboutSection(title: String, value: String, isLink: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.caption.weight(.bold))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-            
-            if isLink, let url = title == "Contact" ? URL(string: "mailto:\(value)") : URL(string: value) {
-                Link(value, destination: url)
-                    .font(.body.weight(.medium))
-            } else {
-                Text(value)
-                    .font(.body.weight(.medium))
-            }
-        }
-    }
-
-    private var appVersionText: String {
-        guard let shortVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
-              !shortVersion.isEmpty else {
-            return "Version"
-        }
-        return "Version \(shortVersion)"
-    }
-
-    private var sidebarView: some View {
-        VStack(spacing: 0) {
-            sidebarHeader
-            
-            List(selection: $selectedTab) {
-                Section("Converter") {
-                    sidebarTabItems
-                }
-            }
-            .listStyle(.sidebar)
-        }
-        .navigationTitle("MyConverter")
-        .navigationSplitViewColumnWidth(min: 220, ideal: 240)
-    }
-
-    @ViewBuilder
-    private func outputFilesSection(urls: [URL], openSystemImage: String) -> some View {
-        Section("Output Files") {
-            if urls.isEmpty {
-                Text("Converted files will appear here")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 20)
-            } else {
-                VStack(spacing: 10) {
-                    ForEach(Array(urls.enumerated()), id: \.element.path) { index, url in
-                        outputFileCardView(
-                            url: url,
-                            order: index + 1,
-                            openSystemImage: openSystemImage
-                        )
-                    }
-                }
-                .padding(.vertical, 4)
-                .transition(.opacity.combined(with: .scale(scale: 0.95)))
-            }
-        }
-    }
-
-    private var sidebarHeader: some View {
-        HStack(spacing: 14) {
-            appIconImage
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: 40, height: 40)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
-            
-            VStack(alignment: .leading, spacing: -2) {
-                Text("MyConverter")
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                Text("Personal Media Tool")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.secondary.opacity(0.8))
-            }
-            
-            Spacer()
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 28)
-        .padding(.bottom, 16)
-    }
-
-    @ViewBuilder
-    private var sidebarTabItems: some View {
-        ForEach(ConverterTab.allCases) { tab in
-            Label(tab.title, systemImage: tab.systemImage)
-                .font(.body.weight(.medium))
-                .padding(.vertical, 2)
-                .tag(tab)
-        }
-    }
-
-    private var appIconImage: Image {
-        if let image = NSImage(named: "AppIcon") {
-            return Image(nsImage: image)
-        }
-        return Image(systemName: "circle.hexagonpath.fill")
-    }
-
-    private var openSourceLicensesSheet: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("FFmpeg")
-                            .font(.title3.weight(.semibold))
-
-                        Text("This app bundles an LGPL-only FFmpeg 7.1 build.")
-                            .font(.body)
-                            .foregroundStyle(.secondary)
-
-                        Text("License: GNU Lesser General Public License v2.1 or later.")
-                            .font(.body)
-
-                        if let ffmpegURL = URL(string: "https://ffmpeg.org") {
-                            Link("FFmpeg Project", destination: ffmpegURL)
-                                .font(.callout)
-                        }
-
-                        if let lgplURL = URL(string: "https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html") {
-                            Link("GNU LGPL v2.1 Text", destination: lgplURL)
-                                .font(.callout)
-                        }
-                    }
-
-                    Divider()
-
-                    Text("The bundled ffmpeg binary is validated during build to reject GPL-enabled configurations.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(24)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .navigationTitle("Open Source Licenses")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") {
-                        isShowingOpenSourceLicenses = false
-                    }
-                }
-            }
-        }
-        .frame(minWidth: 560, minHeight: 420)
-    }
-}
-
-private struct SelectedFileReorderDropDelegate: DropDelegate {
-    let targetURL: URL
-    let urls: [URL]
-    @Binding var draggedURL: URL?
-    let isEnabled: Bool
-    let onMove: (_ draggedURL: URL, _ targetURL: URL) -> Void
-
-    func validateDrop(info: DropInfo) -> Bool {
-        isEnabled && info.hasItemsConforming(to: [UTType.text.identifier])
-    }
-
-    func dropEntered(info: DropInfo) {
-        guard isEnabled else { return }
-        guard let draggedURL else { return }
-        guard draggedURL.path != targetURL.path else { return }
-        guard urls.contains(where: { $0.path == draggedURL.path }) else { return }
-        guard urls.contains(where: { $0.path == targetURL.path }) else { return }
-
-        onMove(draggedURL, targetURL)
-    }
-
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        guard isEnabled else { return nil }
-        return DropProposal(operation: .move)
-    }
-
-    func performDrop(info: DropInfo) -> Bool {
-        draggedURL = nil
-        return isEnabled
+        AboutDetailView(donationStore: donationStore)
     }
 }
 
