@@ -123,17 +123,13 @@ enum BatchConversionSupport {
 
         let outputDirectory = firstDestinationURL.deletingLastPathComponent()
         var reservedPaths: Set<String> = [firstDestinationURL.standardizedFileURL.path]
-
-        for sourceURL in sourceURLs.dropFirst() {
-            let destinationURL = uniqueBatchDestinationURL(
-                for: sourceURL,
-                fileExtension: fileExtension,
-                in: outputDirectory,
-                reservedPaths: reservedPaths
-            )
-            selected[ContentViewModelSupport.sourceIdentifier(for: sourceURL)] = destinationURL
-            reservedPaths.insert(destinationURL.standardizedFileURL.path)
-        }
+        assignAutoBatchDestinations(
+            for: sourceURLs.dropFirst(),
+            fileExtension: fileExtension,
+            outputDirectory: outputDirectory,
+            reservedPaths: &reservedPaths,
+            destinationsBySourceID: &selected
+        )
 
         return selected
     }
@@ -219,6 +215,25 @@ enum BatchConversionSupport {
         return candidate
     }
 
+    private static func assignAutoBatchDestinations(
+        for sourceURLs: ArraySlice<URL>,
+        fileExtension: String,
+        outputDirectory: URL,
+        reservedPaths: inout Set<String>,
+        destinationsBySourceID: inout [String: URL]
+    ) {
+        for sourceURL in sourceURLs {
+            let destinationURL = uniqueBatchDestinationURL(
+                for: sourceURL,
+                fileExtension: fileExtension,
+                in: outputDirectory,
+                reservedPaths: reservedPaths
+            )
+            destinationsBySourceID[ContentViewModelSupport.sourceIdentifier(for: sourceURL)] = destinationURL
+            reservedPaths.insert(destinationURL.standardizedFileURL.path)
+        }
+    }
+
     private static func remappedBatchDestinationURLs(
         sourceURLs: [URL],
         originalDestinationsBySourceID: [String: URL],
@@ -255,16 +270,13 @@ enum BatchConversionSupport {
             reservedPaths.insert(firstDestinationURL.standardizedFileURL.path)
         }
 
-        for sourceURL in sourceURLs.dropFirst() {
-            let destinationURL = uniqueBatchDestinationURL(
-                for: sourceURL,
-                fileExtension: fileExtension,
-                in: outputDirectory,
-                reservedPaths: reservedPaths
-            )
-            remapped[ContentViewModelSupport.sourceIdentifier(for: sourceURL)] = destinationURL
-            reservedPaths.insert(destinationURL.standardizedFileURL.path)
-        }
+        assignAutoBatchDestinations(
+            for: sourceURLs.dropFirst(),
+            fileExtension: fileExtension,
+            outputDirectory: outputDirectory,
+            reservedPaths: &reservedPaths,
+            destinationsBySourceID: &remapped
+        )
 
         return remapped
     }
