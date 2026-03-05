@@ -45,40 +45,30 @@ struct VideoFormatOption: Identifiable, Hashable, Sendable {
     static func fromFFmpegExtension(_ fileExtension: String, muxer: String) -> VideoFormatOption {
         let normalizedExtension = FormatOptionUtilities.normalizedFileExtension(fileExtension)
         let normalizedMuxer = muxer.lowercased()
-        let extensionUTType = UTType(filenameExtension: normalizedExtension)
         let profile = VideoFormatProfile.byFileExtension[normalizedExtension]
-
-        let resolvedID =
-            profile?.id ??
-            extensionUTType?.identifier.lowercased() ??
-            "ffmpeg.\(normalizedExtension)"
-
-        let resolvedDisplayName =
-            profile?.displayName ??
-            extensionUTType?.localizedDescription ??
-            normalizedExtension.uppercased()
-
-        let resolvedExtension =
-            profile?.fileExtension ??
-            extensionUTType?.preferredFilenameExtension ??
-            normalizedExtension
-
-        let resolvedMuxers = FormatOptionUtilities.uniqueLowercasedTrimmedStrings(
-            (profile?.ffmpegRequiredMuxers ?? []) + [normalizedMuxer]
+        let resolved = FormatOptionUtilities.resolveFFmpegFormatMetadata(
+            fileExtension: fileExtension,
+            muxer: normalizedMuxer,
+            profile: profile,
+            profileID: { $0.id },
+            profileDisplayName: { $0.displayName },
+            profileFileExtension: { $0.fileExtension },
+            profileRequiredMuxers: { $0.ffmpegRequiredMuxers },
+            profilePreferredMuxer: { $0.preferredFFmpegMuxer }
         )
 
         return VideoFormatOption(
-            id: resolvedID,
-            displayName: resolvedDisplayName,
-            fileExtension: resolvedExtension,
+            id: resolved.id,
+            displayName: resolved.displayName,
+            fileExtension: resolved.fileExtension,
             avFileTypeIdentifier: profile?.avFileTypeIdentifier,
             supportsFastStart: profile?.supportsFastStart ?? false,
             supportsHEVCTag: profile?.supportsHEVCTag ?? false,
             supportsAudioTrack: profile?.supportsAudioTrack ?? true,
             supportsVideoEncoderSelection: profile?.supportsVideoEncoderSelection ?? true,
             usesGIFPalettePipeline: profile?.usesGIFPalettePipeline ?? false,
-            ffmpegRequiredMuxers: resolvedMuxers,
-            preferredFFmpegMuxer: profile?.preferredFFmpegMuxer ?? normalizedMuxer,
+            ffmpegRequiredMuxers: resolved.requiredMuxers,
+            preferredFFmpegMuxer: resolved.preferredMuxer,
             allowsFFmpegAutomaticVideoCodec: profile?.allowsFFmpegAutomaticVideoCodec ?? true,
             allowsFFmpegAutomaticAudioCodec: profile?.allowsFFmpegAutomaticAudioCodec ?? true
         )
@@ -138,7 +128,7 @@ struct VideoFormatOption: Identifiable, Hashable, Sendable {
     private func merged(with other: VideoFormatOption) -> VideoFormatOption {
         VideoFormatOption(
             id: id,
-            displayName: displayName.count >= other.displayName.count ? displayName : other.displayName,
+            displayName: FormatOptionUtilities.preferredDisplayName(displayName, other.displayName),
             fileExtension: fileExtension,
             avFileTypeIdentifier: avFileTypeIdentifier ?? other.avFileTypeIdentifier,
             supportsFastStart: supportsFastStart || other.supportsFastStart,
@@ -419,34 +409,24 @@ struct AudioFormatOption: Identifiable, Hashable, Sendable {
     static func fromFFmpegExtension(_ fileExtension: String, muxer: String) -> AudioFormatOption {
         let normalizedExtension = FormatOptionUtilities.normalizedFileExtension(fileExtension)
         let normalizedMuxer = muxer.lowercased()
-        let extensionUTType = UTType(filenameExtension: normalizedExtension)
         let profile = AudioFormatProfile.byFileExtension[normalizedExtension]
-
-        let resolvedID =
-            profile?.id ??
-            extensionUTType?.identifier.lowercased() ??
-            "ffmpeg.\(normalizedExtension)"
-
-        let resolvedDisplayName =
-            profile?.displayName ??
-            extensionUTType?.localizedDescription ??
-            normalizedExtension.uppercased()
-
-        let resolvedExtension =
-            profile?.fileExtension ??
-            extensionUTType?.preferredFilenameExtension ??
-            normalizedExtension
-
-        let resolvedMuxers = FormatOptionUtilities.uniqueLowercasedTrimmedStrings(
-            (profile?.ffmpegRequiredMuxers ?? []) + [normalizedMuxer]
+        let resolved = FormatOptionUtilities.resolveFFmpegFormatMetadata(
+            fileExtension: fileExtension,
+            muxer: normalizedMuxer,
+            profile: profile,
+            profileID: { $0.id },
+            profileDisplayName: { $0.displayName },
+            profileFileExtension: { $0.fileExtension },
+            profileRequiredMuxers: { $0.ffmpegRequiredMuxers },
+            profilePreferredMuxer: { $0.preferredFFmpegMuxer }
         )
 
         return AudioFormatOption(
-            id: resolvedID,
-            displayName: resolvedDisplayName,
-            fileExtension: resolvedExtension,
-            ffmpegRequiredMuxers: resolvedMuxers,
-            preferredFFmpegMuxer: profile?.preferredFFmpegMuxer ?? normalizedMuxer,
+            id: resolved.id,
+            displayName: resolved.displayName,
+            fileExtension: resolved.fileExtension,
+            ffmpegRequiredMuxers: resolved.requiredMuxers,
+            preferredFFmpegMuxer: resolved.preferredMuxer,
             allowsFFmpegAutomaticAudioCodec: profile?.allowsFFmpegAutomaticAudioCodec ?? true
         )
     }
@@ -486,7 +466,7 @@ struct AudioFormatOption: Identifiable, Hashable, Sendable {
     private func merged(with other: AudioFormatOption) -> AudioFormatOption {
         AudioFormatOption(
             id: id,
-            displayName: displayName.count >= other.displayName.count ? displayName : other.displayName,
+            displayName: FormatOptionUtilities.preferredDisplayName(displayName, other.displayName),
             fileExtension: fileExtension,
             ffmpegRequiredMuxers: FormatOptionUtilities.uniqueLowercasedTrimmedStrings(
                 ffmpegRequiredMuxers + other.ffmpegRequiredMuxers
