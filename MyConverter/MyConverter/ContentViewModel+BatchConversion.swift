@@ -1,0 +1,494 @@
+import Foundation
+
+extension ContentViewModel {
+    // MARK: - Build Settings
+
+    func buildVideoOutputSettings() throws -> VideoOutputSettings {
+        let videoBitRateKbps: Int?
+        if shouldShowVideoBitRateOption {
+            switch selectedVideoBitRate {
+            case .auto:
+                videoBitRateKbps = nil
+            case .custom:
+                guard let custom = normalizedCustomVideoBitRateKbps else {
+                    throw ConversionError.invalidCustomVideoBitRate(customVideoBitRate)
+                }
+                videoBitRateKbps = custom
+            default:
+                videoBitRateKbps = selectedVideoBitRate.kbps
+            }
+        } else {
+            videoBitRateKbps = nil
+        }
+
+        return VideoOutputSettings(
+            containerFormat: selectedOutputFormat,
+            videoCodecCandidates: selectedVideoEncoder.codecCandidates,
+            useHEVCTag: selectedVideoEncoder.usesHEVCCodec,
+            resolution: selectedResolution.dimensions,
+            frameRate: selectedFrameRate.fps,
+            gifPlaybackSpeed: shouldShowGIFPlaybackSpeedOption ? selectedGIFPlaybackSpeed.multiplier : nil,
+            videoBitRateKbps: videoBitRateKbps,
+            audioCodecCandidates: shouldShowAudioSettings ? selectedAudioEncoder.codecCandidates : [],
+            audioChannels: shouldShowAudioSettings ? selectedAudioMode.channelCount : nil,
+            sampleRate: shouldShowAudioSampleRateOption ? selectedSampleRate.hertz : nil,
+            audioBitRateKbps: shouldShowAudioBitRateOption ? selectedAudioBitRate.kbps : nil
+        )
+    }
+
+    func buildImageOutputSettings() -> ImageOutputSettings {
+        let compressionQuality: Double?
+        if selectedImageOutputFormat.supportsCompressionQuality {
+            compressionQuality = selectedImageQuality.compressionQuality
+        } else {
+            compressionQuality = nil
+        }
+
+        let pngCompressionLevel: Int?
+        if selectedImageOutputFormat.supportsPNGCompressionLevel {
+            pngCompressionLevel = selectedPNGCompressionLevel.level
+        } else {
+            pngCompressionLevel = nil
+        }
+
+        return ImageOutputSettings(
+            containerFormat: selectedImageOutputFormat,
+            resolution: selectedImageResolution.dimensions,
+            compressionQuality: compressionQuality,
+            pngCompressionLevel: pngCompressionLevel,
+            preserveAnimation: preserveImageAnimation,
+            sourceIsAnimated: imageSourceIsAnimated
+        )
+    }
+
+    func buildAudioOutputSettings() -> AudioOutputSettings {
+        AudioOutputSettings(
+            containerFormat: selectedAudioOutputFormat,
+            audioCodecCandidates: selectedAudioOutputEncoder.codecCandidates,
+            audioChannels: selectedAudioOutputMode.channelCount,
+            sampleRate: shouldShowAudioOutputSampleRateOption ? selectedAudioOutputSampleRate.hertz : nil,
+            audioBitRateKbps: shouldShowAudioOutputBitRateOption ? selectedAudioOutputBitRate.kbps : nil
+        )
+    }
+
+    // MARK: - Conversion State / Errors
+
+    func prepareBatchStartState(
+        runningKeyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
+        primaryOutputKeyPath: ReferenceWritableKeyPath<ContentViewModel, URL?>,
+        outputsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [URL]>,
+        errorMessageKeyPath: ReferenceWritableKeyPath<ContentViewModel, String?>,
+        progressKeyPath: ReferenceWritableKeyPath<ContentViewModel, Double>
+    ) {
+        self[keyPath: runningKeyPath] = true
+        self[keyPath: primaryOutputKeyPath] = nil
+        self[keyPath: outputsKeyPath] = []
+        self[keyPath: errorMessageKeyPath] = nil
+        self[keyPath: progressKeyPath] = 0
+    }
+
+    func prepareConversionStartState() {
+        prepareBatchStartState(
+            runningKeyPath: \.isConverting,
+            primaryOutputKeyPath: \.convertedURL,
+            outputsKeyPath: \.convertedURLs,
+            errorMessageKeyPath: \.conversionErrorMessage,
+            progressKeyPath: \.conversionProgress
+        )
+    }
+
+    func prepareImageConversionStartState() {
+        prepareBatchStartState(
+            runningKeyPath: \.isImageConverting,
+            primaryOutputKeyPath: \.convertedImageURL,
+            outputsKeyPath: \.convertedImageURLs,
+            errorMessageKeyPath: \.imageConversionErrorMessage,
+            progressKeyPath: \.imageConversionProgress
+        )
+    }
+
+    func prepareAudioConversionStartState() {
+        prepareBatchStartState(
+            runningKeyPath: \.isAudioConverting,
+            primaryOutputKeyPath: \.convertedAudioURL,
+            outputsKeyPath: \.convertedAudioURLs,
+            errorMessageKeyPath: \.audioConversionErrorMessage,
+            progressKeyPath: \.audioConversionProgress
+        )
+    }
+
+    func appendConvertedOutput(
+        _ outputURL: URL,
+        primaryOutputKeyPath: ReferenceWritableKeyPath<ContentViewModel, URL?>,
+        outputsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [URL]>
+    ) {
+        self[keyPath: primaryOutputKeyPath] = outputURL
+        var outputs = self[keyPath: outputsKeyPath]
+        outputs.append(outputURL)
+        self[keyPath: outputsKeyPath] = outputs
+    }
+
+    func applyConversionError(_ error: Error) {
+        if case ConversionError.exportCancelled = error {
+            conversionErrorMessage = nil
+            return
+        }
+
+        conversionErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+
+        if let conversionError = error as? ConversionError {
+            print("Conversion failed: \(conversionError.debugInfo)")
+        } else {
+            print("Conversion failed: \(error.localizedDescription)")
+        }
+    }
+
+    func applyImageConversionError(_ error: Error) {
+        imageConversionErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        print("Image conversion failed: \(imageConversionErrorMessage ?? error.localizedDescription)")
+    }
+
+    func applyAudioConversionError(_ error: Error) {
+        if case ConversionError.exportCancelled = error {
+            audioConversionErrorMessage = nil
+            return
+        }
+
+        audioConversionErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        print("Audio conversion failed: \(audioConversionErrorMessage ?? error.localizedDescription)")
+    }
+
+    func removeProcessedVideoSource(_ processedURL: URL) {
+        removeProcessedSource(
+            processedURL,
+            from: selectedVideoSourceURLs,
+            assignSelection: assignVideoSelection(_:),
+            onSelectionEmptied: {
+                resetVideoCompatibilityMessages()
+                isAnalyzingSource = false
+                availableOutputFormats = VideoConversionEngine.defaultOutputFormats()
+                ensureSelectedVideoOutputFormatIsAvailable()
+                refreshVideoCodecOptions()
+            }
+        )
+    }
+
+    func removeProcessedImageSource(_ processedURL: URL) {
+        removeProcessedSource(
+            processedURL,
+            from: selectedImageSourceURLs,
+            assignSelection: assignImageSelection(_:),
+            onSelectionEmptied: {
+                resetImageCompatibilityState(resetMetadata: true)
+                isAnalyzingImageSource = false
+                availableImageOutputFormats = ImageConversionEngine.defaultOutputFormats()
+                ensureSelectedImageOutputFormatIsAvailable()
+            }
+        )
+    }
+
+    func removeProcessedAudioSource(_ processedURL: URL) {
+        removeProcessedSource(
+            processedURL,
+            from: selectedAudioSourceURLs,
+            assignSelection: assignAudioSelection(_:),
+            onSelectionEmptied: {
+                resetAudioCompatibilityMessages()
+                isAnalyzingAudioSource = false
+                availableAudioOutputFormats = VideoConversionEngine.defaultAudioOutputFormats()
+                ensureSelectedAudioOutputFormatIsAvailable()
+                refreshAudioCodecOptions()
+            }
+        )
+    }
+
+    func validateOutputFormatAvailability<Capability, Format>(
+        for sourceURL: URL,
+        selectedFormatNormalizedID: String,
+        unavailableMessage: String,
+        fetchCapabilities: (URL) async -> Capability,
+        availableFormats: (Capability) -> [Format],
+        errorMessage: (Capability) -> String?,
+        formatNormalizedID: (Format) -> String,
+        additionalValidation: (Capability) -> String? = { _ in nil }
+    ) async -> String? {
+        let capabilities = await fetchCapabilities(sourceURL)
+        if let error = errorMessage(capabilities) {
+            return error
+        }
+
+        let isFormatAvailable = availableFormats(capabilities).contains {
+            formatNormalizedID($0) == selectedFormatNormalizedID
+        }
+        if !isFormatAvailable {
+            return unavailableMessage
+        }
+
+        if let extraValidationMessage = additionalValidation(capabilities) {
+            return extraValidationMessage
+        }
+
+        return nil
+    }
+
+    func validateVideoOutputSettings(for sourceURL: URL) async -> String? {
+        if requiresFFmpegForCurrentVideoSettings && !VideoConversionEngine.isFFmpegAvailable() {
+            return "Selected output settings require ffmpeg. Install ffmpeg or reset advanced options to Auto/Original."
+        }
+
+        return await validateOutputFormatAvailability(
+            for: sourceURL,
+            selectedFormatNormalizedID: selectedOutputFormat.normalizedID,
+            unavailableMessage: "Selected container is not available for this source.",
+            fetchCapabilities: { await VideoConversionEngine.sourceCapabilities(for: $0) },
+            availableFormats: { $0.availableOutputFormats },
+            errorMessage: { $0.errorMessage },
+            formatNormalizedID: { $0.normalizedID }
+        )
+    }
+
+    func validateImageOutputSettings(for sourceURL: URL) async -> String? {
+        await validateOutputFormatAvailability(
+            for: sourceURL,
+            selectedFormatNormalizedID: selectedImageOutputFormat.normalizedID,
+            unavailableMessage: "Selected output format is not available for this source.",
+            fetchCapabilities: { await ImageConversionEngine.sourceCapabilities(for: $0) },
+            availableFormats: { $0.availableOutputFormats },
+            errorMessage: { $0.errorMessage },
+            formatNormalizedID: { $0.normalizedID },
+            additionalValidation: { capabilities in
+                if capabilities.frameCount > 1 &&
+                    preserveImageAnimation &&
+                    selectedImageOutputFormat.supportsAnimation &&
+                    !ImageConversionEngine.isFFmpegAvailable() {
+                    return "Animated output requires ffmpeg for the selected format."
+                }
+                return nil
+            }
+        )
+    }
+
+    func validateAudioOutputSettings(for sourceURL: URL) async -> String? {
+        await validateOutputFormatAvailability(
+            for: sourceURL,
+            selectedFormatNormalizedID: selectedAudioOutputFormat.normalizedID,
+            unavailableMessage: "Selected output format is not available for this source.",
+            fetchCapabilities: { await VideoConversionEngine.sourceCapabilitiesForAudio(for: $0) },
+            availableFormats: { $0.availableOutputFormats },
+            errorMessage: { $0.errorMessage },
+            formatNormalizedID: { $0.normalizedID }
+        )
+    }
+
+    func withSourceSecurityScope<T>(
+        for sourceURL: URL,
+        operation: () async throws -> T
+    ) async rethrows -> T {
+        try await SecurityScopedResourceAccess.withAccess(to: sourceURL, operation: operation)
+    }
+
+    func prepareBatchContext(
+        primarySourceURL: URL,
+        queuedSourceURLs: [URL],
+        fileExtension: String,
+        outputLabel: String
+    ) -> PreparedBatchConversionContext? {
+        BatchConversionSupport.prepareContext(
+            sourceURLs: [primarySourceURL] + queuedSourceURLs,
+            fileExtension: fileExtension,
+            outputLabel: outputLabel
+        )
+    }
+
+    func runBatchConversionLoop(
+        sourceURLs: [URL],
+        destinationURLsBySourceID: [String: URL],
+        destinationErrorCode: Int,
+        validate: @escaping (URL) async -> String?,
+        makeWorkingOutputURL: @escaping (URL) -> URL,
+        runConversion: @escaping (URL, URL, Int, Int) async throws -> URL,
+        onSavedOutput: @escaping (URL) -> Void,
+        onSourceProcessed: @escaping (URL) -> Void,
+        onBatchIndexChanged: @escaping (Int) -> Void
+    ) async throws -> [String] {
+        var skippedEntries: [String] = []
+        let totalCount = max(sourceURLs.count, 1)
+
+        for (index, currentSourceURL) in sourceURLs.enumerated() {
+            try Task.checkCancellation()
+            onBatchIndexChanged(index + 1)
+
+            let shouldSkipSource = try await withSourceSecurityScope(for: currentSourceURL) {
+                if let validationMessage = await validate(currentSourceURL) {
+                    skippedEntries.append("\(currentSourceURL.lastPathComponent): \(validationMessage)")
+                    onSourceProcessed(currentSourceURL)
+                    return true
+                }
+
+                let destinationURL = try BatchConversionSupport.destinationURL(
+                    for: currentSourceURL,
+                    in: destinationURLsBySourceID,
+                    errorCode: destinationErrorCode
+                )
+
+                let workingOutputURL = makeWorkingOutputURL(currentSourceURL)
+                defer { BatchConversionSupport.cleanupWorkingOutputIfNeeded(workingOutputURL) }
+
+                let output = try await runConversion(
+                    currentSourceURL,
+                    workingOutputURL,
+                    index,
+                    totalCount
+                )
+                try Task.checkCancellation()
+
+                let savedURL = try BatchConversionSupport.saveConvertedOutput(from: output, to: destinationURL)
+                onSavedOutput(savedURL)
+                onSourceProcessed(currentSourceURL)
+                return false
+            }
+
+            if shouldSkipSource {
+                continue
+            }
+        }
+
+        return skippedEntries
+    }
+
+    func executeBatchConversion(
+        sourceURLs: [URL],
+        destinationURLsBySourceID: [String: URL],
+        destinationErrorCode: Int,
+        runningKeyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
+        progressKeyPath: ReferenceWritableKeyPath<ContentViewModel, Double>,
+        errorMessageKeyPath: ReferenceWritableKeyPath<ContentViewModel, String?>,
+        currentBatchIndexKeyPath: ReferenceWritableKeyPath<ContentViewModel, Int>,
+        totalBatchCountKeyPath: ReferenceWritableKeyPath<ContentViewModel, Int>,
+        skippedSummaryPrefix: String,
+        treatExportCancellationAsCancelled: Bool = false,
+        validate: @escaping (URL) async -> String?,
+        makeWorkingOutputURL: @escaping (URL) -> URL,
+        runConversion: @escaping (URL, URL, Int, Int) async throws -> URL,
+        onSavedOutput: @escaping (URL) -> Void,
+        onSourceProcessed: @escaping (URL) -> Void,
+        onError: (Error) -> Void
+    ) async {
+        self[keyPath: totalBatchCountKeyPath] = sourceURLs.count
+        self[keyPath: currentBatchIndexKeyPath] = 0
+
+        do {
+            defer {
+                self[keyPath: runningKeyPath] = false
+                self[keyPath: currentBatchIndexKeyPath] = 0
+                self[keyPath: totalBatchCountKeyPath] = 0
+            }
+            try Task.checkCancellation()
+
+            let skippedEntries = try await runBatchConversionLoop(
+                sourceURLs: sourceURLs,
+                destinationURLsBySourceID: destinationURLsBySourceID,
+                destinationErrorCode: destinationErrorCode,
+                validate: validate,
+                makeWorkingOutputURL: makeWorkingOutputURL,
+                runConversion: runConversion,
+                onSavedOutput: onSavedOutput,
+                onSourceProcessed: onSourceProcessed,
+                onBatchIndexChanged: { index in
+                    self[keyPath: currentBatchIndexKeyPath] = index
+                }
+            )
+
+            setProgress(1, at: progressKeyPath)
+            if let summary = BatchConversionSupport.skippedFilesSummary(
+                prefix: skippedSummaryPrefix,
+                entries: skippedEntries
+            ) {
+                self[keyPath: errorMessageKeyPath] = summary
+            }
+        } catch is CancellationError {
+            setProgress(0, at: progressKeyPath)
+            self[keyPath: errorMessageKeyPath] = nil
+        } catch ConversionError.exportCancelled where treatExportCancellationAsCancelled {
+            setProgress(0, at: progressKeyPath)
+            self[keyPath: errorMessageKeyPath] = nil
+        } catch {
+            onError(error)
+        }
+    }
+
+    func performMediaBatchConversion<OutputSettings>(
+        canConvert: Bool,
+        primarySourceURL: URL?,
+        queuedSourceURLs: [URL],
+        missingSourceLog: String,
+        fileExtension: String,
+        outputLabel: String,
+        destinationErrorCode: Int,
+        runningKeyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
+        progressKeyPath: ReferenceWritableKeyPath<ContentViewModel, Double>,
+        errorMessageKeyPath: ReferenceWritableKeyPath<ContentViewModel, String?>,
+        currentBatchIndexKeyPath: ReferenceWritableKeyPath<ContentViewModel, Int>,
+        totalBatchCountKeyPath: ReferenceWritableKeyPath<ContentViewModel, Int>,
+        skippedSummaryPrefix: String,
+        treatExportCancellationAsCancelled: Bool = false,
+        startState: () -> Void,
+        buildOutputSettings: () throws -> OutputSettings,
+        validate: @escaping (URL) async -> String?,
+        makeWorkingOutputURL: @escaping (URL) -> URL,
+        runConversion: @escaping (URL, URL, OutputSettings, Int, Int) async throws -> URL,
+        onSavedOutput: @escaping (URL) -> Void,
+        onSourceProcessed: @escaping (URL) -> Void,
+        onError: (Error) -> Void
+    ) async {
+        guard canConvert, let primarySourceURL else {
+            if primarySourceURL == nil {
+                print(missingSourceLog)
+            }
+            return
+        }
+
+        let outputSettings: OutputSettings
+        do {
+            outputSettings = try buildOutputSettings()
+        } catch {
+            onError(error)
+            return
+        }
+
+        guard let batchContext = prepareBatchContext(
+            primarySourceURL: primarySourceURL,
+            queuedSourceURLs: queuedSourceURLs,
+            fileExtension: fileExtension,
+            outputLabel: outputLabel
+        ) else {
+            return
+        }
+
+        let sourceURLs = batchContext.sourceURLs
+        let destinationURLsBySourceID = batchContext.destinationURLsBySourceID
+        defer { batchContext.stopAccessingBatchDirectory() }
+
+        startState()
+        await executeBatchConversion(
+            sourceURLs: sourceURLs,
+            destinationURLsBySourceID: destinationURLsBySourceID,
+            destinationErrorCode: destinationErrorCode,
+            runningKeyPath: runningKeyPath,
+            progressKeyPath: progressKeyPath,
+            errorMessageKeyPath: errorMessageKeyPath,
+            currentBatchIndexKeyPath: currentBatchIndexKeyPath,
+            totalBatchCountKeyPath: totalBatchCountKeyPath,
+            skippedSummaryPrefix: skippedSummaryPrefix,
+            treatExportCancellationAsCancelled: treatExportCancellationAsCancelled,
+            validate: validate,
+            makeWorkingOutputURL: makeWorkingOutputURL,
+            runConversion: { sourceURL, workingOutputURL, index, totalCount in
+                try await runConversion(sourceURL, workingOutputURL, outputSettings, index, totalCount)
+            },
+            onSavedOutput: onSavedOutput,
+            onSourceProcessed: onSourceProcessed,
+            onError: onError
+        )
+    }
+}
