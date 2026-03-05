@@ -142,6 +142,71 @@ struct ContentView: View {
         }
     }
 
+    private func menuPicker<Option: Identifiable & Hashable>(
+        _ title: String,
+        selection: Binding<Option>,
+        options: [Option],
+        disabledWhenEmpty: Bool = false,
+        label: @escaping (Option) -> String
+    ) -> some View {
+        Picker(title, selection: selection) {
+            ForEach(options) { option in
+                Text(label(option)).tag(option)
+            }
+        }
+        .pickerStyle(.menu)
+        .disabled(disabledWhenEmpty && options.isEmpty)
+    }
+
+    @ViewBuilder
+    private func converterFormSections<SettingsContent: View>(
+        isConverting: Bool,
+        outputURLs: [URL],
+        openSystemImage: String,
+        @ViewBuilder settingsContent: () -> SettingsContent
+    ) -> some View {
+        Section("Output Settings") {
+            settingsContent()
+        }
+        .disabled(isConverting)
+
+        outputFilesSection(urls: outputURLs, openSystemImage: openSystemImage)
+    }
+
+    @ViewBuilder
+    private func audioModeAndRatePickers(
+        modeSelection: Binding<AudioModeOption>,
+        sampleRateSelection: Binding<SampleRateOption>,
+        bitRateSelection: Binding<AudioBitRateOption>,
+        showSampleRate: Bool,
+        showBitRate: Bool
+    ) -> some View {
+        menuPicker(
+            "Audio Mode",
+            selection: modeSelection,
+            options: Array(AudioModeOption.allCases),
+            label: { $0.rawValue }
+        )
+
+        if showSampleRate {
+            menuPicker(
+                "Sample Rate",
+                selection: sampleRateSelection,
+                options: Array(SampleRateOption.allCases),
+                label: { $0.rawValue }
+            )
+        }
+
+        if showBitRate {
+            menuPicker(
+                "Audio Bit Rate",
+                selection: bitRateSelection,
+                options: Array(AudioBitRateOption.allCases),
+                label: { $0.rawValue }
+            )
+        }
+    }
+
     @ViewBuilder
     private var videoInputArea: some View {
         converterInputArea(
@@ -165,55 +230,59 @@ struct ContentView: View {
 
     @ViewBuilder
     private var videoFormSections: some View {
-        Section("Output Settings") {
-            Picker("Container", selection: $viewModel.selectedOutputFormat) {
-                ForEach(viewModel.outputFormatOptions) { format in
-                    Text("\(format.displayName) (.\(format.fileExtension))").tag(format)
-                }
-            }
-            .pickerStyle(.menu)
-            .disabled(viewModel.outputFormatOptions.isEmpty)
+        converterFormSections(
+            isConverting: viewModel.isConverting,
+            outputURLs: viewModel.convertedURLs,
+            openSystemImage: "play.fill"
+        ) {
+            menuPicker(
+                "Container",
+                selection: $viewModel.selectedOutputFormat,
+                options: viewModel.outputFormatOptions,
+                disabledWhenEmpty: true,
+                label: { "\($0.displayName) (.\($0.fileExtension))" }
+            )
 
             if viewModel.shouldShowVideoEncoderOption {
-                Picker("Video Encoder", selection: $viewModel.selectedVideoEncoder) {
-                    ForEach(viewModel.videoEncoderOptions) { option in
-                        Text(option.rawValue).tag(option)
-                    }
-                }
-                .pickerStyle(.menu)
-                .disabled(viewModel.videoEncoderOptions.isEmpty)
+                menuPicker(
+                    "Video Encoder",
+                    selection: $viewModel.selectedVideoEncoder,
+                    options: viewModel.videoEncoderOptions,
+                    disabledWhenEmpty: true,
+                    label: { $0.rawValue }
+                )
             }
 
-            Picker("Resolution", selection: $viewModel.selectedResolution) {
-                ForEach(ResolutionOption.allCases) { option in
-                    Text(option.rawValue).tag(option)
-                }
-            }
-            .pickerStyle(.menu)
+            menuPicker(
+                "Resolution",
+                selection: $viewModel.selectedResolution,
+                options: Array(ResolutionOption.allCases),
+                label: { $0.rawValue }
+            )
 
-            Picker("Frame Rate", selection: $viewModel.selectedFrameRate) {
-                ForEach(FrameRateOption.allCases) { option in
-                    Text(option.rawValue).tag(option)
-                }
-            }
-            .pickerStyle(.menu)
+            menuPicker(
+                "Frame Rate",
+                selection: $viewModel.selectedFrameRate,
+                options: Array(FrameRateOption.allCases),
+                label: { $0.rawValue }
+            )
 
             if viewModel.shouldShowGIFPlaybackSpeedOption {
-                Picker("Playback Speed", selection: $viewModel.selectedGIFPlaybackSpeed) {
-                    ForEach(GIFPlaybackSpeedOption.allCases) { option in
-                        Text(option.rawValue).tag(option)
-                    }
-                }
-                .pickerStyle(.menu)
+                menuPicker(
+                    "Playback Speed",
+                    selection: $viewModel.selectedGIFPlaybackSpeed,
+                    options: Array(GIFPlaybackSpeedOption.allCases),
+                    label: { $0.rawValue }
+                )
             }
 
             if viewModel.shouldShowVideoBitRateOption {
-                Picker("Video Bit Rate", selection: $viewModel.selectedVideoBitRate) {
-                    ForEach(VideoBitRateOption.allCases) { option in
-                        Text(option.rawValue).tag(option)
-                    }
-                }
-                .pickerStyle(.menu)
+                menuPicker(
+                    "Video Bit Rate",
+                    selection: $viewModel.selectedVideoBitRate,
+                    options: Array(VideoBitRateOption.allCases),
+                    label: { $0.rawValue }
+                )
             }
 
             if viewModel.shouldShowVideoBitRateOption && viewModel.selectedVideoBitRate == .custom {
@@ -222,43 +291,23 @@ struct ContentView: View {
             }
 
             if viewModel.shouldShowAudioSettings {
-                Picker("Audio Encoder", selection: $viewModel.selectedAudioEncoder) {
-                    ForEach(viewModel.audioEncoderOptions) { option in
-                        Text(option.rawValue).tag(option)
-                    }
-                }
-                .pickerStyle(.menu)
-                .disabled(viewModel.audioEncoderOptions.isEmpty)
+                menuPicker(
+                    "Audio Encoder",
+                    selection: $viewModel.selectedAudioEncoder,
+                    options: viewModel.audioEncoderOptions,
+                    disabledWhenEmpty: true,
+                    label: { $0.rawValue }
+                )
 
-                Picker("Audio Mode", selection: $viewModel.selectedAudioMode) {
-                    ForEach(AudioModeOption.allCases) { option in
-                        Text(option.rawValue).tag(option)
-                    }
-                }
-                .pickerStyle(.menu)
-
-                if viewModel.shouldShowAudioSampleRateOption {
-                    Picker("Sample Rate", selection: $viewModel.selectedSampleRate) {
-                        ForEach(SampleRateOption.allCases) { option in
-                            Text(option.rawValue).tag(option)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                }
-
-                if viewModel.shouldShowAudioBitRateOption {
-                    Picker("Audio Bit Rate", selection: $viewModel.selectedAudioBitRate) {
-                        ForEach(AudioBitRateOption.allCases) { option in
-                            Text(option.rawValue).tag(option)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                }
+                audioModeAndRatePickers(
+                    modeSelection: $viewModel.selectedAudioMode,
+                    sampleRateSelection: $viewModel.selectedSampleRate,
+                    bitRateSelection: $viewModel.selectedAudioBitRate,
+                    showSampleRate: viewModel.shouldShowAudioSampleRateOption,
+                    showBitRate: viewModel.shouldShowAudioBitRateOption
+                )
             }
         }
-        .disabled(viewModel.isConverting)
-
-        outputFilesSection(urls: viewModel.convertedURLs, openSystemImage: "play.fill")
     }
 
     private var imageDetailView: some View {
@@ -303,38 +352,42 @@ struct ContentView: View {
 
     @ViewBuilder
     private var imageFormSections: some View {
-        Section("Output Settings") {
-            Picker("Container", selection: $viewModel.selectedImageOutputFormat) {
-                ForEach(viewModel.imageOutputFormatOptions) { format in
-                    Text("\(format.displayName) (.\(format.fileExtension))").tag(format)
-                }
-            }
-            .pickerStyle(.menu)
-            .disabled(viewModel.imageOutputFormatOptions.isEmpty)
+        converterFormSections(
+            isConverting: viewModel.isImageConverting,
+            outputURLs: viewModel.convertedImageURLs,
+            openSystemImage: "photo.fill"
+        ) {
+            menuPicker(
+                "Container",
+                selection: $viewModel.selectedImageOutputFormat,
+                options: viewModel.imageOutputFormatOptions,
+                disabledWhenEmpty: true,
+                label: { "\($0.displayName) (.\($0.fileExtension))" }
+            )
 
-            Picker("Resolution", selection: $viewModel.selectedImageResolution) {
-                ForEach(ResolutionOption.allCases) { option in
-                    Text(option.rawValue).tag(option)
-                }
-            }
-            .pickerStyle(.menu)
+            menuPicker(
+                "Resolution",
+                selection: $viewModel.selectedImageResolution,
+                options: Array(ResolutionOption.allCases),
+                label: { $0.rawValue }
+            )
 
             if viewModel.shouldShowImageQualityOption {
-                Picker("Quality", selection: $viewModel.selectedImageQuality) {
-                    ForEach(ImageQualityOption.allCases) { option in
-                        Text(option.rawValue).tag(option)
-                    }
-                }
-                .pickerStyle(.menu)
+                menuPicker(
+                    "Quality",
+                    selection: $viewModel.selectedImageQuality,
+                    options: Array(ImageQualityOption.allCases),
+                    label: { $0.rawValue }
+                )
             }
 
             if viewModel.shouldShowPNGCompressionOption {
-                Picker("PNG Compression", selection: $viewModel.selectedPNGCompressionLevel) {
-                    ForEach(PNGCompressionLevelOption.allCases) { option in
-                        Text(option.rawValue).tag(option)
-                    }
-                }
-                .pickerStyle(.menu)
+                menuPicker(
+                    "PNG Compression",
+                    selection: $viewModel.selectedPNGCompressionLevel,
+                    options: Array(PNGCompressionLevelOption.allCases),
+                    label: { $0.rawValue }
+                )
             }
 
             if viewModel.shouldShowPreserveAnimationOption {
@@ -347,9 +400,6 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .disabled(viewModel.isImageConverting)
-
-        outputFilesSection(urls: viewModel.convertedImageURLs, openSystemImage: "photo.fill")
     }
 
     private var videoConversionControls: some View {
@@ -685,47 +735,34 @@ struct ContentView: View {
 
     @ViewBuilder
     private var audioFormSections: some View {
-        Section("Output Settings") {
-            Picker("Container", selection: $viewModel.selectedAudioOutputFormat) {
-                ForEach(viewModel.audioOutputFormatOptions) { format in
-                    Text("\(format.displayName) (.\(format.fileExtension))").tag(format)
-                }
-            }
-            .pickerStyle(.menu)
-            .disabled(viewModel.audioOutputFormatOptions.isEmpty)
+        converterFormSections(
+            isConverting: viewModel.isAudioConverting,
+            outputURLs: viewModel.convertedAudioURLs,
+            openSystemImage: "music.note"
+        ) {
+            menuPicker(
+                "Container",
+                selection: $viewModel.selectedAudioOutputFormat,
+                options: viewModel.audioOutputFormatOptions,
+                disabledWhenEmpty: true,
+                label: { "\($0.displayName) (.\($0.fileExtension))" }
+            )
 
-            Picker("Audio Encoder", selection: $viewModel.selectedAudioOutputEncoder) {
-                ForEach(viewModel.audioOutputEncoderOptions) { option in
-                    Text(option.rawValue).tag(option)
-                }
-            }
-            .pickerStyle(.menu)
-            .disabled(viewModel.audioOutputEncoderOptions.isEmpty)
+            menuPicker(
+                "Audio Encoder",
+                selection: $viewModel.selectedAudioOutputEncoder,
+                options: viewModel.audioOutputEncoderOptions,
+                disabledWhenEmpty: true,
+                label: { $0.rawValue }
+            )
 
-            Picker("Audio Mode", selection: $viewModel.selectedAudioOutputMode) {
-                ForEach(AudioModeOption.allCases) { option in
-                    Text(option.rawValue).tag(option)
-                }
-            }
-            .pickerStyle(.menu)
-
-            if viewModel.shouldShowAudioOutputSampleRateOption {
-                Picker("Sample Rate", selection: $viewModel.selectedAudioOutputSampleRate) {
-                    ForEach(SampleRateOption.allCases) { option in
-                        Text(option.rawValue).tag(option)
-                    }
-                }
-                .pickerStyle(.menu)
-            }
-
-            if viewModel.shouldShowAudioOutputBitRateOption {
-                Picker("Audio Bit Rate", selection: $viewModel.selectedAudioOutputBitRate) {
-                    ForEach(AudioBitRateOption.allCases) { option in
-                        Text(option.rawValue).tag(option)
-                    }
-                }
-                .pickerStyle(.menu)
-            }
+            audioModeAndRatePickers(
+                modeSelection: $viewModel.selectedAudioOutputMode,
+                sampleRateSelection: $viewModel.selectedAudioOutputSampleRate,
+                bitRateSelection: $viewModel.selectedAudioOutputBitRate,
+                showSampleRate: viewModel.shouldShowAudioOutputSampleRateOption,
+                showBitRate: viewModel.shouldShowAudioOutputBitRateOption
+            )
 
             if let hint = viewModel.audioFormatHintMessage {
                 Text(hint)
@@ -733,9 +770,6 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .disabled(viewModel.isAudioConverting)
-
-        outputFilesSection(urls: viewModel.convertedAudioURLs, openSystemImage: "music.note")
     }
 
     private func selectedFileCardView(
