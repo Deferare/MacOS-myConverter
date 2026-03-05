@@ -16,6 +16,27 @@ private enum ContentViewModelSettingsDefaults {
     }
 }
 
+private extension KeyedDecodingContainer {
+    func decodeRequiredString(forKey key: Key) throws -> String {
+        try decode(String.self, forKey: key)
+    }
+
+    func decodeString(forKey key: Key, default defaultValue: String) throws -> String {
+        try decodeIfPresent(String.self, forKey: key) ?? defaultValue
+    }
+
+    func decodeBool(forKey key: Key, default defaultValue: Bool) throws -> Bool {
+        try decodeIfPresent(Bool.self, forKey: key) ?? defaultValue
+    }
+}
+
+private func restoredOption<Option: RawRepresentable>(
+    _ rawValue: String,
+    default defaultValue: Option
+) -> Option where Option.RawValue == String {
+    Option(rawValue: rawValue) ?? defaultValue
+}
+
 struct VideoConversionSettings {
     var outputFormatID: String = ContentViewModelSettingsDefaults.defaultVideoFormatID
     var videoEncoder: VideoEncoderOption = .h264GPU
@@ -59,17 +80,20 @@ struct PersistedVideoConversionSettings: Codable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        outputFormat = try container.decode(String.self, forKey: .outputFormat)
-        videoEncoder = try container.decode(String.self, forKey: .videoEncoder)
-        resolution = try container.decode(String.self, forKey: .resolution)
-        frameRate = try container.decode(String.self, forKey: .frameRate)
-        gifPlaybackSpeed = try container.decodeIfPresent(String.self, forKey: .gifPlaybackSpeed) ?? GIFPlaybackSpeedOption.x1_5.rawValue
-        videoBitRate = try container.decode(String.self, forKey: .videoBitRate)
-        customVideoBitRate = try container.decode(String.self, forKey: .customVideoBitRate)
-        audioEncoder = try container.decode(String.self, forKey: .audioEncoder)
-        audioMode = try container.decode(String.self, forKey: .audioMode)
-        sampleRate = try container.decode(String.self, forKey: .sampleRate)
-        audioBitRate = try container.decode(String.self, forKey: .audioBitRate)
+        outputFormat = try container.decodeRequiredString(forKey: .outputFormat)
+        videoEncoder = try container.decodeRequiredString(forKey: .videoEncoder)
+        resolution = try container.decodeRequiredString(forKey: .resolution)
+        frameRate = try container.decodeRequiredString(forKey: .frameRate)
+        gifPlaybackSpeed = try container.decodeString(
+            forKey: .gifPlaybackSpeed,
+            default: GIFPlaybackSpeedOption.x1_5.rawValue
+        )
+        videoBitRate = try container.decodeRequiredString(forKey: .videoBitRate)
+        customVideoBitRate = try container.decodeRequiredString(forKey: .customVideoBitRate)
+        audioEncoder = try container.decodeRequiredString(forKey: .audioEncoder)
+        audioMode = try container.decodeRequiredString(forKey: .audioMode)
+        sampleRate = try container.decodeRequiredString(forKey: .sampleRate)
+        audioBitRate = try container.decodeRequiredString(forKey: .audioBitRate)
     }
 
     init(from settings: VideoConversionSettings) {
@@ -89,16 +113,16 @@ struct PersistedVideoConversionSettings: Codable {
     var restoredSettings: VideoConversionSettings {
         VideoConversionSettings(
             outputFormatID: outputFormat,
-            videoEncoder: VideoEncoderOption(rawValue: videoEncoder) ?? .h264GPU,
-            resolution: ResolutionOption(rawValue: resolution) ?? .original,
-            frameRate: FrameRateOption(rawValue: frameRate) ?? .original,
-            gifPlaybackSpeed: GIFPlaybackSpeedOption(rawValue: gifPlaybackSpeed) ?? .x1_5,
-            videoBitRate: VideoBitRateOption(rawValue: videoBitRate) ?? .auto,
+            videoEncoder: restoredOption(videoEncoder, default: .h264GPU),
+            resolution: restoredOption(resolution, default: .original),
+            frameRate: restoredOption(frameRate, default: .original),
+            gifPlaybackSpeed: restoredOption(gifPlaybackSpeed, default: .x1_5),
+            videoBitRate: restoredOption(videoBitRate, default: .auto),
             customVideoBitRate: customVideoBitRate,
-            audioEncoder: AudioEncoderOption(rawValue: audioEncoder) ?? .aac,
-            audioMode: AudioModeOption(rawValue: audioMode) ?? .auto,
-            sampleRate: SampleRateOption(rawValue: sampleRate) ?? .hz48000,
-            audioBitRate: AudioBitRateOption(rawValue: audioBitRate) ?? .auto
+            audioEncoder: restoredOption(audioEncoder, default: .aac),
+            audioMode: restoredOption(audioMode, default: .auto),
+            sampleRate: restoredOption(sampleRate, default: .hz48000),
+            audioBitRate: restoredOption(audioBitRate, default: .auto)
         )
     }
 }
@@ -128,11 +152,14 @@ struct PersistedImageConversionSettings: Codable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        outputFormat = try container.decode(String.self, forKey: .outputFormat)
-        resolution = try container.decode(String.self, forKey: .resolution)
-        quality = try container.decode(String.self, forKey: .quality)
-        pngCompressionLevel = try container.decodeIfPresent(String.self, forKey: .pngCompressionLevel) ?? PNGCompressionLevelOption.balanced.rawValue
-        preserveAnimation = try container.decodeIfPresent(Bool.self, forKey: .preserveAnimation) ?? true
+        outputFormat = try container.decodeRequiredString(forKey: .outputFormat)
+        resolution = try container.decodeRequiredString(forKey: .resolution)
+        quality = try container.decodeRequiredString(forKey: .quality)
+        pngCompressionLevel = try container.decodeString(
+            forKey: .pngCompressionLevel,
+            default: PNGCompressionLevelOption.balanced.rawValue
+        )
+        preserveAnimation = try container.decodeBool(forKey: .preserveAnimation, default: true)
     }
 
     init(from settings: ImageConversionSettings) {
@@ -146,9 +173,9 @@ struct PersistedImageConversionSettings: Codable {
     var restoredSettings: ImageConversionSettings {
         ImageConversionSettings(
             outputFormatID: outputFormat,
-            resolution: ResolutionOption(rawValue: resolution) ?? .original,
-            quality: ImageQualityOption(rawValue: quality) ?? .high,
-            pngCompressionLevel: PNGCompressionLevelOption(rawValue: pngCompressionLevel) ?? .balanced,
+            resolution: restoredOption(resolution, default: .original),
+            quality: restoredOption(quality, default: .high),
+            pngCompressionLevel: restoredOption(pngCompressionLevel, default: .balanced),
             preserveAnimation: preserveAnimation
         )
     }
@@ -179,11 +206,11 @@ struct PersistedAudioConversionSettings: Codable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        outputFormat = try container.decode(String.self, forKey: .outputFormat)
-        audioEncoder = try container.decode(String.self, forKey: .audioEncoder)
-        audioMode = try container.decode(String.self, forKey: .audioMode)
-        sampleRate = try container.decode(String.self, forKey: .sampleRate)
-        audioBitRate = try container.decode(String.self, forKey: .audioBitRate)
+        outputFormat = try container.decodeRequiredString(forKey: .outputFormat)
+        audioEncoder = try container.decodeRequiredString(forKey: .audioEncoder)
+        audioMode = try container.decodeRequiredString(forKey: .audioMode)
+        sampleRate = try container.decodeRequiredString(forKey: .sampleRate)
+        audioBitRate = try container.decodeRequiredString(forKey: .audioBitRate)
     }
 
     init(from settings: AudioConversionSettings) {
@@ -197,10 +224,10 @@ struct PersistedAudioConversionSettings: Codable {
     var restoredSettings: AudioConversionSettings {
         AudioConversionSettings(
             outputFormatID: outputFormat,
-            audioEncoder: AudioEncoderOption(rawValue: audioEncoder) ?? .aac,
-            audioMode: AudioModeOption(rawValue: audioMode) ?? .auto,
-            sampleRate: SampleRateOption(rawValue: sampleRate) ?? .hz48000,
-            audioBitRate: AudioBitRateOption(rawValue: audioBitRate) ?? .auto
+            audioEncoder: restoredOption(audioEncoder, default: .aac),
+            audioMode: restoredOption(audioMode, default: .auto),
+            sampleRate: restoredOption(sampleRate, default: .hz48000),
+            audioBitRate: restoredOption(audioBitRate, default: .auto)
         )
     }
 }
