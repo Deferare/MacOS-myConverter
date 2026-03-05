@@ -1,5 +1,33 @@
 import Foundation
 
+enum SecurityScopedResourceAccess {
+    nonisolated static func withAccess<T>(
+        to url: URL,
+        operation: () throws -> T
+    ) rethrows -> T {
+        let shouldStopAccessing = url.startAccessingSecurityScopedResource()
+        defer {
+            if shouldStopAccessing {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+        return try operation()
+    }
+
+    nonisolated static func withAccess<T>(
+        to url: URL,
+        operation: () async throws -> T
+    ) async rethrows -> T {
+        let shouldStopAccessing = url.startAccessingSecurityScopedResource()
+        defer {
+            if shouldStopAccessing {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+        return try await operation()
+    }
+}
+
 enum OutputPathUtilities {
     enum SaveOutputError: Error {
         case outputSaveFailed(path: String, message: String)
@@ -93,16 +121,11 @@ enum OutputPathUtilities {
             stagedURL.appendPathExtension(sourceURL.pathExtension)
         }
 
-        let shouldStopAccessing = sourceURL.startAccessingSecurityScopedResource()
-        defer {
-            if shouldStopAccessing {
-                sourceURL.stopAccessingSecurityScopedResource()
-            }
-        }
-
         do {
-            try FileManager.default.copyItem(at: sourceURL, to: stagedURL)
-            return stagedURL
+            return try SecurityScopedResourceAccess.withAccess(to: sourceURL) {
+                try FileManager.default.copyItem(at: sourceURL, to: stagedURL)
+                return stagedURL
+            }
         } catch {
             throw StagedInputError.stagingCopyFailed(
                 sourcePath: sourceURL.path,

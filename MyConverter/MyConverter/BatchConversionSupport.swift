@@ -80,19 +80,12 @@ enum BatchConversionSupport {
 
     static func saveConvertedOutput(from sourceURL: URL, to destinationURL: URL) throws -> URL {
         let destinationDirectoryURL = destinationURL.deletingLastPathComponent()
-        let shouldStopDestinationAccessing = destinationURL.startAccessingSecurityScopedResource()
-        let shouldStopDirectoryAccessing = destinationDirectoryURL.startAccessingSecurityScopedResource()
 
-        defer {
-            if shouldStopDestinationAccessing {
-                destinationURL.stopAccessingSecurityScopedResource()
-            }
-            if shouldStopDirectoryAccessing {
-                destinationDirectoryURL.stopAccessingSecurityScopedResource()
+        return try SecurityScopedResourceAccess.withAccess(to: destinationURL) {
+            try SecurityScopedResourceAccess.withAccess(to: destinationDirectoryURL) {
+                try VideoConversionEngine.saveConvertedOutput(from: sourceURL, to: destinationURL)
             }
         }
-
-        return try VideoConversionEngine.saveConvertedOutput(from: sourceURL, to: destinationURL)
     }
 
     private static func selectDestinationURLs(

@@ -47,17 +47,11 @@ final class ContentViewModel: ObservableObject {
     }
 
     private static var defaultVideoFormat: VideoFormatOption {
-        if let preferred = VideoFormatOption.defaultSelection(from: VideoConversionEngine.defaultOutputFormats()) {
-            return preferred
-        }
-        return VideoFormatOption.fromFFmpegExtension("mp4", muxer: "mp4")
+        ContentViewModelSupport.defaultVideoFormat()
     }
 
     private static var defaultAudioFormat: AudioFormatOption {
-        if let preferred = AudioFormatOption.defaultSelection(from: VideoConversionEngine.defaultAudioOutputFormats()) {
-            return preferred
-        }
-        return AudioFormatOption.fromFFmpegExtension("m4a", muxer: "ipod")
+        ContentViewModelSupport.defaultAudioFormat()
     }
 
     // Video state
@@ -797,14 +791,9 @@ final class ContentViewModel: ObservableObject {
         for source in selection {
             guard !Task.isCancelled else { return nil }
 
-            let shouldStopSourceAccessing = source.startAccessingSecurityScopedResource()
-            defer {
-                if shouldStopSourceAccessing {
-                    source.stopAccessingSecurityScopedResource()
-                }
+            let capabilities = await withSourceSecurityScope(for: source) {
+                await fetchCapabilities(source)
             }
-
-            let capabilities = await fetchCapabilities(source)
             onCapability?(source, capabilities)
 
             let formats = availableFormats(capabilities)
@@ -1372,14 +1361,8 @@ final class ContentViewModel: ObservableObject {
     private func withSourceSecurityScope<T>(
         for sourceURL: URL,
         operation: () async throws -> T
-    ) async throws -> T {
-        let shouldStopSourceAccessing = sourceURL.startAccessingSecurityScopedResource()
-        defer {
-            if shouldStopSourceAccessing {
-                sourceURL.stopAccessingSecurityScopedResource()
-            }
-        }
-        return try await operation()
+    ) async rethrows -> T {
+        try await SecurityScopedResourceAccess.withAccess(to: sourceURL, operation: operation)
     }
 
     private func prepareBatchContext(

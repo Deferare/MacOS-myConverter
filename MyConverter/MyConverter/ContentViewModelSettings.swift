@@ -2,17 +2,11 @@ import Foundation
 
 private enum ContentViewModelSettingsDefaults {
     static var defaultVideoFormatID: String {
-        if let preferred = VideoFormatOption.defaultSelection(from: VideoConversionEngine.defaultOutputFormats()) {
-            return preferred.id
-        }
-        return VideoFormatOption.fromFFmpegExtension("mp4", muxer: "mp4").id
+        ContentViewModelSupport.defaultVideoFormat().id
     }
 
     static var defaultAudioFormatID: String {
-        if let preferred = AudioFormatOption.defaultSelection(from: VideoConversionEngine.defaultAudioOutputFormats()) {
-            return preferred.id
-        }
-        return AudioFormatOption.fromFFmpegExtension("m4a", muxer: "ipod").id
+        ContentViewModelSupport.defaultAudioFormat().id
     }
 }
 
