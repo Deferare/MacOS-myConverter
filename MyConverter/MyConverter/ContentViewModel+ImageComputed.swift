@@ -8,12 +8,13 @@ extension ContentViewModel {
     }
 
     var canConvertImage: Bool {
-        imageSourceURL != nil &&
-            !isImageConverting &&
-            !isAnalyzingImageSource &&
-            imageSourceCompatibilityErrorMessage == nil &&
-            isImageSettingsValid &&
-            availableImageOutputFormats.contains(where: { $0.normalizedID == selectedImageOutputFormat.normalizedID })
+        canStartConversion(
+            sourceURL: imageSourceURL,
+            isConverting: isImageConverting,
+            isAnalyzingSource: isAnalyzingImageSource,
+            validationMessage: imageSettingsValidationMessage,
+            selectedFormatAvailable: availableImageOutputFormats.contains(where: { $0.normalizedID == selectedImageOutputFormat.normalizedID })
+        )
     }
 
     var selectedImageSourceURLs: [URL] {
@@ -26,13 +27,11 @@ extension ContentViewModel {
     }
 
     var displayedImageConversionProgress: Double {
-        let rawProgress = isImageConverting ? imageConversionProgress : 0
-        return rawProgress < 0.01 ? 0 : rawProgress
+        displayedProgress(isConverting: isImageConverting, rawProgress: imageConversionProgress)
     }
 
     var imageProgressPercentageText: String {
-        let percent = Int((displayedImageConversionProgress * 100).rounded())
-        return "\(max(0, min(percent, 100)))%"
+        progressPercentageText(for: displayedImageConversionProgress)
     }
 
     var imageConversionStatusMessage: String {
@@ -44,10 +43,9 @@ extension ContentViewModel {
     }
 
     var imageOutputFormatOptions: [ImageFormatOption] {
-        if imageSourceURL == nil && availableImageOutputFormats.isEmpty {
-            return ImageConversionEngine.defaultOutputFormats()
+        defaultedOutputFormats(sourceURL: imageSourceURL, availableFormats: availableImageOutputFormats) {
+            ImageConversionEngine.defaultOutputFormats()
         }
-        return availableImageOutputFormats
     }
 
     var isImageSettingsValid: Bool {

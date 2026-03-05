@@ -4,10 +4,12 @@ extension ContentViewModel {
     // MARK: - Video Computed Properties
 
     var canConvert: Bool {
-        sourceURL != nil &&
-            !isConverting &&
-            !isAnalyzingSource &&
-            videoSettingsValidationMessage == nil
+        canStartConversion(
+            sourceURL: sourceURL,
+            isConverting: isConverting,
+            isAnalyzingSource: isAnalyzingSource,
+            validationMessage: videoSettingsValidationMessage
+        )
     }
 
     var selectedVideoSourceURLs: [URL] {
@@ -20,13 +22,11 @@ extension ContentViewModel {
     }
 
     var displayedConversionProgress: Double {
-        let rawProgress = isConverting ? conversionProgress : 0
-        return rawProgress < 0.01 ? 0 : rawProgress
+        displayedProgress(isConverting: isConverting, rawProgress: conversionProgress)
     }
 
     var progressPercentageText: String {
-        let percent = Int((displayedConversionProgress * 100).rounded())
-        return "\(max(0, min(percent, 100)))%"
+        progressPercentageText(for: displayedConversionProgress)
     }
 
     var conversionStatusMessage: String {
@@ -67,10 +67,9 @@ extension ContentViewModel {
     }
 
     var outputFormatOptions: [VideoFormatOption] {
-        if sourceURL == nil && availableOutputFormats.isEmpty {
-            return VideoConversionEngine.defaultOutputFormats()
+        defaultedOutputFormats(sourceURL: sourceURL, availableFormats: availableOutputFormats) {
+            VideoConversionEngine.defaultOutputFormats()
         }
-        return availableOutputFormats
     }
 
     var videoEncoderOptions: [VideoEncoderOption] {

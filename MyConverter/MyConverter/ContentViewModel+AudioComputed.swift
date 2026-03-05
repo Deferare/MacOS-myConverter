@@ -4,11 +4,13 @@ extension ContentViewModel {
     // MARK: - Audio Computed Properties
 
     var canConvertAudio: Bool {
-        audioSourceURL != nil &&
-            !isAudioConverting &&
-            !isAnalyzingAudioSource &&
-            audioSettingsValidationMessage == nil &&
-            availableAudioOutputFormats.contains(where: { $0.normalizedID == selectedAudioOutputFormat.normalizedID })
+        canStartConversion(
+            sourceURL: audioSourceURL,
+            isConverting: isAudioConverting,
+            isAnalyzingSource: isAnalyzingAudioSource,
+            validationMessage: audioSettingsValidationMessage,
+            selectedFormatAvailable: availableAudioOutputFormats.contains(where: { $0.normalizedID == selectedAudioOutputFormat.normalizedID })
+        )
     }
 
     var selectedAudioSourceURLs: [URL] {
@@ -21,13 +23,11 @@ extension ContentViewModel {
     }
 
     var displayedAudioConversionProgress: Double {
-        let rawProgress = isAudioConverting ? audioConversionProgress : 0
-        return rawProgress < 0.01 ? 0 : rawProgress
+        displayedProgress(isConverting: isAudioConverting, rawProgress: audioConversionProgress)
     }
 
     var audioProgressPercentageText: String {
-        let percent = Int((displayedAudioConversionProgress * 100).rounded())
-        return "\(max(0, min(percent, 100)))%"
+        progressPercentageText(for: displayedAudioConversionProgress)
     }
 
     var audioConversionStatusMessage: String {
@@ -39,10 +39,9 @@ extension ContentViewModel {
     }
 
     var audioOutputFormatOptions: [AudioFormatOption] {
-        if availableAudioOutputFormats.isEmpty && audioSourceURL == nil {
-            return VideoConversionEngine.defaultAudioOutputFormats()
+        defaultedOutputFormats(sourceURL: audioSourceURL, availableFormats: availableAudioOutputFormats) {
+            VideoConversionEngine.defaultAudioOutputFormats()
         }
-        return availableAudioOutputFormats
     }
 
     var audioOutputEncoderOptions: [AudioEncoderOption] {
