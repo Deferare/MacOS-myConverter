@@ -1,52 +1,81 @@
 import Foundation
 
 extension ContentViewModel {
-    func clearSelectedSourceState(
-        cancelAnalysisTask: () -> Void,
-        resetSelectionAndOutput: () -> Void,
-        resetCompatibilityAndBatchState: () -> Void,
-        resetFormatsAndSettings: () -> Void
-    ) {
-        cancelAnalysisTask()
-        resetSelectionAndOutput()
-        resetCompatibilityAndBatchState()
-        resetFormatsAndSettings()
+    func clearSelectedSource() {
+        clearSelectedVideoSource()
     }
 
-    func resetVideoConversionOutputs() {
-        convertedURL = nil
-        convertedURLs = []
-        conversionErrorMessage = nil
+    func clearSelectedVideoSource() {
+        clearSelectedSourceState(
+            cancelAnalysisTask: {
+                cancelTask(&sourceAnalysisTask)
+            },
+            resetSelectionAndOutput: {
+                sourceURL = nil
+                queuedSourceURLs = []
+                resetVideoConversionOutputs()
+            },
+            resetCompatibilityAndBatchState: {
+                resetVideoCompatibilityMessages()
+                isAnalyzingSource = false
+                currentVideoBatchIndex = 0
+                totalVideoBatchCount = 0
+            },
+            resetFormatsAndSettings: {
+                availableOutputFormats = VideoConversionEngine.defaultOutputFormats()
+                applyStoredSettings(.init())
+                ensureSelectedVideoOutputFormatIsAvailable()
+                refreshVideoCodecOptions()
+            }
+        )
     }
 
-    func resetImageConversionOutputs() {
-        convertedImageURL = nil
-        convertedImageURLs = []
-        imageConversionErrorMessage = nil
+    func clearSelectedImageSource() {
+        clearSelectedSourceState(
+            cancelAnalysisTask: {
+                cancelTask(&imageSourceAnalysisTask)
+            },
+            resetSelectionAndOutput: {
+                imageSourceURL = nil
+                queuedImageSourceURLs = []
+                resetImageConversionOutputs()
+            },
+            resetCompatibilityAndBatchState: {
+                resetImageCompatibilityState(resetMetadata: true)
+                isAnalyzingImageSource = false
+                currentImageBatchIndex = 0
+                totalImageBatchCount = 0
+            },
+            resetFormatsAndSettings: {
+                availableImageOutputFormats = ImageConversionEngine.defaultOutputFormats()
+                applyStoredImageSettings(.init())
+                ensureSelectedImageOutputFormatIsAvailable()
+            }
+        )
     }
 
-    func resetAudioConversionOutputs() {
-        convertedAudioURL = nil
-        convertedAudioURLs = []
-        audioConversionErrorMessage = nil
-    }
-
-    func resetVideoCompatibilityMessages() {
-        sourceCompatibilityErrorMessage = nil
-        sourceCompatibilityWarningMessage = nil
-    }
-
-    func resetImageCompatibilityState(resetMetadata: Bool) {
-        if resetMetadata {
-            imageSourceFrameCount = 0
-            imageSourceHasAlpha = false
-        }
-        imageSourceCompatibilityErrorMessage = nil
-        imageSourceCompatibilityWarningMessage = nil
-    }
-
-    func resetAudioCompatibilityMessages() {
-        audioSourceCompatibilityErrorMessage = nil
-        audioSourceCompatibilityWarningMessage = nil
+    func clearSelectedAudioSource() {
+        clearSelectedSourceState(
+            cancelAnalysisTask: {
+                cancelTask(&audioSourceAnalysisTask)
+            },
+            resetSelectionAndOutput: {
+                audioSourceURL = nil
+                queuedAudioSourceURLs = []
+                resetAudioConversionOutputs()
+            },
+            resetCompatibilityAndBatchState: {
+                resetAudioCompatibilityMessages()
+                isAnalyzingAudioSource = false
+                currentAudioBatchIndex = 0
+                totalAudioBatchCount = 0
+            },
+            resetFormatsAndSettings: {
+                availableAudioOutputFormats = VideoConversionEngine.defaultAudioOutputFormats()
+                applyStoredAudioSettings(.init())
+                ensureSelectedAudioOutputFormatIsAvailable()
+                refreshAudioCodecOptions()
+            }
+        )
     }
 }
