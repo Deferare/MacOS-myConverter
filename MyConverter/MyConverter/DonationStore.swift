@@ -4,11 +4,15 @@ import StoreKit
 
 @MainActor
 final class DonationStore: ObservableObject {
-    static let productIDs: [String] = [
-        "com.deferare.MyConverter.donation.1",
-        "com.deferare.MyConverter.donation.3",
-        "com.deferare.MyConverter.donation.5"
+    private static let supportProducts: [(id: String, amountText: String)] = [
+        ("com.deferare.MyConverter.donation.1", "$1"),
+        ("com.deferare.MyConverter.donation.3", "$3"),
+        ("com.deferare.MyConverter.donation.5", "$5")
     ]
+    static let productIDs: [String] = supportProducts.map(\.id)
+    private static let amountTextByProductID = Dictionary(
+        uniqueKeysWithValues: supportProducts.map { ($0.id, $0.amountText) }
+    )
 
     @Published private(set) var products: [Product] = []
     @Published private(set) var isLoadingProducts = false
@@ -76,16 +80,7 @@ final class DonationStore: ObservableObject {
     }
 
     func suggestedAmountText(for productID: String) -> String {
-        switch productID {
-        case "com.deferare.MyConverter.donation.1":
-            return "$1"
-        case "com.deferare.MyConverter.donation.3":
-            return "$3"
-        case "com.deferare.MyConverter.donation.5":
-            return "$5"
-        default:
-            return "Support"
-        }
+        Self.amountTextByProductID[productID] ?? "Support"
     }
 
     private static func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {

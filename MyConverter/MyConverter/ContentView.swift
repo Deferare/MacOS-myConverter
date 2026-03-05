@@ -212,27 +212,7 @@ struct ContentView: View {
         }
         .disabled(viewModel.isConverting)
 
-        Section("Output Files") {
-            if viewModel.convertedURLs.isEmpty {
-                Text("Converted files will appear here")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 20)
-            } else {
-                VStack(spacing: 10) {
-                    ForEach(Array(viewModel.convertedURLs.enumerated()), id: \.element.path) { index, url in
-                        outputFileCardView(
-                            url: url,
-                            order: index + 1,
-                            openSystemImage: "play.fill"
-                        )
-                    }
-                }
-                .padding(.vertical, 4)
-                .transition(.opacity.combined(with: .scale(scale: 0.95)))
-            }
-        }
+        outputFilesSection(urls: viewModel.convertedURLs, openSystemImage: "play.fill")
     }
 
     private var imageDetailView: some View {
@@ -339,27 +319,7 @@ struct ContentView: View {
         }
         .disabled(viewModel.isImageConverting)
 
-        Section("Output Files") {
-            if viewModel.convertedImageURLs.isEmpty {
-                Text("Converted files will appear here")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 20)
-            } else {
-                VStack(spacing: 10) {
-                    ForEach(Array(viewModel.convertedImageURLs.enumerated()), id: \.element.path) { index, url in
-                        outputFileCardView(
-                            url: url,
-                            order: index + 1,
-                            openSystemImage: "photo.fill"
-                        )
-                    }
-                }
-                .padding(.vertical, 4)
-                .transition(.opacity.combined(with: .scale(scale: 0.95)))
-            }
-        }
+        outputFilesSection(urls: viewModel.convertedImageURLs, openSystemImage: "photo.fill")
     }
 
     private var videoConversionControls: some View {
@@ -1004,27 +964,7 @@ struct ContentView: View {
         }
         .disabled(viewModel.isAudioConverting)
 
-        Section("Output Files") {
-            if viewModel.convertedAudioURLs.isEmpty {
-                Text("Converted files will appear here")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 20)
-            } else {
-                VStack(spacing: 10) {
-                    ForEach(Array(viewModel.convertedAudioURLs.enumerated()), id: \.element.path) { index, url in
-                        outputFileCardView(
-                            url: url,
-                            order: index + 1,
-                            openSystemImage: "music.note"
-                        )
-                    }
-                }
-                .padding(.vertical, 4)
-                .transition(.opacity.combined(with: .scale(scale: 0.95)))
-            }
-        }
+        outputFilesSection(urls: viewModel.convertedAudioURLs, openSystemImage: "music.note")
     }
 
     private var aboutDetailView: some View {
@@ -1196,6 +1136,31 @@ struct ContentView: View {
         }
         .navigationTitle("MyConverter")
         .navigationSplitViewColumnWidth(min: 220, ideal: 240)
+    }
+
+    @ViewBuilder
+    private func outputFilesSection(urls: [URL], openSystemImage: String) -> some View {
+        Section("Output Files") {
+            if urls.isEmpty {
+                Text("Converted files will appear here")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 20)
+            } else {
+                VStack(spacing: 10) {
+                    ForEach(Array(urls.enumerated()), id: \.element.path) { index, url in
+                        outputFileCardView(
+                            url: url,
+                            order: index + 1,
+                            openSystemImage: openSystemImage
+                        )
+                    }
+                }
+                .padding(.vertical, 4)
+                .transition(.opacity.combined(with: .scale(scale: 0.95)))
+            }
+        }
     }
 
     private var sidebarHeader: some View {

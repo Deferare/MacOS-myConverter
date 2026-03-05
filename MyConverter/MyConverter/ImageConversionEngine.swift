@@ -24,23 +24,19 @@ enum ImageConversionEngine {
     typealias ProgressHandler = @Sendable (Double) async -> Void
     nonisolated private static let introspectionCacheQueue = DispatchQueue(label: "myconverter.image.ffmpeg.introspection.cache")
     nonisolated(unsafe) private static var introspectionCache: [String: FFmpegIntrospection] = [:]
-    nonisolated private static let ffmpegPathCacheQueue = DispatchQueue(label: "myconverter.image.ffmpeg.path.cache")
-    nonisolated(unsafe) private static var ffmpegPathCache: String?? = nil
-    nonisolated(unsafe) private static var ffmpegPathLookupTime: UInt64 = 0
-    nonisolated private static let ffmpegPathNilCacheTTL: UInt64 = 30_000_000_000
     nonisolated private static let outputFormatCacheQueue = DispatchQueue(label: "myconverter.image.output.cache")
     nonisolated(unsafe) private static var defaultOutputFormatsCache: [String: [ImageFormatOption]] = [:]
     nonisolated(unsafe) private static var imageIODestinationTypeCache: Set<String>? = nil
     nonisolated(unsafe) private static var imageIOAvailableFormatsCache: [ImageFormatOption]? = nil
 
     nonisolated static func isFFmpegAvailable() -> Bool {
-        findFFmpegPath() != nil
+        FFmpegBinaryLocator.findPath() != nil
     }
 
     nonisolated static func defaultOutputFormats() -> [ImageFormatOption] {
         let imageIOFormats = imageIOAvailableFormats()
 
-        guard let ffmpegPath = findFFmpegPath() else {
+        guard let ffmpegPath = FFmpegBinaryLocator.findPath() else {
             return imageIOFormats
         }
 
@@ -137,7 +133,7 @@ enum ImageConversionEngine {
 
     nonisolated private static func sourceCapabilitiesSync(for inputURL: URL) -> ImageSourceCapabilities {
         let availableOutputFormats = defaultOutputFormats()
-        let ffmpegPath = findFFmpegPath()
+        let ffmpegPath = FFmpegBinaryLocator.findPath()
 
         guard let source = CGImageSourceCreateWithURL(inputURL as CFURL, nil) else {
             if let ffmpegPath,
@@ -207,7 +203,7 @@ enum ImageConversionEngine {
         allowFallbackOnFailure: Bool,
         onProgress: @escaping ProgressHandler
     ) async throws -> URL? {
-        guard let ffmpegPath = findFFmpegPath() else {
+        guard let ffmpegPath = FFmpegBinaryLocator.findPath() else {
             return nil
         }
 
@@ -826,67 +822,6 @@ enum ImageConversionEngine {
         ]
 
         return keywords.contains(where: { description.contains($0) })
-    }
-
-    nonisolated private static func findFFmpegPath() -> String? {
-        let now = DispatchTime.now().uptimeNanoseconds
-        let cacheSnapshot = ffmpegPathCacheQueue.sync {
-            (ffmpegPathCache, ffmpegPathLookupTime)
-        }
-
-        if let cached = cacheSnapshot.0 {
-            if let path = cached, FileManager.default.isExecutableFile(atPath: path) {
-                return path
-            }
-
-            let nilCacheAge = now >= cacheSnapshot.1 ? now - cacheSnapshot.1 : 0
-            if cached == nil && nilCacheAge < ffmpegPathNilCacheTTL {
-                return nil
-            }
-        }
-
-        let resolved = resolveFFmpegPath()
-        ffmpegPathCacheQueue.sync {
-            ffmpegPathCache = resolved
-            ffmpegPathLookupTime = now
-        }
-        return resolved
-    }
-
-    nonisolated private static func resolveFFmpegPath() -> String? {
-        var candidates: [String] = []
-
-        if let bundled = Bundle.main.path(forResource: "ffmpeg", ofType: nil) {
-            candidates.append(bundled)
-        }
-        if let resourcePath = Bundle.main.resourceURL?.path {
-            candidates.append("\(resourcePath)/ffmpeg")
-            candidates.append("\(resourcePath)/bin/ffmpeg")
-        }
-        if let executableDir = Bundle.main.executableURL?.deletingLastPathComponent().path {
-            candidates.append("\(executableDir)/ffmpeg")
-            candidates.append("\(executableDir)/bin/ffmpeg")
-        }
-
-        candidates.append(contentsOf: [
-            "/opt/homebrew/bin/ffmpeg",
-            "/usr/local/bin/ffmpeg",
-            "/usr/bin/ffmpeg"
-        ])
-        if let fixed = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0) }) {
-            return fixed
-        }
-
-        if let path = ProcessInfo.processInfo.environment["PATH"] {
-            for directory in path.split(separator: ":") {
-                let candidate = "\(directory)/ffmpeg"
-                if FileManager.default.isExecutableFile(atPath: candidate) {
-                    return candidate
-                }
-            }
-        }
-
-        return nil
     }
 
     private final class ProcessCancellationController: @unchecked Sendable {

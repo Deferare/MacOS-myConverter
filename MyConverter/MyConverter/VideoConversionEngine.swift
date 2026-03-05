@@ -39,10 +39,6 @@ enum VideoConversionEngine {
     typealias ProgressHandler = @Sendable (Double) async -> Void
     private static let ffmpegIntrospectionCacheQueue = DispatchQueue(label: "myconverter.video.ffmpeg.introspection.cache")
     nonisolated(unsafe) private static var ffmpegIntrospectionCache: [String: FFmpegIntrospection] = [:]
-    private static let ffmpegPathCacheQueue = DispatchQueue(label: "myconverter.video.ffmpeg.path.cache")
-    nonisolated(unsafe) private static var ffmpegPathCache: String?? = nil
-    nonisolated(unsafe) private static var ffmpegPathLookupTime: UInt64 = 0
-    private static let ffmpegPathNilCacheTTL: UInt64 = 30_000_000_000
     private static let capabilityCacheQueue = DispatchQueue(label: "myconverter.video.ffmpeg.capability.cache")
     nonisolated(unsafe) private static var defaultVideoFormatsCache: [String: [VideoFormatOption]] = [:]
     nonisolated(unsafe) private static var defaultAudioFormatsCache: [String: [AudioFormatOption]] = [:]
@@ -59,7 +55,7 @@ enum VideoConversionEngine {
     static func defaultOutputFormats() -> [VideoFormatOption] {
         let avFormats = VideoFormatOption.avFoundationDefaultFormats
 
-        guard let ffmpegPath = findFFmpegPath() else {
+        guard let ffmpegPath = FFmpegBinaryLocator.findPath() else {
             return avFormats
         }
 
@@ -87,7 +83,7 @@ enum VideoConversionEngine {
             return [.auto]
         }
 
-        guard let ffmpegPath = findFFmpegPath() else {
+        guard let ffmpegPath = FFmpegBinaryLocator.findPath() else {
             return [.auto]
         }
 
@@ -127,7 +123,7 @@ enum VideoConversionEngine {
             return []
         }
 
-        guard let ffmpegPath = findFFmpegPath() else {
+        guard let ffmpegPath = FFmpegBinaryLocator.findPath() else {
             return [.auto]
         }
 
@@ -165,7 +161,7 @@ enum VideoConversionEngine {
     static func defaultAudioOutputFormats() -> [AudioFormatOption] {
         let knownFormats = AudioFormatOption.ffmpegKnownFormats
 
-        guard let ffmpegPath = findFFmpegPath() else {
+        guard let ffmpegPath = FFmpegBinaryLocator.findPath() else {
             return knownFormats
         }
 
@@ -187,7 +183,7 @@ enum VideoConversionEngine {
     }
 
     static func availableAudioEncoders(for format: AudioFormatOption) -> [AudioEncoderOption] {
-        guard let ffmpegPath = findFFmpegPath() else {
+        guard let ffmpegPath = FFmpegBinaryLocator.findPath() else {
             return format.allowsFFmpegAutomaticAudioCodec ? [.auto] : []
         }
 
@@ -293,13 +289,13 @@ enum VideoConversionEngine {
     }
 
     static func isFFmpegAvailable() -> Bool {
-        return findFFmpegPath() != nil
+        return FFmpegBinaryLocator.findPath() != nil
     }
 
     static func sourceCapabilitiesForAudio(for inputURL: URL) async -> AudioSourceCapabilities {
         let defaultFormats = defaultAudioOutputFormats()
 
-        guard let ffmpegPath = findFFmpegPath() else {
+        guard let ffmpegPath = FFmpegBinaryLocator.findPath() else {
             return AudioSourceCapabilities(
                 availableOutputFormats: [],
                 warningMessage: nil,
@@ -354,7 +350,7 @@ enum VideoConversionEngine {
     }
 
     static func sourceCapabilities(for inputURL: URL) async -> VideoSourceCapabilities {
-        let ffmpegPath = findFFmpegPath()
+        let ffmpegPath = FFmpegBinaryLocator.findPath()
         let ffmpegAvailable = ffmpegPath != nil
         let asset = AVURLAsset(url: inputURL)
         let defaultFormats = defaultOutputFormats()
@@ -556,7 +552,7 @@ enum VideoConversionEngine {
     ) async throws -> URL {
         try OutputPathUtilities.removeFileIfExists(at: outputURL)
 
-        guard let ffmpegPath = findFFmpegPath() else {
+        guard let ffmpegPath = FFmpegBinaryLocator.findPath() else {
             throw ConversionError.ffmpegUnavailable
         }
 
@@ -620,7 +616,7 @@ enum VideoConversionEngine {
         inputDurationSeconds: Double?,
         onProgress: @escaping ProgressHandler
     ) async throws -> Bool {
-        guard let ffmpegPath = findFFmpegPath() else {
+        guard let ffmpegPath = FFmpegBinaryLocator.findPath() else {
             return false
         }
 
@@ -1283,67 +1279,6 @@ enum VideoConversionEngine {
         } catch {
             return (-1, error.localizedDescription)
         }
-    }
-
-    private static func findFFmpegPath() -> String? {
-        let now = DispatchTime.now().uptimeNanoseconds
-        let cacheSnapshot = ffmpegPathCacheQueue.sync {
-            (ffmpegPathCache, ffmpegPathLookupTime)
-        }
-
-        if let cached = cacheSnapshot.0 {
-            if let path = cached, FileManager.default.isExecutableFile(atPath: path) {
-                return path
-            }
-
-            let nilCacheAge = now >= cacheSnapshot.1 ? now - cacheSnapshot.1 : 0
-            if cached == nil && nilCacheAge < ffmpegPathNilCacheTTL {
-                return nil
-            }
-        }
-
-        let resolved = resolveFFmpegPath()
-        ffmpegPathCacheQueue.sync {
-            ffmpegPathCache = resolved
-            ffmpegPathLookupTime = now
-        }
-        return resolved
-    }
-
-    private static func resolveFFmpegPath() -> String? {
-        var candidates: [String] = []
-
-        if let bundled = Bundle.main.path(forResource: "ffmpeg", ofType: nil) {
-            candidates.append(bundled)
-        }
-        if let resourcePath = Bundle.main.resourceURL?.path {
-            candidates.append("\(resourcePath)/ffmpeg")
-            candidates.append("\(resourcePath)/bin/ffmpeg")
-        }
-        if let executableDir = Bundle.main.executableURL?.deletingLastPathComponent().path {
-            candidates.append("\(executableDir)/ffmpeg")
-            candidates.append("\(executableDir)/bin/ffmpeg")
-        }
-
-        candidates.append(contentsOf: [
-            "/opt/homebrew/bin/ffmpeg",
-            "/usr/local/bin/ffmpeg",
-            "/usr/bin/ffmpeg"
-        ])
-        if let fixed = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0) }) {
-            return fixed
-        }
-
-        if let path = ProcessInfo.processInfo.environment["PATH"] {
-            for directory in path.split(separator: ":") {
-                let candidate = "\(directory)/ffmpeg"
-                if FileManager.default.isExecutableFile(atPath: candidate) {
-                    return candidate
-                }
-            }
-        }
-
-        return nil
     }
 
     private static func makeCapabilityCacheKey(path: String, normalizedID: String) -> String {
