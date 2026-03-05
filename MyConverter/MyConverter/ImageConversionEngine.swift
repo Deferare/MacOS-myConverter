@@ -131,6 +131,22 @@ enum ImageConversionEngine {
         }.value
     }
 
+    nonisolated private static func makeSourceCapabilities(
+        availableOutputFormats: [ImageFormatOption],
+        warningMessage: String?,
+        errorMessage: String?,
+        frameCount: Int,
+        hasAlpha: Bool
+    ) -> ImageSourceCapabilities {
+        ImageSourceCapabilities(
+            availableOutputFormats: availableOutputFormats,
+            warningMessage: warningMessage,
+            errorMessage: errorMessage,
+            frameCount: frameCount,
+            hasAlpha: hasAlpha
+        )
+    }
+
     nonisolated private static func sourceCapabilitiesSync(for inputURL: URL) -> ImageSourceCapabilities {
         let availableOutputFormats = defaultOutputFormats()
         let ffmpegPath = FFmpegBinaryLocator.findPath()
@@ -138,7 +154,7 @@ enum ImageConversionEngine {
         guard let source = CGImageSourceCreateWithURL(inputURL as CFURL, nil) else {
             if let ffmpegPath,
                ffmpegCanDecodeSource(ffmpegPath: ffmpegPath, inputURL: inputURL) {
-                return ImageSourceCapabilities(
+                return makeSourceCapabilities(
                     availableOutputFormats: availableOutputFormats,
                     warningMessage: "Image metadata could not be read by ImageIO. Conversion will rely on ffmpeg.",
                     errorMessage: nil,
@@ -147,7 +163,7 @@ enum ImageConversionEngine {
                 )
             }
 
-            return ImageSourceCapabilities(
+            return makeSourceCapabilities(
                 availableOutputFormats: [],
                 warningMessage: nil,
                 errorMessage: "Could not parse input image file.",
@@ -158,7 +174,7 @@ enum ImageConversionEngine {
 
         let frameCount = CGImageSourceGetCount(source)
         guard frameCount > 0 else {
-            return ImageSourceCapabilities(
+            return makeSourceCapabilities(
                 availableOutputFormats: [],
                 warningMessage: nil,
                 errorMessage: "No image frame found in source file.",
@@ -170,7 +186,7 @@ enum ImageConversionEngine {
         let hasAlpha = detectHasAlpha(in: source)
 
         if availableOutputFormats.isEmpty {
-            return ImageSourceCapabilities(
+            return makeSourceCapabilities(
                 availableOutputFormats: [],
                 warningMessage: nil,
                 errorMessage: "No compatible output format is available on this system.",
@@ -187,7 +203,7 @@ enum ImageConversionEngine {
             }
         }
 
-        return ImageSourceCapabilities(
+        return makeSourceCapabilities(
             availableOutputFormats: availableOutputFormats,
             warningMessage: warnings.isEmpty ? nil : warnings.joined(separator: " "),
             errorMessage: nil,
@@ -230,6 +246,17 @@ enum ImageConversionEngine {
         }
     }
 
+    nonisolated private static func withStagedFFmpegInput<T>(
+        _ inputURL: URL,
+        operation: (URL) async throws -> T
+    ) async throws -> T {
+        let stagedInputURL = try stageInputForFFmpeg(inputURL)
+        defer {
+            try? OutputPathUtilities.removeFileIfExists(at: stagedInputURL)
+        }
+        return try await operation(stagedInputURL)
+    }
+
     nonisolated private static func runFFmpegConversion(
         ffmpegPath: String,
         inputURL: URL,
@@ -238,67 +265,64 @@ enum ImageConversionEngine {
         onProgress: @escaping ProgressHandler
     ) async throws {
         let introspection = try inspectFFmpeg(at: ffmpegPath)
-        let stagedInputURL = try stageInputForFFmpeg(inputURL)
-        defer {
-            try? OutputPathUtilities.removeFileIfExists(at: stagedInputURL)
+        try await withStagedFFmpegInput(inputURL) { stagedInputURL in
+            let selectedCodec = outputSettings.containerFormat.ffmpegEncoderCandidates.first(where: { introspection.encoders.contains($0) })
+
+            if !outputSettings.containerFormat.ffmpegEncoderCandidates.isEmpty &&
+                selectedCodec == nil &&
+                !outputSettings.containerFormat.allowsFFmpegAutomaticCodec {
+                throw ImageConversionError.ffmpegUnsupportedFormat(outputSettings.containerFormat)
+            }
+
+            if !outputSettings.containerFormat.ffmpegRequiredMuxers.isEmpty &&
+                !outputSettings.containerFormat.ffmpegRequiredMuxers.contains(where: { introspection.muxers.contains($0) }) {
+                throw ImageConversionError.ffmpegUnsupportedFormat(outputSettings.containerFormat)
+            }
+
+            var args: [String] = [
+                "-y",
+                "-hide_banner",
+                "-loglevel", "error",
+                "-i", stagedInputURL.path
+            ]
+
+            if let resolution = outputSettings.resolution {
+                let scaleFilter = "scale=w=\(resolution.width):h=\(resolution.height):force_original_aspect_ratio=decrease"
+                args.append(contentsOf: ["-vf", scaleFilter])
+            }
+
+            let shouldPreserveAnimation =
+                outputSettings.sourceIsAnimated &&
+                outputSettings.preserveAnimation &&
+                outputSettings.containerFormat.supportsAnimation
+
+            if !shouldPreserveAnimation {
+                args.append(contentsOf: ["-frames:v", "1"])
+            }
+
+            if let selectedCodec {
+                args.append(contentsOf: ["-c:v", selectedCodec])
+            }
+            appendFFmpegFormatArguments(&args, outputSettings: outputSettings)
+
+            if let preferredMuxer = outputSettings.containerFormat.preferredFFmpegMuxer,
+               introspection.muxers.contains(preferredMuxer) {
+                args.append(contentsOf: ["-f", preferredMuxer])
+            }
+
+            args.append(outputURL.path)
+
+            try Task.checkCancellation()
+            reportProgress(0.05, onProgress: onProgress)
+            let result = try await runCommand(path: ffmpegPath, arguments: args)
+            try Task.checkCancellation()
+
+            guard result.terminationStatus == 0 else {
+                throw ImageConversionError.ffmpegFailed(result.terminationStatus, result.output)
+            }
+
+            reportProgress(1.0, onProgress: onProgress)
         }
-
-        let selectedCodec = outputSettings.containerFormat.ffmpegEncoderCandidates.first(where: { introspection.encoders.contains($0) })
-
-        if !outputSettings.containerFormat.ffmpegEncoderCandidates.isEmpty &&
-            selectedCodec == nil &&
-            !outputSettings.containerFormat.allowsFFmpegAutomaticCodec {
-            throw ImageConversionError.ffmpegUnsupportedFormat(outputSettings.containerFormat)
-        }
-
-        if !outputSettings.containerFormat.ffmpegRequiredMuxers.isEmpty &&
-            !outputSettings.containerFormat.ffmpegRequiredMuxers.contains(where: { introspection.muxers.contains($0) }) {
-            throw ImageConversionError.ffmpegUnsupportedFormat(outputSettings.containerFormat)
-        }
-
-        var args: [String] = [
-            "-y",
-            "-hide_banner",
-            "-loglevel", "error",
-            "-i", stagedInputURL.path
-        ]
-
-        if let resolution = outputSettings.resolution {
-            let scaleFilter = "scale=w=\(resolution.width):h=\(resolution.height):force_original_aspect_ratio=decrease"
-            args.append(contentsOf: ["-vf", scaleFilter])
-        }
-
-        let shouldPreserveAnimation =
-            outputSettings.sourceIsAnimated &&
-            outputSettings.preserveAnimation &&
-            outputSettings.containerFormat.supportsAnimation
-
-        if !shouldPreserveAnimation {
-            args.append(contentsOf: ["-frames:v", "1"])
-        }
-
-        if let selectedCodec {
-            args.append(contentsOf: ["-c:v", selectedCodec])
-        }
-        appendFFmpegFormatArguments(&args, outputSettings: outputSettings)
-
-        if let preferredMuxer = outputSettings.containerFormat.preferredFFmpegMuxer,
-           introspection.muxers.contains(preferredMuxer) {
-            args.append(contentsOf: ["-f", preferredMuxer])
-        }
-
-        args.append(outputURL.path)
-
-        try Task.checkCancellation()
-        reportProgress(0.05, onProgress: onProgress)
-        let result = try await runCommand(path: ffmpegPath, arguments: args)
-        try Task.checkCancellation()
-
-        guard result.terminationStatus == 0 else {
-            throw ImageConversionError.ffmpegFailed(result.terminationStatus, result.output)
-        }
-
-        reportProgress(1.0, onProgress: onProgress)
     }
 
     nonisolated private static func stageInputForFFmpeg(_ inputURL: URL) throws -> URL {
