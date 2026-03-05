@@ -314,7 +314,7 @@ enum ImageConversionEngine {
 
             try Task.checkCancellation()
             reportProgress(0.05, onProgress: onProgress)
-            let result = try await runCommand(path: ffmpegPath, arguments: args)
+            let result = try await ProcessCommandRunner.runCommand(path: ffmpegPath, arguments: args)
             try Task.checkCancellation()
 
             guard result.terminationStatus == 0 else {
@@ -363,7 +363,7 @@ enum ImageConversionEngine {
             try? OutputPathUtilities.removeFileIfExists(at: stagedInputURL)
         }
 
-        let result = runCommandSync(
+        let result = ProcessCommandRunner.runCommandSync(
             path: ffmpegPath,
             arguments: [
                 "-hide_banner",
@@ -656,8 +656,8 @@ enum ImageConversionEngine {
             return cached
         }
 
-        let encodersResult = runCommandSync(path: ffmpegPath, arguments: ["-hide_banner", "-encoders"])
-        let muxersResult = runCommandSync(path: ffmpegPath, arguments: ["-hide_banner", "-muxers"])
+        let encodersResult = ProcessCommandRunner.runCommandSync(path: ffmpegPath, arguments: ["-hide_banner", "-encoders"])
+        let muxersResult = ProcessCommandRunner.runCommandSync(path: ffmpegPath, arguments: ["-hide_banner", "-muxers"])
 
         guard encodersResult.terminationStatus == 0 else {
             throw ImageConversionError.ffmpegFailed(encodersResult.terminationStatus, encodersResult.output)
@@ -746,7 +746,7 @@ enum ImageConversionEngine {
             guard seenMuxers.insert(descriptor.name).inserted else { continue }
             guard isLikelyImageMuxer(descriptor) else { continue }
 
-            let helpResult = runCommandSync(
+            let helpResult = ProcessCommandRunner.runCommandSync(
                 path: ffmpegPath,
                 arguments: ["-hide_banner", "-h", "muxer=\(descriptor.name)"]
             )
@@ -846,94 +846,6 @@ enum ImageConversionEngine {
         ]
 
         return keywords.contains(where: { description.contains($0) })
-    }
-
-    private final class ProcessCancellationController: @unchecked Sendable {
-        private let queue = DispatchQueue(label: "myconverter.image.runcommand.process")
-        nonisolated(unsafe) private var process: Process?
-
-        nonisolated init() {}
-
-        nonisolated func setProcess(_ process: Process) {
-            queue.sync {
-                self.process = process
-            }
-        }
-
-        nonisolated func clearProcess() {
-            queue.sync {
-                process = nil
-            }
-        }
-
-        nonisolated func terminateIfNeeded() {
-            queue.sync {
-                guard let process, process.isRunning else { return }
-                process.terminate()
-            }
-        }
-    }
-
-    nonisolated private static func runCommand(
-        path: String,
-        arguments: [String]
-    ) async throws -> (terminationStatus: Int32, output: String) {
-        let cancellationController = ProcessCancellationController()
-
-        return try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(Int32, String), Error>) in
-                let process = Process()
-                process.executableURL = URL(fileURLWithPath: path)
-                process.arguments = arguments
-                cancellationController.setProcess(process)
-
-                let outputPipe = Pipe()
-                process.standardOutput = outputPipe
-                process.standardError = outputPipe
-                let outputHandle = outputPipe.fileHandleForReading
-
-                process.terminationHandler = { proc in
-                    outputHandle.readabilityHandler = nil
-                    let outputData = outputHandle.readDataToEndOfFile()
-                    let output = String(data: outputData, encoding: .utf8) ?? ""
-                    cancellationController.clearProcess()
-                    continuation.resume(returning: (proc.terminationStatus, output))
-                }
-
-                do {
-                    try process.run()
-                } catch {
-                    outputHandle.readabilityHandler = nil
-                    cancellationController.clearProcess()
-                    continuation.resume(throwing: error)
-                }
-            }
-        } onCancel: {
-            cancellationController.terminateIfNeeded()
-        }
-    }
-
-    nonisolated private static func runCommandSync(
-        path: String,
-        arguments: [String]
-    ) -> (terminationStatus: Int32, output: String) {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: path)
-        process.arguments = arguments
-
-        let outputPipe = Pipe()
-        process.standardOutput = outputPipe
-        process.standardError = outputPipe
-
-        do {
-            try process.run()
-            process.waitUntilExit()
-            let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
-            let output = String(data: outputData, encoding: .utf8) ?? ""
-            return (process.terminationStatus, output)
-        } catch {
-            return (-1, error.localizedDescription)
-        }
     }
 
     nonisolated private static func reportProgress(_ progress: Double, onProgress: @escaping ProgressHandler) {

@@ -845,7 +845,7 @@ enum VideoConversionEngine {
             "-"
         ]
 
-        guard let result = try? await runCommand(path: ffmpegPath, arguments: arguments) else {
+        guard let result = try? await ProcessCommandRunner.runCommand(path: ffmpegPath, arguments: arguments) else {
             return false
         }
 
@@ -954,7 +954,7 @@ enum VideoConversionEngine {
         var effectiveDuration = inputDurationSeconds
         var lastReportedProgress = 0.0
         var lastReportTime: UInt64 = DispatchTime.now().uptimeNanoseconds
-        let result = try await runCommand(path: ffmpegPath, arguments: arguments) { line in
+        let result = try await ProcessCommandRunner.runCommand(path: ffmpegPath, arguments: arguments) { line in
             if effectiveDuration == nil {
                 effectiveDuration = parseFFmpegDurationSeconds(from: line)
             }
@@ -1105,8 +1105,8 @@ enum VideoConversionEngine {
             return cached
         }
 
-        let encodersResult = runCommandSync(path: ffmpegPath, arguments: ["-hide_banner", "-encoders"])
-        let muxersResult = runCommandSync(path: ffmpegPath, arguments: ["-hide_banner", "-muxers"])
+        let encodersResult = ProcessCommandRunner.runCommandSync(path: ffmpegPath, arguments: ["-hide_banner", "-encoders"])
+        let muxersResult = ProcessCommandRunner.runCommandSync(path: ffmpegPath, arguments: ["-hide_banner", "-muxers"])
 
         guard encodersResult.terminationStatus == 0 else {
             throw ConversionError.ffmpegFailed(encodersResult.terminationStatus, encodersResult.output)
@@ -1193,7 +1193,7 @@ enum VideoConversionEngine {
             guard visited.insert(descriptor.name).inserted else { continue }
             guard isLikelyVideoMuxer(descriptor) || isLikelyAudioMuxer(descriptor) else { continue }
 
-            let help = runCommandSync(path: ffmpegPath, arguments: ["-hide_banner", "-h", "muxer=\(descriptor.name)"])
+            let help = ProcessCommandRunner.runCommandSync(path: ffmpegPath, arguments: ["-hide_banner", "-h", "muxer=\(descriptor.name)"])
             guard help.terminationStatus == 0 else { continue }
 
             var extensions = parseFFmpegMuxerExtensions(from: help.output)
@@ -1287,29 +1287,6 @@ enum VideoConversionEngine {
         return keywords.contains(where: { description.contains($0) })
     }
 
-    private static func runCommandSync(
-        path: String,
-        arguments: [String]
-    ) -> (terminationStatus: Int32, output: String) {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: path)
-        process.arguments = arguments
-
-        let outputPipe = Pipe()
-        process.standardOutput = outputPipe
-        process.standardError = outputPipe
-
-        do {
-            try process.run()
-            process.waitUntilExit()
-            let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
-            let output = String(data: outputData, encoding: .utf8) ?? ""
-            return (process.terminationStatus, output)
-        } catch {
-            return (-1, error.localizedDescription)
-        }
-    }
-
     private static func makeCapabilityCacheKey(path: String, normalizedID: String) -> String {
         "\(path)|\(normalizedID)"
     }
@@ -1359,127 +1336,6 @@ enum VideoConversionEngine {
             return nil
         }
         return (hours * 3600) + (minutes * 60) + seconds
-    }
-
-    private static func consumeCompleteLines(from buffer: inout Data) -> [String] {
-        var lines: [String] = []
-        let newline = Data([0x0A])
-
-        while let range = buffer.range(of: newline) {
-            let lineData = buffer.subdata(in: buffer.startIndex..<range.lowerBound)
-            let text = String(data: lineData, encoding: .utf8)?
-                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            if !text.isEmpty {
-                lines.append(text)
-            }
-            buffer.removeSubrange(buffer.startIndex..<range.upperBound)
-        }
-
-        return lines
-    }
-
-    private final class ProcessCancellationController: @unchecked Sendable {
-        private let queue = DispatchQueue(label: "myconverter.runcommand.process")
-        nonisolated(unsafe) private var process: Process?
-
-        nonisolated func setProcess(_ process: Process) {
-            queue.sync {
-                self.process = process
-            }
-        }
-
-        nonisolated func clearProcess() {
-            queue.sync {
-                process = nil
-            }
-        }
-
-        nonisolated func terminateIfNeeded() {
-            queue.sync {
-                guard let process, process.isRunning else { return }
-                process.terminate()
-            }
-        }
-    }
-
-    private static func runCommand(
-        path: String,
-        arguments: [String],
-        outputLineHandler: ((String) -> Void)? = nil
-    ) async throws -> (terminationStatus: Int32, output: String) {
-        let cancellationController = ProcessCancellationController()
-
-        return try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(Int32, String), Error>) in
-                let process = Process()
-                process.executableURL = URL(fileURLWithPath: path)
-                process.arguments = arguments
-                cancellationController.setProcess(process)
-
-                let outputPipe = Pipe()
-                process.standardOutput = outputPipe
-                process.standardError = outputPipe
-                let outputHandle = outputPipe.fileHandleForReading
-                let syncQueue = DispatchQueue(label: "myconverter.runcommand.output")
-                var accumulated = Data()
-                var lineBuffer = Data()
-
-                outputHandle.readabilityHandler = { handle in
-                    let data = handle.availableData
-                    guard !data.isEmpty else { return }
-
-                    syncQueue.async {
-                        accumulated.append(data)
-                        lineBuffer.append(data)
-                        let lines = Self.consumeCompleteLines(from: &lineBuffer)
-                        guard let outputLineHandler else { return }
-                        for line in lines {
-                            outputLineHandler(line)
-                        }
-                    }
-                }
-
-                process.terminationHandler = { proc in
-                    outputHandle.readabilityHandler = nil
-                    let trailingData = outputHandle.readDataToEndOfFile()
-
-                    syncQueue.async {
-                        if !trailingData.isEmpty {
-                            accumulated.append(trailingData)
-                            lineBuffer.append(trailingData)
-                        }
-
-                        let lines = Self.consumeCompleteLines(from: &lineBuffer)
-                        if let outputLineHandler {
-                            for line in lines {
-                                outputLineHandler(line)
-                            }
-
-                            if !lineBuffer.isEmpty,
-                               let trailingLine = String(data: lineBuffer, encoding: .utf8)?
-                                .trimmingCharacters(in: .whitespacesAndNewlines),
-                               !trailingLine.isEmpty {
-                                outputLineHandler(trailingLine)
-                            }
-                        }
-
-                        let output = String(data: accumulated, encoding: .utf8) ?? ""
-                        cancellationController.clearProcess()
-                        continuation.resume(returning: (proc.terminationStatus, output))
-                    }
-                }
-
-                do {
-                    try process.run()
-                } catch {
-                    outputHandle.readabilityHandler = nil
-                    cancellationController.clearProcess()
-                    continuation.resume(throwing: error)
-                }
-            }
-        } onCancel: {
-            cancellationController.terminateIfNeeded()
-        }
     }
 
     private static func compatibleExportPresets(
