@@ -33,6 +33,19 @@ enum ImageConversionEngine {
         FFmpegBinaryLocator.findPath() != nil
     }
 
+    nonisolated private static func cachedOutputFormatValue<Value>(
+        readCached: () -> Value?,
+        storeCached: (Value) -> Void,
+        build: () -> Value
+    ) -> Value {
+        if let cached = readCached() {
+            return cached
+        }
+        let resolved = build()
+        storeCached(resolved)
+        return resolved
+    }
+
     nonisolated static func defaultOutputFormats() -> [ImageFormatOption] {
         let imageIOFormats = imageIOAvailableFormats()
 
@@ -40,28 +53,29 @@ enum ImageConversionEngine {
             return imageIOFormats
         }
 
-        if let cached = outputFormatCacheQueue.sync(execute: { defaultOutputFormatsCache[ffmpegPath] }) {
-            return cached
-        }
+        return cachedOutputFormatValue(
+            readCached: { outputFormatCacheQueue.sync(execute: { defaultOutputFormatsCache[ffmpegPath] }) },
+            storeCached: { resolved in
+                outputFormatCacheQueue.sync {
+                    defaultOutputFormatsCache[ffmpegPath] = resolved
+                }
+            }
+        ) {
+            guard let introspection = try? inspectFFmpeg(at: ffmpegPath) else {
+                return imageIOFormats
+            }
 
-        guard let introspection = try? inspectFFmpeg(at: ffmpegPath) else {
-            return imageIOFormats
-        }
+            let discoveredFFmpegFormats = ffmpegDiscoveredFormats(from: introspection)
+            let candidates = ImageFormatOption.deduplicatedAndSorted(
+                imageIOFormats + ImageFormatOption.ffmpegKnownFormats + discoveredFFmpegFormats
+            )
+            let ffmpegFormats = detectFFmpegSupportedOutputFormats(
+                candidateFormats: candidates,
+                introspection: introspection
+            )
 
-        let discoveredFFmpegFormats = ffmpegDiscoveredFormats(from: introspection)
-        let candidates = ImageFormatOption.deduplicatedAndSorted(
-            imageIOFormats + ImageFormatOption.ffmpegKnownFormats + discoveredFFmpegFormats
-        )
-        let ffmpegFormats = detectFFmpegSupportedOutputFormats(
-            candidateFormats: candidates,
-            introspection: introspection
-        )
-
-        let resolved = mergedFormats(primary: ffmpegFormats, secondary: imageIOFormats)
-        outputFormatCacheQueue.sync {
-            defaultOutputFormatsCache[ffmpegPath] = resolved
+            return mergedFormats(primary: ffmpegFormats, secondary: imageIOFormats)
         }
-        return resolved
     }
 
     nonisolated static func sourceCapabilities(for inputURL: URL) async -> ImageSourceCapabilities {
@@ -573,29 +587,31 @@ enum ImageConversionEngine {
     }
 
     nonisolated private static func imageIODestinationTypeIdentifiers() -> Set<String> {
-        if let cached = outputFormatCacheQueue.sync(execute: { imageIODestinationTypeCache }) {
-            return cached
+        cachedOutputFormatValue(
+            readCached: { outputFormatCacheQueue.sync(execute: { imageIODestinationTypeCache }) },
+            storeCached: { resolved in
+                outputFormatCacheQueue.sync {
+                    imageIODestinationTypeCache = resolved
+                }
+            }
+        ) {
+            Set((CGImageDestinationCopyTypeIdentifiers() as? [String] ?? []).map { $0.lowercased() })
         }
-
-        let resolved = Set((CGImageDestinationCopyTypeIdentifiers() as? [String] ?? []).map { $0.lowercased() })
-        outputFormatCacheQueue.sync {
-            imageIODestinationTypeCache = resolved
-        }
-        return resolved
     }
 
     nonisolated private static func imageIOAvailableFormats() -> [ImageFormatOption] {
-        if let cached = outputFormatCacheQueue.sync(execute: { imageIOAvailableFormatsCache }) {
-            return cached
+        cachedOutputFormatValue(
+            readCached: { outputFormatCacheQueue.sync(execute: { imageIOAvailableFormatsCache }) },
+            storeCached: { resolved in
+                outputFormatCacheQueue.sync {
+                    imageIOAvailableFormatsCache = resolved
+                }
+            }
+        ) {
+            let identifiers = (CGImageDestinationCopyTypeIdentifiers() as? [String] ?? [])
+            let options = identifiers.map { ImageFormatOption.fromImageIOTypeIdentifier($0) }
+            return ImageFormatOption.deduplicatedAndSorted(options)
         }
-
-        let identifiers = (CGImageDestinationCopyTypeIdentifiers() as? [String] ?? [])
-        let options = identifiers.map { ImageFormatOption.fromImageIOTypeIdentifier($0) }
-        let resolved = ImageFormatOption.deduplicatedAndSorted(options)
-        outputFormatCacheQueue.sync {
-            imageIOAvailableFormatsCache = resolved
-        }
-        return resolved
     }
 
     nonisolated private static func isFFmpegFormatSupported(_ format: ImageFormatOption, ffmpegPath: String) -> Bool {
