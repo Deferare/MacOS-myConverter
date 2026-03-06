@@ -81,7 +81,6 @@ struct SelectedFilesView: View {
                         )
                     }
                 }
-                .padding(.horizontal, 2)
             }
 
             HStack {

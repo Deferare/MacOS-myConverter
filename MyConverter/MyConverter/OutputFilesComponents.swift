@@ -98,7 +98,6 @@ struct OutputFileCardView: View {
         .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(.background.opacity(0.4))
-                .background(.thinMaterial)
                 .overlay(
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
                         .stroke(Color.primary.opacity(0.06), lineWidth: 1)

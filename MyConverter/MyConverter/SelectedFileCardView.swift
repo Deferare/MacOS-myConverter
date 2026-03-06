@@ -47,7 +47,6 @@ struct SelectedFileCardView: View {
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .fill(.background.opacity(0.4))
-                .background(.thinMaterial)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
                         .stroke(Color.primary.opacity(0.08), lineWidth: 1)
