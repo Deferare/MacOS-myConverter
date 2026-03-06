@@ -3,7 +3,7 @@ import Foundation
 extension ContentViewModel {
     var outputFormatOptions: [VideoFormatOption] {
         defaultedOutputFormats(sourceURL: sourceURL, availableFormats: availableOutputFormats) {
-            VideoConversionEngine.defaultOutputFormats()
+            ContentViewModelSupport.placeholderVideoFormats()
         }
     }
 

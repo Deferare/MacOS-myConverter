@@ -1,7 +1,7 @@
 import Foundation
 
 extension AudioFormatCatalog {
-    static let byIdentifier: [String: AudioFormatProfile] = {
+    nonisolated static let byIdentifier: [String: AudioFormatProfile] = {
         var map: [String: AudioFormatProfile] = [:]
 
         func add(

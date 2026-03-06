@@ -1,7 +1,7 @@
 import Foundation
 
 extension VideoConversionEngine {
-    static func defaultAudioOutputFormats() -> [AudioFormatOption] {
+    nonisolated static func defaultAudioOutputFormats() -> [AudioFormatOption] {
         let knownFormats = AudioFormatOption.ffmpegKnownFormats
 
         guard let ffmpegPath = FFmpegBinaryLocator.findPath() else {
@@ -26,7 +26,7 @@ extension VideoConversionEngine {
         }
     }
 
-    static func availableAudioEncoders(for format: AudioFormatOption) -> [AudioEncoderOption] {
+    nonisolated static func availableAudioEncoders(for format: AudioFormatOption) -> [AudioEncoderOption] {
         guard let ffmpegPath = FFmpegBinaryLocator.findPath() else {
             return format.allowsFFmpegAutomaticAudioCodec ? [.auto] : []
         }

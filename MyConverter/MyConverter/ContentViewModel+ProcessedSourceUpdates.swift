@@ -9,9 +9,8 @@ extension ContentViewModel {
             onSelectionEmptied: {
                 resetVideoCompatibilityMessages()
                 isAnalyzingSource = false
-                availableOutputFormats = VideoConversionEngine.defaultOutputFormats()
-                ensureSelectedVideoOutputFormatIsAvailable()
-                refreshVideoCodecOptions()
+                applyPlaceholderVideoCapabilities()
+                scheduleCapabilityBootstrap()
             }
         )
     }
@@ -24,8 +23,8 @@ extension ContentViewModel {
             onSelectionEmptied: {
                 resetImageCompatibilityState(resetMetadata: true)
                 isAnalyzingImageSource = false
-                availableImageOutputFormats = ImageConversionEngine.defaultOutputFormats()
-                ensureSelectedImageOutputFormatIsAvailable()
+                applyPlaceholderImageCapabilities()
+                scheduleCapabilityBootstrap()
             }
         )
     }
@@ -38,9 +37,8 @@ extension ContentViewModel {
             onSelectionEmptied: {
                 resetAudioCompatibilityMessages()
                 isAnalyzingAudioSource = false
-                availableAudioOutputFormats = VideoConversionEngine.defaultAudioOutputFormats()
-                ensureSelectedAudioOutputFormatIsAvailable()
-                refreshAudioCodecOptions()
+                applyPlaceholderAudioCapabilities()
+                scheduleCapabilityBootstrap()
             }
         )
     }

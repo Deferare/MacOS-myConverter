@@ -3,7 +3,7 @@ import Foundation
 extension ContentViewModel {
     var imageOutputFormatOptions: [ImageFormatOption] {
         defaultedOutputFormats(sourceURL: imageSourceURL, availableFormats: availableImageOutputFormats) {
-            ImageConversionEngine.defaultOutputFormats()
+            ContentViewModelSupport.placeholderImageFormats()
         }
     }
 

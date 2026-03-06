@@ -8,7 +8,7 @@ struct AudioFormatProfile {
     let preferredFFmpegMuxer: String?
     let allowsFFmpegAutomaticAudioCodec: Bool
 
-    var asOption: AudioFormatOption {
+    nonisolated var asOption: AudioFormatOption {
         AudioFormatOption(
             id: id,
             displayName: displayName,

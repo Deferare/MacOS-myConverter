@@ -1,7 +1,7 @@
 import AVFoundation
 
 extension VideoFormatCatalog {
-    static let avFoundationProfiles: [VideoFormatProfile] = {
+    nonisolated static let avFoundationProfiles: [VideoFormatProfile] = {
         [
             byIdentifier[AVFileType.mp4.rawValue.lowercased()],
             byIdentifier[AVFileType.mov.rawValue.lowercased()],
@@ -9,7 +9,7 @@ extension VideoFormatCatalog {
         ].compactMap { $0 }
     }()
 
-    static let ffmpegOnlyProfiles: [VideoFormatProfile] = {
+    nonisolated static let ffmpegOnlyProfiles: [VideoFormatProfile] = {
         [
             byIdentifier["ffmpeg.mkv"],
             byIdentifier["ffmpeg.webm"],

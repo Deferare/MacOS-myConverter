@@ -11,9 +11,9 @@ enum VideoEncoderOption: String, CaseIterable, Identifiable {
     case mpeg2CPU = "MPEG-2(CPU)"
     case proresCPU = "ProRes(CPU)"
 
-    var id: String { rawValue }
+    nonisolated var id: String { rawValue }
 
-    var codecCandidates: [String] {
+    nonisolated var codecCandidates: [String] {
         switch self {
         case .auto:
             return []
@@ -40,7 +40,7 @@ enum VideoEncoderOption: String, CaseIterable, Identifiable {
         }
     }
 
-    var usesHEVCCodec: Bool {
+    nonisolated var usesHEVCCodec: Bool {
         switch self {
         case .h265CPU, .h265GPU:
             return true
@@ -49,7 +49,7 @@ enum VideoEncoderOption: String, CaseIterable, Identifiable {
         }
     }
 
-    var supportsVideoBitRate: Bool {
+    nonisolated var supportsVideoBitRate: Bool {
         switch self {
         case .auto, .proresCPU:
             return false
@@ -58,7 +58,7 @@ enum VideoEncoderOption: String, CaseIterable, Identifiable {
         }
     }
 
-    func isCompatible(with format: VideoFormatOption) -> Bool {
+    nonisolated func isCompatible(with format: VideoFormatOption) -> Bool {
         if !format.supportsVideoEncoderSelection {
             return self == .auto
         }

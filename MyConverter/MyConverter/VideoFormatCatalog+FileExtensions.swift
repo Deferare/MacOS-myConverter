@@ -1,7 +1,7 @@
 import Foundation
 
 extension VideoFormatCatalog {
-    static let byFileExtension: [String: VideoFormatProfile] = {
+    nonisolated static let byFileExtension: [String: VideoFormatProfile] = {
         var map: [String: VideoFormatProfile] = [:]
         for profile in byIdentifier.values {
             map[profile.fileExtension] = profile

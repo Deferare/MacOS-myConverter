@@ -1,7 +1,7 @@
 import Foundation
 
 extension VideoConversionEngine {
-    static func defaultOutputFormats() -> [VideoFormatOption] {
+    nonisolated static func defaultOutputFormats() -> [VideoFormatOption] {
         let avFormats = VideoFormatOption.avFoundationDefaultFormats
 
         guard let ffmpegPath = FFmpegBinaryLocator.findPath() else {
@@ -27,7 +27,7 @@ extension VideoConversionEngine {
         }
     }
 
-    static func availableVideoEncoders(for format: VideoFormatOption) -> [VideoEncoderOption] {
+    nonisolated static func availableVideoEncoders(for format: VideoFormatOption) -> [VideoEncoderOption] {
         if !format.supportsVideoEncoderSelection {
             return [.auto]
         }
@@ -64,7 +64,7 @@ extension VideoConversionEngine {
         }
     }
 
-    static func availableAudioEncoders(for format: VideoFormatOption) -> [AudioEncoderOption] {
+    nonisolated static func availableAudioEncoders(for format: VideoFormatOption) -> [AudioEncoderOption] {
         if !format.supportsAudioTrack {
             return []
         }

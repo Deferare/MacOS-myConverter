@@ -7,9 +7,9 @@ enum AudioEncoderOption: String, CaseIterable, Identifiable {
     case flac = "FLAC"
     case pcm = "PCM"
 
-    var id: String { rawValue }
+    nonisolated var id: String { rawValue }
 
-    var codecCandidates: [String] {
+    nonisolated var codecCandidates: [String] {
         switch self {
         case .auto:
             return []
@@ -28,7 +28,7 @@ enum AudioEncoderOption: String, CaseIterable, Identifiable {
         }
     }
 
-    var supportsSampleRate: Bool {
+    nonisolated var supportsSampleRate: Bool {
         switch self {
         case .auto:
             return false
@@ -37,7 +37,7 @@ enum AudioEncoderOption: String, CaseIterable, Identifiable {
         }
     }
 
-    var supportsAudioBitRate: Bool {
+    nonisolated var supportsAudioBitRate: Bool {
         switch self {
         case .auto, .flac, .pcm:
             return false
@@ -46,7 +46,7 @@ enum AudioEncoderOption: String, CaseIterable, Identifiable {
         }
     }
 
-    func isCompatible(with format: VideoFormatOption) -> Bool {
+    nonisolated func isCompatible(with format: VideoFormatOption) -> Bool {
         if !format.supportsAudioTrack {
             return false
         }
@@ -71,7 +71,7 @@ enum AudioEncoderOption: String, CaseIterable, Identifiable {
         }
     }
 
-    func isCompatible(with format: AudioFormatOption) -> Bool {
+    nonisolated func isCompatible(with format: AudioFormatOption) -> Bool {
         let muxers = Set(format.ffmpegRequiredMuxers)
 
         switch self {

@@ -1,7 +1,7 @@
 import Foundation
 
 extension AudioFormatCatalog {
-    static let ffmpegOnlyProfiles: [AudioFormatProfile] = {
+    nonisolated static let ffmpegOnlyProfiles: [AudioFormatProfile] = {
         [
             byIdentifier["ffmpeg.m4a"],
             byIdentifier["ffmpeg.mp3"],

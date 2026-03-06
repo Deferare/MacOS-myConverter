@@ -15,7 +15,7 @@ struct VideoFormatProfile {
     let allowsFFmpegAutomaticVideoCodec: Bool
     let allowsFFmpegAutomaticAudioCodec: Bool
 
-    var asOption: VideoFormatOption {
+    nonisolated var asOption: VideoFormatOption {
         VideoFormatOption(
             id: id,
             displayName: displayName,

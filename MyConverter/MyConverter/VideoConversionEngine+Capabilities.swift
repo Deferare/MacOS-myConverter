@@ -1,7 +1,7 @@
 import Foundation
 
 extension VideoConversionEngine {
-    static func cachedCapabilityValue<Value>(
+    nonisolated static func cachedCapabilityValue<Value>(
         readCached: () -> Value?,
         storeCached: (Value) -> Void,
         build: () -> Value
@@ -15,7 +15,7 @@ extension VideoConversionEngine {
         return resolved
     }
 
-    static func resolvedEncoderOptions<Option: Equatable>(
+    nonisolated static func resolvedEncoderOptions<Option: Equatable>(
         explicitOptions: [Option],
         allowsAutomatic: Bool,
         automaticOption: Option
@@ -26,7 +26,7 @@ extension VideoConversionEngine {
         return [automaticOption] + explicitOptions
     }
 
-    static func makeCapabilityCacheKey(path: String, normalizedID: String) -> String {
+    nonisolated static func makeCapabilityCacheKey(path: String, normalizedID: String) -> String {
         "\(path)|\(normalizedID)"
     }
 }

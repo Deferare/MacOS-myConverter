@@ -9,7 +9,7 @@ struct AudioFormatOption: Identifiable, Hashable, Sendable {
     let preferredFFmpegMuxer: String?
     let allowsFFmpegAutomaticAudioCodec: Bool
 
-    var normalizedID: String {
+    nonisolated var normalizedID: String {
         id.lowercased()
     }
 
@@ -21,11 +21,11 @@ struct AudioFormatOption: Identifiable, Hashable, Sendable {
         hasher.combine(normalizedID)
     }
 
-    static var ffmpegKnownFormats: [AudioFormatOption] {
+    nonisolated static var ffmpegKnownFormats: [AudioFormatOption] {
         AudioFormatCatalog.ffmpegOnlyProfiles.map { $0.asOption }
     }
 
-    static func fromFFmpegExtension(_ fileExtension: String, muxer: String) -> AudioFormatOption {
+    nonisolated static func fromFFmpegExtension(_ fileExtension: String, muxer: String) -> AudioFormatOption {
         let normalizedExtension = FormatOptionUtilities.normalizedFileExtension(fileExtension)
         let normalizedMuxer = muxer.lowercased()
         let profile = AudioFormatCatalog.byFileExtension[normalizedExtension]
@@ -50,7 +50,7 @@ struct AudioFormatOption: Identifiable, Hashable, Sendable {
         )
     }
 
-    static func deduplicatedAndSorted(_ formats: [AudioFormatOption]) -> [AudioFormatOption] {
+    nonisolated static func deduplicatedAndSorted(_ formats: [AudioFormatOption]) -> [AudioFormatOption] {
         FormatOptionUtilities.deduplicatedAndSorted(
             formats,
             normalizedID: { $0.normalizedID },
@@ -59,7 +59,7 @@ struct AudioFormatOption: Identifiable, Hashable, Sendable {
         )
     }
 
-    static func defaultSelection(from formats: [AudioFormatOption]) -> AudioFormatOption? {
+    nonisolated static func defaultSelection(from formats: [AudioFormatOption]) -> AudioFormatOption? {
         let normalized = deduplicatedAndSorted(formats)
         guard !normalized.isEmpty else { return nil }
 
@@ -70,7 +70,7 @@ struct AudioFormatOption: Identifiable, Hashable, Sendable {
         )
     }
 
-    static func isLikelyAudioFileExtension(_ fileExtension: String) -> Bool {
+    nonisolated static func isLikelyAudioFileExtension(_ fileExtension: String) -> Bool {
         let normalized = FormatOptionUtilities.normalizedFileExtension(fileExtension)
         guard !normalized.isEmpty else { return false }
 
@@ -82,7 +82,7 @@ struct AudioFormatOption: Identifiable, Hashable, Sendable {
         return knownAudioExtensions.contains(normalized)
     }
 
-    private func merged(with other: AudioFormatOption) -> AudioFormatOption {
+    nonisolated private func merged(with other: AudioFormatOption) -> AudioFormatOption {
         AudioFormatOption(
             id: id,
             displayName: FormatOptionUtilities.preferredDisplayName(displayName, other.displayName),
@@ -95,7 +95,7 @@ struct AudioFormatOption: Identifiable, Hashable, Sendable {
         )
     }
 
-    private static let knownAudioExtensions: Set<String> = [
+    nonisolated private static let knownAudioExtensions: Set<String> = [
         "aac", "ac3", "aif", "aiff", "alac", "caf", "flac", "m4a", "m4b", "mka", "mp2",
         "mp3", "oga", "ogg", "opus", "wav", "wma"
     ]

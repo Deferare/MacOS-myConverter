@@ -17,12 +17,12 @@ struct VideoFormatOption: Identifiable, Hashable, Sendable {
     let allowsFFmpegAutomaticVideoCodec: Bool
     let allowsFFmpegAutomaticAudioCodec: Bool
 
-    var avFileType: AVFileType? {
+    nonisolated var avFileType: AVFileType? {
         guard let avFileTypeIdentifier else { return nil }
         return AVFileType(rawValue: avFileTypeIdentifier)
     }
 
-    var normalizedID: String {
+    nonisolated var normalizedID: String {
         id.lowercased()
     }
 
@@ -34,15 +34,15 @@ struct VideoFormatOption: Identifiable, Hashable, Sendable {
         hasher.combine(normalizedID)
     }
 
-    static var avFoundationDefaultFormats: [VideoFormatOption] {
+    nonisolated static var avFoundationDefaultFormats: [VideoFormatOption] {
         VideoFormatCatalog.avFoundationProfiles.map { $0.asOption }
     }
 
-    static var ffmpegKnownFormats: [VideoFormatOption] {
+    nonisolated static var ffmpegKnownFormats: [VideoFormatOption] {
         VideoFormatCatalog.ffmpegOnlyProfiles.map { $0.asOption }
     }
 
-    static func fromFFmpegExtension(_ fileExtension: String, muxer: String) -> VideoFormatOption {
+    nonisolated static func fromFFmpegExtension(_ fileExtension: String, muxer: String) -> VideoFormatOption {
         let normalizedExtension = FormatOptionUtilities.normalizedFileExtension(fileExtension)
         let normalizedMuxer = muxer.lowercased()
         let profile = VideoFormatCatalog.byFileExtension[normalizedExtension]
@@ -74,7 +74,7 @@ struct VideoFormatOption: Identifiable, Hashable, Sendable {
         )
     }
 
-    static func deduplicatedAndSorted(_ formats: [VideoFormatOption]) -> [VideoFormatOption] {
+    nonisolated static func deduplicatedAndSorted(_ formats: [VideoFormatOption]) -> [VideoFormatOption] {
         FormatOptionUtilities.deduplicatedAndSorted(
             formats,
             normalizedID: { $0.normalizedID },
@@ -83,7 +83,7 @@ struct VideoFormatOption: Identifiable, Hashable, Sendable {
         )
     }
 
-    static func defaultSelection(from formats: [VideoFormatOption]) -> VideoFormatOption? {
+    nonisolated static func defaultSelection(from formats: [VideoFormatOption]) -> VideoFormatOption? {
         let normalized = deduplicatedAndSorted(formats)
         guard !normalized.isEmpty else { return nil }
 
@@ -94,7 +94,7 @@ struct VideoFormatOption: Identifiable, Hashable, Sendable {
         )
     }
 
-    static func isLikelyVideoFileExtension(_ fileExtension: String) -> Bool {
+    nonisolated static func isLikelyVideoFileExtension(_ fileExtension: String) -> Bool {
         let normalized = FormatOptionUtilities.normalizedFileExtension(fileExtension)
         guard !normalized.isEmpty else { return false }
 
@@ -106,7 +106,7 @@ struct VideoFormatOption: Identifiable, Hashable, Sendable {
         return knownVideoExtensions.contains(normalized)
     }
 
-    static func legacyNormalizedID(from storedValue: String) -> String? {
+    nonisolated static func legacyNormalizedID(from storedValue: String) -> String? {
         let normalized = storedValue
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
@@ -125,7 +125,7 @@ struct VideoFormatOption: Identifiable, Hashable, Sendable {
         return normalized
     }
 
-    private func merged(with other: VideoFormatOption) -> VideoFormatOption {
+    nonisolated private func merged(with other: VideoFormatOption) -> VideoFormatOption {
         VideoFormatOption(
             id: id,
             displayName: FormatOptionUtilities.preferredDisplayName(displayName, other.displayName),
@@ -145,7 +145,7 @@ struct VideoFormatOption: Identifiable, Hashable, Sendable {
         )
     }
 
-    private static let knownVideoExtensions: Set<String> = [
+    nonisolated private static let knownVideoExtensions: Set<String> = [
         "3g2", "3gp", "asf", "avi", "dv", "f4v", "flv", "m2t", "m2ts", "m2v", "m4v",
         "gif", "mkv", "mov", "mp4", "mpeg", "mpg", "mts", "mxf", "ogv", "rm", "rmvb", "ts",
         "vob", "webm", "wmv"

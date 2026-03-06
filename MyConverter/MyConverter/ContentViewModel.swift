@@ -65,9 +65,13 @@ final class ContentViewModel: ObservableObject {
     @Published var conversionProgress: Double = 0
     @Published var currentVideoBatchIndex = 0
     @Published var totalVideoBatchCount = 0
-    @Published var availableOutputFormats: [VideoFormatOption] = VideoConversionEngine.defaultOutputFormats()
-    @Published var availableVideoEncoders: [VideoEncoderOption] = [.auto]
-    @Published var availableAudioEncoders: [AudioEncoderOption] = [.auto]
+    @Published var availableOutputFormats: [VideoFormatOption] = ContentViewModelSupport.placeholderVideoFormats()
+    @Published var availableVideoEncoders: [VideoEncoderOption] = ContentViewModelSupport.placeholderVideoEncoders(
+        for: ContentViewModel.defaultVideoFormat
+    )
+    @Published var availableAudioEncoders: [AudioEncoderOption] = ContentViewModelSupport.placeholderVideoAudioEncoders(
+        for: ContentViewModel.defaultVideoFormat
+    )
 
     // Image state
     @Published var imageSourceURL: URL?
@@ -84,7 +88,7 @@ final class ContentViewModel: ObservableObject {
     @Published var imageConversionProgress: Double = 0
     @Published var currentImageBatchIndex = 0
     @Published var totalImageBatchCount = 0
-    @Published var availableImageOutputFormats: [ImageFormatOption] = ImageConversionEngine.defaultOutputFormats()
+    @Published var availableImageOutputFormats: [ImageFormatOption] = ContentViewModelSupport.placeholderImageFormats()
 
     // Audio state
     @Published var audioSourceURL: URL?
@@ -99,8 +103,10 @@ final class ContentViewModel: ObservableObject {
     @Published var audioConversionProgress: Double = 0
     @Published var currentAudioBatchIndex = 0
     @Published var totalAudioBatchCount = 0
-    @Published var availableAudioOutputFormats: [AudioFormatOption] = VideoConversionEngine.defaultAudioOutputFormats()
-    @Published var availableAudioOutputEncoders: [AudioEncoderOption] = [.auto]
+    @Published var availableAudioOutputFormats: [AudioFormatOption] = ContentViewModelSupport.placeholderAudioFormats()
+    @Published var availableAudioOutputEncoders: [AudioEncoderOption] = ContentViewModelSupport.placeholderAudioOutputEncoders(
+        for: ContentViewModel.defaultAudioFormat
+    )
 
     @Published var isImporting = false
 
@@ -204,6 +210,7 @@ final class ContentViewModel: ObservableObject {
     var pendingVideoSettingsSaveTask: Task<Void, Never>?
     var pendingImageSettingsSaveTask: Task<Void, Never>?
     var pendingAudioSettingsSaveTask: Task<Void, Never>?
+    var capabilityBootstrapTask: Task<Void, Never>?
 
     let videoSettingsStorageKey = "ContentViewModel.VideoSettingsBySource"
     let imageSettingsStorageKey = "ContentViewModel.ImageSettingsBySource"
@@ -213,13 +220,7 @@ final class ContentViewModel: ObservableObject {
         videoSettingsBySourceID = loadPersistedSettings()
         imageSettingsBySourceID = loadPersistedImageSettings()
         audioSettingsBySourceID = loadPersistedAudioSettings()
-        availableOutputFormats = VideoConversionEngine.defaultOutputFormats()
-        ensureSelectedVideoOutputFormatIsAvailable()
-        refreshVideoCodecOptions()
-        availableImageOutputFormats = ImageConversionEngine.defaultOutputFormats()
-        ensureSelectedImageOutputFormatIsAvailable()
-        availableAudioOutputFormats = VideoConversionEngine.defaultAudioOutputFormats()
-        ensureSelectedAudioOutputFormatIsAvailable()
-        refreshAudioCodecOptions()
+        applyPlaceholderCapabilityState()
+        scheduleCapabilityBootstrap()
     }
 }

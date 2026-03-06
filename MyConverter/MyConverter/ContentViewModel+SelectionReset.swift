@@ -22,10 +22,9 @@ extension ContentViewModel {
                 totalVideoBatchCount = 0
             },
             resetFormatsAndSettings: {
-                availableOutputFormats = VideoConversionEngine.defaultOutputFormats()
+                applyPlaceholderVideoCapabilities()
                 applyStoredSettings(.init())
-                ensureSelectedVideoOutputFormatIsAvailable()
-                refreshVideoCodecOptions()
+                scheduleCapabilityBootstrap()
             }
         )
     }
@@ -47,9 +46,9 @@ extension ContentViewModel {
                 totalImageBatchCount = 0
             },
             resetFormatsAndSettings: {
-                availableImageOutputFormats = ImageConversionEngine.defaultOutputFormats()
+                applyPlaceholderImageCapabilities()
                 applyStoredImageSettings(.init())
-                ensureSelectedImageOutputFormatIsAvailable()
+                scheduleCapabilityBootstrap()
             }
         )
     }
@@ -71,10 +70,9 @@ extension ContentViewModel {
                 totalAudioBatchCount = 0
             },
             resetFormatsAndSettings: {
-                availableAudioOutputFormats = VideoConversionEngine.defaultAudioOutputFormats()
+                applyPlaceholderAudioCapabilities()
                 applyStoredAudioSettings(.init())
-                ensureSelectedAudioOutputFormatIsAvailable()
-                refreshAudioCodecOptions()
+                scheduleCapabilityBootstrap()
             }
         )
     }

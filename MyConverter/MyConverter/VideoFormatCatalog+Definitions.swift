@@ -1,7 +1,7 @@
 import AVFoundation
 
 extension VideoFormatCatalog {
-    static let byIdentifier: [String: VideoFormatProfile] = {
+    nonisolated static let byIdentifier: [String: VideoFormatProfile] = {
         var map: [String: VideoFormatProfile] = [:]
 
         func add(

@@ -1,7 +1,7 @@
 import Foundation
 
 extension VideoConversionEngine {
-    static func inspectFFmpeg(at ffmpegPath: String) throws -> FFmpegIntrospection {
+    nonisolated static func inspectFFmpeg(at ffmpegPath: String) throws -> FFmpegIntrospection {
         if let cached = ffmpegIntrospectionCacheQueue.sync(execute: { ffmpegIntrospectionCache[ffmpegPath] }) {
             return cached
         }
@@ -38,7 +38,7 @@ extension VideoConversionEngine {
         return introspection
     }
 
-    static func isFFmpegFormatSupported(_ format: VideoFormatOption, introspection: FFmpegIntrospection) -> Bool {
+    nonisolated static func isFFmpegFormatSupported(_ format: VideoFormatOption, introspection: FFmpegIntrospection) -> Bool {
         if format.ffmpegRequiredMuxers.isEmpty {
             return format.avFileType != nil
         }
@@ -49,7 +49,7 @@ extension VideoConversionEngine {
         return hasCompatibleAudioEncoder(for: format, introspection: introspection)
     }
 
-    static func isFFmpegAudioFormatSupported(_ format: AudioFormatOption, introspection: FFmpegIntrospection) -> Bool {
+    nonisolated static func isFFmpegAudioFormatSupported(_ format: AudioFormatOption, introspection: FFmpegIntrospection) -> Bool {
         if format.ffmpegRequiredMuxers.isEmpty {
             return hasCompatibleAudioEncoder(format, introspection: introspection)
         }
@@ -59,7 +59,7 @@ extension VideoConversionEngine {
         return hasCompatibleAudioEncoder(format, introspection: introspection)
     }
 
-    static func ffmpegDiscoveredFormats(from introspection: FFmpegIntrospection) -> [VideoFormatOption] {
+    nonisolated static func ffmpegDiscoveredFormats(from introspection: FFmpegIntrospection) -> [VideoFormatOption] {
         var formats: [VideoFormatOption] = []
 
         for (muxer, extensions) in introspection.muxerExtensions {
@@ -71,7 +71,7 @@ extension VideoConversionEngine {
         return VideoFormatOption.deduplicatedAndSorted(formats)
     }
 
-    static func ffmpegDiscoveredAudioFormats(from introspection: FFmpegIntrospection) -> [AudioFormatOption] {
+    nonisolated static func ffmpegDiscoveredAudioFormats(from introspection: FFmpegIntrospection) -> [AudioFormatOption] {
         var formats: [AudioFormatOption] = []
 
         for (muxer, extensions) in introspection.muxerExtensions {
@@ -83,7 +83,7 @@ extension VideoConversionEngine {
         return AudioFormatOption.deduplicatedAndSorted(formats)
     }
 
-    private static func hasCompatibleAudioEncoder(_ format: AudioFormatOption, introspection: FFmpegIntrospection) -> Bool {
+    nonisolated private static func hasCompatibleAudioEncoder(_ format: AudioFormatOption, introspection: FFmpegIntrospection) -> Bool {
         AudioEncoderOption.allCases.contains { option in
             guard option != .auto else { return false }
             guard option.isCompatible(with: format) else { return false }
@@ -91,7 +91,7 @@ extension VideoConversionEngine {
         }
     }
 
-    private static func hasCompatibleVideoEncoder(_ format: VideoFormatOption, introspection: FFmpegIntrospection) -> Bool {
+    nonisolated private static func hasCompatibleVideoEncoder(_ format: VideoFormatOption, introspection: FFmpegIntrospection) -> Bool {
         if !format.supportsVideoEncoderSelection {
             return format.allowsFFmpegAutomaticVideoCodec
         }
@@ -103,7 +103,7 @@ extension VideoConversionEngine {
         }
     }
 
-    private static func hasCompatibleAudioEncoder(for format: VideoFormatOption, introspection: FFmpegIntrospection) -> Bool {
+    nonisolated private static func hasCompatibleAudioEncoder(for format: VideoFormatOption, introspection: FFmpegIntrospection) -> Bool {
         guard format.supportsAudioTrack else { return true }
 
         return AudioEncoderOption.allCases.contains { option in
@@ -113,11 +113,11 @@ extension VideoConversionEngine {
         }
     }
 
-    private static func parseFFmpegEncoders(from output: String, mediaFlag: Character) -> Set<String> {
+    nonisolated private static func parseFFmpegEncoders(from output: String, mediaFlag: Character) -> Set<String> {
         FFmpegParsingSupport.parseEncoders(from: output, mediaFlag: mediaFlag)
     }
 
-    private static func parseFFmpegMuxerDescriptors(from output: String) -> [FFmpegMuxerDescriptor] {
+    nonisolated private static func parseFFmpegMuxerDescriptors(from output: String) -> [FFmpegMuxerDescriptor] {
         FFmpegParsingSupport.parseMuxerDescriptors(
             from: output,
             lowercaseDescription: true
@@ -127,7 +127,7 @@ extension VideoConversionEngine {
         }
     }
 
-    private static func parseFFmpegVideoMuxerExtensions(
+    nonisolated private static func parseFFmpegVideoMuxerExtensions(
         ffmpegPath: String,
         muxerDescriptors: [FFmpegMuxerDescriptor]
     ) -> [String: [String]] {
@@ -154,11 +154,11 @@ extension VideoConversionEngine {
         return byMuxer
     }
 
-    private static func parseFFmpegMuxerExtensions(from output: String) -> [String] {
+    nonisolated private static func parseFFmpegMuxerExtensions(from output: String) -> [String] {
         FFmpegParsingSupport.parseMuxerExtensions(from: output, maxTokenLength: nil)
     }
 
-    private static func isLikelyVideoMuxer(_ descriptor: FFmpegMuxerDescriptor) -> Bool {
+    nonisolated private static func isLikelyVideoMuxer(_ descriptor: FFmpegMuxerDescriptor) -> Bool {
         let name = descriptor.name.lowercased()
         let description = descriptor.description.lowercased()
 
@@ -175,7 +175,7 @@ extension VideoConversionEngine {
         return keywords.contains(where: { description.contains($0) })
     }
 
-    private static func isLikelyAudioMuxer(_ descriptor: FFmpegMuxerDescriptor) -> Bool {
+    nonisolated private static func isLikelyAudioMuxer(_ descriptor: FFmpegMuxerDescriptor) -> Bool {
         let name = descriptor.name.lowercased()
         let description = descriptor.description.lowercased()
 
