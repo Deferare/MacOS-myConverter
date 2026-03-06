@@ -12,24 +12,35 @@ extension BatchConversionSupport {
             return [:]
         }
 
-        guard let firstDestinationURL = presentSavePanel(
-            for: firstSourceURL,
-            fileExtension: fileExtension,
-            outputLabel: outputLabel,
-            currentIndex: 1,
-            totalCount: sourceURLs.count
+        let firstSourceID = ContentViewModelSupport.sourceIdentifier(for: firstSourceURL)
+        guard sourceURLs.count > 1 else {
+            guard let firstDestinationURL = presentSavePanel(
+                for: firstSourceURL,
+                fileExtension: fileExtension,
+                outputLabel: outputLabel,
+                currentIndex: 1,
+                totalCount: 1
+            ) else {
+                return nil
+            }
+
+            return [firstSourceID: firstDestinationURL]
+        }
+
+        guard let outputDirectory = presentBatchDirectoryAccessPanel(
+            suggestedDirectory: firstSourceURL.deletingLastPathComponent(),
+            outputLabel: outputLabel
         ) else {
             return nil
         }
 
-        let firstSourceID = ContentViewModelSupport.sourceIdentifier(for: firstSourceURL)
+        let firstDestinationURL = uniqueBatchDestinationURL(
+            for: firstSourceURL,
+            fileExtension: fileExtension,
+            in: outputDirectory,
+            reservedPaths: []
+        )
         var selected: [String: URL] = [firstSourceID: firstDestinationURL]
-
-        guard sourceURLs.count > 1 else {
-            return selected
-        }
-
-        let outputDirectory = firstDestinationURL.deletingLastPathComponent()
         var reservedPaths: Set<String> = [firstDestinationURL.standardizedFileURL.path]
         assignAutoBatchDestinations(
             for: sourceURLs.dropFirst(),
