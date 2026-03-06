@@ -29,6 +29,19 @@ extension ConverterTab {
 }
 
 extension ContentViewModel {
+    struct MediaSelectionWorkflowDescriptor {
+        let isConversionRunning: Bool
+        let currentPrimaryURL: URL?
+        let selectedSourceURLs: [URL]
+        let assignSelection: ([URL]) -> Void
+        let cancelAnalysisTask: () -> Void
+        let resetSelectionState: () -> Void
+        let resetCompatibilityState: () -> Void
+        let applyStoredSettingsForSourceID: (String) -> Void
+        let analyzeSelection: ([URL]) -> Void
+        let onSelectionEmptied: () -> Void
+    }
+
     func uniqueStandardizedURLs(_ urls: [URL]) -> [URL] {
         ContentViewModelSupport.uniqueStandardizedURLs(urls)
     }
@@ -36,6 +49,38 @@ extension ContentViewModel {
     func cancelTask(_ task: inout Task<Void, Never>?) {
         task?.cancel()
         task = nil
+    }
+
+    func selectionWorkflowDescriptor(for kind: MediaKind) -> MediaSelectionWorkflowDescriptor {
+        let descriptor = mediaStateDescriptor(for: kind)
+
+        return MediaSelectionWorkflowDescriptor(
+            isConversionRunning: self[keyPath: descriptor.isConverting],
+            currentPrimaryURL: self[keyPath: descriptor.sourceURL],
+            selectedSourceURLs: selectedSourceURLs(for: kind),
+            assignSelection: { selection in
+                self.assignSelection(selection, for: kind)
+            },
+            cancelAnalysisTask: {
+                self.cancelTask(at: descriptor.analysisTask)
+            },
+            resetSelectionState: {
+                self.resetConversionOutputs(for: kind)
+                self.resetSelectionCompatibilityState(for: kind)
+            },
+            resetCompatibilityState: {
+                self.resetSelectionCompatibilityState(for: kind)
+            },
+            applyStoredSettingsForSourceID: { sourceID in
+                self.applyStoredSourceSettings(for: sourceID, for: kind)
+            },
+            analyzeSelection: { selection in
+                self.analyzeSelectedSources(selection, for: kind)
+            },
+            onSelectionEmptied: {
+                self.restoreIdleMediaState(for: kind)
+            }
+        )
     }
 
     func assignPrimaryAndQueuedSources(
@@ -68,26 +113,15 @@ extension ContentViewModel {
     }
 
     func applySelectedSources(_ urls: [URL], for kind: MediaKind) {
-        let descriptor = mediaStateDescriptor(for: kind)
+        let workflow = selectionWorkflowDescriptor(for: kind)
 
         applySelectedSources(
             urls,
-            cancelAnalysisTask: {
-                cancelTask(at: descriptor.analysisTask)
-            },
-            assignSelection: { selection in
-                assignSelection(selection, for: kind)
-            },
-            resetState: {
-                resetConversionOutputs(for: kind)
-                resetSelectionCompatibilityState(for: kind)
-            },
-            applyStoredSettingsForSourceID: { sourceID in
-                applyStoredSourceSettings(for: sourceID, for: kind)
-            },
-            analyzeSelection: { selection in
-                analyzeSelectedSources(selection, for: kind)
-            }
+            cancelAnalysisTask: workflow.cancelAnalysisTask,
+            assignSelection: workflow.assignSelection,
+            resetState: workflow.resetSelectionState,
+            applyStoredSettingsForSourceID: workflow.applyStoredSettingsForSourceID,
+            analyzeSelection: workflow.analyzeSelection
         )
     }
 

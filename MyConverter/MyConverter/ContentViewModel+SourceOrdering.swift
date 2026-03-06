@@ -2,29 +2,19 @@ import Foundation
 
 extension ContentViewModel {
     func moveSelectedSource(from draggedURL: URL, to targetURL: URL, for kind: MediaKind) {
-        let descriptor = mediaStateDescriptor(for: kind)
+        let workflow = selectionWorkflowDescriptor(for: kind)
 
         moveSelectedSource(
             from: draggedURL,
             to: targetURL,
-            isConversionRunning: self[keyPath: descriptor.isConverting],
-            currentPrimaryURL: self[keyPath: descriptor.sourceURL],
-            selectedSourceURLs: selectedSourceURLs(for: kind),
-            assignSelection: { reordered in
-                assignSelection(reordered, for: kind)
-            },
-            cancelAnalysisTask: {
-                cancelTask(at: descriptor.analysisTask)
-            },
-            resetCompatibilityState: {
-                resetSelectionCompatibilityState(for: kind)
-            },
-            applyStoredSettingsForSourceID: { sourceID in
-                applyStoredSourceSettings(for: sourceID, for: kind)
-            },
-            analyzeSelection: { urls in
-                analyzeSelectedSources(urls, for: kind)
-            }
+            isConversionRunning: workflow.isConversionRunning,
+            currentPrimaryURL: workflow.currentPrimaryURL,
+            selectedSourceURLs: workflow.selectedSourceURLs,
+            assignSelection: workflow.assignSelection,
+            cancelAnalysisTask: workflow.cancelAnalysisTask,
+            resetCompatibilityState: workflow.resetCompatibilityState,
+            applyStoredSettingsForSourceID: workflow.applyStoredSettingsForSourceID,
+            analyzeSelection: workflow.analyzeSelection
         )
     }
 

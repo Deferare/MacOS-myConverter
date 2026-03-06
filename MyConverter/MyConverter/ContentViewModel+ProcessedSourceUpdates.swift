@@ -2,15 +2,13 @@ import Foundation
 
 extension ContentViewModel {
     func removeProcessedSource(_ processedURL: URL, for kind: MediaKind) {
+        let workflow = selectionWorkflowDescriptor(for: kind)
+
         removeProcessedSource(
             processedURL,
-            from: selectedSourceURLs(for: kind),
-            assignSelection: { remainingURLs in
-                assignSelection(remainingURLs, for: kind)
-            },
-            onSelectionEmptied: {
-                restoreIdleMediaState(for: kind)
-            }
+            from: workflow.selectedSourceURLs,
+            assignSelection: workflow.assignSelection,
+            onSelectionEmptied: workflow.onSelectionEmptied
         )
     }
 }
