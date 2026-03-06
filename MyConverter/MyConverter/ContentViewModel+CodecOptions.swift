@@ -14,6 +14,14 @@ extension ContentViewModel {
         self[keyPath: selectedOptionKeyPath] = preferred
     }
 
+    func resetSelectedOptionIfNeeded<Option: Equatable>(
+        _ keyPath: ReferenceWritableKeyPath<ContentViewModel, Option>,
+        to fallback: Option
+    ) {
+        guard self[keyPath: keyPath] != fallback else { return }
+        self[keyPath: keyPath] = fallback
+    }
+
     func refreshVideoCodecOptions() {
         let format = selectedOutputFormat
         availableVideoEncoders = VideoConversionEngine.availableVideoEncoders(for: format)
@@ -22,14 +30,14 @@ extension ContentViewModel {
             : []
 
         updateSelectedOptionIfNeeded(
-            options: availableVideoEncoders,
+            options: videoEncoderOptions,
             selectedOptionKeyPath: \.selectedVideoEncoder,
             preferredOption: ContentViewModelSupport.preferredVideoEncoder(from:)
         )
 
         if format.supportsAudioTrack {
             updateSelectedOptionIfNeeded(
-                options: availableAudioEncoders,
+                options: audioEncoderOptions,
                 selectedOptionKeyPath: \.selectedAudioEncoder,
                 preferredOption: ContentViewModelSupport.preferredAudioEncoder(from:)
             )
@@ -42,17 +50,8 @@ extension ContentViewModel {
         let format = selectedAudioOutputFormat
         availableAudioOutputEncoders = VideoConversionEngine.availableAudioEncoders(for: format)
 
-        let effectiveOptions: [AudioEncoderOption]
-        if !availableAudioOutputEncoders.isEmpty {
-            effectiveOptions = availableAudioOutputEncoders
-        } else if audioSourceURL == nil && format.allowsFFmpegAutomaticAudioCodec {
-            effectiveOptions = [.auto]
-        } else {
-            effectiveOptions = []
-        }
-
         updateSelectedOptionIfNeeded(
-            options: effectiveOptions,
+            options: audioOutputEncoderOptions,
             selectedOptionKeyPath: \.selectedAudioOutputEncoder,
             preferredOption: {
                 ContentViewModelSupport.preferredAudioOutputEncoder(for: format, from: $0)
@@ -63,25 +62,19 @@ extension ContentViewModel {
     }
 
     func normalizeVideoOptionDependencies() {
-        if !selectedVideoEncoder.supportsVideoBitRate && selectedVideoBitRate != .auto {
-            selectedVideoBitRate = .auto
+        if !selectedVideoEncoder.supportsVideoBitRate {
+            resetSelectedOptionIfNeeded(\.selectedVideoBitRate, to: .auto)
         }
 
         if !shouldShowAudioSettings {
-            if selectedAudioEncoder != .auto {
-                selectedAudioEncoder = .auto
-            }
-            if selectedAudioMode != .auto {
-                selectedAudioMode = .auto
-            }
-            if selectedAudioBitRate != .auto {
-                selectedAudioBitRate = .auto
-            }
+            resetSelectedOptionIfNeeded(\.selectedAudioEncoder, to: .auto)
+            resetSelectedOptionIfNeeded(\.selectedAudioMode, to: .auto)
+            resetSelectedOptionIfNeeded(\.selectedAudioBitRate, to: .auto)
             return
         }
 
-        if !selectedAudioEncoder.supportsAudioBitRate && selectedAudioBitRate != .auto {
-            selectedAudioBitRate = .auto
+        if !selectedAudioEncoder.supportsAudioBitRate {
+            resetSelectedOptionIfNeeded(\.selectedAudioBitRate, to: .auto)
         }
     }
 
@@ -96,8 +89,8 @@ extension ContentViewModel {
             selectedAudioOutputEncoder = preferred
         }
 
-        if !selectedAudioOutputEncoder.supportsAudioBitRate && selectedAudioOutputBitRate != .auto {
-            selectedAudioOutputBitRate = .auto
+        if !selectedAudioOutputEncoder.supportsAudioBitRate {
+            resetSelectedOptionIfNeeded(\.selectedAudioOutputBitRate, to: .auto)
         }
     }
 }

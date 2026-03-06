@@ -1,10 +1,6 @@
 import Foundation
 
 extension ContentViewModel {
-    var isImageSettingsValid: Bool {
-        imageSettingsValidationMessage == nil
-    }
-
     var imageFormatHintMessage: String? {
         if imageSourceIsAnimated && !selectedImageOutputFormat.supportsAnimation {
             return "This format exports only the first frame for animated sources."

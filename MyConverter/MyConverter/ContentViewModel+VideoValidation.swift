@@ -1,13 +1,6 @@
 import Foundation
 
 extension ContentViewModel {
-    var isVideoSettingsValid: Bool {
-        if shouldShowVideoBitRateOption && selectedVideoBitRate == .custom {
-            return normalizedCustomVideoBitRateKbps != nil
-        }
-        return true
-    }
-
     var videoSettingsValidationMessage: String? {
         if let sourceCompatibilityErrorMessage {
             return sourceCompatibilityErrorMessage
