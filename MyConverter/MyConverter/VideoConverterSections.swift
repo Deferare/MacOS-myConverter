@@ -6,6 +6,8 @@ struct VideoConverterInputSectionView: View {
     @Binding var draggedSelectedFileURL: URL?
     let fileDropAreaHeight: CGFloat
 
+    private let fileSelectionAnimation: Animation = .easeOut(duration: 0.22)
+
     var body: some View {
         ConverterInputArea(
             isDropTargeted: isDropTargeted,
@@ -21,7 +23,7 @@ struct VideoConverterInputSectionView: View {
                 viewModel.requestFileImport()
             },
             onClear: {
-                withAnimation {
+                withAnimation(fileSelectionAnimation) {
                     viewModel.clearSelectedVideoSource()
                 }
             },
@@ -29,7 +31,7 @@ struct VideoConverterInputSectionView: View {
                 viewModel.moveSelectedVideoSource(from: draggedURL, to: targetURL)
             }
         )
-        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: viewModel.selectedVideoFileCount)
+        .animation(fileSelectionAnimation, value: viewModel.selectedVideoFileCount)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isDropTargeted)
     }
 }
