@@ -100,15 +100,7 @@ struct SelectedFilesView: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, minHeight: fileDropAreaHeight, maxHeight: fileDropAreaHeight)
-        .background(
-            RoundedRectangle(cornerRadius: 24)
-                .fill(.background.opacity(0.4).shadow(.inner(color: .white.opacity(0.1), radius: 0, x: 0, y: 1)))
-                .background(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 24)
-                        .stroke(Color.primary.opacity(0.06), lineWidth: 1)
-                )
-        )
+        .background(ConverterInputAreaBackground(isDropTargeted: false, usesDashedBorder: false))
         .clipShape(RoundedRectangle(cornerRadius: 24))
     }
 }

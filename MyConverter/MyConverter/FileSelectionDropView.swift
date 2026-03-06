@@ -1,5 +1,27 @@
 import SwiftUI
 
+struct ConverterInputAreaBackground: View {
+    let isDropTargeted: Bool
+    let usesDashedBorder: Bool
+
+    private let cornerRadius: CGFloat = 24
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius)
+            .fill(isDropTargeted ? Color.accentColor.opacity(0.03) : Color.primary.opacity(0.01))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .strokeBorder(
+                        isDropTargeted ? Color.accentColor.opacity(0.5) : Color.secondary.opacity(0.2),
+                        style: StrokeStyle(
+                            lineWidth: isDropTargeted ? 2 : 1,
+                            dash: usesDashedBorder && !isDropTargeted ? [4, 4] : []
+                        )
+                    )
+            )
+    }
+}
+
 struct DropFileView: View {
     let isDropTargeted: Bool
     let placeholder: String
@@ -41,18 +63,7 @@ struct DropFileView: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: fileDropAreaHeight)
-            .background(
-                ZStack {
-                    RoundedRectangle(cornerRadius: 24)
-                        .fill(isDropTargeted ? Color.accentColor.opacity(0.03) : Color.primary.opacity(0.01))
-
-                    RoundedRectangle(cornerRadius: 24)
-                        .strokeBorder(
-                            isDropTargeted ? Color.accentColor.opacity(0.5) : Color.secondary.opacity(0.2),
-                            style: StrokeStyle(lineWidth: isDropTargeted ? 2 : 1, dash: isDropTargeted ? [] : [4, 4])
-                        )
-                }
-            )
+            .background(ConverterInputAreaBackground(isDropTargeted: isDropTargeted, usesDashedBorder: true))
             .contentShape(Rectangle())
             .scaleEffect(isDropTargeted ? 1.01 : 1.0)
         }
