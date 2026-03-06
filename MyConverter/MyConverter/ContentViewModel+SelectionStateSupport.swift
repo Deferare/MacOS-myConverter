@@ -149,7 +149,7 @@ extension ContentViewModel {
             resetFormatsAndSettings: {
                 applyPlaceholderCapabilities(for: kind)
                 applyDefaultSourceSettings(for: kind)
-                scheduleCapabilityBootstrap()
+                scheduleCapabilityBootstrap(for: kind)
             }
         )
     }

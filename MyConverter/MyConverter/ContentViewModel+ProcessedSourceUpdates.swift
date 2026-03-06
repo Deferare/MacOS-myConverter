@@ -14,7 +14,7 @@ extension ContentViewModel {
                 resetSelectionCompatibilityState(for: kind)
                 self[keyPath: descriptor.isAnalyzing] = false
                 applyPlaceholderCapabilities(for: kind)
-                scheduleCapabilityBootstrap()
+                scheduleCapabilityBootstrap(for: kind)
             }
         )
     }

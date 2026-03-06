@@ -61,6 +61,5 @@ final class ContentViewModel: ObservableObject {
         settingsState.imageSettingsBySourceID = loadPersistedSourceSettings(using: imageSettingsDescriptor())
         settingsState.audioSettingsBySourceID = loadPersistedSourceSettings(using: audioSettingsDescriptor())
         applyPlaceholderCapabilityState()
-        scheduleCapabilityBootstrap()
     }
 }

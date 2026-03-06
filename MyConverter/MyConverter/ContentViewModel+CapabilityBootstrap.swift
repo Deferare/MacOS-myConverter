@@ -11,7 +11,6 @@ extension ContentViewModel {
         case videoFormats([VideoFormatOption])
         case imageFormats([ImageFormatOption])
         case audioFormats([AudioFormatOption])
-        case warmed
     }
 
     struct CapabilityBootstrapDescriptor {
@@ -119,11 +118,16 @@ extension ContentViewModel {
         capabilityBootstrapDescriptor(for: kind).applyPlaceholder(self)
     }
 
-    func scheduleCapabilityBootstrap() {
+    func scheduleCapabilityBootstrap(for kind: MediaKind) {
+        scheduleCapabilityBootstrap(for: [kind])
+    }
+
+    func scheduleCapabilityBootstrap(for kinds: [MediaKind]) {
+        let requestedKinds = uniqueMediaKinds(kinds)
+        guard !requestedKinds.isEmpty else { return }
+
         cancelTask(&taskState.capabilityBootstrapTask)
 
-        let selectedVideoFormat = selectedOutputFormat
-        let selectedAudioFormat = selectedAudioOutputFormat
         taskState.capabilityBootstrapTask = Task { [weak self] in
             let warmed = await Task.detached(priority: .userInitiated) {
                 var warmed = WarmedDefaultCapabilities(
@@ -133,28 +137,21 @@ extension ContentViewModel {
                 )
 
                 await withTaskGroup(of: CapabilityWarmupResult.self) { group in
-                    group.addTask {
-                        .videoFormats(VideoConversionEngine.defaultOutputFormats())
-                    }
-                    group.addTask {
-                        .imageFormats(ImageConversionEngine.defaultOutputFormats())
-                    }
-                    group.addTask {
-                        .audioFormats(VideoConversionEngine.defaultAudioOutputFormats())
-                    }
-                    group.addTask {
-                        _ = VideoConversionEngine.availableVideoEncoders(for: selectedVideoFormat)
-                        return .warmed
-                    }
-                    if selectedVideoFormat.supportsAudioTrack {
-                        group.addTask {
-                            _ = VideoConversionEngine.availableAudioEncoders(for: selectedVideoFormat)
-                            return .warmed
+                    for kind in requestedKinds {
+                        switch kind {
+                        case .video:
+                            group.addTask {
+                                .videoFormats(VideoConversionEngine.defaultOutputFormats())
+                            }
+                        case .image:
+                            group.addTask {
+                                .imageFormats(ImageConversionEngine.defaultOutputFormats())
+                            }
+                        case .audio:
+                            group.addTask {
+                                .audioFormats(VideoConversionEngine.defaultAudioOutputFormats())
+                            }
                         }
-                    }
-                    group.addTask {
-                        _ = VideoConversionEngine.availableAudioEncoders(for: selectedAudioFormat)
-                        return .warmed
                     }
 
                     for await result in group {
@@ -166,9 +163,19 @@ extension ContentViewModel {
             }.value
 
             guard !Task.isCancelled, let self else { return }
-            applyWarmedDefaultCapabilitiesIfNeeded(warmed)
+            applyWarmedDefaultCapabilitiesIfNeeded(warmed, for: requestedKinds)
             taskState.capabilityBootstrapTask = nil
         }
+    }
+
+    func uniqueMediaKinds(_ kinds: [MediaKind]) -> [MediaKind] {
+        var unique: [MediaKind] = []
+
+        for kind in kinds where !unique.contains(kind) {
+            unique.append(kind)
+        }
+
+        return unique
     }
 
     nonisolated static func applyCapabilityWarmupResult(
@@ -182,13 +189,14 @@ extension ContentViewModel {
             warmed.imageFormats = imageFormats
         case .audioFormats(let audioFormats):
             warmed.audioFormats = audioFormats
-        case .warmed:
-            break
         }
     }
 
-    func applyWarmedDefaultCapabilitiesIfNeeded(_ warmed: WarmedDefaultCapabilities) {
-        MediaKind.allCases.forEach {
+    func applyWarmedDefaultCapabilitiesIfNeeded(
+        _ warmed: WarmedDefaultCapabilities,
+        for kinds: [MediaKind]
+    ) {
+        kinds.forEach {
             capabilityBootstrapDescriptor(for: $0).applyWarmedIfIdle(self, warmed)
         }
     }
