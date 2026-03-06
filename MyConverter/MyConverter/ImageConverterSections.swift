@@ -11,7 +11,7 @@ struct ImageConverterInputSectionView: View {
     var body: some View {
         ConverterInputArea(
             isDropTargeted: isDropTargeted,
-            selectedURLs: viewModel.selectedImageSourceURLs,
+            selectedURLs: viewModel.selectedSourceURLs(for: .image),
             outputURLs: viewModel.convertedImageURLs,
             isConverting: viewModel.isImageConverting,
             currentBatchIndex: viewModel.currentImageBatchIndex,
@@ -31,7 +31,7 @@ struct ImageConverterInputSectionView: View {
                 viewModel.moveSelectedSource(from: draggedURL, to: targetURL, for: .image)
             }
         )
-        .animation(fileSelectionAnimation, value: viewModel.selectedImageFileCount)
+        .animation(fileSelectionAnimation, value: viewModel.selectedFileCount(for: .image))
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isDropTargeted)
     }
 }
@@ -80,7 +80,7 @@ struct ImageConverterFormSectionView: View {
                 Toggle("Preserve Animation", isOn: $viewModel.preserveImageAnimation)
             }
 
-            if let hint = viewModel.imageFormatHintMessage {
+            if let hint = viewModel.hintMessage(for: .image) {
                 Text(hint)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -93,14 +93,26 @@ struct ImageConversionControlsView: View {
     @ObservedObject var viewModel: ContentViewModel
 
     var body: some View {
+        let validationMessage = viewModel.validationMessage(for: .image)
+        let hintMessage = viewModel.hintMessage(for: .image)
+        let progress = viewModel.displayedProgress(for: .image)
+
         ConversionControlBar(
-            statusMessage: viewModel.imageConversionStatusMessage,
-            statusColor: viewModel.imageConversionStatusLevel.color,
-            progress: viewModel.displayedImageConversionProgress,
-            progressText: viewModel.imageProgressPercentageText,
-            progressTint: viewModel.displayedImageConversionProgress > 0 ? .accentColor : .clear,
+            statusMessage: viewModel.statusMessage(
+                for: .image,
+                validationMessage: validationMessage,
+                hintMessage: hintMessage
+            ),
+            statusColor: viewModel.statusLevel(
+                for: .image,
+                validationMessage: validationMessage,
+                hintMessage: hintMessage
+            ).color,
+            progress: progress,
+            progressText: viewModel.progressPercentageText(for: .image),
+            progressTint: progress > 0 ? .accentColor : .clear,
             isConverting: viewModel.isImageConverting,
-            canConvert: viewModel.canConvertImage,
+            canConvert: viewModel.canStartConversion(for: .image, validationMessage: validationMessage),
             onStart: { viewModel.startConversion(for: .image) },
             onCancel: { viewModel.cancelConversion(for: .image) }
         )

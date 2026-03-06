@@ -1,6 +1,10 @@
 import Foundation
 
 extension ContentViewModel {
+    var imageSourceIsAnimated: Bool {
+        imageSourceFrameCount > 1
+    }
+
     var imageOutputFormatOptions: [ImageFormatOption] {
         availableOutputFormatOptions(using: imageOutputFormatDescriptor())
     }

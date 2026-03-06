@@ -11,7 +11,7 @@ struct AudioConverterInputSectionView: View {
     var body: some View {
         ConverterInputArea(
             isDropTargeted: isDropTargeted,
-            selectedURLs: viewModel.selectedAudioSourceURLs,
+            selectedURLs: viewModel.selectedSourceURLs(for: .audio),
             outputURLs: viewModel.convertedAudioURLs,
             isConverting: viewModel.isAudioConverting,
             currentBatchIndex: viewModel.currentAudioBatchIndex,
@@ -31,7 +31,7 @@ struct AudioConverterInputSectionView: View {
                 viewModel.moveSelectedSource(from: draggedURL, to: targetURL, for: .audio)
             }
         )
-        .animation(fileSelectionAnimation, value: viewModel.selectedAudioFileCount)
+        .animation(fileSelectionAnimation, value: viewModel.selectedFileCount(for: .audio))
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isDropTargeted)
     }
 }
@@ -67,7 +67,7 @@ struct AudioConverterFormSectionView: View {
                 showBitRate: viewModel.shouldShowAudioOutputBitRateOption
             )
 
-            if let hint = viewModel.audioFormatHintMessage {
+            if let hint = viewModel.hintMessage(for: .audio) {
                 Text(hint)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -80,14 +80,26 @@ struct AudioConversionControlsView: View {
     @ObservedObject var viewModel: ContentViewModel
 
     var body: some View {
+        let validationMessage = viewModel.validationMessage(for: .audio)
+        let hintMessage = viewModel.hintMessage(for: .audio)
+        let progress = viewModel.displayedProgress(for: .audio)
+
         ConversionControlBar(
-            statusMessage: viewModel.audioConversionStatusMessage,
-            statusColor: viewModel.audioConversionStatusLevel.color,
-            progress: viewModel.displayedAudioConversionProgress,
-            progressText: viewModel.audioProgressPercentageText,
-            progressTint: viewModel.displayedAudioConversionProgress > 0 ? .accentColor : .clear,
+            statusMessage: viewModel.statusMessage(
+                for: .audio,
+                validationMessage: validationMessage,
+                hintMessage: hintMessage
+            ),
+            statusColor: viewModel.statusLevel(
+                for: .audio,
+                validationMessage: validationMessage,
+                hintMessage: hintMessage
+            ).color,
+            progress: progress,
+            progressText: viewModel.progressPercentageText(for: .audio),
+            progressTint: progress > 0 ? .accentColor : .clear,
             isConverting: viewModel.isAudioConverting,
-            canConvert: viewModel.canConvertAudio,
+            canConvert: viewModel.canStartConversion(for: .audio, validationMessage: validationMessage),
             onStart: { viewModel.startConversion(for: .audio) },
             onCancel: { viewModel.cancelConversion(for: .audio) }
         )

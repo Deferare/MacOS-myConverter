@@ -5,7 +5,7 @@ extension ContentViewModel {
         await performConversion(
             using: ConversionWorkflowDescriptor(
                 kind: .image,
-                canConvert: canConvertImage,
+                canConvert: canStartConversion(for: .image, validationMessage: validationMessage(for: .image)),
                 missingSourceLog: "No image file to convert.",
                 fileExtension: selectedImageOutputFormat.fileExtension,
                 outputLabel: "Image",
@@ -15,7 +15,7 @@ extension ContentViewModel {
                 errorLogPrefix: "Image conversion failed",
                 includeDebugInfo: false,
                 buildOutputSettings: { self.buildImageOutputSettings() },
-                validate: { await self.validateImageOutputSettings(for: $0) },
+                validate: { await self.validateSourceOutputSettings(for: .image, sourceURL: $0) },
                 makeWorkingOutputURL: { sourceURL in
                     ImageConversionEngine.temporaryOutputURL(for: sourceURL, format: self.selectedImageOutputFormat)
                 },

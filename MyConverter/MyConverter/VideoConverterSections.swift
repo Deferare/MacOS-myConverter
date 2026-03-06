@@ -11,7 +11,7 @@ struct VideoConverterInputSectionView: View {
     var body: some View {
         ConverterInputArea(
             isDropTargeted: isDropTargeted,
-            selectedURLs: viewModel.selectedVideoSourceURLs,
+            selectedURLs: viewModel.selectedSourceURLs(for: .video),
             outputURLs: viewModel.convertedURLs,
             isConverting: viewModel.isConverting,
             currentBatchIndex: viewModel.currentVideoBatchIndex,
@@ -31,7 +31,7 @@ struct VideoConverterInputSectionView: View {
                 viewModel.moveSelectedSource(from: draggedURL, to: targetURL, for: .video)
             }
         )
-        .animation(fileSelectionAnimation, value: viewModel.selectedVideoFileCount)
+        .animation(fileSelectionAnimation, value: viewModel.selectedFileCount(for: .video))
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isDropTargeted)
     }
 }
@@ -123,14 +123,17 @@ struct VideoConversionControlsView: View {
     @ObservedObject var viewModel: ContentViewModel
 
     var body: some View {
+        let validationMessage = viewModel.validationMessage(for: .video)
+        let progress = viewModel.displayedProgress(for: .video)
+
         ConversionControlBar(
-            statusMessage: viewModel.conversionStatusMessage,
-            statusColor: viewModel.conversionStatusLevel.color,
-            progress: viewModel.displayedConversionProgress,
-            progressText: viewModel.progressPercentageText,
-            progressTint: viewModel.displayedConversionProgress > 0 ? .accentColor : .clear,
+            statusMessage: viewModel.statusMessage(for: .video, validationMessage: validationMessage),
+            statusColor: viewModel.statusLevel(for: .video, validationMessage: validationMessage).color,
+            progress: progress,
+            progressText: viewModel.progressPercentageText(for: .video),
+            progressTint: progress > 0 ? .accentColor : .clear,
             isConverting: viewModel.isConverting,
-            canConvert: viewModel.canConvert,
+            canConvert: viewModel.canStartConversion(for: .video, validationMessage: validationMessage),
             onStart: { viewModel.startConversion(for: .video) },
             onCancel: { viewModel.cancelConversion(for: .video) }
         )

@@ -5,7 +5,7 @@ extension ContentViewModel {
         await performConversion(
             using: ConversionWorkflowDescriptor(
                 kind: .video,
-                canConvert: canConvert,
+                canConvert: canStartConversion(for: .video, validationMessage: validationMessage(for: .video)),
                 missingSourceLog: "No file to convert.",
                 fileExtension: selectedOutputFormat.fileExtension,
                 outputLabel: "Video",
@@ -15,7 +15,7 @@ extension ContentViewModel {
                 errorLogPrefix: "Conversion failed",
                 includeDebugInfo: true,
                 buildOutputSettings: { try self.buildVideoOutputSettings() },
-                validate: { await self.validateVideoOutputSettings(for: $0) },
+                validate: { await self.validateSourceOutputSettings(for: .video, sourceURL: $0) },
                 makeWorkingOutputURL: { sourceURL in
                     VideoConversionEngine.temporaryOutputURL(for: sourceURL, format: self.selectedOutputFormat)
                 },

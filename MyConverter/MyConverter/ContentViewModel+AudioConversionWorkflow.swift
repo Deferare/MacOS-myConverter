@@ -5,7 +5,7 @@ extension ContentViewModel {
         await performConversion(
             using: ConversionWorkflowDescriptor(
                 kind: .audio,
-                canConvert: canConvertAudio,
+                canConvert: canStartConversion(for: .audio, validationMessage: validationMessage(for: .audio)),
                 missingSourceLog: "No audio file to convert.",
                 fileExtension: selectedAudioOutputFormat.fileExtension,
                 outputLabel: "Audio",
@@ -15,7 +15,7 @@ extension ContentViewModel {
                 errorLogPrefix: "Audio conversion failed",
                 includeDebugInfo: false,
                 buildOutputSettings: { self.buildAudioOutputSettings() },
-                validate: { await self.validateAudioOutputSettings(for: $0) },
+                validate: { await self.validateSourceOutputSettings(for: .audio, sourceURL: $0) },
                 makeWorkingOutputURL: { sourceURL in
                     VideoConversionEngine.temporaryOutputURL(for: sourceURL, format: self.selectedAudioOutputFormat)
                 },
