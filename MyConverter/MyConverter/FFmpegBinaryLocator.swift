@@ -4,6 +4,7 @@ enum FFmpegBinaryLocator {
     nonisolated private static let cacheQueue = DispatchQueue(label: "myconverter.ffmpeg.path.cache")
     nonisolated(unsafe) private static var cachedPath: String?? = nil
     nonisolated(unsafe) private static var lookupTime: UInt64 = 0
+    nonisolated private static let pathCacheTTL: UInt64 = 30_000_000_000
     nonisolated private static let nilCacheTTL: UInt64 = 30_000_000_000
 
     nonisolated static func findPath() -> String? {
@@ -13,12 +14,21 @@ enum FFmpegBinaryLocator {
         }
 
         if let cached = cacheSnapshot.0 {
-            if let path = cached, FileManager.default.isExecutableFile(atPath: path) {
-                return path
+            let cacheAge = now >= cacheSnapshot.1 ? now - cacheSnapshot.1 : 0
+
+            if let path = cached {
+                if cacheAge < pathCacheTTL {
+                    return path
+                }
+                if FileManager.default.isExecutableFile(atPath: path) {
+                    cacheQueue.sync {
+                        lookupTime = now
+                    }
+                    return path
+                }
             }
 
-            let nilCacheAge = now >= cacheSnapshot.1 ? now - cacheSnapshot.1 : 0
-            if cached == nil && nilCacheAge < nilCacheTTL {
+            if cached == nil && cacheAge < nilCacheTTL {
                 return nil
             }
         }
