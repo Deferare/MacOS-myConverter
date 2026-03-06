@@ -73,6 +73,95 @@ final class ContentViewModel: ObservableObject {
         var capabilityBootstrapTask: Task<Void, Never>?
     }
 
+    struct VideoRuntimeState {
+        var sourceURL: URL?
+        var queuedSourceURLs: [URL] = []
+        var convertedURL: URL?
+        var convertedURLs: [URL] = []
+        var conversionErrorMessage: String?
+        var sourceCompatibilityErrorMessage: String?
+        var sourceCompatibilityWarningMessage: String?
+        var isAnalyzingSource = false
+        var isConverting = false
+        var conversionProgress: Double = 0
+        var currentBatchIndex = 0
+        var totalBatchCount = 0
+        var availableOutputFormats: [VideoFormatOption] = ContentViewModelSupport.placeholderVideoFormats()
+        var availableVideoEncoders: [VideoEncoderOption] = ContentViewModelSupport.placeholderVideoEncoders(
+            for: ContentViewModel.defaultVideoFormat
+        )
+        var availableAudioEncoders: [AudioEncoderOption] = ContentViewModelSupport.placeholderVideoAudioEncoders(
+            for: ContentViewModel.defaultVideoFormat
+        )
+    }
+
+    struct ImageRuntimeState {
+        var sourceURL: URL?
+        var queuedSourceURLs: [URL] = []
+        var convertedURL: URL?
+        var convertedURLs: [URL] = []
+        var conversionErrorMessage: String?
+        var sourceCompatibilityErrorMessage: String?
+        var sourceCompatibilityWarningMessage: String?
+        var isAnalyzingSource = false
+        var sourceFrameCount = 0
+        var sourceHasAlpha = false
+        var isConverting = false
+        var conversionProgress: Double = 0
+        var currentBatchIndex = 0
+        var totalBatchCount = 0
+        var availableOutputFormats: [ImageFormatOption] = ContentViewModelSupport.placeholderImageFormats()
+    }
+
+    struct AudioRuntimeState {
+        var sourceURL: URL?
+        var queuedSourceURLs: [URL] = []
+        var convertedURL: URL?
+        var convertedURLs: [URL] = []
+        var conversionErrorMessage: String?
+        var sourceCompatibilityErrorMessage: String?
+        var sourceCompatibilityWarningMessage: String?
+        var isAnalyzingSource = false
+        var isConverting = false
+        var conversionProgress: Double = 0
+        var currentBatchIndex = 0
+        var totalBatchCount = 0
+        var availableOutputFormats: [AudioFormatOption] = ContentViewModelSupport.placeholderAudioFormats()
+        var availableOutputEncoders: [AudioEncoderOption] = ContentViewModelSupport.placeholderAudioOutputEncoders(
+            for: ContentViewModel.defaultAudioFormat
+        )
+    }
+
+    struct VideoOptionsState {
+        var selectedOutputFormat: VideoFormatOption = ContentViewModel.defaultVideoFormat
+        var selectedVideoEncoder: VideoEncoderOption = .h264GPU
+        var selectedResolution: ResolutionOption = .original
+        var selectedFrameRate: FrameRateOption = .original
+        var selectedGIFPlaybackSpeed: GIFPlaybackSpeedOption = .x1_5
+        var selectedVideoBitRate: VideoBitRateOption = .auto
+        var customVideoBitRate = "5000"
+        var selectedAudioEncoder: AudioEncoderOption = .aac
+        var selectedAudioMode: AudioModeOption = .auto
+        var selectedSampleRate: SampleRateOption = .hz48000
+        var selectedAudioBitRate: AudioBitRateOption = .auto
+    }
+
+    struct ImageOptionsState {
+        var selectedOutputFormat = ImageFormatOption.fromImageIOTypeIdentifier("public.png")
+        var selectedResolution: ResolutionOption = .original
+        var selectedQuality: ImageQualityOption = .high
+        var selectedPNGCompressionLevel: PNGCompressionLevelOption = .balanced
+        var preserveAnimation = true
+    }
+
+    struct AudioOptionsState {
+        var selectedOutputFormat: AudioFormatOption = ContentViewModel.defaultAudioFormat
+        var selectedOutputEncoder: AudioEncoderOption = .aac
+        var selectedOutputMode: AudioModeOption = .auto
+        var selectedOutputSampleRate: SampleRateOption = .hz48000
+        var selectedOutputBitRate: AudioBitRateOption = .auto
+    }
+
     private static var defaultVideoFormat: VideoFormatOption {
         ContentViewModelSupport.defaultVideoFormat()
     }
@@ -81,142 +170,14 @@ final class ContentViewModel: ObservableObject {
         ContentViewModelSupport.defaultAudioFormat()
     }
 
-    // Video state
-    @Published var sourceURL: URL?
-    @Published var queuedSourceURLs: [URL] = []
-    @Published var convertedURL: URL?
-    @Published var convertedURLs: [URL] = []
-    @Published var conversionErrorMessage: String?
-    @Published var sourceCompatibilityErrorMessage: String?
-    @Published var sourceCompatibilityWarningMessage: String?
-    @Published var isAnalyzingSource = false
-    @Published var isConverting = false
-    @Published var conversionProgress: Double = 0
-    @Published var currentVideoBatchIndex = 0
-    @Published var totalVideoBatchCount = 0
-    @Published var availableOutputFormats: [VideoFormatOption] = ContentViewModelSupport.placeholderVideoFormats()
-    @Published var availableVideoEncoders: [VideoEncoderOption] = ContentViewModelSupport.placeholderVideoEncoders(
-        for: ContentViewModel.defaultVideoFormat
-    )
-    @Published var availableAudioEncoders: [AudioEncoderOption] = ContentViewModelSupport.placeholderVideoAudioEncoders(
-        for: ContentViewModel.defaultVideoFormat
-    )
-
-    // Image state
-    @Published var imageSourceURL: URL?
-    @Published var queuedImageSourceURLs: [URL] = []
-    @Published var convertedImageURL: URL?
-    @Published var convertedImageURLs: [URL] = []
-    @Published var imageConversionErrorMessage: String?
-    @Published var imageSourceCompatibilityErrorMessage: String?
-    @Published var imageSourceCompatibilityWarningMessage: String?
-    @Published var isAnalyzingImageSource = false
-    @Published var imageSourceFrameCount = 0
-    @Published var imageSourceHasAlpha = false
-    @Published var isImageConverting = false
-    @Published var imageConversionProgress: Double = 0
-    @Published var currentImageBatchIndex = 0
-    @Published var totalImageBatchCount = 0
-    @Published var availableImageOutputFormats: [ImageFormatOption] = ContentViewModelSupport.placeholderImageFormats()
-
-    // Audio state
-    @Published var audioSourceURL: URL?
-    @Published var queuedAudioSourceURLs: [URL] = []
-    @Published var convertedAudioURL: URL?
-    @Published var convertedAudioURLs: [URL] = []
-    @Published var audioConversionErrorMessage: String?
-    @Published var audioSourceCompatibilityErrorMessage: String?
-    @Published var audioSourceCompatibilityWarningMessage: String?
-    @Published var isAnalyzingAudioSource = false
-    @Published var isAudioConverting = false
-    @Published var audioConversionProgress: Double = 0
-    @Published var currentAudioBatchIndex = 0
-    @Published var totalAudioBatchCount = 0
-    @Published var availableAudioOutputFormats: [AudioFormatOption] = ContentViewModelSupport.placeholderAudioFormats()
-    @Published var availableAudioOutputEncoders: [AudioEncoderOption] = ContentViewModelSupport.placeholderAudioOutputEncoders(
-        for: ContentViewModel.defaultAudioFormat
-    )
+    @Published private var videoRuntimeState = VideoRuntimeState()
+    @Published private var imageRuntimeState = ImageRuntimeState()
+    @Published private var audioRuntimeState = AudioRuntimeState()
+    @Published private var videoOptionsState = VideoOptionsState()
+    @Published private var imageOptionsState = ImageOptionsState()
+    @Published private var audioOptionsState = AudioOptionsState()
 
     @Published var isImporting = false
-
-    // Video options
-    @Published var selectedOutputFormat: VideoFormatOption = ContentViewModel.defaultVideoFormat {
-        didSet {
-            scheduleVideoFormatChangeHandling()
-        }
-    }
-    @Published var selectedVideoEncoder: VideoEncoderOption = .h264GPU {
-        didSet {
-            scheduleVideoOptionNormalizationAndPersist()
-        }
-    }
-    @Published var selectedResolution: ResolutionOption = .original {
-        didSet { persistCurrentSettingsIfNeeded() }
-    }
-    @Published var selectedFrameRate: FrameRateOption = .original {
-        didSet { persistCurrentSettingsIfNeeded() }
-    }
-    @Published var selectedGIFPlaybackSpeed: GIFPlaybackSpeedOption = .x1_5 {
-        didSet { persistCurrentSettingsIfNeeded() }
-    }
-    @Published var selectedVideoBitRate: VideoBitRateOption = .auto {
-        didSet { persistCurrentSettingsIfNeeded() }
-    }
-    @Published var customVideoBitRate = "5000" {
-        didSet { persistCurrentSettingsIfNeeded() }
-    }
-    @Published var selectedAudioEncoder: AudioEncoderOption = .aac {
-        didSet {
-            scheduleVideoOptionNormalizationAndPersist()
-        }
-    }
-    @Published var selectedAudioMode: AudioModeOption = .auto {
-        didSet { persistCurrentSettingsIfNeeded() }
-    }
-    @Published var selectedSampleRate: SampleRateOption = .hz48000 {
-        didSet { persistCurrentSettingsIfNeeded() }
-    }
-    @Published var selectedAudioBitRate: AudioBitRateOption = .auto {
-        didSet { persistCurrentSettingsIfNeeded() }
-    }
-
-    // Image options
-    @Published var selectedImageOutputFormat: ImageFormatOption = ImageFormatOption.fromImageIOTypeIdentifier("public.png") {
-        didSet { persistCurrentImageSettingsIfNeeded() }
-    }
-    @Published var selectedImageResolution: ResolutionOption = .original {
-        didSet { persistCurrentImageSettingsIfNeeded() }
-    }
-    @Published var selectedImageQuality: ImageQualityOption = .high {
-        didSet { persistCurrentImageSettingsIfNeeded() }
-    }
-    @Published var selectedPNGCompressionLevel: PNGCompressionLevelOption = .balanced {
-        didSet { persistCurrentImageSettingsIfNeeded() }
-    }
-    @Published var preserveImageAnimation = true {
-        didSet { persistCurrentImageSettingsIfNeeded() }
-    }
-
-    // Audio options
-    @Published var selectedAudioOutputFormat: AudioFormatOption = ContentViewModel.defaultAudioFormat {
-        didSet {
-            scheduleAudioFormatChangeHandling()
-        }
-    }
-    @Published var selectedAudioOutputEncoder: AudioEncoderOption = .aac {
-        didSet {
-            scheduleAudioOptionNormalizationAndPersist()
-        }
-    }
-    @Published var selectedAudioOutputMode: AudioModeOption = .auto {
-        didSet { persistCurrentAudioSettingsIfNeeded() }
-    }
-    @Published var selectedAudioOutputSampleRate: SampleRateOption = .hz48000 {
-        didSet { persistCurrentAudioSettingsIfNeeded() }
-    }
-    @Published var selectedAudioOutputBitRate: AudioBitRateOption = .auto {
-        didSet { persistCurrentAudioSettingsIfNeeded() }
-    }
 
     var settingsState = PersistedSettingsState()
     var taskState = TaskState()
@@ -227,5 +188,401 @@ final class ContentViewModel: ObservableObject {
         settingsState.audioSettingsBySourceID = loadPersistedSourceSettings(using: audioSettingsDescriptor())
         applyPlaceholderCapabilityState()
         scheduleCapabilityBootstrap()
+    }
+}
+
+extension ContentViewModel {
+    // Video state
+    var sourceURL: URL? {
+        get { videoRuntimeState.sourceURL }
+        set { videoRuntimeState.sourceURL = newValue }
+    }
+
+    var queuedSourceURLs: [URL] {
+        get { videoRuntimeState.queuedSourceURLs }
+        set { videoRuntimeState.queuedSourceURLs = newValue }
+    }
+
+    var convertedURL: URL? {
+        get { videoRuntimeState.convertedURL }
+        set { videoRuntimeState.convertedURL = newValue }
+    }
+
+    var convertedURLs: [URL] {
+        get { videoRuntimeState.convertedURLs }
+        set { videoRuntimeState.convertedURLs = newValue }
+    }
+
+    var conversionErrorMessage: String? {
+        get { videoRuntimeState.conversionErrorMessage }
+        set { videoRuntimeState.conversionErrorMessage = newValue }
+    }
+
+    var sourceCompatibilityErrorMessage: String? {
+        get { videoRuntimeState.sourceCompatibilityErrorMessage }
+        set { videoRuntimeState.sourceCompatibilityErrorMessage = newValue }
+    }
+
+    var sourceCompatibilityWarningMessage: String? {
+        get { videoRuntimeState.sourceCompatibilityWarningMessage }
+        set { videoRuntimeState.sourceCompatibilityWarningMessage = newValue }
+    }
+
+    var isAnalyzingSource: Bool {
+        get { videoRuntimeState.isAnalyzingSource }
+        set { videoRuntimeState.isAnalyzingSource = newValue }
+    }
+
+    var isConverting: Bool {
+        get { videoRuntimeState.isConverting }
+        set { videoRuntimeState.isConverting = newValue }
+    }
+
+    var conversionProgress: Double {
+        get { videoRuntimeState.conversionProgress }
+        set { videoRuntimeState.conversionProgress = newValue }
+    }
+
+    var currentVideoBatchIndex: Int {
+        get { videoRuntimeState.currentBatchIndex }
+        set { videoRuntimeState.currentBatchIndex = newValue }
+    }
+
+    var totalVideoBatchCount: Int {
+        get { videoRuntimeState.totalBatchCount }
+        set { videoRuntimeState.totalBatchCount = newValue }
+    }
+
+    var availableOutputFormats: [VideoFormatOption] {
+        get { videoRuntimeState.availableOutputFormats }
+        set { videoRuntimeState.availableOutputFormats = newValue }
+    }
+
+    var availableVideoEncoders: [VideoEncoderOption] {
+        get { videoRuntimeState.availableVideoEncoders }
+        set { videoRuntimeState.availableVideoEncoders = newValue }
+    }
+
+    var availableAudioEncoders: [AudioEncoderOption] {
+        get { videoRuntimeState.availableAudioEncoders }
+        set { videoRuntimeState.availableAudioEncoders = newValue }
+    }
+
+    // Image state
+    var imageSourceURL: URL? {
+        get { imageRuntimeState.sourceURL }
+        set { imageRuntimeState.sourceURL = newValue }
+    }
+
+    var queuedImageSourceURLs: [URL] {
+        get { imageRuntimeState.queuedSourceURLs }
+        set { imageRuntimeState.queuedSourceURLs = newValue }
+    }
+
+    var convertedImageURL: URL? {
+        get { imageRuntimeState.convertedURL }
+        set { imageRuntimeState.convertedURL = newValue }
+    }
+
+    var convertedImageURLs: [URL] {
+        get { imageRuntimeState.convertedURLs }
+        set { imageRuntimeState.convertedURLs = newValue }
+    }
+
+    var imageConversionErrorMessage: String? {
+        get { imageRuntimeState.conversionErrorMessage }
+        set { imageRuntimeState.conversionErrorMessage = newValue }
+    }
+
+    var imageSourceCompatibilityErrorMessage: String? {
+        get { imageRuntimeState.sourceCompatibilityErrorMessage }
+        set { imageRuntimeState.sourceCompatibilityErrorMessage = newValue }
+    }
+
+    var imageSourceCompatibilityWarningMessage: String? {
+        get { imageRuntimeState.sourceCompatibilityWarningMessage }
+        set { imageRuntimeState.sourceCompatibilityWarningMessage = newValue }
+    }
+
+    var isAnalyzingImageSource: Bool {
+        get { imageRuntimeState.isAnalyzingSource }
+        set { imageRuntimeState.isAnalyzingSource = newValue }
+    }
+
+    var imageSourceFrameCount: Int {
+        get { imageRuntimeState.sourceFrameCount }
+        set { imageRuntimeState.sourceFrameCount = newValue }
+    }
+
+    var imageSourceHasAlpha: Bool {
+        get { imageRuntimeState.sourceHasAlpha }
+        set { imageRuntimeState.sourceHasAlpha = newValue }
+    }
+
+    var isImageConverting: Bool {
+        get { imageRuntimeState.isConverting }
+        set { imageRuntimeState.isConverting = newValue }
+    }
+
+    var imageConversionProgress: Double {
+        get { imageRuntimeState.conversionProgress }
+        set { imageRuntimeState.conversionProgress = newValue }
+    }
+
+    var currentImageBatchIndex: Int {
+        get { imageRuntimeState.currentBatchIndex }
+        set { imageRuntimeState.currentBatchIndex = newValue }
+    }
+
+    var totalImageBatchCount: Int {
+        get { imageRuntimeState.totalBatchCount }
+        set { imageRuntimeState.totalBatchCount = newValue }
+    }
+
+    var availableImageOutputFormats: [ImageFormatOption] {
+        get { imageRuntimeState.availableOutputFormats }
+        set { imageRuntimeState.availableOutputFormats = newValue }
+    }
+
+    // Audio state
+    var audioSourceURL: URL? {
+        get { audioRuntimeState.sourceURL }
+        set { audioRuntimeState.sourceURL = newValue }
+    }
+
+    var queuedAudioSourceURLs: [URL] {
+        get { audioRuntimeState.queuedSourceURLs }
+        set { audioRuntimeState.queuedSourceURLs = newValue }
+    }
+
+    var convertedAudioURL: URL? {
+        get { audioRuntimeState.convertedURL }
+        set { audioRuntimeState.convertedURL = newValue }
+    }
+
+    var convertedAudioURLs: [URL] {
+        get { audioRuntimeState.convertedURLs }
+        set { audioRuntimeState.convertedURLs = newValue }
+    }
+
+    var audioConversionErrorMessage: String? {
+        get { audioRuntimeState.conversionErrorMessage }
+        set { audioRuntimeState.conversionErrorMessage = newValue }
+    }
+
+    var audioSourceCompatibilityErrorMessage: String? {
+        get { audioRuntimeState.sourceCompatibilityErrorMessage }
+        set { audioRuntimeState.sourceCompatibilityErrorMessage = newValue }
+    }
+
+    var audioSourceCompatibilityWarningMessage: String? {
+        get { audioRuntimeState.sourceCompatibilityWarningMessage }
+        set { audioRuntimeState.sourceCompatibilityWarningMessage = newValue }
+    }
+
+    var isAnalyzingAudioSource: Bool {
+        get { audioRuntimeState.isAnalyzingSource }
+        set { audioRuntimeState.isAnalyzingSource = newValue }
+    }
+
+    var isAudioConverting: Bool {
+        get { audioRuntimeState.isConverting }
+        set { audioRuntimeState.isConverting = newValue }
+    }
+
+    var audioConversionProgress: Double {
+        get { audioRuntimeState.conversionProgress }
+        set { audioRuntimeState.conversionProgress = newValue }
+    }
+
+    var currentAudioBatchIndex: Int {
+        get { audioRuntimeState.currentBatchIndex }
+        set { audioRuntimeState.currentBatchIndex = newValue }
+    }
+
+    var totalAudioBatchCount: Int {
+        get { audioRuntimeState.totalBatchCount }
+        set { audioRuntimeState.totalBatchCount = newValue }
+    }
+
+    var availableAudioOutputFormats: [AudioFormatOption] {
+        get { audioRuntimeState.availableOutputFormats }
+        set { audioRuntimeState.availableOutputFormats = newValue }
+    }
+
+    var availableAudioOutputEncoders: [AudioEncoderOption] {
+        get { audioRuntimeState.availableOutputEncoders }
+        set { audioRuntimeState.availableOutputEncoders = newValue }
+    }
+
+    // Video options
+    var selectedOutputFormat: VideoFormatOption {
+        get { videoOptionsState.selectedOutputFormat }
+        set {
+            videoOptionsState.selectedOutputFormat = newValue
+            scheduleVideoFormatChangeHandling()
+        }
+    }
+
+    var selectedVideoEncoder: VideoEncoderOption {
+        get { videoOptionsState.selectedVideoEncoder }
+        set {
+            videoOptionsState.selectedVideoEncoder = newValue
+            scheduleVideoOptionNormalizationAndPersist()
+        }
+    }
+
+    var selectedResolution: ResolutionOption {
+        get { videoOptionsState.selectedResolution }
+        set {
+            videoOptionsState.selectedResolution = newValue
+            persistCurrentSettingsIfNeeded()
+        }
+    }
+
+    var selectedFrameRate: FrameRateOption {
+        get { videoOptionsState.selectedFrameRate }
+        set {
+            videoOptionsState.selectedFrameRate = newValue
+            persistCurrentSettingsIfNeeded()
+        }
+    }
+
+    var selectedGIFPlaybackSpeed: GIFPlaybackSpeedOption {
+        get { videoOptionsState.selectedGIFPlaybackSpeed }
+        set {
+            videoOptionsState.selectedGIFPlaybackSpeed = newValue
+            persistCurrentSettingsIfNeeded()
+        }
+    }
+
+    var selectedVideoBitRate: VideoBitRateOption {
+        get { videoOptionsState.selectedVideoBitRate }
+        set {
+            videoOptionsState.selectedVideoBitRate = newValue
+            persistCurrentSettingsIfNeeded()
+        }
+    }
+
+    var customVideoBitRate: String {
+        get { videoOptionsState.customVideoBitRate }
+        set {
+            videoOptionsState.customVideoBitRate = newValue
+            persistCurrentSettingsIfNeeded()
+        }
+    }
+
+    var selectedAudioEncoder: AudioEncoderOption {
+        get { videoOptionsState.selectedAudioEncoder }
+        set {
+            videoOptionsState.selectedAudioEncoder = newValue
+            scheduleVideoOptionNormalizationAndPersist()
+        }
+    }
+
+    var selectedAudioMode: AudioModeOption {
+        get { videoOptionsState.selectedAudioMode }
+        set {
+            videoOptionsState.selectedAudioMode = newValue
+            persistCurrentSettingsIfNeeded()
+        }
+    }
+
+    var selectedSampleRate: SampleRateOption {
+        get { videoOptionsState.selectedSampleRate }
+        set {
+            videoOptionsState.selectedSampleRate = newValue
+            persistCurrentSettingsIfNeeded()
+        }
+    }
+
+    var selectedAudioBitRate: AudioBitRateOption {
+        get { videoOptionsState.selectedAudioBitRate }
+        set {
+            videoOptionsState.selectedAudioBitRate = newValue
+            persistCurrentSettingsIfNeeded()
+        }
+    }
+
+    // Image options
+    var selectedImageOutputFormat: ImageFormatOption {
+        get { imageOptionsState.selectedOutputFormat }
+        set {
+            imageOptionsState.selectedOutputFormat = newValue
+            persistCurrentImageSettingsIfNeeded()
+        }
+    }
+
+    var selectedImageResolution: ResolutionOption {
+        get { imageOptionsState.selectedResolution }
+        set {
+            imageOptionsState.selectedResolution = newValue
+            persistCurrentImageSettingsIfNeeded()
+        }
+    }
+
+    var selectedImageQuality: ImageQualityOption {
+        get { imageOptionsState.selectedQuality }
+        set {
+            imageOptionsState.selectedQuality = newValue
+            persistCurrentImageSettingsIfNeeded()
+        }
+    }
+
+    var selectedPNGCompressionLevel: PNGCompressionLevelOption {
+        get { imageOptionsState.selectedPNGCompressionLevel }
+        set {
+            imageOptionsState.selectedPNGCompressionLevel = newValue
+            persistCurrentImageSettingsIfNeeded()
+        }
+    }
+
+    var preserveImageAnimation: Bool {
+        get { imageOptionsState.preserveAnimation }
+        set {
+            imageOptionsState.preserveAnimation = newValue
+            persistCurrentImageSettingsIfNeeded()
+        }
+    }
+
+    // Audio options
+    var selectedAudioOutputFormat: AudioFormatOption {
+        get { audioOptionsState.selectedOutputFormat }
+        set {
+            audioOptionsState.selectedOutputFormat = newValue
+            scheduleAudioFormatChangeHandling()
+        }
+    }
+
+    var selectedAudioOutputEncoder: AudioEncoderOption {
+        get { audioOptionsState.selectedOutputEncoder }
+        set {
+            audioOptionsState.selectedOutputEncoder = newValue
+            scheduleAudioOptionNormalizationAndPersist()
+        }
+    }
+
+    var selectedAudioOutputMode: AudioModeOption {
+        get { audioOptionsState.selectedOutputMode }
+        set {
+            audioOptionsState.selectedOutputMode = newValue
+            persistCurrentAudioSettingsIfNeeded()
+        }
+    }
+
+    var selectedAudioOutputSampleRate: SampleRateOption {
+        get { audioOptionsState.selectedOutputSampleRate }
+        set {
+            audioOptionsState.selectedOutputSampleRate = newValue
+            persistCurrentAudioSettingsIfNeeded()
+        }
+    }
+
+    var selectedAudioOutputBitRate: AudioBitRateOption {
+        get { audioOptionsState.selectedOutputBitRate }
+        set {
+            audioOptionsState.selectedOutputBitRate = newValue
+            persistCurrentAudioSettingsIfNeeded()
+        }
     }
 }
