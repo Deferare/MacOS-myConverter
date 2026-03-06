@@ -20,23 +20,21 @@ extension ContentViewModel {
         operation: @escaping @MainActor () async -> Void
     ) {
         let descriptor = mediaStateDescriptor(for: kind)
-        guard self[keyPath: descriptor.conversionTask] == nil else { return }
+        guard currentConversionTask(for: kind) == nil else { return }
         guard !self[keyPath: descriptor.isConverting] else { return }
 
-        self[keyPath: descriptor.conversionTask] = Task { @MainActor [weak self] in
+        setConversionTask(Task { @MainActor [weak self] in
             defer { self?.clearConversionTask(for: kind) }
             await operation()
-        }
+        }, for: kind)
     }
 
     func cancelConversionTask(for kind: MediaKind) {
-        let descriptor = mediaStateDescriptor(for: kind)
-        guard let task = self[keyPath: descriptor.conversionTask] else { return }
+        guard let task = currentConversionTask(for: kind) else { return }
         task.cancel()
     }
 
     func clearConversionTask(for kind: MediaKind) {
-        let descriptor = mediaStateDescriptor(for: kind)
-        self[keyPath: descriptor.conversionTask] = nil
+        setConversionTask(nil, for: kind)
     }
 }

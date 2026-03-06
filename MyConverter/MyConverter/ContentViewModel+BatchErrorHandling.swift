@@ -8,14 +8,13 @@ extension ContentViewModel {
         treatExportCancellationAsCancelled: Bool = false,
         includeDebugInfo: Bool = false
     ) {
-        let descriptor = mediaStateDescriptor(for: kind)
         if treatExportCancellationAsCancelled, case ConversionError.exportCancelled = error {
-            self[keyPath: descriptor.conversionErrorMessage] = nil
+            setConversionErrorMessage(nil, for: kind)
             return
         }
 
         let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-        self[keyPath: descriptor.conversionErrorMessage] = message
+        setConversionErrorMessage(message, for: kind)
 
         if includeDebugInfo, let conversionError = error as? ConversionError {
             print("\(logPrefix): \(conversionError.debugInfo)")

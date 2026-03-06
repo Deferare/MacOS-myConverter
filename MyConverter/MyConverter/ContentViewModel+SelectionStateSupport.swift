@@ -81,6 +81,38 @@ extension ContentViewModel {
         let analyzeSelection: (ContentViewModel, [URL]) -> Void
     }
 
+    func currentConversionTask(for kind: MediaKind) -> Task<Void, Never>? {
+        let descriptor = mediaStateDescriptor(for: kind)
+        return self[keyPath: descriptor.conversionTask]
+    }
+
+    func setConversionTask(_ task: Task<Void, Never>?, for kind: MediaKind) {
+        let descriptor = mediaStateDescriptor(for: kind)
+        self[keyPath: descriptor.conversionTask] = task
+    }
+
+    func setConversionErrorMessage(_ message: String?, for kind: MediaKind) {
+        let descriptor = mediaStateDescriptor(for: kind)
+        self[keyPath: descriptor.conversionErrorMessage] = message
+    }
+
+    func prepareConversionStartState(for kind: MediaKind) {
+        let descriptor = mediaStateDescriptor(for: kind)
+        self[keyPath: descriptor.isConverting] = true
+        self[keyPath: descriptor.convertedURL] = nil
+        self[keyPath: descriptor.convertedURLs] = []
+        self[keyPath: descriptor.conversionErrorMessage] = nil
+        self[keyPath: descriptor.progress] = 0
+    }
+
+    func appendConvertedOutput(_ outputURL: URL, for kind: MediaKind) {
+        let descriptor = mediaStateDescriptor(for: kind)
+        self[keyPath: descriptor.convertedURL] = outputURL
+        var outputs = self[keyPath: descriptor.convertedURLs]
+        outputs.append(outputURL)
+        self[keyPath: descriptor.convertedURLs] = outputs
+    }
+
     func mediaStateDescriptor(for kind: MediaKind) -> MediaStateDescriptor {
         switch kind {
         case .video:
