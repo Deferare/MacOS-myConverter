@@ -41,19 +41,33 @@ extension VideoConversionEngine {
     }
 
     static func supportedOutputFormatsWithAVFoundation(for asset: AVURLAsset) async -> [VideoFormatOption] {
-        var supported: [VideoFormatOption] = []
-        for format in VideoFormatOption.avFoundationDefaultFormats {
-            guard let fileType = format.avFileType else { continue }
-            let presets = await compatibleExportPresets(
-                for: asset,
-                preferredPresets: preferredExportPresets,
-                outputFileType: fileType
-            )
-            if !presets.isEmpty {
-                supported.append(format)
+        await withTaskGroup(
+            of: (Int, VideoFormatOption)?.self,
+            returning: [VideoFormatOption].self
+        ) { group in
+            for (index, format) in VideoFormatOption.avFoundationDefaultFormats.enumerated() {
+                guard let fileType = format.avFileType else { continue }
+                group.addTask {
+                    let presets = await compatibleExportPresets(
+                        for: asset,
+                        preferredPresets: preferredExportPresets,
+                        outputFileType: fileType
+                    )
+                    guard !presets.isEmpty else { return nil }
+                    return (index, format)
+                }
             }
+
+            var supported: [(Int, VideoFormatOption)] = []
+            for await result in group {
+                guard let result else { continue }
+                supported.append(result)
+            }
+
+            return supported
+                .sorted { $0.0 < $1.0 }
+                .map(\.1)
         }
-        return supported
     }
 
     static func ensureAssetHasVideoTrack(_ asset: AVURLAsset) async throws {
@@ -161,13 +175,7 @@ extension VideoConversionEngine {
     }
 
     private static func assetTrackProbeCacheKey(for inputURL: URL) -> String {
-        let standardizedURL = inputURL.standardizedFileURL
-        let resourceValues = try? standardizedURL.resourceValues(
-            forKeys: [.contentModificationDateKey, .fileSizeKey]
-        )
-        let fileSize = resourceValues?.fileSize ?? -1
-        let modificationInterval = resourceValues?.contentModificationDate?.timeIntervalSinceReferenceDate ?? -1
-        return "\(standardizedURL.path)|\(fileSize)|\(modificationInterval)"
+        OutputPathUtilities.fileFingerprint(for: inputURL)
     }
 
     private static func awaitAssetTrackProbe(

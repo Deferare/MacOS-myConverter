@@ -3,13 +3,7 @@ import Foundation
 
 extension VideoConversionEngine {
     private static func makeSourceCapabilityCacheKey(for inputURL: URL, ffmpegPath: String?) -> String {
-        let standardizedURL = inputURL.standardizedFileURL
-        let resourceValues = try? standardizedURL.resourceValues(
-            forKeys: [.contentModificationDateKey, .fileSizeKey]
-        )
-        let fileSize = resourceValues?.fileSize ?? -1
-        let modificationInterval = resourceValues?.contentModificationDate?.timeIntervalSinceReferenceDate ?? -1
-        return "\(standardizedURL.path)|\(fileSize)|\(modificationInterval)|\(ffmpegPath ?? "none")"
+        "\(OutputPathUtilities.fileFingerprint(for: inputURL))|\(ffmpegPath ?? "none")"
     }
 
     private static func makeVideoCapabilities(
