@@ -48,60 +48,65 @@ extension ContentViewModel {
         )
     }
 
+    func videoCapabilityBootstrapDescriptor() -> CapabilityBootstrapDescriptor {
+        makeCapabilityBootstrapDescriptor(
+            for: .video,
+            warmDefaultCapabilities: {
+                let formats = VideoConversionEngine.defaultOutputFormats()
+                return CapabilityWarmupMutation { $0.videoFormats = formats }
+            },
+            placeholderFormats: ContentViewModelSupport.placeholderVideoFormats,
+            formatDescriptor: { $0.videoOutputFormatDescriptor() },
+            warmedFormats: { $0.videoFormats },
+            applyAdditionalPlaceholderState: { viewModel in
+                viewModel.availableVideoEncoders = ContentViewModelSupport.placeholderVideoEncoders(
+                    for: viewModel.selectedOutputFormat
+                )
+                viewModel.availableAudioEncoders = ContentViewModelSupport.placeholderVideoAudioEncoders(
+                    for: viewModel.selectedOutputFormat
+                )
+                viewModel.normalizeVideoOptionDependencies()
+            },
+            postApplyWhenWarmed: { $0.refreshVideoCodecOptions() }
+        )
+    }
+
+    func imageCapabilityBootstrapDescriptor() -> CapabilityBootstrapDescriptor {
+        makeCapabilityBootstrapDescriptor(
+            for: .image,
+            warmDefaultCapabilities: {
+                let formats = ImageConversionEngine.defaultOutputFormats()
+                return CapabilityWarmupMutation { $0.imageFormats = formats }
+            },
+            placeholderFormats: ContentViewModelSupport.placeholderImageFormats,
+            formatDescriptor: { $0.imageOutputFormatDescriptor() },
+            warmedFormats: { $0.imageFormats }
+        )
+    }
+
+    func audioCapabilityBootstrapDescriptor() -> CapabilityBootstrapDescriptor {
+        makeCapabilityBootstrapDescriptor(
+            for: .audio,
+            warmDefaultCapabilities: {
+                let formats = VideoConversionEngine.defaultAudioOutputFormats()
+                return CapabilityWarmupMutation { $0.audioFormats = formats }
+            },
+            placeholderFormats: ContentViewModelSupport.placeholderAudioFormats,
+            formatDescriptor: { $0.audioOutputFormatDescriptor() },
+            warmedFormats: { $0.audioFormats },
+            applyAdditionalPlaceholderState: { viewModel in
+                viewModel.availableAudioOutputEncoders =
+                    ContentViewModelSupport.placeholderAudioOutputEncoders(
+                        for: viewModel.selectedAudioOutputFormat
+                    )
+                viewModel.normalizeAudioOptionDependencies()
+            },
+            postApplyWhenWarmed: { $0.refreshAudioCodecOptions() }
+        )
+    }
+
     func capabilityBootstrapDescriptor(for kind: MediaKind) -> CapabilityBootstrapDescriptor {
-        switch kind {
-        case .video:
-            return makeCapabilityBootstrapDescriptor(
-                for: .video,
-                warmDefaultCapabilities: {
-                    let formats = VideoConversionEngine.defaultOutputFormats()
-                    return CapabilityWarmupMutation { $0.videoFormats = formats }
-                },
-                placeholderFormats: ContentViewModelSupport.placeholderVideoFormats,
-                formatDescriptor: { $0.videoOutputFormatDescriptor() },
-                warmedFormats: { $0.videoFormats },
-                applyAdditionalPlaceholderState: { viewModel in
-                    viewModel.availableVideoEncoders = ContentViewModelSupport.placeholderVideoEncoders(
-                        for: viewModel.selectedOutputFormat
-                    )
-                    viewModel.availableAudioEncoders = ContentViewModelSupport.placeholderVideoAudioEncoders(
-                        for: viewModel.selectedOutputFormat
-                    )
-                    viewModel.normalizeVideoOptionDependencies()
-                },
-                postApplyWhenWarmed: { $0.refreshVideoCodecOptions() }
-            )
-        case .image:
-            return makeCapabilityBootstrapDescriptor(
-                for: .image,
-                warmDefaultCapabilities: {
-                    let formats = ImageConversionEngine.defaultOutputFormats()
-                    return CapabilityWarmupMutation { $0.imageFormats = formats }
-                },
-                placeholderFormats: ContentViewModelSupport.placeholderImageFormats,
-                formatDescriptor: { $0.imageOutputFormatDescriptor() },
-                warmedFormats: { $0.imageFormats }
-            )
-        case .audio:
-            return makeCapabilityBootstrapDescriptor(
-                for: .audio,
-                warmDefaultCapabilities: {
-                    let formats = VideoConversionEngine.defaultAudioOutputFormats()
-                    return CapabilityWarmupMutation { $0.audioFormats = formats }
-                },
-                placeholderFormats: ContentViewModelSupport.placeholderAudioFormats,
-                formatDescriptor: { $0.audioOutputFormatDescriptor() },
-                warmedFormats: { $0.audioFormats },
-                applyAdditionalPlaceholderState: { viewModel in
-                    viewModel.availableAudioOutputEncoders =
-                        ContentViewModelSupport.placeholderAudioOutputEncoders(
-                            for: viewModel.selectedAudioOutputFormat
-                        )
-                    viewModel.normalizeAudioOptionDependencies()
-                },
-                postApplyWhenWarmed: { $0.refreshAudioCodecOptions() }
-            )
-        }
+        mediaStateDescriptor(for: kind).capabilityBootstrap
     }
 
     func applyPlaceholderCapabilityState() {
@@ -134,7 +139,7 @@ extension ContentViewModel {
     }
 
     func applyPlaceholderCapabilities(for kind: MediaKind) {
-        capabilityBootstrapDescriptor(for: kind).applyPlaceholder(self)
+        mediaStateDescriptor(for: kind).capabilityBootstrap.applyPlaceholder(self)
     }
 
     func scheduleCapabilityBootstrap(for kind: MediaKind) {
@@ -150,7 +155,7 @@ extension ContentViewModel {
         taskState.capabilityBootstrapTask = Task { [weak self] in
             guard let self else { return }
             let warmDefaultCapabilities = requestedKinds.map {
-                self.capabilityBootstrapDescriptor(for: $0).warmDefaultCapabilities
+                self.mediaStateDescriptor(for: $0).capabilityBootstrap.warmDefaultCapabilities
             }
 
             let warmed = await Task.detached(priority: .userInitiated) {
@@ -196,7 +201,7 @@ extension ContentViewModel {
         for kinds: [MediaKind]
     ) {
         kinds.forEach {
-            capabilityBootstrapDescriptor(for: $0).applyWarmedIfIdle(self, warmed)
+            mediaStateDescriptor(for: $0).capabilityBootstrap.applyWarmedIfIdle(self, warmed)
         }
     }
 }

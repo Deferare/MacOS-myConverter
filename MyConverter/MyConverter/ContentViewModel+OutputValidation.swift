@@ -116,84 +116,89 @@ extension ContentViewModel {
         )
     }
 
+    func videoValidationDescriptor() -> MediaValidationDescriptor {
+        makeOutputFormatValidationDescriptor(
+            kind: .video,
+            formatDescriptor: { $0.videoOutputFormatDescriptor() },
+            unavailableMessage: "Selected container is not available for this source.",
+            preValidation: { viewModel in
+                viewModel.firstNonEmptyMessage(
+                    viewModel.sourceURL != nil ? viewModel.videoFFmpegRequirementMessage() : nil,
+                    viewModel.customVideoBitRateValidationMessage()
+                )
+            },
+            additionalValidation: { viewModel in
+                if !viewModel.videoEncoderOptions.contains(viewModel.selectedVideoEncoder) {
+                    return "Selected video encoder is not available for this format."
+                }
+                if viewModel.shouldShowAudioSettings &&
+                    !viewModel.audioEncoderOptions.contains(viewModel.selectedAudioEncoder) {
+                    return "Selected audio encoder is not available for this format."
+                }
+                return nil
+            },
+            fetchCapabilities: { await VideoConversionEngine.sourceCapabilities(for: $0) },
+            availableFormats: { $0.availableOutputFormats },
+            errorMessage: { $0.errorMessage },
+            preSourceValidation: { viewModel, _ in
+                viewModel.videoFFmpegRequirementMessage()
+            }
+        )
+    }
+
+    func imageValidationDescriptor() -> MediaValidationDescriptor {
+        makeOutputFormatValidationDescriptor(
+            kind: .image,
+            hintMessage: { viewModel in
+                viewModel.firstNonEmptyMessage(
+                    viewModel.imageSourceIsAnimated && !viewModel.selectedImageOutputFormat.supportsAnimation
+                        ? "This format exports only the first frame for animated sources."
+                        : nil,
+                    viewModel.shouldShowPreserveAnimationOption && !ImageConversionEngine.isFFmpegAvailable()
+                        ? "ffmpeg is required to preserve animation."
+                        : nil
+                )
+            },
+            formatDescriptor: { $0.imageOutputFormatDescriptor() },
+            unavailableMessage: "Selected output format is not available for this source.",
+            additionalValidation: { viewModel in
+                viewModel.imageAnimationExportValidationMessage(
+                    isAnimated: viewModel.imageSourceIsAnimated
+                )
+            },
+            fetchCapabilities: { await ImageConversionEngine.sourceCapabilities(for: $0) },
+            availableFormats: { $0.availableOutputFormats },
+            errorMessage: { $0.errorMessage },
+            additionalCapabilityValidation: { viewModel, capabilities in
+                viewModel.imageAnimationExportValidationMessage(
+                    isAnimated: capabilities.frameCount > 1
+                )
+            }
+        )
+    }
+
+    func audioValidationDescriptor() -> MediaValidationDescriptor {
+        makeOutputFormatValidationDescriptor(
+            kind: .audio,
+            hintMessage: { viewModel in
+                viewModel.compatibilityHintMessage(for: .audio)
+            },
+            formatDescriptor: { $0.audioOutputFormatDescriptor() },
+            unavailableMessage: "Selected output format is not available for this source.",
+            additionalValidation: { viewModel in
+                if !viewModel.audioOutputEncoderOptions.contains(viewModel.selectedAudioOutputEncoder) {
+                    return "Selected audio encoder is not available for this format."
+                }
+                return nil
+            },
+            fetchCapabilities: { await VideoConversionEngine.sourceCapabilitiesForAudio(for: $0) },
+            availableFormats: { $0.availableOutputFormats },
+            errorMessage: { $0.errorMessage }
+        )
+    }
+
     func mediaValidationDescriptor(for kind: MediaKind) -> MediaValidationDescriptor {
-        switch kind {
-        case .video:
-            return makeOutputFormatValidationDescriptor(
-                kind: .video,
-                formatDescriptor: { $0.videoOutputFormatDescriptor() },
-                unavailableMessage: "Selected container is not available for this source.",
-                preValidation: { viewModel in
-                    viewModel.firstNonEmptyMessage(
-                        viewModel.sourceURL != nil ? viewModel.videoFFmpegRequirementMessage() : nil,
-                        viewModel.customVideoBitRateValidationMessage()
-                    )
-                },
-                additionalValidation: { viewModel in
-                    if !viewModel.videoEncoderOptions.contains(viewModel.selectedVideoEncoder) {
-                        return "Selected video encoder is not available for this format."
-                    }
-                    if viewModel.shouldShowAudioSettings &&
-                        !viewModel.audioEncoderOptions.contains(viewModel.selectedAudioEncoder) {
-                        return "Selected audio encoder is not available for this format."
-                    }
-                    return nil
-                },
-                fetchCapabilities: { await VideoConversionEngine.sourceCapabilities(for: $0) },
-                availableFormats: { $0.availableOutputFormats },
-                errorMessage: { $0.errorMessage },
-                preSourceValidation: { viewModel, _ in
-                    viewModel.videoFFmpegRequirementMessage()
-                }
-            )
-        case .image:
-            return makeOutputFormatValidationDescriptor(
-                kind: .image,
-                hintMessage: { viewModel in
-                    viewModel.firstNonEmptyMessage(
-                        viewModel.imageSourceIsAnimated && !viewModel.selectedImageOutputFormat.supportsAnimation
-                            ? "This format exports only the first frame for animated sources."
-                            : nil,
-                        viewModel.shouldShowPreserveAnimationOption && !ImageConversionEngine.isFFmpegAvailable()
-                            ? "ffmpeg is required to preserve animation."
-                            : nil
-                    )
-                },
-                formatDescriptor: { $0.imageOutputFormatDescriptor() },
-                unavailableMessage: "Selected output format is not available for this source.",
-                additionalValidation: { viewModel in
-                    viewModel.imageAnimationExportValidationMessage(
-                        isAnimated: viewModel.imageSourceIsAnimated
-                    )
-                },
-                fetchCapabilities: { await ImageConversionEngine.sourceCapabilities(for: $0) },
-                availableFormats: { $0.availableOutputFormats },
-                errorMessage: { $0.errorMessage },
-                additionalCapabilityValidation: { viewModel, capabilities in
-                    viewModel.imageAnimationExportValidationMessage(
-                        isAnimated: capabilities.frameCount > 1
-                    )
-                }
-            )
-        case .audio:
-            return makeOutputFormatValidationDescriptor(
-                kind: .audio,
-                hintMessage: { viewModel in
-                    viewModel.compatibilityHintMessage(for: .audio)
-                },
-                formatDescriptor: { $0.audioOutputFormatDescriptor() },
-                unavailableMessage: "Selected output format is not available for this source.",
-                additionalValidation: { viewModel in
-                    if !viewModel.audioOutputEncoderOptions.contains(viewModel.selectedAudioOutputEncoder) {
-                        return "Selected audio encoder is not available for this format."
-                    }
-                    return nil
-                },
-                fetchCapabilities: { await VideoConversionEngine.sourceCapabilitiesForAudio(for: $0) },
-                availableFormats: { $0.availableOutputFormats },
-                errorMessage: { $0.errorMessage }
-            )
-        }
+        mediaStateDescriptor(for: kind).validation
     }
 
     func validationMessage(for kind: MediaKind) -> String? {

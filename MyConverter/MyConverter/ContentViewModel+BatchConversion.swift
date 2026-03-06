@@ -146,17 +146,6 @@ extension ContentViewModel {
         )
     }
 
-    func conversionExecutionDescriptor(for kind: MediaKind) -> ConversionExecutionDescriptor {
-        switch kind {
-        case .video:
-            return makeConversionExecutionDescriptor { $0.videoConversionWorkflowDescriptor() }
-        case .image:
-            return makeConversionExecutionDescriptor { $0.imageConversionWorkflowDescriptor() }
-        case .audio:
-            return makeConversionExecutionDescriptor { $0.audioConversionWorkflowDescriptor() }
-        }
-    }
-
     func performConversion<OutputSettings>(
         using workflow: ConversionWorkflowDescriptor<OutputSettings>
     ) async {

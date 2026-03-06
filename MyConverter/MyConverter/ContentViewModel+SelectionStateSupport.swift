@@ -77,6 +77,10 @@ extension ContentViewModel {
         let totalBatchCount: ReferenceWritableKeyPath<ContentViewModel, Int>
         let analysisTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>
         let conversionTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>
+        let sourceSettingsActions: SourceSettingsActions
+        let capabilityBootstrap: CapabilityBootstrapDescriptor
+        let validation: MediaValidationDescriptor
+        let conversionExecution: ConversionExecutionDescriptor
         let resetCompatibilityMetadata: (ContentViewModel) -> Void
         let analyzeSelection: (ContentViewModel, [URL]) -> Void
     }
@@ -131,6 +135,12 @@ extension ContentViewModel {
                 totalBatchCount: \.totalVideoBatchCount,
                 analysisTask: \.taskState.sourceAnalysisTask,
                 conversionTask: \.taskState.conversionTask,
+                sourceSettingsActions: makeSourceSettingsActions { $0.videoSettingsFlowDescriptor() },
+                capabilityBootstrap: videoCapabilityBootstrapDescriptor(),
+                validation: videoValidationDescriptor(),
+                conversionExecution: makeConversionExecutionDescriptor {
+                    $0.videoConversionWorkflowDescriptor()
+                },
                 resetCompatibilityMetadata: { _ in },
                 analyzeSelection: { viewModel, urls in
                     viewModel.analyzeSourceCompatibility(
@@ -155,6 +165,12 @@ extension ContentViewModel {
                 totalBatchCount: \.totalImageBatchCount,
                 analysisTask: \.taskState.imageSourceAnalysisTask,
                 conversionTask: \.taskState.imageConversionTask,
+                sourceSettingsActions: makeSourceSettingsActions { $0.imageSettingsFlowDescriptor() },
+                capabilityBootstrap: imageCapabilityBootstrapDescriptor(),
+                validation: imageValidationDescriptor(),
+                conversionExecution: makeConversionExecutionDescriptor {
+                    $0.imageConversionWorkflowDescriptor()
+                },
                 resetCompatibilityMetadata: { viewModel in
                     viewModel.imageSourceFrameCount = 0
                     viewModel.imageSourceHasAlpha = false
@@ -182,6 +198,12 @@ extension ContentViewModel {
                 totalBatchCount: \.totalAudioBatchCount,
                 analysisTask: \.taskState.audioSourceAnalysisTask,
                 conversionTask: \.taskState.audioConversionTask,
+                sourceSettingsActions: makeSourceSettingsActions { $0.audioSettingsFlowDescriptor() },
+                capabilityBootstrap: audioCapabilityBootstrapDescriptor(),
+                validation: audioValidationDescriptor(),
+                conversionExecution: makeConversionExecutionDescriptor {
+                    $0.audioConversionWorkflowDescriptor()
+                },
                 resetCompatibilityMetadata: { _ in },
                 analyzeSelection: { viewModel, urls in
                     viewModel.analyzeSourceCompatibility(

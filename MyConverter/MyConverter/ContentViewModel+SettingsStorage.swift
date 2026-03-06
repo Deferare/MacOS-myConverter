@@ -240,14 +240,7 @@ extension ContentViewModel {
     }
 
     func sourceSettingsActions(for kind: MediaKind) -> SourceSettingsActions {
-        switch kind {
-        case .video:
-            return makeSourceSettingsActions { $0.videoSettingsFlowDescriptor() }
-        case .image:
-            return makeSourceSettingsActions { $0.imageSettingsFlowDescriptor() }
-        case .audio:
-            return makeSourceSettingsActions { $0.audioSettingsFlowDescriptor() }
-        }
+        mediaStateDescriptor(for: kind).sourceSettingsActions
     }
 
     func persistSourceSettingsIfNeeded<Settings>(
