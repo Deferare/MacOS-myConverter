@@ -31,6 +31,32 @@ extension ContentViewModel {
         let buildSelectionHandlers: (ContentViewModel, [URL]) -> SourceAnalysisSelectionHandlers<Capability, Format>
     }
 
+    func makeSourceAnalysisDescriptor<Capability: Sendable, Format>(
+        kind: MediaKind,
+        availableFormatsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [Format]>,
+        fetchCapabilities: @escaping @Sendable (URL) async -> Capability,
+        availableFormats: @escaping (Capability) -> [Format],
+        warningMessage: @escaping (Capability) -> String?,
+        errorMessage: @escaping (Capability) -> String?,
+        formatNormalizedID: @escaping (Format) -> String,
+        deduplicatedAndSorted: @escaping ([Format]) -> [Format],
+        noCommonFormatsMessage: String,
+        buildSelectionHandlers: @escaping (ContentViewModel, [URL]) -> SourceAnalysisSelectionHandlers<Capability, Format>
+    ) -> SourceAnalysisDescriptor<Capability, Format> {
+        SourceAnalysisDescriptor(
+            kind: kind,
+            availableFormatsKeyPath: availableFormatsKeyPath,
+            fetchCapabilities: fetchCapabilities,
+            availableFormats: availableFormats,
+            warningMessage: warningMessage,
+            errorMessage: errorMessage,
+            formatNormalizedID: formatNormalizedID,
+            deduplicatedAndSorted: deduplicatedAndSorted,
+            noCommonFormatsMessage: noCommonFormatsMessage,
+            buildSelectionHandlers: buildSelectionHandlers
+        )
+    }
+
     func selectedSourceIDs(for kind: MediaKind) -> [String] {
         selectedSourceURLs(for: kind).map(sourceIdentifier(for:))
     }

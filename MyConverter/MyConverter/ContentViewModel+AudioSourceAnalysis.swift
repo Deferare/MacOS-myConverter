@@ -2,7 +2,7 @@ import Foundation
 
 extension ContentViewModel {
     func audioSourceAnalysisDescriptor() -> SourceAnalysisDescriptor<AudioSourceCapabilities, AudioFormatOption> {
-        SourceAnalysisDescriptor(
+        makeSourceAnalysisDescriptor(
             kind: .audio,
             availableFormatsKeyPath: \.availableAudioOutputFormats,
             fetchCapabilities: { await VideoConversionEngine.sourceCapabilitiesForAudio(for: $0) },

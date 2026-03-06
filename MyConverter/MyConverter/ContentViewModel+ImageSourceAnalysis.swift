@@ -2,7 +2,7 @@ import Foundation
 
 extension ContentViewModel {
     func imageSourceAnalysisDescriptor() -> SourceAnalysisDescriptor<ImageSourceCapabilities, ImageFormatOption> {
-        SourceAnalysisDescriptor(
+        makeSourceAnalysisDescriptor(
             kind: .image,
             availableFormatsKeyPath: \.availableImageOutputFormats,
             fetchCapabilities: { await ImageConversionEngine.sourceCapabilities(for: $0) },

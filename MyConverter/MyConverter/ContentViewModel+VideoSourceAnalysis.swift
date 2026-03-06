@@ -2,7 +2,7 @@ import Foundation
 
 extension ContentViewModel {
     func videoSourceAnalysisDescriptor() -> SourceAnalysisDescriptor<VideoSourceCapabilities, VideoFormatOption> {
-        SourceAnalysisDescriptor(
+        makeSourceAnalysisDescriptor(
             kind: .video,
             availableFormatsKeyPath: \.availableOutputFormats,
             fetchCapabilities: { await VideoConversionEngine.sourceCapabilities(for: $0) },
