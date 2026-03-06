@@ -7,19 +7,19 @@ extension ContentViewModel {
         var audioFormats: [AudioFormatOption] = []
     }
 
-    enum CapabilityWarmupResult: Sendable {
-        case videoFormats([VideoFormatOption])
-        case imageFormats([ImageFormatOption])
-        case audioFormats([AudioFormatOption])
+    struct CapabilityWarmupMutation: Sendable {
+        let apply: @Sendable (inout WarmedDefaultCapabilities) -> Void
     }
 
     struct CapabilityBootstrapDescriptor {
+        let warmDefaultCapabilities: @Sendable () -> CapabilityWarmupMutation
         let applyPlaceholder: (ContentViewModel) -> Void
         let applyWarmedIfIdle: (ContentViewModel, WarmedDefaultCapabilities) -> Void
     }
 
     func makeCapabilityBootstrapDescriptor<Format>(
         for kind: MediaKind,
+        warmDefaultCapabilities: @escaping @Sendable () -> CapabilityWarmupMutation,
         placeholderFormats: @escaping () -> [Format],
         formatDescriptor: @escaping (ContentViewModel) -> OutputFormatDescriptor<Format>,
         warmedFormats: @escaping (WarmedDefaultCapabilities) -> [Format],
@@ -27,6 +27,7 @@ extension ContentViewModel {
         postApplyWhenWarmed: @escaping (ContentViewModel) -> Void = { _ in }
     ) -> CapabilityBootstrapDescriptor {
         CapabilityBootstrapDescriptor(
+            warmDefaultCapabilities: warmDefaultCapabilities,
             applyPlaceholder: { viewModel in
                 viewModel.applyAvailableOutputFormats(
                     placeholderFormats(),
@@ -52,6 +53,10 @@ extension ContentViewModel {
         case .video:
             return makeCapabilityBootstrapDescriptor(
                 for: .video,
+                warmDefaultCapabilities: {
+                    let formats = VideoConversionEngine.defaultOutputFormats()
+                    return CapabilityWarmupMutation { $0.videoFormats = formats }
+                },
                 placeholderFormats: ContentViewModelSupport.placeholderVideoFormats,
                 formatDescriptor: { $0.videoOutputFormatDescriptor() },
                 warmedFormats: { $0.videoFormats },
@@ -69,6 +74,10 @@ extension ContentViewModel {
         case .image:
             return makeCapabilityBootstrapDescriptor(
                 for: .image,
+                warmDefaultCapabilities: {
+                    let formats = ImageConversionEngine.defaultOutputFormats()
+                    return CapabilityWarmupMutation { $0.imageFormats = formats }
+                },
                 placeholderFormats: ContentViewModelSupport.placeholderImageFormats,
                 formatDescriptor: { $0.imageOutputFormatDescriptor() },
                 warmedFormats: { $0.imageFormats }
@@ -76,6 +85,10 @@ extension ContentViewModel {
         case .audio:
             return makeCapabilityBootstrapDescriptor(
                 for: .audio,
+                warmDefaultCapabilities: {
+                    let formats = VideoConversionEngine.defaultAudioOutputFormats()
+                    return CapabilityWarmupMutation { $0.audioFormats = formats }
+                },
                 placeholderFormats: ContentViewModelSupport.placeholderAudioFormats,
                 formatDescriptor: { $0.audioOutputFormatDescriptor() },
                 warmedFormats: { $0.audioFormats },
@@ -135,6 +148,11 @@ extension ContentViewModel {
         cancelTask(&taskState.capabilityBootstrapTask)
 
         taskState.capabilityBootstrapTask = Task { [weak self] in
+            guard let self else { return }
+            let warmDefaultCapabilities = requestedKinds.map {
+                self.capabilityBootstrapDescriptor(for: $0).warmDefaultCapabilities
+            }
+
             let warmed = await Task.detached(priority: .userInitiated) {
                 var warmed = WarmedDefaultCapabilities(
                     videoFormats: [],
@@ -142,33 +160,22 @@ extension ContentViewModel {
                     audioFormats: []
                 )
 
-                await withTaskGroup(of: CapabilityWarmupResult.self) { group in
-                    for kind in requestedKinds {
-                        switch kind {
-                        case .video:
-                            group.addTask {
-                                .videoFormats(VideoConversionEngine.defaultOutputFormats())
-                            }
-                        case .image:
-                            group.addTask {
-                                .imageFormats(ImageConversionEngine.defaultOutputFormats())
-                            }
-                        case .audio:
-                            group.addTask {
-                                .audioFormats(VideoConversionEngine.defaultAudioOutputFormats())
-                            }
+                await withTaskGroup(of: CapabilityWarmupMutation.self) { group in
+                    for warmCapabilities in warmDefaultCapabilities {
+                        group.addTask {
+                            warmCapabilities()
                         }
                     }
 
-                    for await result in group {
-                        Self.applyCapabilityWarmupResult(result, to: &warmed)
+                    for await mutation in group {
+                        mutation.apply(&warmed)
                     }
                 }
 
                 return warmed
             }.value
 
-            guard !Task.isCancelled, let self else { return }
+            guard !Task.isCancelled else { return }
             applyWarmedDefaultCapabilitiesIfNeeded(warmed, for: requestedKinds)
             taskState.capabilityBootstrapTask = nil
         }
@@ -182,20 +189,6 @@ extension ContentViewModel {
         }
 
         return unique
-    }
-
-    nonisolated static func applyCapabilityWarmupResult(
-        _ result: CapabilityWarmupResult,
-        to warmed: inout WarmedDefaultCapabilities
-    ) {
-        switch result {
-        case .videoFormats(let videoFormats):
-            warmed.videoFormats = videoFormats
-        case .imageFormats(let imageFormats):
-            warmed.imageFormats = imageFormats
-        case .audioFormats(let audioFormats):
-            warmed.audioFormats = audioFormats
-        }
     }
 
     func applyWarmedDefaultCapabilitiesIfNeeded(

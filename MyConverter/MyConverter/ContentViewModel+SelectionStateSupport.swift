@@ -169,41 +169,46 @@ extension ContentViewModel {
         self[keyPath: keyPath] = nil
     }
 
-    func clearSelectedSourceState(
-        cancelAnalysisTask: () -> Void,
-        resetSelectionAndOutput: () -> Void,
-        resetCompatibilityAndBatchState: () -> Void,
-        resetFormatsAndSettings: () -> Void
+    func restoreIdleMediaState(
+        for kind: MediaKind,
+        resetOutputs: Bool = false,
+        resetBatchState: Bool = false,
+        applyDefaultSettings: Bool = false
     ) {
-        cancelAnalysisTask()
-        resetSelectionAndOutput()
-        resetCompatibilityAndBatchState()
-        resetFormatsAndSettings()
+        let descriptor = mediaStateDescriptor(for: kind)
+
+        if resetOutputs {
+            resetConversionOutputs(for: kind)
+        }
+
+        resetCompatibilityState(for: kind)
+        self[keyPath: descriptor.isAnalyzing] = false
+
+        if resetBatchState {
+            self[keyPath: descriptor.currentBatchIndex] = 0
+            self[keyPath: descriptor.totalBatchCount] = 0
+        }
+
+        applyPlaceholderCapabilities(for: kind)
+
+        if applyDefaultSettings {
+            applyDefaultSourceSettings(for: kind)
+        }
+
+        scheduleCapabilityBootstrap(for: kind)
     }
 
     func clearSelectedSource(for kind: MediaKind) {
         let descriptor = mediaStateDescriptor(for: kind)
 
-        clearSelectedSourceState(
-            cancelAnalysisTask: {
-                cancelTask(at: descriptor.analysisTask)
-            },
-            resetSelectionAndOutput: {
-                self[keyPath: descriptor.sourceURL] = nil
-                self[keyPath: descriptor.queuedSourceURLs] = []
-                resetConversionOutputs(for: kind)
-            },
-            resetCompatibilityAndBatchState: {
-                resetCompatibilityState(for: kind)
-                self[keyPath: descriptor.isAnalyzing] = false
-                self[keyPath: descriptor.currentBatchIndex] = 0
-                self[keyPath: descriptor.totalBatchCount] = 0
-            },
-            resetFormatsAndSettings: {
-                applyPlaceholderCapabilities(for: kind)
-                applyDefaultSourceSettings(for: kind)
-                scheduleCapabilityBootstrap(for: kind)
-            }
+        cancelTask(at: descriptor.analysisTask)
+        self[keyPath: descriptor.sourceURL] = nil
+        self[keyPath: descriptor.queuedSourceURLs] = []
+        restoreIdleMediaState(
+            for: kind,
+            resetOutputs: true,
+            resetBatchState: true,
+            applyDefaultSettings: true
         )
     }
 
