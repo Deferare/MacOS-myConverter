@@ -1,48 +1,61 @@
 import Foundation
 
 extension ContentViewModel {
-    func performMediaBatchConversion<OutputSettings>(
-        for kind: MediaKind,
-        canConvert: Bool,
-        missingSourceLog: String,
-        fileExtension: String,
-        outputLabel: String,
-        destinationErrorCode: Int,
-        skippedSummaryPrefix: String,
-        treatExportCancellationAsCancelled: Bool = false,
-        buildOutputSettings: () throws -> OutputSettings,
-        validate: @escaping (URL) async -> String?,
-        makeWorkingOutputURL: @escaping (URL) -> URL,
-        runConversion: @escaping (URL, URL, OutputSettings, Int, Int) async throws -> URL,
-        onError: (Error) -> Void
+    struct ConversionWorkflowDescriptor<OutputSettings> {
+        let kind: MediaKind
+        let canConvert: Bool
+        let missingSourceLog: String
+        let fileExtension: String
+        let outputLabel: String
+        let destinationErrorCode: Int
+        let skippedSummaryPrefix: String
+        let treatExportCancellationAsCancelled: Bool
+        let errorLogPrefix: String
+        let includeDebugInfo: Bool
+        let buildOutputSettings: () throws -> OutputSettings
+        let validate: (URL) async -> String?
+        let makeWorkingOutputURL: (URL) -> URL
+        let runConversion: (URL, URL, OutputSettings, Int, Int) async throws -> URL
+    }
+
+    func performConversion<OutputSettings>(
+        using workflow: ConversionWorkflowDescriptor<OutputSettings>
     ) async {
-        let descriptor = mediaStateDescriptor(for: kind)
+        let descriptor = mediaStateDescriptor(for: workflow.kind)
 
         await performMediaBatchConversion(
-            canConvert: canConvert,
+            canConvert: workflow.canConvert,
             primarySourceURL: self[keyPath: descriptor.sourceURL],
             queuedSourceURLs: self[keyPath: descriptor.queuedSourceURLs],
-            missingSourceLog: missingSourceLog,
-            fileExtension: fileExtension,
-            outputLabel: outputLabel,
-            destinationErrorCode: destinationErrorCode,
+            missingSourceLog: workflow.missingSourceLog,
+            fileExtension: workflow.fileExtension,
+            outputLabel: workflow.outputLabel,
+            destinationErrorCode: workflow.destinationErrorCode,
             runningKeyPath: descriptor.isConverting,
             progressKeyPath: descriptor.progress,
             errorMessageKeyPath: descriptor.conversionErrorMessage,
             currentBatchIndexKeyPath: descriptor.currentBatchIndex,
             totalBatchCountKeyPath: descriptor.totalBatchCount,
-            skippedSummaryPrefix: skippedSummaryPrefix,
-            treatExportCancellationAsCancelled: treatExportCancellationAsCancelled,
-            startState: { self.prepareConversionStartState(for: kind) },
-            buildOutputSettings: buildOutputSettings,
-            validate: validate,
-            makeWorkingOutputURL: makeWorkingOutputURL,
-            runConversion: runConversion,
+            skippedSummaryPrefix: workflow.skippedSummaryPrefix,
+            treatExportCancellationAsCancelled: workflow.treatExportCancellationAsCancelled,
+            startState: { self.prepareConversionStartState(for: workflow.kind) },
+            buildOutputSettings: workflow.buildOutputSettings,
+            validate: workflow.validate,
+            makeWorkingOutputURL: workflow.makeWorkingOutputURL,
+            runConversion: workflow.runConversion,
             onSavedOutput: { savedURL in
-                self.appendConvertedOutput(savedURL, for: kind)
+                self.appendConvertedOutput(savedURL, for: workflow.kind)
             },
             onSourceProcessed: { _ in },
-            onError: onError
+            onError: { error in
+                self.applyConversionError(
+                    error,
+                    for: workflow.kind,
+                    logPrefix: workflow.errorLogPrefix,
+                    treatExportCancellationAsCancelled: workflow.treatExportCancellationAsCancelled,
+                    includeDebugInfo: workflow.includeDebugInfo
+                )
+            }
         )
     }
 
