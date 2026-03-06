@@ -26,16 +26,7 @@ enum SampleRateOption: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     var hertz: Int {
-        switch self {
-        case .hz48000:
-            return 48000
-        case .hz44100:
-            return 44100
-        case .hz32000:
-            return 32000
-        case .hz16000:
-            return 16000
-        }
+        Int(rawValue.split(separator: " ").first ?? "") ?? 0
     }
 }
 
@@ -53,25 +44,6 @@ enum AudioBitRateOption: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     var kbps: Int? {
-        switch self {
-        case .auto:
-            return nil
-        case .kbps320:
-            return 320
-        case .kbps256:
-            return 256
-        case .kbps192:
-            return 192
-        case .kbps160:
-            return 160
-        case .kbps128:
-            return 128
-        case .kbps96:
-            return 96
-        case .kbps80:
-            return 80
-        case .kbps64:
-            return 64
-        }
+        self == .auto ? nil : Int(rawValue.split(separator: " ").first ?? "")
     }
 }

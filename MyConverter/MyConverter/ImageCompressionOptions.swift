@@ -1,5 +1,16 @@
 import Foundation
 
+nonisolated private func parenthesizedInteger(in value: String) -> Int? {
+    guard let start = value.firstIndex(of: "("),
+          let end = value.firstIndex(of: ")"),
+          start < end else {
+        return nil
+    }
+    let substring = value[value.index(after: start)..<end]
+    let digits = substring.filter(\.isNumber)
+    return Int(digits)
+}
+
 enum ImageQualityOption: String, CaseIterable, Identifiable {
     case best = "Best (100%)"
     case high = "High (90%)"
@@ -9,16 +20,7 @@ enum ImageQualityOption: String, CaseIterable, Identifiable {
     nonisolated var id: String { rawValue }
 
     nonisolated var compressionQuality: Double {
-        switch self {
-        case .best:
-            return 1.0
-        case .high:
-            return 0.9
-        case .medium:
-            return 0.75
-        case .low:
-            return 0.6
-        }
+        Double(parenthesizedInteger(in: rawValue) ?? 100) / 100.0
     }
 
     nonisolated var percent: Int {
@@ -44,13 +46,6 @@ enum PNGCompressionLevelOption: String, CaseIterable, Identifiable {
     nonisolated var id: String { rawValue }
 
     nonisolated var level: Int {
-        switch self {
-        case .fastest:
-            return 1
-        case .balanced:
-            return 6
-        case .smallest:
-            return 9
-        }
+        parenthesizedInteger(in: rawValue) ?? 6
     }
 }

@@ -1,3 +1,18 @@
+private func parsedFirstInteger(in value: String) -> Int? {
+    let digits = value.split(whereSeparator: { !$0.isNumber }).first
+    return digits.flatMap { Int($0) }
+}
+
+private func parsedDimensions(from value: String) -> (width: Int, height: Int)? {
+    let parts = value.split(separator: "x")
+    guard parts.count == 2,
+          let width = Int(parts[0]),
+          let height = Int(parts[1]) else {
+        return nil
+    }
+    return (width, height)
+}
+
 enum ResolutionOption: String, CaseIterable, Identifiable {
     case original = "Original"
     case r3840x2160 = "3840x2160"
@@ -12,26 +27,7 @@ enum ResolutionOption: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     var dimensions: (width: Int, height: Int)? {
-        switch self {
-        case .original:
-            return nil
-        case .r3840x2160:
-            return (3840, 2160)
-        case .r2560x1440:
-            return (2560, 1440)
-        case .r1920x1080:
-            return (1920, 1080)
-        case .r1280x720:
-            return (1280, 720)
-        case .r640x480:
-            return (640, 480)
-        case .r480x360:
-            return (480, 360)
-        case .r320x240:
-            return (320, 240)
-        case .r192x144:
-            return (192, 144)
-        }
+        self == .original ? nil : parsedDimensions(from: rawValue)
     }
 }
 
@@ -55,38 +51,7 @@ enum FrameRateOption: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     var fps: Int? {
-        switch self {
-        case .original:
-            return nil
-        case .fps120:
-            return 120
-        case .fps90:
-            return 90
-        case .fps60:
-            return 60
-        case .fps50:
-            return 50
-        case .fps40:
-            return 40
-        case .fps30:
-            return 30
-        case .fps25:
-            return 25
-        case .fps24:
-            return 24
-        case .fps20:
-            return 20
-        case .fps15:
-            return 15
-        case .fps12:
-            return 12
-        case .fps10:
-            return 10
-        case .fps5:
-            return 5
-        case .fps1:
-            return 1
-        }
+        self == .original ? nil : parsedFirstInteger(in: rawValue)
     }
 }
 
@@ -103,23 +68,6 @@ enum GIFPlaybackSpeedOption: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     var multiplier: Double {
-        switch self {
-        case .x0_5:
-            return 0.5
-        case .x0_75:
-            return 0.75
-        case .x1_0:
-            return 1.0
-        case .x1_25:
-            return 1.25
-        case .x1_5:
-            return 1.5
-        case .x1_75:
-            return 1.75
-        case .x2_0:
-            return 2.0
-        case .x3_0:
-            return 3.0
-        }
+        Double(rawValue.dropLast()) ?? 1.0
     }
 }
