@@ -193,6 +193,30 @@ extension VideoConversionEngine {
         return presets
     }
 
+    static func hasCompatibleExportPreset(
+        for asset: AVURLAsset,
+        preferredPresets: [String],
+        outputFileType: AVFileType
+    ) async -> Bool {
+        let cacheKey = exportPresetCompatibilityCacheKey(for: asset.url, outputFileType: outputFileType)
+        if let cached = exportPresetCompatibilityCacheQueue.sync(execute: { exportPresetCompatibilityCache[cacheKey] }) {
+            return !cached.isEmpty
+        }
+
+        for preset in preferredPresets {
+            let isCompatible = await AVAssetExportSession.compatibility(
+                ofExportPreset: preset,
+                with: asset,
+                outputFileType: outputFileType
+            )
+            if isCompatible {
+                return true
+            }
+        }
+
+        return false
+    }
+
     private static func awaitCompatibleExportPresets(
         _ inFlight: InFlightCapability<[String]>
     ) async -> [String] {

@@ -48,12 +48,12 @@ extension VideoConversionEngine {
             for (index, format) in VideoFormatOption.avFoundationDefaultFormats.enumerated() {
                 guard let fileType = format.avFileType else { continue }
                 group.addTask {
-                    let presets = await compatibleExportPresets(
+                    let isSupported = await hasCompatibleExportPreset(
                         for: asset,
                         preferredPresets: preferredExportPresets,
                         outputFileType: fileType
                     )
-                    guard !presets.isEmpty else { return nil }
+                    guard isSupported else { return nil }
                     return (index, format)
                 }
             }

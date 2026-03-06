@@ -155,7 +155,10 @@ extension ImageConversionEngine {
             return hasAlpha
         }
 
-        guard let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+        let options: CFDictionary = [
+            kCGImageSourceShouldCache: false
+        ] as CFDictionary
+        guard let image = CGImageSourceCreateImageAtIndex(source, 0, options) else {
             return false
         }
 
