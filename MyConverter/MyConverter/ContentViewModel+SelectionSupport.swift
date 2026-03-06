@@ -76,13 +76,13 @@ extension ContentViewModel {
             },
             resetState: {
                 resetConversionOutputs(for: kind)
-                descriptor.resetSelectionCompatibilityState(self)
+                resetSelectionCompatibilityState(for: kind)
             },
             applyStoredSettingsForSourceID: { sourceID in
-                descriptor.applyStoredSettingsForSourceID(self, sourceID)
+                applyStoredSourceSettings(for: sourceID, for: kind)
             },
             analyzeSelection: { selection in
-                descriptor.analyzeSelection(self, selection)
+                analyzeSelectedSources(selection, for: kind)
             }
         )
     }

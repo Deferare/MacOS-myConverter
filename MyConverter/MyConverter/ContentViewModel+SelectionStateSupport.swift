@@ -22,11 +22,6 @@ extension ContentViewModel {
         let totalBatchCount: ReferenceWritableKeyPath<ContentViewModel, Int>
         let analysisTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>
         let conversionTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>
-        let applyPlaceholderCapabilities: (ContentViewModel) -> Void
-        let applyDefaultSettings: (ContentViewModel) -> Void
-        let resetSelectionCompatibilityState: (ContentViewModel) -> Void
-        let applyStoredSettingsForSourceID: (ContentViewModel, String) -> Void
-        let analyzeSelection: (ContentViewModel, [URL]) -> Void
     }
 
     func mediaStateDescriptor(for kind: MediaKind) -> MediaStateDescriptor {
@@ -46,17 +41,7 @@ extension ContentViewModel {
                 currentBatchIndex: \.currentVideoBatchIndex,
                 totalBatchCount: \.totalVideoBatchCount,
                 analysisTask: \.taskState.sourceAnalysisTask,
-                conversionTask: \.taskState.conversionTask,
-                applyPlaceholderCapabilities: { $0.applyPlaceholderCapabilities(for: .video) },
-                applyDefaultSettings: { $0.applyDefaultSourceSettings(for: .video) },
-                resetSelectionCompatibilityState: { $0.resetCompatibilityState(for: .video, resetImageMetadata: false) },
-                applyStoredSettingsForSourceID: { $0.applyStoredSourceSettings(for: $1, for: .video) },
-                analyzeSelection: { viewModel, urls in
-                    viewModel.analyzeSourceCompatibility(
-                        for: urls,
-                        using: viewModel.videoSourceAnalysisDescriptor()
-                    )
-                }
+                conversionTask: \.taskState.conversionTask
             )
         case .image:
             return MediaStateDescriptor(
@@ -73,17 +58,7 @@ extension ContentViewModel {
                 currentBatchIndex: \.currentImageBatchIndex,
                 totalBatchCount: \.totalImageBatchCount,
                 analysisTask: \.taskState.imageSourceAnalysisTask,
-                conversionTask: \.taskState.imageConversionTask,
-                applyPlaceholderCapabilities: { $0.applyPlaceholderCapabilities(for: .image) },
-                applyDefaultSettings: { $0.applyDefaultSourceSettings(for: .image) },
-                resetSelectionCompatibilityState: { $0.resetCompatibilityState(for: .image, resetImageMetadata: true) },
-                applyStoredSettingsForSourceID: { $0.applyStoredSourceSettings(for: $1, for: .image) },
-                analyzeSelection: { viewModel, urls in
-                    viewModel.analyzeSourceCompatibility(
-                        for: urls,
-                        using: viewModel.imageSourceAnalysisDescriptor()
-                    )
-                }
+                conversionTask: \.taskState.imageConversionTask
             )
         case .audio:
             return MediaStateDescriptor(
@@ -100,18 +75,19 @@ extension ContentViewModel {
                 currentBatchIndex: \.currentAudioBatchIndex,
                 totalBatchCount: \.totalAudioBatchCount,
                 analysisTask: \.taskState.audioSourceAnalysisTask,
-                conversionTask: \.taskState.audioConversionTask,
-                applyPlaceholderCapabilities: { $0.applyPlaceholderCapabilities(for: .audio) },
-                applyDefaultSettings: { $0.applyDefaultSourceSettings(for: .audio) },
-                resetSelectionCompatibilityState: { $0.resetCompatibilityState(for: .audio, resetImageMetadata: false) },
-                applyStoredSettingsForSourceID: { $0.applyStoredSourceSettings(for: $1, for: .audio) },
-                analyzeSelection: { viewModel, urls in
-                    viewModel.analyzeSourceCompatibility(
-                        for: urls,
-                        using: viewModel.audioSourceAnalysisDescriptor()
-                    )
-                }
+                conversionTask: \.taskState.audioConversionTask
             )
+        }
+    }
+
+    func analyzeSelectedSources(_ urls: [URL], for kind: MediaKind) {
+        switch kind {
+        case .video:
+            analyzeSourceCompatibility(for: urls, using: videoSourceAnalysisDescriptor())
+        case .image:
+            analyzeSourceCompatibility(for: urls, using: imageSourceAnalysisDescriptor())
+        case .audio:
+            analyzeSourceCompatibility(for: urls, using: audioSourceAnalysisDescriptor())
         }
     }
 
@@ -171,8 +147,8 @@ extension ContentViewModel {
                 self[keyPath: descriptor.totalBatchCount] = 0
             },
             resetFormatsAndSettings: {
-                descriptor.applyPlaceholderCapabilities(self)
-                descriptor.applyDefaultSettings(self)
+                applyPlaceholderCapabilities(for: kind)
+                applyDefaultSourceSettings(for: kind)
                 scheduleCapabilityBootstrap()
             }
         )
@@ -193,5 +169,9 @@ extension ContentViewModel {
         }
         self[keyPath: descriptor.compatibilityErrorMessage] = nil
         self[keyPath: descriptor.compatibilityWarningMessage] = nil
+    }
+
+    func resetSelectionCompatibilityState(for kind: MediaKind) {
+        resetCompatibilityState(for: kind, resetImageMetadata: kind == .image)
     }
 }

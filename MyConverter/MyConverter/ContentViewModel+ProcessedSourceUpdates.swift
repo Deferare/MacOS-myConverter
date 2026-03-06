@@ -11,9 +11,9 @@ extension ContentViewModel {
                 assignSelection(remainingURLs, for: kind)
             },
             onSelectionEmptied: {
-                descriptor.resetSelectionCompatibilityState(self)
+                resetSelectionCompatibilityState(for: kind)
                 self[keyPath: descriptor.isAnalyzing] = false
-                descriptor.applyPlaceholderCapabilities(self)
+                applyPlaceholderCapabilities(for: kind)
                 scheduleCapabilityBootstrap()
             }
         )

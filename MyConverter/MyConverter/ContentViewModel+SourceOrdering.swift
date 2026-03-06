@@ -17,13 +17,13 @@ extension ContentViewModel {
                 cancelTask(at: descriptor.analysisTask)
             },
             resetCompatibilityState: {
-                descriptor.resetSelectionCompatibilityState(self)
+                resetSelectionCompatibilityState(for: kind)
             },
             applyStoredSettingsForSourceID: { sourceID in
-                descriptor.applyStoredSettingsForSourceID(self, sourceID)
+                applyStoredSourceSettings(for: sourceID, for: kind)
             },
             analyzeSelection: { urls in
-                descriptor.analyzeSelection(self, urls)
+                analyzeSelectedSources(urls, for: kind)
             }
         )
     }
