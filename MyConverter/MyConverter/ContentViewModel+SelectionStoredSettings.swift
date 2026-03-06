@@ -13,35 +13,20 @@ extension ContentViewModel {
     }
 
     func applyStoredVideoSettings(for sourceID: String) {
-        applyStoredSettingsForSource(
-            sourceID: sourceID,
-            settingsBySourceID: videoSettingsBySourceID,
-            defaultSettings: VideoConversionSettings(),
-            apply: { settings in
-                applyStoredSettings(settings)
-            }
-        )
+        applyStoredSettingsForSource(sourceID: sourceID, using: videoSettingsDescriptor(), defaultSettings: VideoConversionSettings()) {
+            applyStoredSettings($0)
+        }
     }
 
     func applyStoredImageSettings(for sourceID: String) {
-        applyStoredSettingsForSource(
-            sourceID: sourceID,
-            settingsBySourceID: imageSettingsBySourceID,
-            defaultSettings: ImageConversionSettings(),
-            apply: { settings in
-                applyStoredImageSettings(settings)
-            }
-        )
+        applyStoredSettingsForSource(sourceID: sourceID, using: imageSettingsDescriptor(), defaultSettings: ImageConversionSettings()) {
+            applyStoredImageSettings($0)
+        }
     }
 
     func applyStoredAudioSettings(for sourceID: String) {
-        applyStoredSettingsForSource(
-            sourceID: sourceID,
-            settingsBySourceID: audioSettingsBySourceID,
-            defaultSettings: AudioConversionSettings(),
-            apply: { settings in
-                applyStoredAudioSettings(settings)
-            }
-        )
+        applyStoredSettingsForSource(sourceID: sourceID, using: audioSettingsDescriptor(), defaultSettings: AudioConversionSettings()) {
+            applyStoredAudioSettings($0)
+        }
     }
 }
