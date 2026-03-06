@@ -16,7 +16,7 @@ extension ContentViewModel {
     }
 
     var selectedVideoFileCount: Int {
-        selectedVideoSourceURLs.count
+        sourceURL == nil ? 0 : queuedSourceURLs.count + 1
     }
 
     var displayedConversionProgress: Double {

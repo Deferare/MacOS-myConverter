@@ -17,7 +17,7 @@ extension ContentViewModel {
     }
 
     var selectedAudioFileCount: Int {
-        selectedAudioSourceURLs.count
+        audioSourceURL == nil ? 0 : queuedAudioSourceURLs.count + 1
     }
 
     var displayedAudioConversionProgress: Double {

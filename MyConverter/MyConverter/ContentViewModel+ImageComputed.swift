@@ -21,7 +21,7 @@ extension ContentViewModel {
     }
 
     var selectedImageFileCount: Int {
-        selectedImageSourceURLs.count
+        imageSourceURL == nil ? 0 : queuedImageSourceURLs.count + 1
     }
 
     var displayedImageConversionProgress: Double {
