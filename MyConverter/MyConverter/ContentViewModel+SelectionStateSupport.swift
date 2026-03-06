@@ -15,23 +15,13 @@ extension ContentViewModel {
         }
 
         var sidebarSystemImage: String {
-            switch self {
-            case .video:
-                return "film"
-            case .image:
-                return "photo"
-            case .audio:
-                return "waveform"
-            }
+            descriptor.sidebarSystemImage
         }
 
         var inputSystemImage: String {
-            switch self {
-            case .audio:
-                return sidebarSystemImage
-            case .video, .image:
-                return "\(sidebarSystemImage).fill"
-            }
+            descriptor.usesFilledInputSystemImage
+                ? "\(sidebarSystemImage).fill"
+                : sidebarSystemImage
         }
     }
 

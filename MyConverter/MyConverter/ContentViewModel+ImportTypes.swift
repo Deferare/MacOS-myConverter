@@ -2,27 +2,35 @@ import Foundation
 import UniformTypeIdentifiers
 
 extension ContentViewModel {
-    struct MediaInputDescriptor {
+    struct MediaDescriptor {
+        let sidebarSystemImage: String
+        let usesFilledInputSystemImage: Bool
         let acceptsInput: (URL) -> Bool
         let preferredImportTypes: (UTType?) -> [UTType]
     }
 }
 
 extension ContentViewModel.MediaKind {
-    var inputDescriptor: ContentViewModel.MediaInputDescriptor {
+    var descriptor: ContentViewModel.MediaDescriptor {
         switch self {
         case .video:
-            return ContentViewModel.MediaInputDescriptor(
+            return ContentViewModel.MediaDescriptor(
+                sidebarSystemImage: "film",
+                usesFilledInputSystemImage: true,
                 acceptsInput: ContentViewModelSupport.isVideoInputURL(_:),
                 preferredImportTypes: { [.movie, .video, $0].compactMap { $0 } }
             )
         case .image:
-            return ContentViewModel.MediaInputDescriptor(
+            return ContentViewModel.MediaDescriptor(
+                sidebarSystemImage: "photo",
+                usesFilledInputSystemImage: true,
                 acceptsInput: ContentViewModelSupport.isImageInputURL(_:),
                 preferredImportTypes: { _ in [.image] }
             )
         case .audio:
-            return ContentViewModel.MediaInputDescriptor(
+            return ContentViewModel.MediaDescriptor(
+                sidebarSystemImage: "waveform",
+                usesFilledInputSystemImage: false,
                 acceptsInput: ContentViewModelSupport.isAudioInputURL(_:),
                 preferredImportTypes: {
                     [.audio, .movie, .video, .audiovisualContent, $0].compactMap { $0 }
@@ -32,11 +40,11 @@ extension ContentViewModel.MediaKind {
     }
 
     func acceptsInput(_ url: URL) -> Bool {
-        inputDescriptor.acceptsInput(url)
+        descriptor.acceptsInput(url)
     }
 
     func preferredImportTypes(mkvType: UTType?) -> [UTType] {
-        inputDescriptor.preferredImportTypes(mkvType)
+        descriptor.preferredImportTypes(mkvType)
     }
 }
 
