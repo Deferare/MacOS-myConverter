@@ -6,9 +6,7 @@ extension ContentViewModel {
             applyingFlagKeyPath: \.isApplyingStoredAudioSettings,
             storedFormatID: settings.outputFormatID,
             normalizeStoredID: { $0.lowercased() },
-            options: audioOutputFormatOptions,
-            selectedFormatKeyPath: \.selectedAudioOutputFormat,
-            formatNormalizedID: { $0.normalizedID },
+            formatDescriptor: audioOutputFormatDescriptor(),
             applyAdditionalSettings: {
                 selectedAudioOutputEncoder = settings.audioEncoder
                 selectedAudioOutputMode = settings.audioMode
@@ -23,11 +21,6 @@ extension ContentViewModel {
     }
 
     func ensureSelectedAudioOutputFormatIsAvailable() {
-        ensureSelectedFormatIsAvailable(
-            options: audioOutputFormatOptions,
-            selectedFormatKeyPath: \.selectedAudioOutputFormat,
-            formatNormalizedID: { $0.normalizedID },
-            preferredSelection: AudioFormatOption.defaultSelection(from:)
-        )
+        ensureSelectedOutputFormatIsAvailable(using: audioOutputFormatDescriptor())
     }
 }

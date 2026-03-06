@@ -20,9 +20,7 @@ extension ContentViewModel {
             onFormatsResolved: { resolvedFormats in
                 self.applyResolvedOutputFormats(
                     resolvedFormats,
-                    selectedFormatKeyPath: \.selectedOutputFormat,
-                    formatNormalizedID: { $0.normalizedID },
-                    ensureSelectedFormatIsAvailable: self.ensureSelectedVideoOutputFormatIsAvailable,
+                    formatDescriptor: self.videoOutputFormatDescriptor(),
                     postSelectionUpdate: self.refreshVideoCodecOptions,
                     persistSettings: self.persistCurrentSettingsIfNeeded
                 )

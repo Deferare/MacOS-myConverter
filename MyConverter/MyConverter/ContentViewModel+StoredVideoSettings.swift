@@ -6,9 +6,7 @@ extension ContentViewModel {
             applyingFlagKeyPath: \.isApplyingStoredSettings,
             storedFormatID: settings.outputFormatID,
             normalizeStoredID: VideoFormatOption.legacyNormalizedID(from:),
-            options: outputFormatOptions,
-            selectedFormatKeyPath: \.selectedOutputFormat,
-            formatNormalizedID: { $0.normalizedID },
+            formatDescriptor: videoOutputFormatDescriptor(),
             applyAdditionalSettings: {
                 selectedVideoEncoder = settings.videoEncoder
                 selectedResolution = settings.resolution
@@ -29,11 +27,6 @@ extension ContentViewModel {
     }
 
     func ensureSelectedVideoOutputFormatIsAvailable() {
-        ensureSelectedFormatIsAvailable(
-            options: outputFormatOptions,
-            selectedFormatKeyPath: \.selectedOutputFormat,
-            formatNormalizedID: { $0.normalizedID },
-            preferredSelection: VideoFormatOption.defaultSelection(from:)
-        )
+        ensureSelectedOutputFormatIsAvailable(using: videoOutputFormatDescriptor())
     }
 }

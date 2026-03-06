@@ -15,27 +15,56 @@ extension ContentViewModel {
     }
 
     func applyPlaceholderCapabilityState() {
-        applyPlaceholderVideoCapabilities()
-        applyPlaceholderImageCapabilities()
-        applyPlaceholderAudioCapabilities()
+        [.video, .image, .audio].forEach { mediaStateDescriptor(for: $0).applyPlaceholderCapabilities(self) }
+    }
+
+    func applyAvailableOutputFormats<Format>(
+        _ formats: [Format],
+        using descriptor: OutputFormatDescriptor<Format>,
+        postApply: () -> Void = {}
+    ) {
+        self[keyPath: descriptor.availableFormats] = formats
+        ensureSelectedOutputFormatIsAvailable(using: descriptor)
+        postApply()
+    }
+
+    func applyWarmedOutputFormatsIfIdle<Format>(
+        _ warmedFormats: [Format],
+        for kind: MediaKind,
+        formatDescriptor: OutputFormatDescriptor<Format>,
+        postApply: () -> Void = {}
+    ) {
+        let mediaDescriptor = mediaStateDescriptor(for: kind)
+        guard self[keyPath: mediaDescriptor.sourceURL] == nil,
+              !self[keyPath: mediaDescriptor.isAnalyzing] else {
+            return
+        }
+
+        applyAvailableOutputFormats(warmedFormats, using: formatDescriptor, postApply: postApply)
     }
 
     func applyPlaceholderVideoCapabilities() {
-        availableOutputFormats = ContentViewModelSupport.placeholderVideoFormats()
-        ensureSelectedVideoOutputFormatIsAvailable()
+        applyAvailableOutputFormats(
+            ContentViewModelSupport.placeholderVideoFormats(),
+            using: videoOutputFormatDescriptor()
+        )
         availableVideoEncoders = ContentViewModelSupport.placeholderVideoEncoders(for: selectedOutputFormat)
         availableAudioEncoders = ContentViewModelSupport.placeholderVideoAudioEncoders(for: selectedOutputFormat)
         normalizeVideoOptionDependencies()
     }
 
     func applyPlaceholderImageCapabilities() {
-        availableImageOutputFormats = ContentViewModelSupport.placeholderImageFormats()
-        ensureSelectedImageOutputFormatIsAvailable()
+        applyAvailableOutputFormats(
+            ContentViewModelSupport.placeholderImageFormats(),
+            using: imageOutputFormatDescriptor()
+        )
     }
 
     func applyPlaceholderAudioCapabilities() {
-        availableAudioOutputFormats = ContentViewModelSupport.placeholderAudioFormats()
-        ensureSelectedAudioOutputFormatIsAvailable()
+        applyAvailableOutputFormats(
+            ContentViewModelSupport.placeholderAudioFormats(),
+            using: audioOutputFormatDescriptor()
+        )
         availableAudioOutputEncoders = ContentViewModelSupport.placeholderAudioOutputEncoders(
             for: selectedAudioOutputFormat
         )
@@ -116,21 +145,22 @@ extension ContentViewModel {
     }
 
     func applyWarmedDefaultCapabilitiesIfNeeded(_ warmed: WarmedDefaultCapabilities) {
-        if sourceURL == nil && !isAnalyzingSource {
-            availableOutputFormats = warmed.videoFormats
-            ensureSelectedVideoOutputFormatIsAvailable()
-            refreshVideoCodecOptions()
-        }
-
-        if imageSourceURL == nil && !isAnalyzingImageSource {
-            availableImageOutputFormats = warmed.imageFormats
-            ensureSelectedImageOutputFormatIsAvailable()
-        }
-
-        if audioSourceURL == nil && !isAnalyzingAudioSource {
-            availableAudioOutputFormats = warmed.audioFormats
-            ensureSelectedAudioOutputFormatIsAvailable()
-            refreshAudioCodecOptions()
-        }
+        applyWarmedOutputFormatsIfIdle(
+            warmed.videoFormats,
+            for: .video,
+            formatDescriptor: videoOutputFormatDescriptor(),
+            postApply: refreshVideoCodecOptions
+        )
+        applyWarmedOutputFormatsIfIdle(
+            warmed.imageFormats,
+            for: .image,
+            formatDescriptor: imageOutputFormatDescriptor()
+        )
+        applyWarmedOutputFormatsIfIdle(
+            warmed.audioFormats,
+            for: .audio,
+            formatDescriptor: audioOutputFormatDescriptor(),
+            postApply: refreshAudioCodecOptions
+        )
     }
 }

@@ -2,9 +2,7 @@ import Foundation
 
 extension ContentViewModel {
     var imageOutputFormatOptions: [ImageFormatOption] {
-        defaultedOutputFormats(sourceURL: imageSourceURL, availableFormats: availableImageOutputFormats) {
-            ContentViewModelSupport.placeholderImageFormats()
-        }
+        availableOutputFormatOptions(using: imageOutputFormatDescriptor())
     }
 
     var shouldShowImageQualityOption: Bool {

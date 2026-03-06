@@ -34,9 +34,7 @@ extension ContentViewModel {
 
                 self.applyResolvedOutputFormats(
                     resolvedFormats,
-                    selectedFormatKeyPath: \.selectedImageOutputFormat,
-                    formatNormalizedID: { $0.normalizedID },
-                    ensureSelectedFormatIsAvailable: self.ensureSelectedImageOutputFormatIsAvailable,
+                    formatDescriptor: self.imageOutputFormatDescriptor(),
                     persistSettings: self.persistCurrentImageSettingsIfNeeded
                 )
             }

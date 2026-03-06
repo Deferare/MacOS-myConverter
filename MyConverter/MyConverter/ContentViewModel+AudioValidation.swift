@@ -12,8 +12,7 @@ extension ContentViewModel {
         if let audioSourceCompatibilityErrorMessage {
             return audioSourceCompatibilityErrorMessage
         }
-        if audioSourceURL != nil &&
-            !availableAudioOutputFormats.contains(where: { $0.normalizedID == selectedAudioOutputFormat.normalizedID }) {
+        if audioSourceURL != nil && !isSelectedOutputFormatAvailable(using: audioOutputFormatDescriptor()) {
             return "Selected output format is not available for this source."
         }
         if !audioOutputEncoderOptions.contains(selectedAudioOutputEncoder) {

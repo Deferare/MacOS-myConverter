@@ -20,9 +20,7 @@ extension ContentViewModel {
             onFormatsResolved: { resolvedFormats in
                 self.applyResolvedOutputFormats(
                     resolvedFormats,
-                    selectedFormatKeyPath: \.selectedAudioOutputFormat,
-                    formatNormalizedID: { $0.normalizedID },
-                    ensureSelectedFormatIsAvailable: self.ensureSelectedAudioOutputFormatIsAvailable,
+                    formatDescriptor: self.audioOutputFormatDescriptor(),
                     postSelectionUpdate: self.refreshAudioCodecOptions,
                     persistSettings: self.persistCurrentAudioSettingsIfNeeded
                 )

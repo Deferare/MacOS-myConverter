@@ -5,7 +5,7 @@ extension ContentViewModel {
         canStartConversion(
             for: .audio,
             validationMessage: audioSettingsValidationMessage,
-            selectedFormatAvailable: availableAudioOutputFormats.contains(where: { $0.normalizedID == selectedAudioOutputFormat.normalizedID })
+            selectedFormatAvailable: isSelectedOutputFormatAvailable(using: audioOutputFormatDescriptor())
         )
     }
 

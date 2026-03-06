@@ -9,7 +9,7 @@ extension ContentViewModel {
         canStartConversion(
             for: .image,
             validationMessage: imageSettingsValidationMessage,
-            selectedFormatAvailable: availableImageOutputFormats.contains(where: { $0.normalizedID == selectedImageOutputFormat.normalizedID })
+            selectedFormatAvailable: isSelectedOutputFormatAvailable(using: imageOutputFormatDescriptor())
         )
     }
 

@@ -6,9 +6,7 @@ extension ContentViewModel {
             applyingFlagKeyPath: \.isApplyingStoredImageSettings,
             storedFormatID: settings.outputFormatID,
             normalizeStoredID: { $0.lowercased() },
-            options: imageOutputFormatOptions,
-            selectedFormatKeyPath: \.selectedImageOutputFormat,
-            formatNormalizedID: { $0.normalizedID },
+            formatDescriptor: imageOutputFormatDescriptor(),
             applyAdditionalSettings: {
                 selectedImageResolution = settings.resolution
                 selectedImageQuality = settings.quality
@@ -22,11 +20,6 @@ extension ContentViewModel {
     }
 
     func ensureSelectedImageOutputFormatIsAvailable() {
-        ensureSelectedFormatIsAvailable(
-            options: imageOutputFormatOptions,
-            selectedFormatKeyPath: \.selectedImageOutputFormat,
-            formatNormalizedID: { $0.normalizedID },
-            preferredSelection: { $0.first }
-        )
+        ensureSelectedOutputFormatIsAvailable(using: imageOutputFormatDescriptor())
     }
 }

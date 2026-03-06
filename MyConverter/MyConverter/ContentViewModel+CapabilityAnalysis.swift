@@ -77,20 +77,19 @@ extension ContentViewModel {
 
     func applyResolvedOutputFormats<Format>(
         _ resolvedFormats: [Format],
-        selectedFormatKeyPath: ReferenceWritableKeyPath<ContentViewModel, Format>,
-        formatNormalizedID: (Format) -> String,
-        ensureSelectedFormatIsAvailable: () -> Void,
+        formatDescriptor: OutputFormatDescriptor<Format>,
         postSelectionUpdate: () -> Void = {},
         persistSettings: () -> Void
     ) {
         if let first = resolvedFormats.first,
            !resolvedFormats.contains(where: {
-               formatNormalizedID($0) == formatNormalizedID(self[keyPath: selectedFormatKeyPath])
+               formatDescriptor.formatNormalizedID($0) ==
+                   formatDescriptor.formatNormalizedID(self[keyPath: formatDescriptor.selectedFormat])
            }) {
-            self[keyPath: selectedFormatKeyPath] = first
+            self[keyPath: formatDescriptor.selectedFormat] = first
         }
 
-        ensureSelectedFormatIsAvailable()
+        ensureSelectedOutputFormatIsAvailable(using: formatDescriptor)
         postSelectionUpdate()
         persistSettings()
     }

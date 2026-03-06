@@ -18,7 +18,7 @@ extension ContentViewModel {
         if shouldShowVideoBitRateOption && selectedVideoBitRate == .custom && normalizedCustomVideoBitRateKbps == nil {
             return "Please enter an integer greater than 1 for Custom Bitrate (Kbps)."
         }
-        if sourceURL != nil && !availableOutputFormats.contains(where: { $0.normalizedID == selectedOutputFormat.normalizedID }) {
+        if sourceURL != nil && !isSelectedOutputFormatAvailable(using: videoOutputFormatDescriptor()) {
             return "Selected container is not available for this source."
         }
         if !videoEncoderOptions.contains(selectedVideoEncoder) {

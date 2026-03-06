@@ -1,4 +1,15 @@
+import Foundation
+
 extension ContentViewModel {
+    struct OutputFormatDescriptor<Format> {
+        let sourceURL: ReferenceWritableKeyPath<ContentViewModel, URL?>
+        let availableFormats: ReferenceWritableKeyPath<ContentViewModel, [Format]>
+        let selectedFormat: ReferenceWritableKeyPath<ContentViewModel, Format>
+        let placeholderFormats: () -> [Format]
+        let formatNormalizedID: (Format) -> String
+        let preferredSelection: ([Format]) -> Format?
+    }
+
     func withSettingsApplicationFlag(
         _ keyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
         operation: () -> Void
@@ -60,4 +71,86 @@ extension ContentViewModel {
         self[keyPath: selectedFormatKeyPath] = preferredFormat
     }
 
+    func videoOutputFormatDescriptor() -> OutputFormatDescriptor<VideoFormatOption> {
+        OutputFormatDescriptor(
+            sourceURL: \.sourceURL,
+            availableFormats: \.availableOutputFormats,
+            selectedFormat: \.selectedOutputFormat,
+            placeholderFormats: { ContentViewModelSupport.placeholderVideoFormats() },
+            formatNormalizedID: { $0.normalizedID },
+            preferredSelection: VideoFormatOption.defaultSelection(from:)
+        )
+    }
+
+    func imageOutputFormatDescriptor() -> OutputFormatDescriptor<ImageFormatOption> {
+        OutputFormatDescriptor(
+            sourceURL: \.imageSourceURL,
+            availableFormats: \.availableImageOutputFormats,
+            selectedFormat: \.selectedImageOutputFormat,
+            placeholderFormats: { ContentViewModelSupport.placeholderImageFormats() },
+            formatNormalizedID: { $0.normalizedID },
+            preferredSelection: { $0.first }
+        )
+    }
+
+    func audioOutputFormatDescriptor() -> OutputFormatDescriptor<AudioFormatOption> {
+        OutputFormatDescriptor(
+            sourceURL: \.audioSourceURL,
+            availableFormats: \.availableAudioOutputFormats,
+            selectedFormat: \.selectedAudioOutputFormat,
+            placeholderFormats: { ContentViewModelSupport.placeholderAudioFormats() },
+            formatNormalizedID: { $0.normalizedID },
+            preferredSelection: AudioFormatOption.defaultSelection(from:)
+        )
+    }
+
+    func availableOutputFormatOptions<Format>(
+        using descriptor: OutputFormatDescriptor<Format>
+    ) -> [Format] {
+        defaultedOutputFormats(
+            sourceURL: self[keyPath: descriptor.sourceURL],
+            availableFormats: self[keyPath: descriptor.availableFormats],
+            fallbackFormats: descriptor.placeholderFormats
+        )
+    }
+
+    func isSelectedOutputFormatAvailable<Format>(
+        using descriptor: OutputFormatDescriptor<Format>
+    ) -> Bool {
+        let selectedFormat = self[keyPath: descriptor.selectedFormat]
+        return self[keyPath: descriptor.availableFormats].contains {
+            descriptor.formatNormalizedID($0) == descriptor.formatNormalizedID(selectedFormat)
+        }
+    }
+
+    func ensureSelectedOutputFormatIsAvailable<Format>(
+        using descriptor: OutputFormatDescriptor<Format>
+    ) {
+        ensureSelectedFormatIsAvailable(
+            options: availableOutputFormatOptions(using: descriptor),
+            selectedFormatKeyPath: descriptor.selectedFormat,
+            formatNormalizedID: descriptor.formatNormalizedID,
+            preferredSelection: descriptor.preferredSelection
+        )
+    }
+
+    func applyStoredSourceSettings<Format>(
+        applyingFlagKeyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
+        storedFormatID: String,
+        normalizeStoredID: (String) -> String?,
+        formatDescriptor: OutputFormatDescriptor<Format>,
+        applyAdditionalSettings: () -> Void,
+        postApply: () -> Void
+    ) {
+        applyStoredSourceSettings(
+            applyingFlagKeyPath: applyingFlagKeyPath,
+            storedFormatID: storedFormatID,
+            normalizeStoredID: normalizeStoredID,
+            options: availableOutputFormatOptions(using: formatDescriptor),
+            selectedFormatKeyPath: formatDescriptor.selectedFormat,
+            formatNormalizedID: formatDescriptor.formatNormalizedID,
+            applyAdditionalSettings: applyAdditionalSettings,
+            postApply: postApply
+        )
+    }
 }

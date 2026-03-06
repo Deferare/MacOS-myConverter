@@ -19,7 +19,7 @@ extension ContentViewModel {
         if let imageSourceCompatibilityErrorMessage {
             return imageSourceCompatibilityErrorMessage
         }
-        if imageSourceURL != nil && !availableImageOutputFormats.contains(where: { $0.normalizedID == selectedImageOutputFormat.normalizedID }) {
+        if imageSourceURL != nil && !isSelectedOutputFormatAvailable(using: imageOutputFormatDescriptor()) {
             return "Selected output format is not available for this source."
         }
         if imageSourceIsAnimated &&
