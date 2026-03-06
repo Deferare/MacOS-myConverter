@@ -2,7 +2,7 @@ import AVFoundation
 import Foundation
 
 extension VideoConversionEngine {
-    static func supportedOutputFormatsWithAVFoundation(for asset: AVAsset) async -> [VideoFormatOption] {
+    static func supportedOutputFormatsWithAVFoundation(for asset: AVURLAsset) async -> [VideoFormatOption] {
         var supported: [VideoFormatOption] = []
         for format in VideoFormatOption.avFoundationDefaultFormats {
             guard let fileType = format.avFileType else { continue }

@@ -129,10 +129,15 @@ extension VideoConversionEngine {
     }
 
     static func compatibleExportPresets(
-        for asset: AVAsset,
+        for asset: AVURLAsset,
         preferredPresets: [String],
         outputFileType: AVFileType
     ) async -> [String] {
+        let cacheKey = exportPresetCompatibilityCacheKey(for: asset.url, outputFileType: outputFileType)
+        if let cached = exportPresetCompatibilityCacheQueue.sync(execute: { exportPresetCompatibilityCache[cacheKey] }) {
+            return cached
+        }
+
         var presets: [String] = []
         for preset in preferredPresets {
             let isCompatible = await AVAssetExportSession.compatibility(
@@ -144,7 +149,24 @@ extension VideoConversionEngine {
                 presets.append(preset)
             }
         }
+
+        exportPresetCompatibilityCacheQueue.sync {
+            exportPresetCompatibilityCache[cacheKey] = presets
+        }
         return presets
+    }
+
+    private static func exportPresetCompatibilityCacheKey(
+        for inputURL: URL,
+        outputFileType: AVFileType
+    ) -> String {
+        let standardizedURL = inputURL.standardizedFileURL
+        let resourceValues = try? standardizedURL.resourceValues(
+            forKeys: [.contentModificationDateKey, .fileSizeKey]
+        )
+        let fileSize = resourceValues?.fileSize ?? -1
+        let modificationInterval = resourceValues?.contentModificationDate?.timeIntervalSinceReferenceDate ?? -1
+        return "\(standardizedURL.path)|\(fileSize)|\(modificationInterval)|\(outputFileType.rawValue)"
     }
 
     private static func export(
