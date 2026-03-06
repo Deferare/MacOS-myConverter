@@ -2,10 +2,6 @@ import Foundation
 
 extension ContentViewModel {
     func persistCurrentSettingsIfNeeded() {
-        persistCurrentVideoSettingsIfNeeded()
-    }
-
-    func persistCurrentVideoSettingsIfNeeded() {
         persistSourceSettingsIfNeeded(using: videoSettingsDescriptor()) {
             VideoConversionSettings(
                 outputFormatID: selectedOutputFormat.id,
@@ -21,13 +17,5 @@ extension ContentViewModel {
                 audioBitRate: selectedAudioBitRate
             )
         }
-    }
-
-    func savePersistedSettings() {
-        schedulePersistedSourceSettingsSave(using: videoSettingsDescriptor())
-    }
-
-    func loadPersistedSettings() -> [String: VideoConversionSettings] {
-        loadPersistedSourceSettings(using: videoSettingsDescriptor())
     }
 }

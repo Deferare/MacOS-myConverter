@@ -12,12 +12,4 @@ extension ContentViewModel {
             )
         }
     }
-
-    func savePersistedImageSettings() {
-        schedulePersistedSourceSettingsSave(using: imageSettingsDescriptor())
-    }
-
-    func loadPersistedImageSettings() -> [String: ImageConversionSettings] {
-        loadPersistedSourceSettings(using: imageSettingsDescriptor())
-    }
 }

@@ -217,9 +217,9 @@ final class ContentViewModel: ObservableObject {
     let audioSettingsStorageKey = "ContentViewModel.AudioSettingsBySource"
 
     init() {
-        videoSettingsBySourceID = loadPersistedSettings()
-        imageSettingsBySourceID = loadPersistedImageSettings()
-        audioSettingsBySourceID = loadPersistedAudioSettings()
+        videoSettingsBySourceID = loadPersistedSourceSettings(using: videoSettingsDescriptor())
+        imageSettingsBySourceID = loadPersistedSourceSettings(using: imageSettingsDescriptor())
+        audioSettingsBySourceID = loadPersistedSourceSettings(using: audioSettingsDescriptor())
         applyPlaceholderCapabilityState()
         scheduleCapabilityBootstrap()
     }

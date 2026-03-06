@@ -12,12 +12,4 @@ extension ContentViewModel {
             )
         }
     }
-
-    func savePersistedAudioSettings() {
-        schedulePersistedSourceSettingsSave(using: audioSettingsDescriptor())
-    }
-
-    func loadPersistedAudioSettings() -> [String: AudioConversionSettings] {
-        loadPersistedSourceSettings(using: audioSettingsDescriptor())
-    }
 }
