@@ -48,9 +48,17 @@ extension ContentViewModel {
                 analysisTask: \.taskState.sourceAnalysisTask,
                 conversionTask: \.taskState.conversionTask,
                 applyPlaceholderCapabilities: { $0.applyPlaceholderCapabilities(for: .video) },
-                applyDefaultSettings: { $0.applyStoredSettings(.init()) },
+                applyDefaultSettings: { viewModel in
+                    let descriptor = viewModel.videoSettingsFlowDescriptor()
+                    viewModel.applySourceSettings(descriptor.defaultSettings(), using: descriptor)
+                },
                 resetSelectionCompatibilityState: { $0.resetCompatibilityState(for: .video, resetImageMetadata: false) },
-                applyStoredSettingsForSourceID: { $0.applyStoredVideoSettings(for: $1) },
+                applyStoredSettingsForSourceID: { viewModel, sourceID in
+                    viewModel.applySourceSettingsForSource(
+                        sourceID: sourceID,
+                        using: viewModel.videoSettingsFlowDescriptor()
+                    )
+                },
                 analyzeSelection: { viewModel, urls in
                     viewModel.analyzeSourceCompatibility(
                         for: urls,
@@ -75,9 +83,17 @@ extension ContentViewModel {
                 analysisTask: \.taskState.imageSourceAnalysisTask,
                 conversionTask: \.taskState.imageConversionTask,
                 applyPlaceholderCapabilities: { $0.applyPlaceholderCapabilities(for: .image) },
-                applyDefaultSettings: { $0.applyStoredImageSettings(.init()) },
+                applyDefaultSettings: { viewModel in
+                    let descriptor = viewModel.imageSettingsFlowDescriptor()
+                    viewModel.applySourceSettings(descriptor.defaultSettings(), using: descriptor)
+                },
                 resetSelectionCompatibilityState: { $0.resetCompatibilityState(for: .image, resetImageMetadata: true) },
-                applyStoredSettingsForSourceID: { $0.applyStoredImageSettings(for: $1) },
+                applyStoredSettingsForSourceID: { viewModel, sourceID in
+                    viewModel.applySourceSettingsForSource(
+                        sourceID: sourceID,
+                        using: viewModel.imageSettingsFlowDescriptor()
+                    )
+                },
                 analyzeSelection: { viewModel, urls in
                     viewModel.analyzeSourceCompatibility(
                         for: urls,
@@ -102,9 +118,17 @@ extension ContentViewModel {
                 analysisTask: \.taskState.audioSourceAnalysisTask,
                 conversionTask: \.taskState.audioConversionTask,
                 applyPlaceholderCapabilities: { $0.applyPlaceholderCapabilities(for: .audio) },
-                applyDefaultSettings: { $0.applyStoredAudioSettings(.init()) },
+                applyDefaultSettings: { viewModel in
+                    let descriptor = viewModel.audioSettingsFlowDescriptor()
+                    viewModel.applySourceSettings(descriptor.defaultSettings(), using: descriptor)
+                },
                 resetSelectionCompatibilityState: { $0.resetCompatibilityState(for: .audio, resetImageMetadata: false) },
-                applyStoredSettingsForSourceID: { $0.applyStoredAudioSettings(for: $1) },
+                applyStoredSettingsForSourceID: { viewModel, sourceID in
+                    viewModel.applySourceSettingsForSource(
+                        sourceID: sourceID,
+                        using: viewModel.audioSettingsFlowDescriptor()
+                    )
+                },
                 analyzeSelection: { viewModel, urls in
                     viewModel.analyzeSourceCompatibility(
                         for: urls,

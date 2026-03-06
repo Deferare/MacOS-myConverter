@@ -32,7 +32,11 @@ extension ContentViewModel {
                         viewModel.applyResolvedOutputFormats(
                             resolvedFormats,
                             formatDescriptor: viewModel.imageOutputFormatDescriptor(),
-                            persistSettings: viewModel.persistCurrentImageSettingsIfNeeded
+                            persistSettings: {
+                                viewModel.persistCurrentSourceSettingsIfNeeded(
+                                    using: viewModel.imageSettingsFlowDescriptor()
+                                )
+                            }
                         )
                     }
                 )

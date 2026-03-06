@@ -20,7 +20,9 @@ extension ContentViewModel {
                 taskKeyPath: \.taskState.pendingVideoFormatChangeTask,
                 action: { viewModel in
                     viewModel.refreshVideoCodecOptions()
-                    viewModel.persistCurrentSettingsIfNeeded()
+                    viewModel.persistCurrentSourceSettingsIfNeeded(
+                        using: viewModel.videoSettingsFlowDescriptor()
+                    )
                 }
             )
         case .videoOptionNormalization:
@@ -28,7 +30,9 @@ extension ContentViewModel {
                 taskKeyPath: \.taskState.pendingVideoOptionNormalizationTask,
                 action: { viewModel in
                     viewModel.normalizeVideoOptionDependencies()
-                    viewModel.persistCurrentSettingsIfNeeded()
+                    viewModel.persistCurrentSourceSettingsIfNeeded(
+                        using: viewModel.videoSettingsFlowDescriptor()
+                    )
                 }
             )
         case .audioFormatChange:
@@ -36,7 +40,9 @@ extension ContentViewModel {
                 taskKeyPath: \.taskState.pendingAudioFormatChangeTask,
                 action: { viewModel in
                     viewModel.refreshAudioCodecOptions()
-                    viewModel.persistCurrentAudioSettingsIfNeeded()
+                    viewModel.persistCurrentSourceSettingsIfNeeded(
+                        using: viewModel.audioSettingsFlowDescriptor()
+                    )
                 }
             )
         case .audioOptionNormalization:
@@ -44,7 +50,9 @@ extension ContentViewModel {
                 taskKeyPath: \.taskState.pendingAudioOptionNormalizationTask,
                 action: { viewModel in
                     viewModel.normalizeAudioOptionDependencies()
-                    viewModel.persistCurrentAudioSettingsIfNeeded()
+                    viewModel.persistCurrentSourceSettingsIfNeeded(
+                        using: viewModel.audioSettingsFlowDescriptor()
+                    )
                 }
             )
         }

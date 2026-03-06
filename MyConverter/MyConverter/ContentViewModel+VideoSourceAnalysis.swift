@@ -20,7 +20,11 @@ extension ContentViewModel {
                             resolvedFormats,
                             formatDescriptor: viewModel.videoOutputFormatDescriptor(),
                             postSelectionUpdate: viewModel.refreshVideoCodecOptions,
-                            persistSettings: viewModel.persistCurrentSettingsIfNeeded
+                            persistSettings: {
+                                viewModel.persistCurrentSourceSettingsIfNeeded(
+                                    using: viewModel.videoSettingsFlowDescriptor()
+                                )
+                            }
                         )
                     }
                 )
