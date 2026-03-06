@@ -201,6 +201,9 @@ final class ContentViewModel: ObservableObject {
     var pendingVideoOptionNormalizationTask: Task<Void, Never>?
     var pendingAudioFormatChangeTask: Task<Void, Never>?
     var pendingAudioOptionNormalizationTask: Task<Void, Never>?
+    var pendingVideoSettingsSaveTask: Task<Void, Never>?
+    var pendingImageSettingsSaveTask: Task<Void, Never>?
+    var pendingAudioSettingsSaveTask: Task<Void, Never>?
 
     let videoSettingsStorageKey = "ContentViewModel.VideoSettingsBySource"
     let imageSettingsStorageKey = "ContentViewModel.ImageSettingsBySource"

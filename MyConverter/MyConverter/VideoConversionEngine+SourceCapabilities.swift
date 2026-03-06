@@ -2,6 +2,16 @@ import AVFoundation
 import Foundation
 
 extension VideoConversionEngine {
+    private static func makeSourceCapabilityCacheKey(for inputURL: URL, ffmpegPath: String?) -> String {
+        let standardizedURL = inputURL.standardizedFileURL
+        let resourceValues = try? standardizedURL.resourceValues(
+            forKeys: [.contentModificationDateKey, .fileSizeKey]
+        )
+        let fileSize = resourceValues?.fileSize ?? -1
+        let modificationInterval = resourceValues?.contentModificationDate?.timeIntervalSinceReferenceDate ?? -1
+        return "\(standardizedURL.path)|\(fileSize)|\(modificationInterval)|\(ffmpegPath ?? "none")"
+    }
+
     private static func makeVideoCapabilities(
         availableOutputFormats: [VideoFormatOption],
         warningMessage: String? = nil,
@@ -27,15 +37,34 @@ extension VideoConversionEngine {
     }
 
     static func sourceCapabilitiesForAudio(for inputURL: URL) async -> AudioSourceCapabilities {
-        let defaultFormats = defaultAudioOutputFormats()
+        let ffmpegPath = FFmpegBinaryLocator.findPath()
+        let cacheKey = makeSourceCapabilityCacheKey(for: inputURL, ffmpegPath: ffmpegPath)
+        if let cached = sourceCapabilityCacheQueue.sync(execute: { audioSourceCapabilitiesCache[cacheKey] }) {
+            return cached
+        }
 
-        guard let ffmpegPath = FFmpegBinaryLocator.findPath() else {
+        let resolved = await Task.detached(priority: .userInitiated) {
+            await resolveAudioSourceCapabilities(for: inputURL, ffmpegPath: ffmpegPath)
+        }.value
+
+        sourceCapabilityCacheQueue.sync {
+            audioSourceCapabilitiesCache[cacheKey] = resolved
+        }
+        return resolved
+    }
+
+    private static func resolveAudioSourceCapabilities(
+        for inputURL: URL,
+        ffmpegPath: String?
+    ) async -> AudioSourceCapabilities {
+        guard let ffmpegPath else {
             return makeAudioCapabilities(
                 availableOutputFormats: [],
                 errorMessage: "Audio conversion requires ffmpeg, but ffmpeg was not found."
             )
         }
 
+        let defaultFormats = defaultAudioOutputFormats()
         guard !defaultFormats.isEmpty else {
             return makeAudioCapabilities(
                 availableOutputFormats: [],
@@ -73,6 +102,25 @@ extension VideoConversionEngine {
 
     static func sourceCapabilities(for inputURL: URL) async -> VideoSourceCapabilities {
         let ffmpegPath = FFmpegBinaryLocator.findPath()
+        let cacheKey = makeSourceCapabilityCacheKey(for: inputURL, ffmpegPath: ffmpegPath)
+        if let cached = sourceCapabilityCacheQueue.sync(execute: { videoSourceCapabilitiesCache[cacheKey] }) {
+            return cached
+        }
+
+        let resolved = await Task.detached(priority: .userInitiated) {
+            await resolveVideoSourceCapabilities(for: inputURL, ffmpegPath: ffmpegPath)
+        }.value
+
+        sourceCapabilityCacheQueue.sync {
+            videoSourceCapabilitiesCache[cacheKey] = resolved
+        }
+        return resolved
+    }
+
+    private static func resolveVideoSourceCapabilities(
+        for inputURL: URL,
+        ffmpegPath: String?
+    ) async -> VideoSourceCapabilities {
         let ffmpegAvailable = ffmpegPath != nil
         let asset = AVURLAsset(url: inputURL)
         let defaultFormats = defaultOutputFormats()

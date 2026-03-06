@@ -1,15 +1,21 @@
 import Foundation
 
 extension ContentViewModel {
+    struct IndexedCapabilityResult<Capability: Sendable>: Sendable {
+        let index: Int
+        let source: URL
+        let capability: Capability
+    }
+
     struct AggregatedSourceCapabilities<Format> {
         var commonFormats: [Format] = []
         var warnings: [String] = []
         var errors: [String] = []
     }
 
-    func aggregateSourceCapabilities<Capability, Format>(
+    func aggregateSourceCapabilities<Capability: Sendable, Format>(
         for selection: [URL],
-        fetchCapabilities: @escaping (URL) async -> Capability,
+        fetchCapabilities: @escaping @Sendable (URL) async -> Capability,
         availableFormats: (Capability) -> [Format],
         warningMessage: (Capability) -> String?,
         errorMessage: (Capability) -> String?,
@@ -18,28 +24,61 @@ extension ContentViewModel {
     ) async -> AggregatedSourceCapabilities<Format>? {
         var isInitialized = false
         var aggregated = AggregatedSourceCapabilities<Format>()
+        let maxConcurrentAnalyses = max(1, min(4, ProcessInfo.processInfo.activeProcessorCount))
 
-        for source in selection {
+        for batchStart in stride(from: 0, to: selection.count, by: maxConcurrentAnalyses) {
             guard !Task.isCancelled else { return nil }
+            let batchEnd = min(batchStart + maxConcurrentAnalyses, selection.count)
+            let batch = Array(selection[batchStart..<batchEnd])
 
-            let capabilities = await withSourceSecurityScope(for: source) {
-                await fetchCapabilities(source)
-            }
-            onCapability?(source, capabilities)
+            let results = await withTaskGroup(
+                of: IndexedCapabilityResult<Capability>?.self,
+                returning: [IndexedCapabilityResult<Capability>].self
+            ) { group in
+                for (offset, source) in batch.enumerated() {
+                    let index = batchStart + offset
+                    group.addTask {
+                        guard !Task.isCancelled else { return nil }
+                        let capability = await SecurityScopedResourceAccess.withAccess(to: source) {
+                            await fetchCapabilities(source)
+                        }
+                        guard !Task.isCancelled else { return nil }
+                        return IndexedCapabilityResult(
+                            index: index,
+                            source: source,
+                            capability: capability
+                        )
+                    }
+                }
 
-            let formats = availableFormats(capabilities)
-            if isInitialized {
-                aggregated.commonFormats = intersect(aggregated.commonFormats, formats)
-            } else {
-                aggregated.commonFormats = formats
-                isInitialized = true
+                var batchResults: [IndexedCapabilityResult<Capability>] = []
+                for await result in group {
+                    guard let result else { continue }
+                    batchResults.append(result)
+                }
+
+                return batchResults.sorted { $0.index < $1.index }
             }
 
-            if let warning = warningMessage(capabilities) {
-                aggregated.warnings.append(labeledCapabilityMessage(warning, for: source, totalCount: selection.count))
-            }
-            if let error = errorMessage(capabilities) {
-                aggregated.errors.append(labeledCapabilityMessage(error, for: source, totalCount: selection.count))
+            for result in results {
+                let source = result.source
+                let capabilities = result.capability
+                onCapability?(source, capabilities)
+
+                let formats = availableFormats(capabilities)
+                if isInitialized {
+                    aggregated.commonFormats = intersect(aggregated.commonFormats, formats)
+                } else {
+                    aggregated.commonFormats = formats
+                    isInitialized = true
+                }
+
+                if let warning = warningMessage(capabilities) {
+                    aggregated.warnings.append(labeledCapabilityMessage(warning, for: source, totalCount: selection.count))
+                }
+                if let error = errorMessage(capabilities) {
+                    aggregated.errors.append(labeledCapabilityMessage(error, for: source, totalCount: selection.count))
+                }
             }
         }
 
@@ -47,7 +86,7 @@ extension ContentViewModel {
         return aggregated
     }
 
-    func analyzeSourceSelection<Capability, Format>(
+    func analyzeSourceSelection<Capability: Sendable, Format>(
         urls: [URL],
         analysisTaskKeyPath: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>,
         isAnalyzingKeyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
@@ -56,7 +95,7 @@ extension ContentViewModel {
         errorMessageKeyPath: ReferenceWritableKeyPath<ContentViewModel, String?>,
         selectedSourceIDs: @escaping () -> [String],
         resetForEmptySelection: () -> Void,
-        fetchCapabilities: @escaping (URL) async -> Capability,
+        fetchCapabilities: @escaping @Sendable (URL) async -> Capability,
         availableFormats: @escaping (Capability) -> [Format],
         warningMessage: @escaping (Capability) -> String?,
         errorMessage: @escaping (Capability) -> String?,

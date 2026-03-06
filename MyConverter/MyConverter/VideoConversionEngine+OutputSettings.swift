@@ -1,6 +1,6 @@
 import Foundation
 
-struct VideoOutputSettings {
+struct VideoOutputSettings: Sendable {
     let containerFormat: VideoFormatOption
     let videoCodecCandidates: [String]
     let useHEVCTag: Bool
@@ -14,13 +14,13 @@ struct VideoOutputSettings {
     let audioBitRateKbps: Int?
 }
 
-struct VideoSourceCapabilities {
+struct VideoSourceCapabilities: Sendable {
     let availableOutputFormats: [VideoFormatOption]
     let warningMessage: String?
     let errorMessage: String?
 }
 
-struct AudioOutputSettings {
+struct AudioOutputSettings: Sendable {
     let containerFormat: AudioFormatOption
     let audioCodecCandidates: [String]
     let audioChannels: Int?
@@ -28,7 +28,7 @@ struct AudioOutputSettings {
     let audioBitRateKbps: Int?
 }
 
-struct AudioSourceCapabilities {
+struct AudioSourceCapabilities: Sendable {
     let availableOutputFormats: [AudioFormatOption]
     let warningMessage: String?
     let errorMessage: String?

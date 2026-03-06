@@ -20,6 +20,12 @@ extension ContentViewModel {
     }
 
     func savePersistedImageSettings() {
+        scheduleDebouncedTask(\.pendingImageSettingsSaveTask) { viewModel in
+            viewModel.flushPersistedImageSettings()
+        }
+    }
+
+    private func flushPersistedImageSettings() {
         savePersistedSourceSettings(
             settingsBySourceID: imageSettingsBySourceID,
             mapToPersisted: { PersistedImageConversionSettings(from: $0) },

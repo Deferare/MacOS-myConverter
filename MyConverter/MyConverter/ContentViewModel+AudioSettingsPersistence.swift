@@ -20,6 +20,12 @@ extension ContentViewModel {
     }
 
     func savePersistedAudioSettings() {
+        scheduleDebouncedTask(\.pendingAudioSettingsSaveTask) { viewModel in
+            viewModel.flushPersistedAudioSettings()
+        }
+    }
+
+    private func flushPersistedAudioSettings() {
         savePersistedSourceSettings(
             settingsBySourceID: audioSettingsBySourceID,
             mapToPersisted: { PersistedAudioConversionSettings(from: $0) },

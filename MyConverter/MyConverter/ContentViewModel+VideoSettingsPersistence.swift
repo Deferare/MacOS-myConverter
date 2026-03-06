@@ -30,6 +30,12 @@ extension ContentViewModel {
     }
 
     func savePersistedSettings() {
+        scheduleDebouncedTask(\.pendingVideoSettingsSaveTask) { viewModel in
+            viewModel.flushPersistedVideoSettings()
+        }
+    }
+
+    private func flushPersistedVideoSettings() {
         savePersistedSourceSettings(
             settingsBySourceID: videoSettingsBySourceID,
             mapToPersisted: { PersistedVideoConversionSettings(from: $0) },

@@ -4,9 +4,30 @@ import ImageIO
 
 extension ImageConversionEngine {
     nonisolated static func sourceCapabilities(for inputURL: URL) async -> ImageSourceCapabilities {
-        await Task.detached(priority: .userInitiated) {
-            sourceCapabilitiesSync(for: inputURL)
+        let ffmpegPath = FFmpegBinaryLocator.findPath()
+        let cacheKey = makeSourceCapabilityCacheKey(for: inputURL, ffmpegPath: ffmpegPath)
+        if let cached = sourceCapabilityCacheQueue.sync(execute: { sourceCapabilitiesCache[cacheKey] }) {
+            return cached
+        }
+
+        let resolved = await Task.detached(priority: .userInitiated) {
+            sourceCapabilitiesSync(for: inputURL, ffmpegPath: ffmpegPath)
         }.value
+
+        sourceCapabilityCacheQueue.sync {
+            sourceCapabilitiesCache[cacheKey] = resolved
+        }
+        return resolved
+    }
+
+    nonisolated private static func makeSourceCapabilityCacheKey(for inputURL: URL, ffmpegPath: String?) -> String {
+        let standardizedURL = inputURL.standardizedFileURL
+        let resourceValues = try? standardizedURL.resourceValues(
+            forKeys: [.contentModificationDateKey, .fileSizeKey]
+        )
+        let fileSize = resourceValues?.fileSize ?? -1
+        let modificationInterval = resourceValues?.contentModificationDate?.timeIntervalSinceReferenceDate ?? -1
+        return "\(standardizedURL.path)|\(fileSize)|\(modificationInterval)|\(ffmpegPath ?? "none")"
     }
 
     nonisolated private static func makeSourceCapabilities(
@@ -25,9 +46,11 @@ extension ImageConversionEngine {
         )
     }
 
-    nonisolated private static func sourceCapabilitiesSync(for inputURL: URL) -> ImageSourceCapabilities {
+    nonisolated private static func sourceCapabilitiesSync(
+        for inputURL: URL,
+        ffmpegPath: String?
+    ) -> ImageSourceCapabilities {
         let availableOutputFormats = defaultOutputFormats()
-        let ffmpegPath = FFmpegBinaryLocator.findPath()
 
         guard let source = CGImageSourceCreateWithURL(inputURL as CFURL, nil) else {
             if let ffmpegPath,

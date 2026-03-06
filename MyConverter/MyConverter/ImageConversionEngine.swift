@@ -26,6 +26,8 @@ enum ImageConversionEngine {
     nonisolated(unsafe) static var defaultOutputFormatsCache: [String: [ImageFormatOption]] = [:]
     nonisolated(unsafe) static var imageIODestinationTypeCache: Set<String>? = nil
     nonisolated(unsafe) static var imageIOAvailableFormatsCache: [ImageFormatOption]? = nil
+    nonisolated static let sourceCapabilityCacheQueue = DispatchQueue(label: "myconverter.image.source.capability.cache")
+    nonisolated(unsafe) static var sourceCapabilitiesCache: [String: ImageSourceCapabilities] = [:]
 
     struct FFmpegIntrospection {
         let encoders: Set<String>
