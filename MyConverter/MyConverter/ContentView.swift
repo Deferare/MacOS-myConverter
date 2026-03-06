@@ -49,30 +49,45 @@ struct ContentView: View {
 
     @ViewBuilder
     private func detailView(for tab: ConverterTab) -> some View {
-        switch tab {
-        case .video:
-            VideoConverterDetailView(
-                viewModel: viewModel,
-                isDropTargeted: $isVideoDropTargeted,
-                draggedSelectedFileURL: $draggedSelectedFileURL,
-                fileDropAreaHeight: fileDropAreaHeight
-            )
-        case .image:
-            ImageConverterDetailView(
-                viewModel: viewModel,
-                isDropTargeted: $isImageDropTargeted,
-                draggedSelectedFileURL: $draggedSelectedFileURL,
-                fileDropAreaHeight: fileDropAreaHeight
-            )
-        case .audio:
-            AudioConverterDetailView(
-                viewModel: viewModel,
-                isDropTargeted: $isAudioDropTargeted,
-                draggedSelectedFileURL: $draggedSelectedFileURL,
-                fileDropAreaHeight: fileDropAreaHeight
-            )
-        case .about:
+        if let kind = tab.mediaKind {
+            mediaDetailView(for: kind)
+        } else {
             AboutDetailView(donationStore: donationStore)
+        }
+    }
+
+    private func dropTargetBinding(for kind: ContentViewModel.MediaKind) -> Binding<Bool> {
+        switch kind {
+        case .video:
+            return $isVideoDropTargeted
+        case .image:
+            return $isImageDropTargeted
+        case .audio:
+            return $isAudioDropTargeted
+        }
+    }
+
+    @ViewBuilder
+    private func mediaFormSections(for kind: ContentViewModel.MediaKind) -> some View {
+        switch kind {
+        case .video:
+            VideoConverterFormSectionView(viewModel: viewModel)
+        case .image:
+            ImageConverterFormSectionView(viewModel: viewModel)
+        case .audio:
+            AudioConverterFormSectionView(viewModel: viewModel)
+        }
+    }
+
+    private func mediaDetailView(for kind: ContentViewModel.MediaKind) -> some View {
+        MediaConverterDetailView(
+            viewModel: viewModel,
+            kind: kind,
+            isDropTargeted: dropTargetBinding(for: kind),
+            draggedSelectedFileURL: $draggedSelectedFileURL,
+            fileDropAreaHeight: fileDropAreaHeight
+        ) {
+            mediaFormSections(for: kind)
         }
     }
 }
