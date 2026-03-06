@@ -2,25 +2,7 @@ import Foundation
 
 extension ContentViewModel {
     func applySelectedAudioSources(_ urls: [URL]) {
-        applySelectedSources(
-            urls,
-            cancelAnalysisTask: {
-                cancelTask(&audioSourceAnalysisTask)
-            },
-            assignSelection: { selection in
-                assignAudioSelection(selection)
-            },
-            resetState: {
-                resetAudioConversionOutputs()
-                resetAudioCompatibilityMessages()
-            },
-            applyStoredSettingsForSourceID: { sourceID in
-                applyStoredAudioSettings(for: sourceID)
-            },
-            analyzeSelection: { selection in
-                analyzeAudioSourceCompatibility(for: selection)
-            }
-        )
+        applySelectedSources(urls, for: .audio)
     }
 
     func analyzeAudioSourceCompatibility(for urls: [URL]) {

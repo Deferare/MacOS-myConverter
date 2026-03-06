@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 
 extension ContentViewModel {
     func handleDrop(providers: [NSItemProvider]) -> Bool {
-        handleVideoDrop(providers: providers)
+        handleDrop(providers: providers, for: .video)
     }
 
     func handleMediaDrop(
@@ -15,22 +15,29 @@ extension ContentViewModel {
         handleDroppedFiles(providers: providers, accept: accept, onResolvedURLs: applySelection)
     }
 
+    func handleDrop(providers: [NSItemProvider], for kind: MediaKind) -> Bool {
+        handleMediaDrop(
+            providers: providers,
+            accept: { [weak self] url in
+                guard let self else { return false }
+                return self.acceptsInput(url, for: kind)
+            },
+            applySelection: { [weak self] urls in
+                self?.applySelectedSources(urls, for: kind)
+            }
+        )
+    }
+
     func handleVideoDrop(providers: [NSItemProvider]) -> Bool {
-        handleMediaDrop(providers: providers, accept: isVideoInputURL) { [weak self] urls in
-            self?.applySelectedVideoSources(urls)
-        }
+        handleDrop(providers: providers, for: .video)
     }
 
     func handleImageDrop(providers: [NSItemProvider]) -> Bool {
-        handleMediaDrop(providers: providers, accept: isImageInputURL) { [weak self] urls in
-            self?.applySelectedImageSources(urls)
-        }
+        handleDrop(providers: providers, for: .image)
     }
 
     func handleAudioDrop(providers: [NSItemProvider]) -> Bool {
-        handleMediaDrop(providers: providers, accept: isAudioInputURL) { [weak self] urls in
-            self?.applySelectedAudioSources(urls)
-        }
+        handleDrop(providers: providers, for: .audio)
     }
 
     func handleDroppedFiles(

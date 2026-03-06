@@ -2,25 +2,7 @@ import Foundation
 
 extension ContentViewModel {
     func applySelectedImageSources(_ urls: [URL]) {
-        applySelectedSources(
-            urls,
-            cancelAnalysisTask: {
-                cancelTask(&imageSourceAnalysisTask)
-            },
-            assignSelection: { selection in
-                assignImageSelection(selection)
-            },
-            resetState: {
-                resetImageCompatibilityState(resetMetadata: true)
-                resetImageConversionOutputs()
-            },
-            applyStoredSettingsForSourceID: { sourceID in
-                applyStoredImageSettings(for: sourceID)
-            },
-            analyzeSelection: { selection in
-                analyzeImageSourceCompatibility(for: selection)
-            }
-        )
+        applySelectedSources(urls, for: .image)
     }
 
     func analyzeImageSourceCompatibility(for urls: [URL]) {

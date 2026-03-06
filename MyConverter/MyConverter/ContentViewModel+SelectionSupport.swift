@@ -1,8 +1,32 @@
 import Foundation
 
 extension ContentViewModel {
+    func mediaKind(for tab: ConverterTab) -> MediaKind? {
+        switch tab {
+        case .video:
+            return .video
+        case .image:
+            return .image
+        case .audio:
+            return .audio
+        case .about:
+            return nil
+        }
+    }
+
     func uniqueStandardizedURLs(_ urls: [URL]) -> [URL] {
         ContentViewModelSupport.uniqueStandardizedURLs(urls)
+    }
+
+    func acceptsInput(_ url: URL, for kind: MediaKind) -> Bool {
+        switch kind {
+        case .video:
+            return isVideoInputURL(url)
+        case .image:
+            return isImageInputURL(url)
+        case .audio:
+            return isAudioInputURL(url)
+        }
     }
 
     func isVideoInputURL(_ url: URL) -> Bool {
@@ -51,6 +75,29 @@ extension ContentViewModel {
         analyzeSelection(uniqueURLs)
     }
 
+    func applySelectedSources(_ urls: [URL], for kind: MediaKind) {
+        let descriptor = mediaStateDescriptor(for: kind)
+
+        applySelectedSources(
+            urls,
+            cancelAnalysisTask: {
+                cancelTask(at: descriptor.analysisTask)
+            },
+            assignSelection: { selection in
+                assignSelection(selection, for: kind)
+            },
+            resetState: {
+                resetSelectionStateForSelectedSources(for: kind)
+            },
+            applyStoredSettingsForSourceID: { sourceID in
+                applyStoredSettings(for: kind, sourceID: sourceID)
+            },
+            analyzeSelection: { selection in
+                reanalyzeSelection(selection, for: kind)
+            }
+        )
+    }
+
     func applyStoredSettingsForSource<Settings>(
         sourceID: String,
         settingsBySourceID: [String: Settings],
@@ -82,5 +129,10 @@ extension ContentViewModel {
 
     func joinedCapabilityMessages(_ messages: [String]) -> String? {
         ContentViewModelSupport.joinedCapabilityMessages(messages)
+    }
+
+    func resetSelectionStateForSelectedSources(for kind: MediaKind) {
+        resetConversionOutputs(for: kind)
+        resetCompatibilityStateForSelectionChange(for: kind)
     }
 }

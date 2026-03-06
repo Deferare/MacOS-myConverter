@@ -2,25 +2,7 @@ import Foundation
 
 extension ContentViewModel {
     func applySelectedVideoSources(_ urls: [URL]) {
-        applySelectedSources(
-            urls,
-            cancelAnalysisTask: {
-                cancelTask(&sourceAnalysisTask)
-            },
-            assignSelection: { selection in
-                assignVideoSelection(selection)
-            },
-            resetState: {
-                resetVideoConversionOutputs()
-                resetVideoCompatibilityMessages()
-            },
-            applyStoredSettingsForSourceID: { sourceID in
-                applyStoredVideoSettings(for: sourceID)
-            },
-            analyzeSelection: { selection in
-                analyzeSourceCompatibility(for: selection)
-            }
-        )
+        applySelectedSources(urls, for: .video)
     }
 
     func analyzeSourceCompatibility(for urls: [URL]) {
