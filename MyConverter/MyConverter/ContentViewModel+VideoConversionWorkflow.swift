@@ -49,7 +49,7 @@ extension ContentViewModel {
                     outputsKeyPath: \.convertedURLs
                 )
             },
-            onSourceProcessed: removeProcessedVideoSource(_:),
+            onSourceProcessed: { _ in },
             onError: applyConversionError(_:)
         )
     }

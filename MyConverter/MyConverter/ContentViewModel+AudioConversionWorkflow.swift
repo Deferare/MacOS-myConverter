@@ -49,7 +49,7 @@ extension ContentViewModel {
                     outputsKeyPath: \.convertedAudioURLs
                 )
             },
-            onSourceProcessed: removeProcessedAudioSource(_:),
+            onSourceProcessed: { _ in },
             onError: applyAudioConversionError(_:)
         )
     }

@@ -62,7 +62,9 @@ struct ConverterDetailContainer<InputArea: View, FormSections: View, Controls: V
 struct ConverterInputArea: View {
     let isDropTargeted: Bool
     let selectedURLs: [URL]
+    let outputURLs: [URL]
     let isConverting: Bool
+    let currentBatchIndex: Int
     let systemImage: String
     let dropPlaceholder: String
     let fileDropAreaHeight: CGFloat
@@ -72,44 +74,32 @@ struct ConverterInputArea: View {
     let onReorder: (_ draggedURL: URL, _ targetURL: URL) -> Void
 
     var body: some View {
-        Group {
-            if !isDropTargeted, !selectedURLs.isEmpty {
-                SelectedFilesView(
-                    urls: selectedURLs,
-                    systemImage: systemImage,
-                    isConverting: isConverting,
-                    fileDropAreaHeight: fileDropAreaHeight,
-                    draggedSelectedFileURL: $draggedSelectedFileURL,
-                    onImport: onImport,
-                    onClear: onClear,
-                    onReorder: onReorder
-                )
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            } else {
-                DropFileView(
-                    isDropTargeted: isDropTargeted,
-                    placeholder: dropPlaceholder,
-                    fileDropAreaHeight: fileDropAreaHeight,
-                    action: onImport
-                )
-                .transition(.scale(scale: 0.98).combined(with: .opacity))
-            }
-        }
+        UnifiedFileListView(
+            sourceURLs: selectedURLs,
+            outputURLs: outputURLs,
+            systemImage: systemImage,
+            dropPlaceholder: dropPlaceholder,
+            isConverting: isConverting,
+            currentBatchIndex: currentBatchIndex,
+            fileDropAreaHeight: fileDropAreaHeight,
+            isDropTargeted: isDropTargeted,
+            draggedSelectedFileURL: $draggedSelectedFileURL,
+            onImport: onImport,
+            onClear: onClear,
+            onReorder: onReorder
+        )
     }
 }
 
 struct ConverterFormSections<SettingsContent: View>: View {
     let isConverting: Bool
-    let outputURLs: [URL]
     let settingsContent: SettingsContent
 
     init(
         isConverting: Bool,
-        outputURLs: [URL],
         @ViewBuilder settingsContent: () -> SettingsContent
     ) {
         self.isConverting = isConverting
-        self.outputURLs = outputURLs
         self.settingsContent = settingsContent()
     }
 
@@ -118,7 +108,5 @@ struct ConverterFormSections<SettingsContent: View>: View {
             settingsContent
         }
         .disabled(isConverting)
-
-        OutputFilesSection(urls: outputURLs)
     }
 }

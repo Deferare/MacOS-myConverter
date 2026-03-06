@@ -10,7 +10,9 @@ struct VideoConverterInputSectionView: View {
         ConverterInputArea(
             isDropTargeted: isDropTargeted,
             selectedURLs: viewModel.selectedVideoSourceURLs,
+            outputURLs: viewModel.convertedURLs,
             isConverting: viewModel.isConverting,
+            currentBatchIndex: viewModel.currentVideoBatchIndex,
             systemImage: "film.fill",
             dropPlaceholder: "Drop Video Here",
             fileDropAreaHeight: fileDropAreaHeight,
@@ -37,8 +39,7 @@ struct VideoConverterFormSectionView: View {
 
     var body: some View {
         ConverterFormSections(
-            isConverting: viewModel.isConverting,
-            outputURLs: viewModel.convertedURLs
+            isConverting: viewModel.isConverting
         ) {
             MenuPicker(
                 "Container",

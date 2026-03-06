@@ -10,7 +10,9 @@ struct ImageConverterInputSectionView: View {
         ConverterInputArea(
             isDropTargeted: isDropTargeted,
             selectedURLs: viewModel.selectedImageSourceURLs,
+            outputURLs: viewModel.convertedImageURLs,
             isConverting: viewModel.isImageConverting,
+            currentBatchIndex: viewModel.currentImageBatchIndex,
             systemImage: "photo.fill",
             dropPlaceholder: "Drop Image Here",
             fileDropAreaHeight: fileDropAreaHeight,
@@ -37,8 +39,7 @@ struct ImageConverterFormSectionView: View {
 
     var body: some View {
         ConverterFormSections(
-            isConverting: viewModel.isImageConverting,
-            outputURLs: viewModel.convertedImageURLs
+            isConverting: viewModel.isImageConverting
         ) {
             MenuPicker(
                 "Container",

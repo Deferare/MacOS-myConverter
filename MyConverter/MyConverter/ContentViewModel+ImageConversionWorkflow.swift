@@ -47,7 +47,7 @@ extension ContentViewModel {
                     outputsKeyPath: \.convertedImageURLs
                 )
             },
-            onSourceProcessed: removeProcessedImageSource(_:),
+            onSourceProcessed: { _ in },
             onError: applyImageConversionError(_:)
         )
     }

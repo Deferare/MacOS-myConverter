@@ -10,7 +10,9 @@ struct AudioConverterInputSectionView: View {
         ConverterInputArea(
             isDropTargeted: isDropTargeted,
             selectedURLs: viewModel.selectedAudioSourceURLs,
+            outputURLs: viewModel.convertedAudioURLs,
             isConverting: viewModel.isAudioConverting,
+            currentBatchIndex: viewModel.currentAudioBatchIndex,
             systemImage: "waveform",
             dropPlaceholder: "Drop Audio Here",
             fileDropAreaHeight: fileDropAreaHeight,
@@ -37,8 +39,7 @@ struct AudioConverterFormSectionView: View {
 
     var body: some View {
         ConverterFormSections(
-            isConverting: viewModel.isAudioConverting,
-            outputURLs: viewModel.convertedAudioURLs
+            isConverting: viewModel.isAudioConverting
         ) {
             MenuPicker(
                 "Container",
