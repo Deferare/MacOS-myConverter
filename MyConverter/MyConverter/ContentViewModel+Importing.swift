@@ -1,6 +1,17 @@
 import Foundation
 
 extension ContentViewModel {
+    func handleFileImportResult(_ result: Result<[URL], Error>, for kind: MediaKind) {
+        switch result {
+        case .success(let urls):
+            let selected = uniqueStandardizedURLs(urls)
+            guard !selected.isEmpty else { return }
+            applyImportedSources(selected, for: kind)
+        case .failure(let error):
+            print("Failed to select file: \(error.localizedDescription)")
+        }
+    }
+
     func applyImportedSources(
         _ urls: [URL],
         accept: (URL) -> Bool,
@@ -25,14 +36,7 @@ extension ContentViewModel {
     }
 
     func handleFileImportResult(_ result: Result<[URL], Error>, for selectedTab: ConverterTab) {
-        switch result {
-        case .success(let urls):
-            let selected = uniqueStandardizedURLs(urls)
-            guard !selected.isEmpty else { return }
-            guard let kind = mediaKind(for: selectedTab) else { return }
-            applyImportedSources(selected, for: kind)
-        case .failure(let error):
-            print("Failed to select file: \(error.localizedDescription)")
-        }
+        guard let kind = selectedTab.mediaKind else { return }
+        handleFileImportResult(result, for: kind)
     }
 }

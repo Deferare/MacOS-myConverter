@@ -1,37 +1,43 @@
 import Foundation
 
 extension ContentViewModel {
-    func makeDeferredMainActorTask(
+    func makeScheduledMainActorTask(
+        delayNanoseconds: UInt64?,
         action: @escaping @MainActor (ContentViewModel) -> Void
     ) -> Task<Void, Never> {
         Task { @MainActor [weak self] in
-            await Task.yield()
+            if let delayNanoseconds {
+                do {
+                    try await Task.sleep(nanoseconds: delayNanoseconds)
+                } catch {
+                    return
+                }
+            } else {
+                await Task.yield()
+            }
+
             guard !Task.isCancelled, let self else { return }
             action(self)
         }
     }
 
-    func makeDebouncedMainActorTask(
-        delayNanoseconds: UInt64 = 250_000_000,
+    func replaceScheduledTask(
+        _ taskKeyPath: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>,
+        delayNanoseconds: UInt64?,
         action: @escaping @MainActor (ContentViewModel) -> Void
-    ) -> Task<Void, Never> {
-        Task { @MainActor [weak self] in
-            do {
-                try await Task.sleep(nanoseconds: delayNanoseconds)
-            } catch {
-                return
-            }
-            guard !Task.isCancelled, let self else { return }
-            action(self)
-        }
+    ) {
+        self[keyPath: taskKeyPath]?.cancel()
+        self[keyPath: taskKeyPath] = makeScheduledMainActorTask(
+            delayNanoseconds: delayNanoseconds,
+            action: action
+        )
     }
 
     func scheduleDeferredTask(
         _ taskKeyPath: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>,
         action: @escaping @MainActor (ContentViewModel) -> Void
     ) {
-        self[keyPath: taskKeyPath]?.cancel()
-        self[keyPath: taskKeyPath] = makeDeferredMainActorTask(action: action)
+        replaceScheduledTask(taskKeyPath, delayNanoseconds: nil, action: action)
     }
 
     func scheduleDebouncedTask(
@@ -39,10 +45,6 @@ extension ContentViewModel {
         delayNanoseconds: UInt64 = 250_000_000,
         action: @escaping @MainActor (ContentViewModel) -> Void
     ) {
-        self[keyPath: taskKeyPath]?.cancel()
-        self[keyPath: taskKeyPath] = makeDebouncedMainActorTask(
-            delayNanoseconds: delayNanoseconds,
-            action: action
-        )
+        replaceScheduledTask(taskKeyPath, delayNanoseconds: delayNanoseconds, action: action)
     }
 }

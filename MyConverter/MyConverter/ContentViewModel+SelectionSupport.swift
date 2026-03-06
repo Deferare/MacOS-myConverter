@@ -1,8 +1,8 @@
 import Foundation
 
-extension ContentViewModel {
-    func mediaKind(for tab: ConverterTab) -> MediaKind? {
-        switch tab {
+extension ConverterTab {
+    var mediaKind: ContentViewModel.MediaKind? {
+        switch self {
         case .video:
             return .video
         case .image:
@@ -13,7 +13,9 @@ extension ContentViewModel {
             return nil
         }
     }
+}
 
+extension ContentViewModel {
     func uniqueStandardizedURLs(_ urls: [URL]) -> [URL] {
         ContentViewModelSupport.uniqueStandardizedURLs(urls)
     }

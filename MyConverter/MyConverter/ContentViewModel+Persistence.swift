@@ -13,38 +13,52 @@ extension ContentViewModel {
         let action: @MainActor (ContentViewModel) -> Void
     }
 
+    func makeDeferredPersistenceDescriptor(
+        taskKeyPath: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>,
+        kind: MediaKind,
+        action: @escaping @MainActor (ContentViewModel) -> Void
+    ) -> DeferredPersistenceDescriptor {
+        DeferredPersistenceDescriptor(
+            taskKeyPath: taskKeyPath,
+            action: { viewModel in
+                action(viewModel)
+                viewModel.persistCurrentSourceSettingsIfNeeded(for: kind)
+            }
+        )
+    }
+
     func deferredPersistenceDescriptor(for action: DeferredPersistenceAction) -> DeferredPersistenceDescriptor {
         switch action {
         case .videoFormatChange:
-            return DeferredPersistenceDescriptor(
+            return makeDeferredPersistenceDescriptor(
                 taskKeyPath: \.taskState.pendingVideoFormatChangeTask,
+                kind: .video,
                 action: { viewModel in
                     viewModel.refreshVideoCodecOptions()
-                    viewModel.persistCurrentSourceSettingsIfNeeded(for: .video)
                 }
             )
         case .videoOptionNormalization:
-            return DeferredPersistenceDescriptor(
+            return makeDeferredPersistenceDescriptor(
                 taskKeyPath: \.taskState.pendingVideoOptionNormalizationTask,
+                kind: .video,
                 action: { viewModel in
                     viewModel.normalizeVideoOptionDependencies()
-                    viewModel.persistCurrentSourceSettingsIfNeeded(for: .video)
                 }
             )
         case .audioFormatChange:
-            return DeferredPersistenceDescriptor(
+            return makeDeferredPersistenceDescriptor(
                 taskKeyPath: \.taskState.pendingAudioFormatChangeTask,
+                kind: .audio,
                 action: { viewModel in
                     viewModel.refreshAudioCodecOptions()
-                    viewModel.persistCurrentSourceSettingsIfNeeded(for: .audio)
                 }
             )
         case .audioOptionNormalization:
-            return DeferredPersistenceDescriptor(
+            return makeDeferredPersistenceDescriptor(
                 taskKeyPath: \.taskState.pendingAudioOptionNormalizationTask,
+                kind: .audio,
                 action: { viewModel in
                     viewModel.normalizeAudioOptionDependencies()
-                    viewModel.persistCurrentSourceSettingsIfNeeded(for: .audio)
                 }
             )
         }
