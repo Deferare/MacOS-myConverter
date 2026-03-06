@@ -18,6 +18,137 @@ extension ContentViewModel {
         let runConversion: (URL, URL, OutputSettings, Int, Int) async throws -> URL
     }
 
+    struct ConversionExecutionDescriptor {
+        let execute: @MainActor (ContentViewModel) async -> Void
+    }
+
+    func conversionExecutionDescriptor(for kind: MediaKind) -> ConversionExecutionDescriptor {
+        switch kind {
+        case .video:
+            return ConversionExecutionDescriptor { viewModel in
+                await viewModel.performConversion(
+                    using: ConversionWorkflowDescriptor(
+                        kind: .video,
+                        canConvert: viewModel.canStartConversion(
+                            for: .video,
+                            validationMessage: viewModel.validationMessage(for: .video)
+                        ),
+                        missingSourceLog: "No file to convert.",
+                        fileExtension: viewModel.selectedOutputFormat.fileExtension,
+                        outputLabel: "Video",
+                        destinationErrorCode: -1001,
+                        skippedSummaryPrefix: "Some video files were skipped:",
+                        treatExportCancellationAsCancelled: true,
+                        errorLogPrefix: "Conversion failed",
+                        includeDebugInfo: true,
+                        buildOutputSettings: { try viewModel.buildVideoOutputSettings() },
+                        validate: { await viewModel.validateSourceOutputSettings(for: .video, sourceURL: $0) },
+                        makeWorkingOutputURL: { sourceURL in
+                            VideoConversionEngine.temporaryOutputURL(
+                                for: sourceURL,
+                                format: viewModel.selectedOutputFormat
+                            )
+                        },
+                        runConversion: { sourceURL, workingOutputURL, outputSettings, index, totalCount in
+                            try await VideoConversionEngine.convert(
+                                inputURL: sourceURL,
+                                outputURL: workingOutputURL,
+                                outputSettings: outputSettings,
+                                inputDurationSeconds: nil,
+                                onProgress: viewModel.batchProgressHandler(
+                                    for: .video,
+                                    index: index,
+                                    totalCount: totalCount
+                                )
+                            )
+                        }
+                    )
+                )
+            }
+        case .image:
+            return ConversionExecutionDescriptor { viewModel in
+                await viewModel.performConversion(
+                    using: ConversionWorkflowDescriptor(
+                        kind: .image,
+                        canConvert: viewModel.canStartConversion(
+                            for: .image,
+                            validationMessage: viewModel.validationMessage(for: .image)
+                        ),
+                        missingSourceLog: "No image file to convert.",
+                        fileExtension: viewModel.selectedImageOutputFormat.fileExtension,
+                        outputLabel: "Image",
+                        destinationErrorCode: -1002,
+                        skippedSummaryPrefix: "Some image files were skipped:",
+                        treatExportCancellationAsCancelled: false,
+                        errorLogPrefix: "Image conversion failed",
+                        includeDebugInfo: false,
+                        buildOutputSettings: { viewModel.buildImageOutputSettings() },
+                        validate: { await viewModel.validateSourceOutputSettings(for: .image, sourceURL: $0) },
+                        makeWorkingOutputURL: { sourceURL in
+                            ImageConversionEngine.temporaryOutputURL(
+                                for: sourceURL,
+                                format: viewModel.selectedImageOutputFormat
+                            )
+                        },
+                        runConversion: { sourceURL, workingOutputURL, outputSettings, index, totalCount in
+                            try await ImageConversionEngine.convert(
+                                inputURL: sourceURL,
+                                outputURL: workingOutputURL,
+                                outputSettings: outputSettings,
+                                onProgress: viewModel.batchProgressHandler(
+                                    for: .image,
+                                    index: index,
+                                    totalCount: totalCount
+                                )
+                            )
+                        }
+                    )
+                )
+            }
+        case .audio:
+            return ConversionExecutionDescriptor { viewModel in
+                await viewModel.performConversion(
+                    using: ConversionWorkflowDescriptor(
+                        kind: .audio,
+                        canConvert: viewModel.canStartConversion(
+                            for: .audio,
+                            validationMessage: viewModel.validationMessage(for: .audio)
+                        ),
+                        missingSourceLog: "No audio file to convert.",
+                        fileExtension: viewModel.selectedAudioOutputFormat.fileExtension,
+                        outputLabel: "Audio",
+                        destinationErrorCode: -1003,
+                        skippedSummaryPrefix: "Some audio files were skipped:",
+                        treatExportCancellationAsCancelled: true,
+                        errorLogPrefix: "Audio conversion failed",
+                        includeDebugInfo: false,
+                        buildOutputSettings: { viewModel.buildAudioOutputSettings() },
+                        validate: { await viewModel.validateSourceOutputSettings(for: .audio, sourceURL: $0) },
+                        makeWorkingOutputURL: { sourceURL in
+                            VideoConversionEngine.temporaryOutputURL(
+                                for: sourceURL,
+                                format: viewModel.selectedAudioOutputFormat
+                            )
+                        },
+                        runConversion: { sourceURL, workingOutputURL, outputSettings, index, totalCount in
+                            try await VideoConversionEngine.convertAudio(
+                                inputURL: sourceURL,
+                                outputURL: workingOutputURL,
+                                outputSettings: outputSettings,
+                                inputDurationSeconds: nil,
+                                onProgress: viewModel.batchProgressHandler(
+                                    for: .audio,
+                                    index: index,
+                                    totalCount: totalCount
+                                )
+                            )
+                        }
+                    )
+                )
+            }
+        }
+    }
+
     func performConversion<OutputSettings>(
         using workflow: ConversionWorkflowDescriptor<OutputSettings>
     ) async {

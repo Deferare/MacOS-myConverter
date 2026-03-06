@@ -12,14 +12,7 @@ extension ContentViewModel {
     }
 
     func runConversion(for kind: MediaKind) async {
-        switch kind {
-        case .video:
-            await convertVideo()
-        case .image:
-            await convertImage()
-        case .audio:
-            await convertAudio()
-        }
+        await conversionExecutionDescriptor(for: kind).execute(self)
     }
 
     func launchConversionTask(
