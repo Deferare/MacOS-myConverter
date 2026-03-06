@@ -1,43 +1,5 @@
 import SwiftUI
 
-struct ImageConverterInputSectionView: View {
-    @ObservedObject var viewModel: ContentViewModel
-    let isDropTargeted: Bool
-    @Binding var draggedSelectedFileURL: URL?
-    let fileDropAreaHeight: CGFloat
-
-    private let fileSelectionAnimation: Animation = .easeOut(duration: 0.22)
-
-    var body: some View {
-        let selectedURLs = viewModel.selectedSourceURLs(for: .image)
-
-        ConverterInputArea(
-            isDropTargeted: isDropTargeted,
-            selectedURLs: selectedURLs,
-            outputURLs: viewModel.convertedImageURLs,
-            isConverting: viewModel.isImageConverting,
-            currentBatchIndex: viewModel.currentImageBatchIndex,
-            systemImage: "photo.fill",
-            dropPlaceholder: "Drop Files Here",
-            fileDropAreaHeight: fileDropAreaHeight,
-            draggedSelectedFileURL: $draggedSelectedFileURL,
-            onImport: {
-                viewModel.requestFileImport()
-            },
-            onClear: {
-                withAnimation(fileSelectionAnimation) {
-                    viewModel.clearSelectedSource(for: .image)
-                }
-            },
-            onReorder: { draggedURL, targetURL in
-                viewModel.moveSelectedSource(from: draggedURL, to: targetURL, for: .image)
-            }
-        )
-        .animation(fileSelectionAnimation, value: selectedURLs.count)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isDropTargeted)
-    }
-}
-
 struct ImageConverterFormSectionView: View {
     @ObservedObject var viewModel: ContentViewModel
 
@@ -88,32 +50,5 @@ struct ImageConverterFormSectionView: View {
                     .foregroundStyle(.secondary)
             }
         }
-    }
-}
-
-struct ImageConversionControlsView: View {
-    @ObservedObject var viewModel: ContentViewModel
-
-    var body: some View {
-        let validationMessage = viewModel.validationMessage(for: .image)
-        let hintMessage = viewModel.hintMessage(for: .image)
-        let status = viewModel.conversionStatus(
-            for: .image,
-            validationMessage: validationMessage,
-            hintMessage: hintMessage
-        )
-        let progress = viewModel.displayedProgress(for: .image)
-
-        ConversionControlBar(
-            statusMessage: status.message,
-            statusColor: status.level.color,
-            progress: progress,
-            progressText: viewModel.progressPercentageText(for: .image),
-            progressTint: progress > 0 ? .accentColor : .clear,
-            isConverting: viewModel.isImageConverting,
-            canConvert: viewModel.canStartConversion(for: .image, validationMessage: validationMessage),
-            onStart: { viewModel.startConversion(for: .image) },
-            onCancel: { viewModel.cancelConversion(for: .image) }
-        )
     }
 }

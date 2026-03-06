@@ -5,6 +5,35 @@ extension ContentViewModel {
         case video
         case image
         case audio
+
+        var converterTitle: String {
+            switch self {
+            case .video:
+                return "Convert Video"
+            case .image:
+                return "Convert Image"
+            case .audio:
+                return "Convert Audio"
+            }
+        }
+
+        var inputSystemImage: String {
+            switch self {
+            case .video:
+                return "film.fill"
+            case .image:
+                return "photo.fill"
+            case .audio:
+                return "waveform"
+            }
+        }
+    }
+
+    struct SelectedFileListState {
+        let selectedURLs: [URL]
+        let outputURLs: [URL]
+        let isConverting: Bool
+        let currentBatchIndex: Int
     }
 
     struct MediaStateDescriptor {
@@ -108,6 +137,17 @@ extension ContentViewModel {
         return displayedProgress(
             isConverting: self[keyPath: descriptor.isConverting],
             rawProgress: self[keyPath: descriptor.progress]
+        )
+    }
+
+    func selectedFileListState(for kind: MediaKind) -> SelectedFileListState {
+        let descriptor = mediaStateDescriptor(for: kind)
+
+        return SelectedFileListState(
+            selectedURLs: selectedSourceURLs(for: kind),
+            outputURLs: self[keyPath: descriptor.convertedURLs],
+            isConverting: self[keyPath: descriptor.isConverting],
+            currentBatchIndex: self[keyPath: descriptor.currentBatchIndex]
         )
     }
 

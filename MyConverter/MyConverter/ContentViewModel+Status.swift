@@ -1,6 +1,15 @@
 import Foundation
 
 extension ContentViewModel {
+    struct ConversionControlState {
+        let statusMessage: String
+        let statusLevel: ConversionStatusLevel
+        let progress: Double
+        let progressText: String
+        let isConverting: Bool
+        let canConvert: Bool
+    }
+
     func conversionStatus(
         for kind: MediaKind,
         validationMessage: String?,
@@ -60,6 +69,27 @@ extension ContentViewModel {
 
     func progressPercentageText(for kind: MediaKind) -> String {
         progressPercentageText(for: displayedProgress(for: kind))
+    }
+
+    func conversionControlState(for kind: MediaKind) -> ConversionControlState {
+        let descriptor = mediaStateDescriptor(for: kind)
+        let validationMessage = validationMessage(for: kind)
+        let hintMessage = hintMessage(for: kind)
+        let status = conversionStatus(
+            for: kind,
+            validationMessage: validationMessage,
+            hintMessage: hintMessage
+        )
+        let progress = displayedProgress(for: kind)
+
+        return ConversionControlState(
+            statusMessage: status.message,
+            statusLevel: status.level,
+            progress: progress,
+            progressText: progressPercentageText(for: progress),
+            isConverting: self[keyPath: descriptor.isConverting],
+            canConvert: canStartConversion(for: kind, validationMessage: validationMessage)
+        )
     }
 
     func buildConversionStatus(

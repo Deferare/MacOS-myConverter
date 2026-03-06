@@ -1,43 +1,5 @@
 import SwiftUI
 
-struct VideoConverterInputSectionView: View {
-    @ObservedObject var viewModel: ContentViewModel
-    let isDropTargeted: Bool
-    @Binding var draggedSelectedFileURL: URL?
-    let fileDropAreaHeight: CGFloat
-
-    private let fileSelectionAnimation: Animation = .easeOut(duration: 0.22)
-
-    var body: some View {
-        let selectedURLs = viewModel.selectedSourceURLs(for: .video)
-
-        ConverterInputArea(
-            isDropTargeted: isDropTargeted,
-            selectedURLs: selectedURLs,
-            outputURLs: viewModel.convertedURLs,
-            isConverting: viewModel.isConverting,
-            currentBatchIndex: viewModel.currentVideoBatchIndex,
-            systemImage: "film.fill",
-            dropPlaceholder: "Drop Files Here",
-            fileDropAreaHeight: fileDropAreaHeight,
-            draggedSelectedFileURL: $draggedSelectedFileURL,
-            onImport: {
-                viewModel.requestFileImport()
-            },
-            onClear: {
-                withAnimation(fileSelectionAnimation) {
-                    viewModel.clearSelectedSource(for: .video)
-                }
-            },
-            onReorder: { draggedURL, targetURL in
-                viewModel.moveSelectedSource(from: draggedURL, to: targetURL, for: .video)
-            }
-        )
-        .animation(fileSelectionAnimation, value: selectedURLs.count)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isDropTargeted)
-    }
-}
-
 struct VideoConverterFormSectionView: View {
     @ObservedObject var viewModel: ContentViewModel
 
@@ -118,27 +80,5 @@ struct VideoConverterFormSectionView: View {
                 )
             }
         }
-    }
-}
-
-struct VideoConversionControlsView: View {
-    @ObservedObject var viewModel: ContentViewModel
-
-    var body: some View {
-        let validationMessage = viewModel.validationMessage(for: .video)
-        let status = viewModel.conversionStatus(for: .video, validationMessage: validationMessage)
-        let progress = viewModel.displayedProgress(for: .video)
-
-        ConversionControlBar(
-            statusMessage: status.message,
-            statusColor: status.level.color,
-            progress: progress,
-            progressText: viewModel.progressPercentageText(for: .video),
-            progressTint: progress > 0 ? .accentColor : .clear,
-            isConverting: viewModel.isConverting,
-            canConvert: viewModel.canStartConversion(for: .video, validationMessage: validationMessage),
-            onStart: { viewModel.startConversion(for: .video) },
-            onCancel: { viewModel.cancelConversion(for: .video) }
-        )
     }
 }

@@ -7,26 +7,14 @@ struct ImageConverterDetailView: View {
     let fileDropAreaHeight: CGFloat
 
     var body: some View {
-        ConverterDetailContainer(
-            title: "Convert Image",
+        MediaConverterDetailView(
+            viewModel: viewModel,
+            kind: .image,
             isDropTargeted: $isDropTargeted,
-            onDrop: { providers in
-                viewModel.handleDrop(providers: providers, for: .image)
-            },
-            inputArea: {
-                ImageConverterInputSectionView(
-                    viewModel: viewModel,
-                    isDropTargeted: isDropTargeted,
-                    draggedSelectedFileURL: $draggedSelectedFileURL,
-                    fileDropAreaHeight: fileDropAreaHeight
-                )
-            },
-            formSections: {
-                ImageConverterFormSectionView(viewModel: viewModel)
-            },
-            controls: {
-                ImageConversionControlsView(viewModel: viewModel)
-            }
-        )
+            draggedSelectedFileURL: $draggedSelectedFileURL,
+            fileDropAreaHeight: fileDropAreaHeight
+        ) {
+            ImageConverterFormSectionView(viewModel: viewModel)
+        }
     }
 }

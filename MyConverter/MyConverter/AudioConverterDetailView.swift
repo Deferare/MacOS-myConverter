@@ -7,26 +7,14 @@ struct AudioConverterDetailView: View {
     let fileDropAreaHeight: CGFloat
 
     var body: some View {
-        ConverterDetailContainer(
-            title: "Convert Audio",
+        MediaConverterDetailView(
+            viewModel: viewModel,
+            kind: .audio,
             isDropTargeted: $isDropTargeted,
-            onDrop: { providers in
-                viewModel.handleDrop(providers: providers, for: .audio)
-            },
-            inputArea: {
-                AudioConverterInputSectionView(
-                    viewModel: viewModel,
-                    isDropTargeted: isDropTargeted,
-                    draggedSelectedFileURL: $draggedSelectedFileURL,
-                    fileDropAreaHeight: fileDropAreaHeight
-                )
-            },
-            formSections: {
-                AudioConverterFormSectionView(viewModel: viewModel)
-            },
-            controls: {
-                AudioConversionControlsView(viewModel: viewModel)
-            }
-        )
+            draggedSelectedFileURL: $draggedSelectedFileURL,
+            fileDropAreaHeight: fileDropAreaHeight
+        ) {
+            AudioConverterFormSectionView(viewModel: viewModel)
+        }
     }
 }

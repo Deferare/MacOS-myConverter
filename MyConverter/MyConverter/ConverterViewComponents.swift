@@ -110,3 +110,113 @@ struct ConverterFormSections<SettingsContent: View>: View {
         .disabled(isConverting)
     }
 }
+
+struct MediaConverterInputSectionView: View {
+    @ObservedObject var viewModel: ContentViewModel
+    let kind: ContentViewModel.MediaKind
+    let isDropTargeted: Bool
+    @Binding var draggedSelectedFileURL: URL?
+    let fileDropAreaHeight: CGFloat
+
+    private let fileSelectionAnimation: Animation = .easeOut(duration: 0.22)
+
+    var body: some View {
+        let state = viewModel.selectedFileListState(for: kind)
+
+        ConverterInputArea(
+            isDropTargeted: isDropTargeted,
+            selectedURLs: state.selectedURLs,
+            outputURLs: state.outputURLs,
+            isConverting: state.isConverting,
+            currentBatchIndex: state.currentBatchIndex,
+            systemImage: kind.inputSystemImage,
+            dropPlaceholder: "Drop Files Here",
+            fileDropAreaHeight: fileDropAreaHeight,
+            draggedSelectedFileURL: $draggedSelectedFileURL,
+            onImport: {
+                viewModel.requestFileImport()
+            },
+            onClear: {
+                withAnimation(fileSelectionAnimation) {
+                    viewModel.clearSelectedSource(for: kind)
+                }
+            },
+            onReorder: { draggedURL, targetURL in
+                viewModel.moveSelectedSource(from: draggedURL, to: targetURL, for: kind)
+            }
+        )
+        .animation(fileSelectionAnimation, value: state.selectedURLs.count)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isDropTargeted)
+    }
+}
+
+struct MediaConversionControlsView: View {
+    @ObservedObject var viewModel: ContentViewModel
+    let kind: ContentViewModel.MediaKind
+
+    var body: some View {
+        let state = viewModel.conversionControlState(for: kind)
+
+        ConversionControlBar(
+            statusMessage: state.statusMessage,
+            statusColor: state.statusLevel.color,
+            progress: state.progress,
+            progressText: state.progressText,
+            progressTint: state.progress > 0 ? .accentColor : .clear,
+            isConverting: state.isConverting,
+            canConvert: state.canConvert,
+            onStart: { viewModel.startConversion(for: kind) },
+            onCancel: { viewModel.cancelConversion(for: kind) }
+        )
+    }
+}
+
+struct MediaConverterDetailView<FormSections: View>: View {
+    @ObservedObject var viewModel: ContentViewModel
+    let kind: ContentViewModel.MediaKind
+    @Binding var isDropTargeted: Bool
+    @Binding var draggedSelectedFileURL: URL?
+    let fileDropAreaHeight: CGFloat
+    let formSections: FormSections
+
+    init(
+        viewModel: ContentViewModel,
+        kind: ContentViewModel.MediaKind,
+        isDropTargeted: Binding<Bool>,
+        draggedSelectedFileURL: Binding<URL?>,
+        fileDropAreaHeight: CGFloat,
+        @ViewBuilder formSections: () -> FormSections
+    ) {
+        self.viewModel = viewModel
+        self.kind = kind
+        _isDropTargeted = isDropTargeted
+        _draggedSelectedFileURL = draggedSelectedFileURL
+        self.fileDropAreaHeight = fileDropAreaHeight
+        self.formSections = formSections()
+    }
+
+    var body: some View {
+        ConverterDetailContainer(
+            title: kind.converterTitle,
+            isDropTargeted: $isDropTargeted,
+            onDrop: { providers in
+                viewModel.handleDrop(providers: providers, for: kind)
+            },
+            inputArea: {
+                MediaConverterInputSectionView(
+                    viewModel: viewModel,
+                    kind: kind,
+                    isDropTargeted: isDropTargeted,
+                    draggedSelectedFileURL: $draggedSelectedFileURL,
+                    fileDropAreaHeight: fileDropAreaHeight
+                )
+            },
+            formSections: {
+                formSections
+            },
+            controls: {
+                MediaConversionControlsView(viewModel: viewModel, kind: kind)
+            }
+        )
+    }
+}
