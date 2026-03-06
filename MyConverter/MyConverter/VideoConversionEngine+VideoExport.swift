@@ -152,16 +152,31 @@ extension VideoConversionEngine {
             return await awaitCompatibleExportPresets(inFlight)
         }
 
-        var presets: [String] = []
-        for preset in preferredPresets {
-            let isCompatible = await AVAssetExportSession.compatibility(
-                ofExportPreset: preset,
-                with: asset,
-                outputFileType: outputFileType
-            )
-            if isCompatible {
-                presets.append(preset)
+        let presets = await withTaskGroup(
+            of: (Int, String)?.self,
+            returning: [String].self
+        ) { group in
+            for (index, preset) in preferredPresets.enumerated() {
+                group.addTask {
+                    let isCompatible = await AVAssetExportSession.compatibility(
+                        ofExportPreset: preset,
+                        with: asset,
+                        outputFileType: outputFileType
+                    )
+                    guard isCompatible else { return nil }
+                    return (index, preset)
+                }
             }
+
+            var compatible: [(Int, String)] = []
+            for await result in group {
+                guard let result else { continue }
+                compatible.append(result)
+            }
+
+            return compatible
+                .sorted { $0.0 < $1.0 }
+                .map(\.1)
         }
 
         var continuations: [CheckedContinuation<[String], Never>] = []
