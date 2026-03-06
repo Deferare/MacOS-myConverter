@@ -21,9 +21,9 @@ struct AudioFormatOption: Identifiable, Hashable, Sendable {
         hasher.combine(normalizedID)
     }
 
-    nonisolated static var ffmpegKnownFormats: [AudioFormatOption] {
+    nonisolated static let ffmpegKnownFormats: [AudioFormatOption] = {
         AudioFormatCatalog.ffmpegOnlyProfiles.map { $0.asOption }
-    }
+    }()
 
     nonisolated static func fromFFmpegExtension(_ fileExtension: String, muxer: String) -> AudioFormatOption {
         let normalizedExtension = FormatOptionUtilities.normalizedFileExtension(fileExtension)

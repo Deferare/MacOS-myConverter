@@ -29,7 +29,7 @@ struct DonationSupportSection: View {
             .buttonStyle(.bordered)
         } else {
             HStack(spacing: 12) {
-                ForEach(donationStore.products.sorted(by: { $0.price < $1.price }), id: \.id) { product in
+                ForEach(donationStore.products, id: \.id) { product in
                     Button {
                         Task {
                             await donationStore.purchase(product)

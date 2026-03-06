@@ -34,13 +34,13 @@ struct VideoFormatOption: Identifiable, Hashable, Sendable {
         hasher.combine(normalizedID)
     }
 
-    nonisolated static var avFoundationDefaultFormats: [VideoFormatOption] {
+    nonisolated static let avFoundationDefaultFormats: [VideoFormatOption] = {
         VideoFormatCatalog.avFoundationProfiles.map { $0.asOption }
-    }
+    }()
 
-    nonisolated static var ffmpegKnownFormats: [VideoFormatOption] {
+    nonisolated static let ffmpegKnownFormats: [VideoFormatOption] = {
         VideoFormatCatalog.ffmpegOnlyProfiles.map { $0.asOption }
-    }
+    }()
 
     nonisolated static func fromFFmpegExtension(_ fileExtension: String, muxer: String) -> VideoFormatOption {
         let normalizedExtension = FormatOptionUtilities.normalizedFileExtension(fileExtension)

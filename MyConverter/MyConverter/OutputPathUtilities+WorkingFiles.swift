@@ -1,6 +1,10 @@
 import Foundation
 
 extension OutputPathUtilities {
+    nonisolated private static let cachedWorkingDirectoryURL: URL = {
+        resolveWorkingDirectoryURL()
+    }()
+
     nonisolated static func stageInputURL(for sourceURL: URL) throws -> URL {
         let fileManager = FileManager.default
         let stagingDirectory = workingDirectoryURL().appendingPathComponent("FFmpegInput", isDirectory: true)
@@ -78,6 +82,14 @@ extension OutputPathUtilities {
     }
 
     nonisolated static func workingDirectoryURL() -> URL {
+        let cached = cachedWorkingDirectoryURL
+        if ensureDirectoryExists(cached) {
+            return cached
+        }
+        return resolveWorkingDirectoryURL()
+    }
+
+    nonisolated private static func resolveWorkingDirectoryURL() -> URL {
         let fileManager = FileManager.default
 
         if let appSupportDirectory = try? fileManager.url(

@@ -38,7 +38,10 @@ final class DonationStore: ObservableObject {
             let idOrder = Dictionary(uniqueKeysWithValues: Self.productIDs.enumerated().map { ($1, $0) })
 
             products = fetchedProducts.sorted { lhs, rhs in
-                (idOrder[lhs.id] ?? .max) < (idOrder[rhs.id] ?? .max)
+                if lhs.price != rhs.price {
+                    return lhs.price < rhs.price
+                }
+                return (idOrder[lhs.id] ?? .max) < (idOrder[rhs.id] ?? .max)
             }
             hasLoadedProducts = true
             statusMessage = products.isEmpty ? "후원 상품을 찾지 못했습니다. App Store Connect 상품 ID를 확인해주세요." : nil

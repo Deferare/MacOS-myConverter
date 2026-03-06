@@ -121,7 +121,7 @@ struct ImageFormatOption: Identifiable, Hashable, Sendable {
         return ImageFormatCatalog.byFileExtension[normalizedExtension] != nil
     }
 
-    nonisolated static var ffmpegKnownFormats: [ImageFormatOption] {
+    nonisolated static let ffmpegKnownFormats: [ImageFormatOption] = {
         ImageFormatCatalog.ffmpegOnlyProfiles.map { profile in
             ImageFormatOption(
                 id: profile.id,
@@ -137,7 +137,7 @@ struct ImageFormatOption: Identifiable, Hashable, Sendable {
                 allowsFFmpegAutomaticCodec: profile.allowsFFmpegAutomaticCodec
             )
         }
-    }
+    }()
 
     nonisolated static func deduplicatedAndSorted(_ formats: [ImageFormatOption]) -> [ImageFormatOption] {
         FormatOptionUtilities.deduplicatedAndSorted(
