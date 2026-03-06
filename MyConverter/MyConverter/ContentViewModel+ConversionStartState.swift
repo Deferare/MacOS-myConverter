@@ -2,32 +2,14 @@ import Foundation
 
 extension ContentViewModel {
     func prepareConversionStartState() {
-        prepareBatchStartState(
-            runningKeyPath: \.isConverting,
-            primaryOutputKeyPath: \.convertedURL,
-            outputsKeyPath: \.convertedURLs,
-            errorMessageKeyPath: \.conversionErrorMessage,
-            progressKeyPath: \.conversionProgress
-        )
+        prepareConversionStartState(for: .video)
     }
 
     func prepareImageConversionStartState() {
-        prepareBatchStartState(
-            runningKeyPath: \.isImageConverting,
-            primaryOutputKeyPath: \.convertedImageURL,
-            outputsKeyPath: \.convertedImageURLs,
-            errorMessageKeyPath: \.imageConversionErrorMessage,
-            progressKeyPath: \.imageConversionProgress
-        )
+        prepareConversionStartState(for: .image)
     }
 
     func prepareAudioConversionStartState() {
-        prepareBatchStartState(
-            runningKeyPath: \.isAudioConverting,
-            primaryOutputKeyPath: \.convertedAudioURL,
-            outputsKeyPath: \.convertedAudioURLs,
-            errorMessageKeyPath: \.audioConversionErrorMessage,
-            progressKeyPath: \.audioConversionProgress
-        )
+        prepareConversionStartState(for: .audio)
     }
 }

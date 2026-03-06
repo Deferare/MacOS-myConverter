@@ -5,20 +5,13 @@ extension ContentViewModel {
         defer { imageConversionTask = nil }
 
         await performMediaBatchConversion(
+            for: .image,
             canConvert: canConvertImage,
-            primarySourceURL: imageSourceURL,
-            queuedSourceURLs: queuedImageSourceURLs,
             missingSourceLog: "No image file to convert.",
             fileExtension: selectedImageOutputFormat.fileExtension,
             outputLabel: "Image",
             destinationErrorCode: -1002,
-            runningKeyPath: \.isImageConverting,
-            progressKeyPath: \.imageConversionProgress,
-            errorMessageKeyPath: \.imageConversionErrorMessage,
-            currentBatchIndexKeyPath: \.currentImageBatchIndex,
-            totalBatchCountKeyPath: \.totalImageBatchCount,
             skippedSummaryPrefix: "Some image files were skipped:",
-            startState: { self.prepareImageConversionStartState() },
             buildOutputSettings: { self.buildImageOutputSettings() },
             validate: { await self.validateImageOutputSettings(for: $0) },
             makeWorkingOutputURL: { sourceURL in
@@ -40,14 +33,6 @@ extension ContentViewModel {
                     )
                 }
             },
-            onSavedOutput: { savedURL in
-                self.appendConvertedOutput(
-                    savedURL,
-                    primaryOutputKeyPath: \.convertedImageURL,
-                    outputsKeyPath: \.convertedImageURLs
-                )
-            },
-            onSourceProcessed: { _ in },
             onError: applyImageConversionError(_:)
         )
     }

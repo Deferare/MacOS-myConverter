@@ -5,21 +5,14 @@ extension ContentViewModel {
         defer { conversionTask = nil }
 
         await performMediaBatchConversion(
+            for: .video,
             canConvert: canConvert,
-            primarySourceURL: sourceURL,
-            queuedSourceURLs: queuedSourceURLs,
             missingSourceLog: "No file to convert.",
             fileExtension: selectedOutputFormat.fileExtension,
             outputLabel: "Video",
             destinationErrorCode: -1001,
-            runningKeyPath: \.isConverting,
-            progressKeyPath: \.conversionProgress,
-            errorMessageKeyPath: \.conversionErrorMessage,
-            currentBatchIndexKeyPath: \.currentVideoBatchIndex,
-            totalBatchCountKeyPath: \.totalVideoBatchCount,
             skippedSummaryPrefix: "Some video files were skipped:",
             treatExportCancellationAsCancelled: true,
-            startState: { self.prepareConversionStartState() },
             buildOutputSettings: { try self.buildVideoOutputSettings() },
             validate: { await self.validateVideoOutputSettings(for: $0) },
             makeWorkingOutputURL: { sourceURL in
@@ -42,14 +35,6 @@ extension ContentViewModel {
                     )
                 }
             },
-            onSavedOutput: { savedURL in
-                self.appendConvertedOutput(
-                    savedURL,
-                    primaryOutputKeyPath: \.convertedURL,
-                    outputsKeyPath: \.convertedURLs
-                )
-            },
-            onSourceProcessed: { _ in },
             onError: applyConversionError(_:)
         )
     }

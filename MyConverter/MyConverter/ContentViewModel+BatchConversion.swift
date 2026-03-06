@@ -2,6 +2,51 @@ import Foundation
 
 extension ContentViewModel {
     func performMediaBatchConversion<OutputSettings>(
+        for kind: MediaKind,
+        canConvert: Bool,
+        missingSourceLog: String,
+        fileExtension: String,
+        outputLabel: String,
+        destinationErrorCode: Int,
+        skippedSummaryPrefix: String,
+        treatExportCancellationAsCancelled: Bool = false,
+        buildOutputSettings: () throws -> OutputSettings,
+        validate: @escaping (URL) async -> String?,
+        makeWorkingOutputURL: @escaping (URL) -> URL,
+        runConversion: @escaping (URL, URL, OutputSettings, Int, Int) async throws -> URL,
+        onError: (Error) -> Void
+    ) async {
+        let descriptor = mediaStateDescriptor(for: kind)
+
+        await performMediaBatchConversion(
+            canConvert: canConvert,
+            primarySourceURL: self[keyPath: descriptor.sourceURL],
+            queuedSourceURLs: self[keyPath: descriptor.queuedSourceURLs],
+            missingSourceLog: missingSourceLog,
+            fileExtension: fileExtension,
+            outputLabel: outputLabel,
+            destinationErrorCode: destinationErrorCode,
+            runningKeyPath: descriptor.isConverting,
+            progressKeyPath: descriptor.progress,
+            errorMessageKeyPath: descriptor.conversionErrorMessage,
+            currentBatchIndexKeyPath: descriptor.currentBatchIndex,
+            totalBatchCountKeyPath: descriptor.totalBatchCount,
+            skippedSummaryPrefix: skippedSummaryPrefix,
+            treatExportCancellationAsCancelled: treatExportCancellationAsCancelled,
+            startState: { self.prepareConversionStartState(for: kind) },
+            buildOutputSettings: buildOutputSettings,
+            validate: validate,
+            makeWorkingOutputURL: makeWorkingOutputURL,
+            runConversion: runConversion,
+            onSavedOutput: { savedURL in
+                self.appendConvertedOutput(savedURL, for: kind)
+            },
+            onSourceProcessed: { _ in },
+            onError: onError
+        )
+    }
+
+    func performMediaBatchConversion<OutputSettings>(
         canConvert: Bool,
         primarySourceURL: URL?,
         queuedSourceURLs: [URL],

@@ -5,21 +5,14 @@ extension ContentViewModel {
         defer { audioConversionTask = nil }
 
         await performMediaBatchConversion(
+            for: .audio,
             canConvert: canConvertAudio,
-            primarySourceURL: audioSourceURL,
-            queuedSourceURLs: queuedAudioSourceURLs,
             missingSourceLog: "No audio file to convert.",
             fileExtension: selectedAudioOutputFormat.fileExtension,
             outputLabel: "Audio",
             destinationErrorCode: -1003,
-            runningKeyPath: \.isAudioConverting,
-            progressKeyPath: \.audioConversionProgress,
-            errorMessageKeyPath: \.audioConversionErrorMessage,
-            currentBatchIndexKeyPath: \.currentAudioBatchIndex,
-            totalBatchCountKeyPath: \.totalAudioBatchCount,
             skippedSummaryPrefix: "Some audio files were skipped:",
             treatExportCancellationAsCancelled: true,
-            startState: { self.prepareAudioConversionStartState() },
             buildOutputSettings: { self.buildAudioOutputSettings() },
             validate: { await self.validateAudioOutputSettings(for: $0) },
             makeWorkingOutputURL: { sourceURL in
@@ -42,14 +35,6 @@ extension ContentViewModel {
                     )
                 }
             },
-            onSavedOutput: { savedURL in
-                self.appendConvertedOutput(
-                    savedURL,
-                    primaryOutputKeyPath: \.convertedAudioURL,
-                    outputsKeyPath: \.convertedAudioURLs
-                )
-            },
-            onSourceProcessed: { _ in },
             onError: applyAudioConversionError(_:)
         )
     }
