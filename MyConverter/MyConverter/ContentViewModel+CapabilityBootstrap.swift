@@ -2,9 +2,9 @@ import Foundation
 
 extension ContentViewModel {
     struct WarmedDefaultCapabilities: Sendable {
-        let videoFormats: [VideoFormatOption]
-        let imageFormats: [ImageFormatOption]
-        let audioFormats: [AudioFormatOption]
+        var videoFormats: [VideoFormatOption] = []
+        var imageFormats: [ImageFormatOption] = []
+        var audioFormats: [AudioFormatOption] = []
     }
 
     enum CapabilityWarmupResult: Sendable {
@@ -14,8 +14,80 @@ extension ContentViewModel {
         case warmed
     }
 
+    struct CapabilityBootstrapDescriptor {
+        let applyPlaceholder: (ContentViewModel) -> Void
+        let applyWarmedIfIdle: (ContentViewModel, WarmedDefaultCapabilities) -> Void
+    }
+
+    func capabilityBootstrapDescriptor(for kind: MediaKind) -> CapabilityBootstrapDescriptor {
+        switch kind {
+        case .video:
+            return CapabilityBootstrapDescriptor(
+                applyPlaceholder: { viewModel in
+                    viewModel.applyAvailableOutputFormats(
+                        ContentViewModelSupport.placeholderVideoFormats(),
+                        using: viewModel.videoOutputFormatDescriptor()
+                    )
+                    viewModel.availableVideoEncoders = ContentViewModelSupport.placeholderVideoEncoders(
+                        for: viewModel.selectedOutputFormat
+                    )
+                    viewModel.availableAudioEncoders = ContentViewModelSupport.placeholderVideoAudioEncoders(
+                        for: viewModel.selectedOutputFormat
+                    )
+                    viewModel.normalizeVideoOptionDependencies()
+                },
+                applyWarmedIfIdle: { viewModel, warmed in
+                    viewModel.applyWarmedOutputFormatsIfIdle(
+                        warmed.videoFormats,
+                        for: .video,
+                        formatDescriptor: viewModel.videoOutputFormatDescriptor(),
+                        postApply: viewModel.refreshVideoCodecOptions
+                    )
+                }
+            )
+        case .image:
+            return CapabilityBootstrapDescriptor(
+                applyPlaceholder: { viewModel in
+                    viewModel.applyAvailableOutputFormats(
+                        ContentViewModelSupport.placeholderImageFormats(),
+                        using: viewModel.imageOutputFormatDescriptor()
+                    )
+                },
+                applyWarmedIfIdle: { viewModel, warmed in
+                    viewModel.applyWarmedOutputFormatsIfIdle(
+                        warmed.imageFormats,
+                        for: .image,
+                        formatDescriptor: viewModel.imageOutputFormatDescriptor()
+                    )
+                }
+            )
+        case .audio:
+            return CapabilityBootstrapDescriptor(
+                applyPlaceholder: { viewModel in
+                    viewModel.applyAvailableOutputFormats(
+                        ContentViewModelSupport.placeholderAudioFormats(),
+                        using: viewModel.audioOutputFormatDescriptor()
+                    )
+                    viewModel.availableAudioOutputEncoders =
+                        ContentViewModelSupport.placeholderAudioOutputEncoders(
+                            for: viewModel.selectedAudioOutputFormat
+                        )
+                    viewModel.normalizeAudioOptionDependencies()
+                },
+                applyWarmedIfIdle: { viewModel, warmed in
+                    viewModel.applyWarmedOutputFormatsIfIdle(
+                        warmed.audioFormats,
+                        for: .audio,
+                        formatDescriptor: viewModel.audioOutputFormatDescriptor(),
+                        postApply: viewModel.refreshAudioCodecOptions
+                    )
+                }
+            )
+        }
+    }
+
     func applyPlaceholderCapabilityState() {
-        [.video, .image, .audio].forEach { mediaStateDescriptor(for: $0).applyPlaceholderCapabilities(self) }
+        MediaKind.allCases.forEach { applyPlaceholderCapabilities(for: $0) }
     }
 
     func applyAvailableOutputFormats<Format>(
@@ -43,32 +115,8 @@ extension ContentViewModel {
         applyAvailableOutputFormats(warmedFormats, using: formatDescriptor, postApply: postApply)
     }
 
-    func applyPlaceholderVideoCapabilities() {
-        applyAvailableOutputFormats(
-            ContentViewModelSupport.placeholderVideoFormats(),
-            using: videoOutputFormatDescriptor()
-        )
-        availableVideoEncoders = ContentViewModelSupport.placeholderVideoEncoders(for: selectedOutputFormat)
-        availableAudioEncoders = ContentViewModelSupport.placeholderVideoAudioEncoders(for: selectedOutputFormat)
-        normalizeVideoOptionDependencies()
-    }
-
-    func applyPlaceholderImageCapabilities() {
-        applyAvailableOutputFormats(
-            ContentViewModelSupport.placeholderImageFormats(),
-            using: imageOutputFormatDescriptor()
-        )
-    }
-
-    func applyPlaceholderAudioCapabilities() {
-        applyAvailableOutputFormats(
-            ContentViewModelSupport.placeholderAudioFormats(),
-            using: audioOutputFormatDescriptor()
-        )
-        availableAudioOutputEncoders = ContentViewModelSupport.placeholderAudioOutputEncoders(
-            for: selectedAudioOutputFormat
-        )
-        normalizeAudioOptionDependencies()
+    func applyPlaceholderCapabilities(for kind: MediaKind) {
+        capabilityBootstrapDescriptor(for: kind).applyPlaceholder(self)
     }
 
     func scheduleCapabilityBootstrap() {
@@ -110,28 +158,7 @@ extension ContentViewModel {
                     }
 
                     for await result in group {
-                        switch result {
-                        case .videoFormats(let videoFormats):
-                            warmed = WarmedDefaultCapabilities(
-                                videoFormats: videoFormats,
-                                imageFormats: warmed.imageFormats,
-                                audioFormats: warmed.audioFormats
-                            )
-                        case .imageFormats(let imageFormats):
-                            warmed = WarmedDefaultCapabilities(
-                                videoFormats: warmed.videoFormats,
-                                imageFormats: imageFormats,
-                                audioFormats: warmed.audioFormats
-                            )
-                        case .audioFormats(let audioFormats):
-                            warmed = WarmedDefaultCapabilities(
-                                videoFormats: warmed.videoFormats,
-                                imageFormats: warmed.imageFormats,
-                                audioFormats: audioFormats
-                            )
-                        case .warmed:
-                            break
-                        }
+                        Self.applyCapabilityWarmupResult(result, to: &warmed)
                     }
                 }
 
@@ -144,23 +171,25 @@ extension ContentViewModel {
         }
     }
 
+    nonisolated static func applyCapabilityWarmupResult(
+        _ result: CapabilityWarmupResult,
+        to warmed: inout WarmedDefaultCapabilities
+    ) {
+        switch result {
+        case .videoFormats(let videoFormats):
+            warmed.videoFormats = videoFormats
+        case .imageFormats(let imageFormats):
+            warmed.imageFormats = imageFormats
+        case .audioFormats(let audioFormats):
+            warmed.audioFormats = audioFormats
+        case .warmed:
+            break
+        }
+    }
+
     func applyWarmedDefaultCapabilitiesIfNeeded(_ warmed: WarmedDefaultCapabilities) {
-        applyWarmedOutputFormatsIfIdle(
-            warmed.videoFormats,
-            for: .video,
-            formatDescriptor: videoOutputFormatDescriptor(),
-            postApply: refreshVideoCodecOptions
-        )
-        applyWarmedOutputFormatsIfIdle(
-            warmed.imageFormats,
-            for: .image,
-            formatDescriptor: imageOutputFormatDescriptor()
-        )
-        applyWarmedOutputFormatsIfIdle(
-            warmed.audioFormats,
-            for: .audio,
-            formatDescriptor: audioOutputFormatDescriptor(),
-            postApply: refreshAudioCodecOptions
-        )
+        MediaKind.allCases.forEach {
+            capabilityBootstrapDescriptor(for: $0).applyWarmedIfIdle(self, warmed)
+        }
     }
 }

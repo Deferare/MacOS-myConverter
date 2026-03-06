@@ -1,7 +1,7 @@
 import Foundation
 
 extension ContentViewModel {
-    enum MediaKind: Equatable, Sendable {
+    enum MediaKind: Equatable, Sendable, CaseIterable {
         case video
         case image
         case audio
@@ -47,7 +47,7 @@ extension ContentViewModel {
                 totalBatchCount: \.totalVideoBatchCount,
                 analysisTask: \.taskState.sourceAnalysisTask,
                 conversionTask: \.taskState.conversionTask,
-                applyPlaceholderCapabilities: { $0.applyPlaceholderVideoCapabilities() },
+                applyPlaceholderCapabilities: { $0.applyPlaceholderCapabilities(for: .video) },
                 applyDefaultSettings: { $0.applyStoredSettings(.init()) },
                 resetSelectionCompatibilityState: { $0.resetCompatibilityState(for: .video, resetImageMetadata: false) },
                 applyStoredSettingsForSourceID: { $0.applyStoredVideoSettings(for: $1) },
@@ -74,7 +74,7 @@ extension ContentViewModel {
                 totalBatchCount: \.totalImageBatchCount,
                 analysisTask: \.taskState.imageSourceAnalysisTask,
                 conversionTask: \.taskState.imageConversionTask,
-                applyPlaceholderCapabilities: { $0.applyPlaceholderImageCapabilities() },
+                applyPlaceholderCapabilities: { $0.applyPlaceholderCapabilities(for: .image) },
                 applyDefaultSettings: { $0.applyStoredImageSettings(.init()) },
                 resetSelectionCompatibilityState: { $0.resetCompatibilityState(for: .image, resetImageMetadata: true) },
                 applyStoredSettingsForSourceID: { $0.applyStoredImageSettings(for: $1) },
@@ -101,7 +101,7 @@ extension ContentViewModel {
                 totalBatchCount: \.totalAudioBatchCount,
                 analysisTask: \.taskState.audioSourceAnalysisTask,
                 conversionTask: \.taskState.audioConversionTask,
-                applyPlaceholderCapabilities: { $0.applyPlaceholderAudioCapabilities() },
+                applyPlaceholderCapabilities: { $0.applyPlaceholderCapabilities(for: .audio) },
                 applyDefaultSettings: { $0.applyStoredAudioSettings(.init()) },
                 resetSelectionCompatibilityState: { $0.resetCompatibilityState(for: .audio, resetImageMetadata: false) },
                 applyStoredSettingsForSourceID: { $0.applyStoredAudioSettings(for: $1) },
