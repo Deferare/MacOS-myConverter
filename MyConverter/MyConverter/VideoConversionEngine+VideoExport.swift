@@ -180,15 +180,27 @@ extension VideoConversionEngine {
         }
 
         var continuations: [CheckedContinuation<[String], Never>] = []
+        var availabilityContinuations: [CheckedContinuation<Bool, Never>] = []
         exportPresetCompatibilityCacheQueue.sync {
             exportPresetCompatibilityCache[cacheKey] = presets
+            exportPresetAvailabilityCache[cacheKey] = !presets.isEmpty
             inFlight.result = presets
             continuations = inFlight.continuations
             inFlight.continuations.removeAll()
             exportPresetCompatibilityInFlight[cacheKey] = nil
+
+            if let availabilityInFlight = exportPresetAvailabilityInFlight[cacheKey] {
+                availabilityInFlight.result = !presets.isEmpty
+                availabilityContinuations = availabilityInFlight.continuations
+                availabilityInFlight.continuations.removeAll()
+                exportPresetAvailabilityInFlight[cacheKey] = nil
+            }
         }
         for continuation in continuations {
             continuation.resume(returning: presets)
+        }
+        for continuation in availabilityContinuations {
+            continuation.resume(returning: !presets.isEmpty)
         }
         return presets
     }
@@ -199,22 +211,56 @@ extension VideoConversionEngine {
         outputFileType: AVFileType
     ) async -> Bool {
         let cacheKey = exportPresetCompatibilityCacheKey(for: asset.url, outputFileType: outputFileType)
+        if let cached = exportPresetCompatibilityCacheQueue.sync(execute: { exportPresetAvailabilityCache[cacheKey] }) {
+            return cached
+        }
         if let cached = exportPresetCompatibilityCacheQueue.sync(execute: { exportPresetCompatibilityCache[cacheKey] }) {
             return !cached.isEmpty
         }
 
+        if let inFlight = exportPresetCompatibilityCacheQueue.sync(execute: { exportPresetCompatibilityInFlight[cacheKey] }) {
+            let presets = await awaitCompatibleExportPresets(inFlight)
+            return !presets.isEmpty
+        }
+
+        let (inFlight, shouldBuild) = exportPresetCompatibilityCacheQueue.sync {
+            if let existing = exportPresetAvailabilityInFlight[cacheKey] {
+                return (existing, false)
+            }
+
+            let created = InFlightCapability<Bool>()
+            exportPresetAvailabilityInFlight[cacheKey] = created
+            return (created, true)
+        }
+
+        if !shouldBuild {
+            return await awaitCompatibleExportPresetAvailability(inFlight)
+        }
+
+        var isCompatible = false
         for preset in preferredPresets {
-            let isCompatible = await AVAssetExportSession.compatibility(
+            isCompatible = await AVAssetExportSession.compatibility(
                 ofExportPreset: preset,
                 with: asset,
                 outputFileType: outputFileType
             )
             if isCompatible {
-                return true
+                break
             }
         }
 
-        return false
+        var continuations: [CheckedContinuation<Bool, Never>] = []
+        exportPresetCompatibilityCacheQueue.sync {
+            exportPresetAvailabilityCache[cacheKey] = isCompatible
+            inFlight.result = isCompatible
+            continuations = inFlight.continuations
+            inFlight.continuations.removeAll()
+            exportPresetAvailabilityInFlight[cacheKey] = nil
+        }
+        for continuation in continuations {
+            continuation.resume(returning: isCompatible)
+        }
+        return isCompatible
     }
 
     private static func awaitCompatibleExportPresets(
@@ -222,6 +268,26 @@ extension VideoConversionEngine {
     ) async -> [String] {
         await withCheckedContinuation { continuation in
             var resolved: [String]?
+
+            exportPresetCompatibilityCacheQueue.sync {
+                if let result = inFlight.result {
+                    resolved = result
+                } else {
+                    inFlight.continuations.append(continuation)
+                }
+            }
+
+            if let resolved {
+                continuation.resume(returning: resolved)
+            }
+        }
+    }
+
+    private static func awaitCompatibleExportPresetAvailability(
+        _ inFlight: InFlightCapability<Bool>
+    ) async -> Bool {
+        await withCheckedContinuation { continuation in
+            var resolved: Bool?
 
             exportPresetCompatibilityCacheQueue.sync {
                 if let result = inFlight.result {

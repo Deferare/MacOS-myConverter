@@ -16,6 +16,8 @@ enum VideoConversionEngine {
     nonisolated static let exportPresetCompatibilityCacheQueue = DispatchQueue(label: "myconverter.video.exportpreset.cache")
     nonisolated(unsafe) static var exportPresetCompatibilityCache: [String: [String]] = [:]
     nonisolated(unsafe) static var exportPresetCompatibilityInFlight: [String: InFlightCapability<[String]>] = [:]
+    nonisolated(unsafe) static var exportPresetAvailabilityCache: [String: Bool] = [:]
+    nonisolated(unsafe) static var exportPresetAvailabilityInFlight: [String: InFlightCapability<Bool>] = [:]
     nonisolated static let sourceCapabilityCacheQueue = DispatchQueue(label: "myconverter.video.source.capability.cache")
     nonisolated(unsafe) static var videoSourceCapabilitiesCache: [String: VideoSourceCapabilities] = [:]
     nonisolated(unsafe) static var audioSourceCapabilitiesCache: [String: AudioSourceCapabilities] = [:]
