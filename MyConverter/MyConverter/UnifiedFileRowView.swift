@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-struct UnifiedFileRowView: View {
+struct UnifiedFileRowView: View, Equatable {
     let sourceURL: URL
     let outputURL: URL?
     let order: Int

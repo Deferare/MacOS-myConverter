@@ -1,6 +1,6 @@
 import Foundation
 
-struct AudioConversionSettings {
+struct AudioConversionSettings: Equatable {
     var outputFormatID: String = ContentViewModelSettingsDefaults.defaultAudioFormatID
     var audioEncoder: AudioEncoderOption = .aac
     var audioMode: AudioModeOption = .auto

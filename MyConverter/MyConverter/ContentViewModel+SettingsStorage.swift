@@ -286,6 +286,25 @@ extension ContentViewModel {
         savePersistedSettings()
     }
 
+    func persistSourceSettingsIfNeeded<Settings: Equatable>(
+        isApplyingStoredSettings: Bool,
+        sourceURL: URL?,
+        settingsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [String: Settings]>,
+        buildSettings: () -> Settings,
+        savePersistedSettings: () -> Void
+    ) {
+        guard !isApplyingStoredSettings, let sourceURL else { return }
+
+        let sourceID = sourceIdentifier(for: sourceURL)
+        let updatedSettings = buildSettings()
+        var settingsBySourceID = self[keyPath: settingsKeyPath]
+        guard settingsBySourceID[sourceID] != updatedSettings else { return }
+
+        settingsBySourceID[sourceID] = updatedSettings
+        self[keyPath: settingsKeyPath] = settingsBySourceID
+        savePersistedSettings()
+    }
+
     func persistSourceSettingsIfNeeded<Settings, Persisted>(
         using descriptor: SourceSettingsDescriptor<Settings, Persisted>,
         buildSettings: () -> Settings

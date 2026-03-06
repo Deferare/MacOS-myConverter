@@ -1,6 +1,6 @@
 import Foundation
 
-struct ImageConversionSettings {
+struct ImageConversionSettings: Equatable {
     var outputFormatID: String = "public.png"
     var resolution: ResolutionOption = .original
     var quality: ImageQualityOption = .high

@@ -1,6 +1,6 @@
 import Foundation
 
-struct VideoConversionSettings {
+struct VideoConversionSettings: Equatable {
     var outputFormatID: String = ContentViewModelSettingsDefaults.defaultVideoFormatID
     var videoEncoder: VideoEncoderOption = .h264GPU
     var resolution: ResolutionOption = .original

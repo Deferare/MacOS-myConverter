@@ -42,7 +42,7 @@ struct UnifiedFileListView: View {
             headerBar
 
             ScrollView(.vertical, showsIndicators: true) {
-                VStack(spacing: 8) {
+                LazyVStack(spacing: 8) {
                     ForEach(Array(sourceURLs.enumerated()), id: \.element.path) { index, url in
                         let outputURL = index < outputURLs.count ? outputURLs[index] : nil
                         let isCurrentItem = isConverting && (index + 1) == currentBatchIndex
@@ -55,6 +55,7 @@ struct UnifiedFileListView: View {
                             isConverting: isConverting,
                             isCurrentlyConverting: isCurrentItem
                         )
+                        .equatable()
                         .transition(.opacity)
                         .onDrag {
                             guard !isConverting else {
