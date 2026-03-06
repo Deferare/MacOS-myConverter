@@ -233,6 +233,7 @@ extension ContentViewModel {
             return
         }
 
+        cancelTask(at: analysisTaskKeyPath)
         self[keyPath: isAnalyzingKeyPath] = true
         self[keyPath: analysisTaskKeyPath] = Task { [weak self] in
             guard let self else { return }

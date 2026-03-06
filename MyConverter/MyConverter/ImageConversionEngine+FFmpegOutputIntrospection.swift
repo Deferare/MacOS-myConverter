@@ -31,8 +31,14 @@ extension ImageConversionEngine {
     }
 
     nonisolated private static func buildFFmpegIntrospection(at ffmpegPath: String) throws -> FFmpegIntrospection {
-        let encodersResult = ProcessCommandRunner.runCommandSync(path: ffmpegPath, arguments: ["-hide_banner", "-encoders"])
-        let muxersResult = ProcessCommandRunner.runCommandSync(path: ffmpegPath, arguments: ["-hide_banner", "-muxers"])
+        let encodersResult = FFmpegCommandCache.run(
+            path: ffmpegPath,
+            arguments: ["-hide_banner", "-encoders"]
+        )
+        let muxersResult = FFmpegCommandCache.run(
+            path: ffmpegPath,
+            arguments: ["-hide_banner", "-muxers"]
+        )
 
         guard encodersResult.terminationStatus == 0 else {
             throw ImageConversionError.ffmpegFailed(encodersResult.terminationStatus, encodersResult.output)
@@ -113,7 +119,7 @@ extension ImageConversionEngine {
             guard seenMuxers.insert(descriptor.name).inserted else { continue }
             guard isLikelyImageMuxer(descriptor) else { continue }
 
-            let helpResult = ProcessCommandRunner.runCommandSync(
+            let helpResult = FFmpegCommandCache.run(
                 path: ffmpegPath,
                 arguments: ["-hide_banner", "-h", "muxer=\(descriptor.name)"]
             )

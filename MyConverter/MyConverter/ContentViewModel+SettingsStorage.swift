@@ -1,5 +1,10 @@
 import Foundation
 
+private let persistedSettingsSaveQueue = DispatchQueue(
+    label: "myconverter.settings.persistence",
+    qos: .utility
+)
+
 extension ContentViewModel {
     struct SourceSettingsDescriptor<Settings, Persisted: Codable> {
         let isApplyingStoredSettings: ReferenceWritableKeyPath<ContentViewModel, Bool>
@@ -35,11 +40,13 @@ extension ContentViewModel {
         forKey storageKey: String,
         failureContext: String
     ) {
-        do {
-            let data = try JSONEncoder().encode(settings)
-            UserDefaults.standard.set(data, forKey: storageKey)
-        } catch {
-            print("\(failureContext): \(error.localizedDescription)")
+        persistedSettingsSaveQueue.async {
+            do {
+                let data = try JSONEncoder().encode(settings)
+                UserDefaults.standard.set(data, forKey: storageKey)
+            } catch {
+                print("\(failureContext): \(error.localizedDescription)")
+            }
         }
     }
 

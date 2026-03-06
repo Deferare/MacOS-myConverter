@@ -31,8 +31,14 @@ extension VideoConversionEngine {
     }
 
     nonisolated private static func buildFFmpegIntrospection(at ffmpegPath: String) throws -> FFmpegIntrospection {
-        let encodersResult = ProcessCommandRunner.runCommandSync(path: ffmpegPath, arguments: ["-hide_banner", "-encoders"])
-        let muxersResult = ProcessCommandRunner.runCommandSync(path: ffmpegPath, arguments: ["-hide_banner", "-muxers"])
+        let encodersResult = FFmpegCommandCache.run(
+            path: ffmpegPath,
+            arguments: ["-hide_banner", "-encoders"]
+        )
+        let muxersResult = FFmpegCommandCache.run(
+            path: ffmpegPath,
+            arguments: ["-hide_banner", "-muxers"]
+        )
 
         guard encodersResult.terminationStatus == 0 else {
             throw ConversionError.ffmpegFailed(encodersResult.terminationStatus, encodersResult.output)
@@ -189,7 +195,10 @@ extension VideoConversionEngine {
             guard visited.insert(descriptor.name).inserted else { continue }
             guard isLikelyVideoMuxer(descriptor) || isLikelyAudioMuxer(descriptor) else { continue }
 
-            let help = ProcessCommandRunner.runCommandSync(path: ffmpegPath, arguments: ["-hide_banner", "-h", "muxer=\(descriptor.name)"])
+            let help = FFmpegCommandCache.run(
+                path: ffmpegPath,
+                arguments: ["-hide_banner", "-h", "muxer=\(descriptor.name)"]
+            )
             guard help.terminationStatus == 0 else { continue }
 
             var extensions = parseFFmpegMuxerExtensions(from: help.output)
