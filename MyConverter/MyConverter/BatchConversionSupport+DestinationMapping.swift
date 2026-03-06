@@ -24,40 +24,27 @@ extension BatchConversionSupport {
     static func uniqueBatchDestinationURL(
         for sourceURL: URL,
         fileExtension: String,
-        in outputDirectory: URL,
-        reservedPaths: Set<String>,
-        checksDirectoryContents: Bool
+        using allocator: inout OutputPathUtilities.ReservedOutputAllocator
     ) -> URL {
         let baseName = sourceURL.deletingPathExtension().lastPathComponent.isEmpty
             ? "output"
             : sourceURL.deletingPathExtension().lastPathComponent
-        return OutputPathUtilities.uniqueOutputURL(
-            forBaseName: baseName,
-            fileExtension: fileExtension,
-            in: outputDirectory,
-            reservedPaths: reservedPaths,
-            checksDirectoryContents: checksDirectoryContents
-        )
+        return allocator.reserveUniqueOutputURL(forBaseName: baseName, fileExtension: fileExtension)
     }
 
     static func assignAutoBatchDestinations(
         for sourceURLs: ArraySlice<URL>,
         fileExtension: String,
-        outputDirectory: URL,
-        reservedPaths: inout Set<String>,
-        checksDirectoryContents: Bool,
+        allocator: inout OutputPathUtilities.ReservedOutputAllocator,
         destinationsBySourceID: inout [String: URL]
     ) {
         for sourceURL in sourceURLs {
             let destinationURL = uniqueBatchDestinationURL(
                 for: sourceURL,
                 fileExtension: fileExtension,
-                in: outputDirectory,
-                reservedPaths: reservedPaths,
-                checksDirectoryContents: checksDirectoryContents
+                using: &allocator
             )
             destinationsBySourceID[ContentViewModelSupport.sourceIdentifier(for: sourceURL)] = destinationURL
-            reservedPaths.insert(destinationURL.standardizedFileURL.path)
         }
     }
 
@@ -74,7 +61,11 @@ extension BatchConversionSupport {
         var remapped: [String: URL] = [:]
         let preloadedReservedPaths = OutputPathUtilities.existingDirectoryEntryPaths(in: outputDirectory)
         let shouldCheckDirectoryContents = preloadedReservedPaths == nil
-        var reservedPaths = preloadedReservedPaths ?? []
+        var allocator = OutputPathUtilities.ReservedOutputAllocator(
+            outputDirectory: outputDirectory,
+            reservedPaths: preloadedReservedPaths ?? [],
+            checksDirectoryContents: shouldCheckDirectoryContents
+        )
         let firstSourceID = ContentViewModelSupport.sourceIdentifier(for: firstSourceURL)
 
         if let originalFirstDestinationURL = originalDestinationsBySourceID[firstSourceID] {
@@ -82,36 +73,25 @@ extension BatchConversionSupport {
                 outputDirectory.appendingPathComponent(originalFirstDestinationURL.lastPathComponent),
                 fileExtension: fileExtension
             )
-            let preferredFirstPath = preferredFirstDestinationURL.standardizedFileURL.path
 
             let firstDestinationURL: URL
-            let preferredPathIsReserved = reservedPaths.contains(preferredFirstPath)
-            let preferredPathExistsOnDisk =
-                shouldCheckDirectoryContents &&
-                FileManager.default.fileExists(atPath: preferredFirstDestinationURL.path)
-
-            if preferredPathIsReserved || preferredPathExistsOnDisk {
+            if allocator.reserve(preferredFirstDestinationURL) {
+                firstDestinationURL = preferredFirstDestinationURL
+            } else {
                 firstDestinationURL = uniqueBatchDestinationURL(
                     for: firstSourceURL,
                     fileExtension: fileExtension,
-                    in: outputDirectory,
-                    reservedPaths: reservedPaths,
-                    checksDirectoryContents: shouldCheckDirectoryContents
+                    using: &allocator
                 )
-            } else {
-                firstDestinationURL = preferredFirstDestinationURL
             }
 
             remapped[firstSourceID] = firstDestinationURL
-            reservedPaths.insert(firstDestinationURL.standardizedFileURL.path)
         }
 
         assignAutoBatchDestinations(
             for: sourceURLs.dropFirst(),
             fileExtension: fileExtension,
-            outputDirectory: outputDirectory,
-            reservedPaths: &reservedPaths,
-            checksDirectoryContents: shouldCheckDirectoryContents,
+            allocator: &allocator,
             destinationsBySourceID: &remapped
         )
 

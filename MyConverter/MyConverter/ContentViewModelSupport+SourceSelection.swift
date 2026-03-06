@@ -26,9 +26,16 @@ extension ContentViewModelSupport {
         guard draggedID != targetID else { return nil }
 
         var reordered = urls
+        var indicesBySourceID: [String: Int] = [:]
+        indicesBySourceID.reserveCapacity(reordered.count)
+
+        for (index, url) in reordered.enumerated() {
+            indicesBySourceID[sourceIdentifier(for: url)] = index
+        }
+
         guard
-            let sourceIndex = reordered.firstIndex(where: { sourceIdentifier(for: $0) == draggedID }),
-            let destinationIndex = reordered.firstIndex(where: { sourceIdentifier(for: $0) == targetID }),
+            let sourceIndex = indicesBySourceID[draggedID],
+            let destinationIndex = indicesBySourceID[targetID],
             sourceIndex != destinationIndex
         else {
             return nil

@@ -21,13 +21,15 @@ extension BatchConversionSupport {
         var selected: [String: URL] = [:]
         let preloadedReservedPaths = OutputPathUtilities.existingDirectoryEntryPaths(in: outputDirectory)
         let shouldCheckDirectoryContents = preloadedReservedPaths == nil
-        var reservedPaths = preloadedReservedPaths ?? []
+        var allocator = OutputPathUtilities.ReservedOutputAllocator(
+            outputDirectory: outputDirectory,
+            reservedPaths: preloadedReservedPaths ?? [],
+            checksDirectoryContents: shouldCheckDirectoryContents
+        )
         assignAutoBatchDestinations(
             for: sourceURLs[...],
             fileExtension: fileExtension,
-            outputDirectory: outputDirectory,
-            reservedPaths: &reservedPaths,
-            checksDirectoryContents: shouldCheckDirectoryContents,
+            allocator: &allocator,
             destinationsBySourceID: &selected
         )
 

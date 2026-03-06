@@ -38,7 +38,9 @@ struct UnifiedFileListView: View {
     // MARK: - Populated List
 
     private var populatedListView: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        let availableURLPaths = Set(sourceURLs.map(\.path))
+
+        return VStack(alignment: .leading, spacing: 14) {
             headerBar
 
             ScrollView(.vertical, showsIndicators: true) {
@@ -68,7 +70,7 @@ struct UnifiedFileListView: View {
                             of: [UTType.text],
                             delegate: SelectedFileReorderDropDelegate(
                                 targetURL: url,
-                                urls: sourceURLs,
+                                availableURLPaths: availableURLPaths,
                                 draggedURL: $draggedSelectedFileURL,
                                 isEnabled: !isConverting,
                                 onMove: { draggedURL, targetURL in

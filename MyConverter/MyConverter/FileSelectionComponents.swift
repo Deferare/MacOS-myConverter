@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 
 struct SelectedFileReorderDropDelegate: DropDelegate {
     let targetURL: URL
-    let urls: [URL]
+    let availableURLPaths: Set<String>
     @Binding var draggedURL: URL?
     let isEnabled: Bool
     let onMove: (_ draggedURL: URL, _ targetURL: URL) -> Void
@@ -17,8 +17,8 @@ struct SelectedFileReorderDropDelegate: DropDelegate {
         guard isEnabled else { return }
         guard let draggedURL else { return }
         guard draggedURL.path != targetURL.path else { return }
-        guard urls.contains(where: { $0.path == draggedURL.path }) else { return }
-        guard urls.contains(where: { $0.path == targetURL.path }) else { return }
+        guard availableURLPaths.contains(draggedURL.path) else { return }
+        guard availableURLPaths.contains(targetURL.path) else { return }
 
         onMove(draggedURL, targetURL)
     }

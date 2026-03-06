@@ -13,6 +13,8 @@ struct SelectedFilesView: View {
     let onReorder: (_ draggedURL: URL, _ targetURL: URL) -> Void
 
     var body: some View {
+        let availableURLPaths = Set(urls.map(\.path))
+
         VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 12) {
                 Image(systemName: systemImage)
@@ -69,7 +71,7 @@ struct SelectedFilesView: View {
                             of: [UTType.text],
                             delegate: SelectedFileReorderDropDelegate(
                                 targetURL: url,
-                                urls: urls,
+                                availableURLPaths: availableURLPaths,
                                 draggedURL: $draggedSelectedFileURL,
                                 isEnabled: !isConverting,
                                 onMove: { draggedURL, targetURL in
