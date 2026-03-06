@@ -1,195 +1,198 @@
 import Foundation
 
 extension ContentViewModel {
+    private func optionValue<State, Value>(
+        in stateKeyPath: KeyPath<ContentViewModel, State>,
+        _ valueKeyPath: KeyPath<State, Value>
+    ) -> Value {
+        stateValue(in: stateKeyPath, at: valueKeyPath)
+    }
+
+    private func setOptionValue<State, Value: Equatable>(
+        in stateKeyPath: ReferenceWritableKeyPath<ContentViewModel, State>,
+        _ valueKeyPath: WritableKeyPath<State, Value>,
+        to newValue: Value,
+        after action: @escaping () -> Void = {}
+    ) {
+        updateState(stateKeyPath, value: valueKeyPath, to: newValue, after: action)
+    }
+
+    private func persistOption<State, Value: Equatable>(
+        in stateKeyPath: ReferenceWritableKeyPath<ContentViewModel, State>,
+        _ valueKeyPath: WritableKeyPath<State, Value>,
+        to newValue: Value,
+        for kind: MediaKind
+    ) {
+        setOptionValue(in: stateKeyPath, valueKeyPath, to: newValue) {
+            self.persistCurrentSourceSettingsIfNeeded(for: kind)
+        }
+    }
+
+    private func deferOption<State, Value: Equatable>(
+        in stateKeyPath: ReferenceWritableKeyPath<ContentViewModel, State>,
+        _ valueKeyPath: WritableKeyPath<State, Value>,
+        to newValue: Value,
+        action: DeferredPersistenceAction
+    ) {
+        setOptionValue(in: stateKeyPath, valueKeyPath, to: newValue) {
+            self.scheduleDeferredPersistenceAction(action)
+        }
+    }
+
+    private func videoOptionValue<Value>(_ keyPath: KeyPath<VideoOptionsState, Value>) -> Value {
+        optionValue(in: \.videoOptionsState, keyPath)
+    }
+
+    private func persistVideoOption<Value: Equatable>(
+        _ keyPath: WritableKeyPath<VideoOptionsState, Value>,
+        to newValue: Value
+    ) {
+        persistOption(in: \.videoOptionsState, keyPath, to: newValue, for: .video)
+    }
+
+    private func deferVideoOption<Value: Equatable>(
+        _ keyPath: WritableKeyPath<VideoOptionsState, Value>,
+        to newValue: Value,
+        action: DeferredPersistenceAction
+    ) {
+        deferOption(in: \.videoOptionsState, keyPath, to: newValue, action: action)
+    }
+
+    private func imageOptionValue<Value>(_ keyPath: KeyPath<ImageOptionsState, Value>) -> Value {
+        optionValue(in: \.imageOptionsState, keyPath)
+    }
+
+    private func persistImageOption<Value: Equatable>(
+        _ keyPath: WritableKeyPath<ImageOptionsState, Value>,
+        to newValue: Value
+    ) {
+        persistOption(in: \.imageOptionsState, keyPath, to: newValue, for: .image)
+    }
+
+    private func audioOptionValue<Value>(_ keyPath: KeyPath<AudioOptionsState, Value>) -> Value {
+        optionValue(in: \.audioOptionsState, keyPath)
+    }
+
+    private func persistAudioOption<Value: Equatable>(
+        _ keyPath: WritableKeyPath<AudioOptionsState, Value>,
+        to newValue: Value
+    ) {
+        persistOption(in: \.audioOptionsState, keyPath, to: newValue, for: .audio)
+    }
+
+    private func deferAudioOption<Value: Equatable>(
+        _ keyPath: WritableKeyPath<AudioOptionsState, Value>,
+        to newValue: Value,
+        action: DeferredPersistenceAction
+    ) {
+        deferOption(in: \.audioOptionsState, keyPath, to: newValue, action: action)
+    }
+
     // Video options
     var selectedOutputFormat: VideoFormatOption {
-        get { stateValue(in: \.videoOptionsState, at: \.selectedOutputFormat) }
-        set {
-            updateState(\.videoOptionsState, value: \.selectedOutputFormat, to: newValue) {
-                scheduleDeferredPersistenceAction(.videoFormatChange)
-            }
-        }
+        get { videoOptionValue(\.selectedOutputFormat) }
+        set { deferVideoOption(\.selectedOutputFormat, to: newValue, action: .videoFormatChange) }
     }
 
     var selectedVideoEncoder: VideoEncoderOption {
-        get { stateValue(in: \.videoOptionsState, at: \.selectedVideoEncoder) }
-        set {
-            updateState(\.videoOptionsState, value: \.selectedVideoEncoder, to: newValue) {
-                scheduleDeferredPersistenceAction(.videoOptionNormalization)
-            }
-        }
+        get { videoOptionValue(\.selectedVideoEncoder) }
+        set { deferVideoOption(\.selectedVideoEncoder, to: newValue, action: .videoOptionNormalization) }
     }
 
     var selectedResolution: ResolutionOption {
-        get { stateValue(in: \.videoOptionsState, at: \.selectedResolution) }
-        set {
-            updateState(\.videoOptionsState, value: \.selectedResolution, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(for: .video)
-            }
-        }
+        get { videoOptionValue(\.selectedResolution) }
+        set { persistVideoOption(\.selectedResolution, to: newValue) }
     }
 
     var selectedFrameRate: FrameRateOption {
-        get { stateValue(in: \.videoOptionsState, at: \.selectedFrameRate) }
-        set {
-            updateState(\.videoOptionsState, value: \.selectedFrameRate, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(for: .video)
-            }
-        }
+        get { videoOptionValue(\.selectedFrameRate) }
+        set { persistVideoOption(\.selectedFrameRate, to: newValue) }
     }
 
     var selectedGIFPlaybackSpeed: GIFPlaybackSpeedOption {
-        get { stateValue(in: \.videoOptionsState, at: \.selectedGIFPlaybackSpeed) }
-        set {
-            updateState(\.videoOptionsState, value: \.selectedGIFPlaybackSpeed, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(for: .video)
-            }
-        }
+        get { videoOptionValue(\.selectedGIFPlaybackSpeed) }
+        set { persistVideoOption(\.selectedGIFPlaybackSpeed, to: newValue) }
     }
 
     var selectedVideoBitRate: VideoBitRateOption {
-        get { stateValue(in: \.videoOptionsState, at: \.selectedVideoBitRate) }
-        set {
-            updateState(\.videoOptionsState, value: \.selectedVideoBitRate, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(for: .video)
-            }
-        }
+        get { videoOptionValue(\.selectedVideoBitRate) }
+        set { persistVideoOption(\.selectedVideoBitRate, to: newValue) }
     }
 
     var customVideoBitRate: String {
-        get { stateValue(in: \.videoOptionsState, at: \.customVideoBitRate) }
-        set {
-            updateState(\.videoOptionsState, value: \.customVideoBitRate, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(for: .video)
-            }
-        }
+        get { videoOptionValue(\.customVideoBitRate) }
+        set { persistVideoOption(\.customVideoBitRate, to: newValue) }
     }
 
     var selectedAudioEncoder: AudioEncoderOption {
-        get { stateValue(in: \.videoOptionsState, at: \.selectedAudioEncoder) }
-        set {
-            updateState(\.videoOptionsState, value: \.selectedAudioEncoder, to: newValue) {
-                scheduleDeferredPersistenceAction(.videoOptionNormalization)
-            }
-        }
+        get { videoOptionValue(\.selectedAudioEncoder) }
+        set { deferVideoOption(\.selectedAudioEncoder, to: newValue, action: .videoOptionNormalization) }
     }
 
     var selectedAudioMode: AudioModeOption {
-        get { stateValue(in: \.videoOptionsState, at: \.selectedAudioMode) }
-        set {
-            updateState(\.videoOptionsState, value: \.selectedAudioMode, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(for: .video)
-            }
-        }
+        get { videoOptionValue(\.selectedAudioMode) }
+        set { persistVideoOption(\.selectedAudioMode, to: newValue) }
     }
 
     var selectedSampleRate: SampleRateOption {
-        get { stateValue(in: \.videoOptionsState, at: \.selectedSampleRate) }
-        set {
-            updateState(\.videoOptionsState, value: \.selectedSampleRate, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(for: .video)
-            }
-        }
+        get { videoOptionValue(\.selectedSampleRate) }
+        set { persistVideoOption(\.selectedSampleRate, to: newValue) }
     }
 
     var selectedAudioBitRate: AudioBitRateOption {
-        get { stateValue(in: \.videoOptionsState, at: \.selectedAudioBitRate) }
-        set {
-            updateState(\.videoOptionsState, value: \.selectedAudioBitRate, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(for: .video)
-            }
-        }
+        get { videoOptionValue(\.selectedAudioBitRate) }
+        set { persistVideoOption(\.selectedAudioBitRate, to: newValue) }
     }
 
     // Image options
     var selectedImageOutputFormat: ImageFormatOption {
-        get { stateValue(in: \.imageOptionsState, at: \.selectedOutputFormat) }
-        set {
-            updateState(\.imageOptionsState, value: \.selectedOutputFormat, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(for: .image)
-            }
-        }
+        get { imageOptionValue(\.selectedOutputFormat) }
+        set { persistImageOption(\.selectedOutputFormat, to: newValue) }
     }
 
     var selectedImageResolution: ResolutionOption {
-        get { stateValue(in: \.imageOptionsState, at: \.selectedResolution) }
-        set {
-            updateState(\.imageOptionsState, value: \.selectedResolution, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(for: .image)
-            }
-        }
+        get { imageOptionValue(\.selectedResolution) }
+        set { persistImageOption(\.selectedResolution, to: newValue) }
     }
 
     var selectedImageQuality: ImageQualityOption {
-        get { stateValue(in: \.imageOptionsState, at: \.selectedQuality) }
-        set {
-            updateState(\.imageOptionsState, value: \.selectedQuality, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(for: .image)
-            }
-        }
+        get { imageOptionValue(\.selectedQuality) }
+        set { persistImageOption(\.selectedQuality, to: newValue) }
     }
 
     var selectedPNGCompressionLevel: PNGCompressionLevelOption {
-        get { stateValue(in: \.imageOptionsState, at: \.selectedPNGCompressionLevel) }
-        set {
-            updateState(\.imageOptionsState, value: \.selectedPNGCompressionLevel, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(for: .image)
-            }
-        }
+        get { imageOptionValue(\.selectedPNGCompressionLevel) }
+        set { persistImageOption(\.selectedPNGCompressionLevel, to: newValue) }
     }
 
     var preserveImageAnimation: Bool {
-        get { stateValue(in: \.imageOptionsState, at: \.preserveAnimation) }
-        set {
-            updateState(\.imageOptionsState, value: \.preserveAnimation, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(for: .image)
-            }
-        }
+        get { imageOptionValue(\.preserveAnimation) }
+        set { persistImageOption(\.preserveAnimation, to: newValue) }
     }
 
     // Audio options
     var selectedAudioOutputFormat: AudioFormatOption {
-        get { stateValue(in: \.audioOptionsState, at: \.selectedOutputFormat) }
-        set {
-            updateState(\.audioOptionsState, value: \.selectedOutputFormat, to: newValue) {
-                scheduleDeferredPersistenceAction(.audioFormatChange)
-            }
-        }
+        get { audioOptionValue(\.selectedOutputFormat) }
+        set { deferAudioOption(\.selectedOutputFormat, to: newValue, action: .audioFormatChange) }
     }
 
     var selectedAudioOutputEncoder: AudioEncoderOption {
-        get { stateValue(in: \.audioOptionsState, at: \.selectedOutputEncoder) }
-        set {
-            updateState(\.audioOptionsState, value: \.selectedOutputEncoder, to: newValue) {
-                scheduleDeferredPersistenceAction(.audioOptionNormalization)
-            }
-        }
+        get { audioOptionValue(\.selectedOutputEncoder) }
+        set { deferAudioOption(\.selectedOutputEncoder, to: newValue, action: .audioOptionNormalization) }
     }
 
     var selectedAudioOutputMode: AudioModeOption {
-        get { stateValue(in: \.audioOptionsState, at: \.selectedOutputMode) }
-        set {
-            updateState(\.audioOptionsState, value: \.selectedOutputMode, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(for: .audio)
-            }
-        }
+        get { audioOptionValue(\.selectedOutputMode) }
+        set { persistAudioOption(\.selectedOutputMode, to: newValue) }
     }
 
     var selectedAudioOutputSampleRate: SampleRateOption {
-        get { stateValue(in: \.audioOptionsState, at: \.selectedOutputSampleRate) }
-        set {
-            updateState(\.audioOptionsState, value: \.selectedOutputSampleRate, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(for: .audio)
-            }
-        }
+        get { audioOptionValue(\.selectedOutputSampleRate) }
+        set { persistAudioOption(\.selectedOutputSampleRate, to: newValue) }
     }
 
     var selectedAudioOutputBitRate: AudioBitRateOption {
-        get { stateValue(in: \.audioOptionsState, at: \.selectedOutputBitRate) }
-        set {
-            updateState(\.audioOptionsState, value: \.selectedOutputBitRate, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(for: .audio)
-            }
-        }
+        get { audioOptionValue(\.selectedOutputBitRate) }
+        set { persistAudioOption(\.selectedOutputBitRate, to: newValue) }
     }
 }
