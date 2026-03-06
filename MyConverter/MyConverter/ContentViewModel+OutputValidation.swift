@@ -1,6 +1,45 @@
 import Foundation
 
 extension ContentViewModel {
+    func nonEmptyMessage(_ message: String?) -> String? {
+        guard let message, !message.isEmpty else { return nil }
+        return message
+    }
+
+    func firstNonEmptyMessage(_ messages: String?...) -> String? {
+        for message in messages {
+            if let message = nonEmptyMessage(message) {
+                return message
+            }
+        }
+        return nil
+    }
+
+    func compatibilityHintMessage(for kind: MediaKind) -> String? {
+        let descriptor = mediaStateDescriptor(for: kind)
+        return nonEmptyMessage(self[keyPath: descriptor.compatibilityWarningMessage])
+    }
+
+    func outputSettingsValidationMessage<Format>(
+        for kind: MediaKind,
+        formatDescriptor: OutputFormatDescriptor<Format>,
+        unavailableMessage: String,
+        additionalValidation: () -> String? = { nil }
+    ) -> String? {
+        let descriptor = mediaStateDescriptor(for: kind)
+
+        if let compatibilityError = nonEmptyMessage(self[keyPath: descriptor.compatibilityErrorMessage]) {
+            return compatibilityError
+        }
+
+        if self[keyPath: descriptor.sourceURL] != nil &&
+            !isSelectedOutputFormatAvailable(using: formatDescriptor) {
+            return unavailableMessage
+        }
+
+        return additionalValidation()
+    }
+
     func validateOutputFormatAvailability<Capability, Format>(
         for sourceURL: URL,
         selectedFormatNormalizedID: String,
