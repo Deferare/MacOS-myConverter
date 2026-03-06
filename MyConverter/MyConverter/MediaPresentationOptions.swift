@@ -1,18 +1,3 @@
-private func parsedFirstInteger(in value: String) -> Int? {
-    let digits = value.split(whereSeparator: { !$0.isNumber }).first
-    return digits.flatMap { Int($0) }
-}
-
-private func parsedDimensions(from value: String) -> (width: Int, height: Int)? {
-    let parts = value.split(separator: "x")
-    guard parts.count == 2,
-          let width = Int(parts[0]),
-          let height = Int(parts[1]) else {
-        return nil
-    }
-    return (width, height)
-}
-
 enum ResolutionOption: String, CaseIterable, Identifiable {
     case original = "Original"
     case r3840x2160 = "3840x2160"
@@ -27,7 +12,7 @@ enum ResolutionOption: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     var dimensions: (width: Int, height: Int)? {
-        self == .original ? nil : parsedDimensions(from: rawValue)
+        self == .original ? nil : parsedDimensions(in: rawValue)
     }
 }
 
@@ -51,7 +36,7 @@ enum FrameRateOption: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     var fps: Int? {
-        self == .original ? nil : parsedFirstInteger(in: rawValue)
+        self == .original ? nil : parsedLeadingInteger(in: rawValue)
     }
 }
 
@@ -68,6 +53,6 @@ enum GIFPlaybackSpeedOption: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     var multiplier: Double {
-        Double(rawValue.dropLast()) ?? 1.0
+        parsedTrailingDouble(in: rawValue, trimming: "x") ?? 1.0
     }
 }

@@ -26,7 +26,7 @@ enum SampleRateOption: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     var hertz: Int {
-        Int(rawValue.split(separator: " ").first ?? "") ?? 0
+        parsedLeadingInteger(in: rawValue) ?? 0
     }
 }
 
@@ -44,6 +44,6 @@ enum AudioBitRateOption: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     var kbps: Int? {
-        self == .auto ? nil : Int(rawValue.split(separator: " ").first ?? "")
+        self == .auto ? nil : parsedLeadingInteger(in: rawValue)
     }
 }
