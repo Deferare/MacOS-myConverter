@@ -18,6 +18,8 @@ enum VideoConversionEngine {
     nonisolated static let sourceCapabilityCacheQueue = DispatchQueue(label: "myconverter.video.source.capability.cache")
     nonisolated(unsafe) static var videoSourceCapabilitiesCache: [String: VideoSourceCapabilities] = [:]
     nonisolated(unsafe) static var audioSourceCapabilitiesCache: [String: AudioSourceCapabilities] = [:]
+    nonisolated(unsafe) static var videoSourceCapabilitiesInFlight: [String: InFlightCapability<VideoSourceCapabilities>] = [:]
+    nonisolated(unsafe) static var audioSourceCapabilitiesInFlight: [String: InFlightCapability<AudioSourceCapabilities>] = [:]
     nonisolated static let preferredExportPresets = [
         AVAssetExportPresetPassthrough,
         AVAssetExportPresetHighestQuality,
@@ -40,6 +42,13 @@ enum VideoConversionEngine {
             group = DispatchGroup()
             group.enter()
         }
+    }
+
+    final class InFlightCapability<Value>: @unchecked Sendable {
+        nonisolated(unsafe) var result: Value?
+        nonisolated(unsafe) var continuations: [CheckedContinuation<Value, Never>] = []
+
+        nonisolated init() {}
     }
 
     struct FFmpegMuxerDescriptor {

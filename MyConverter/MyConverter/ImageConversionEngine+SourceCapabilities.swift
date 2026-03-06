@@ -10,14 +10,56 @@ extension ImageConversionEngine {
             return cached
         }
 
+        let (inFlight, shouldBuild) = sourceCapabilityCacheQueue.sync {
+            if let existing = sourceCapabilitiesInFlight[cacheKey] {
+                return (existing, false)
+            }
+
+            let created = InFlightCapability<ImageSourceCapabilities>()
+            sourceCapabilitiesInFlight[cacheKey] = created
+            return (created, true)
+        }
+
+        if !shouldBuild {
+            return await awaitSourceCapabilities(inFlight)
+        }
+
         let resolved = await Task.detached(priority: .userInitiated) {
             sourceCapabilitiesSync(for: inputURL, ffmpegPath: ffmpegPath)
         }.value
 
+        var continuations: [CheckedContinuation<ImageSourceCapabilities, Never>] = []
         sourceCapabilityCacheQueue.sync {
             sourceCapabilitiesCache[cacheKey] = resolved
+            inFlight.result = resolved
+            continuations = inFlight.continuations
+            inFlight.continuations.removeAll()
+            sourceCapabilitiesInFlight[cacheKey] = nil
+        }
+        for continuation in continuations {
+            continuation.resume(returning: resolved)
         }
         return resolved
+    }
+
+    nonisolated private static func awaitSourceCapabilities(
+        _ inFlight: InFlightCapability<ImageSourceCapabilities>
+    ) async -> ImageSourceCapabilities {
+        await withCheckedContinuation { continuation in
+            var resolved: ImageSourceCapabilities?
+
+            sourceCapabilityCacheQueue.sync {
+                if let result = inFlight.result {
+                    resolved = result
+                } else {
+                    inFlight.continuations.append(continuation)
+                }
+            }
+
+            if let resolved {
+                continuation.resume(returning: resolved)
+            }
+        }
     }
 
     nonisolated private static func makeSourceCapabilityCacheKey(for inputURL: URL, ffmpegPath: String?) -> String {

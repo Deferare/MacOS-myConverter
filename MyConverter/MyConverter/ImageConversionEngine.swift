@@ -29,6 +29,7 @@ enum ImageConversionEngine {
     nonisolated(unsafe) static var imageIOAvailableFormatsCache: [ImageFormatOption]? = nil
     nonisolated static let sourceCapabilityCacheQueue = DispatchQueue(label: "myconverter.image.source.capability.cache")
     nonisolated(unsafe) static var sourceCapabilitiesCache: [String: ImageSourceCapabilities] = [:]
+    nonisolated(unsafe) static var sourceCapabilitiesInFlight: [String: InFlightCapability<ImageSourceCapabilities>] = [:]
 
     struct FFmpegIntrospection {
         let encoders: Set<String>
@@ -44,6 +45,13 @@ enum ImageConversionEngine {
             group = DispatchGroup()
             group.enter()
         }
+    }
+
+    final class InFlightCapability<Value>: @unchecked Sendable {
+        nonisolated(unsafe) var result: Value?
+        nonisolated(unsafe) var continuations: [CheckedContinuation<Value, Never>] = []
+
+        nonisolated init() {}
     }
 
     struct FFmpegMuxerDescriptor {

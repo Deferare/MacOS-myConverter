@@ -43,12 +43,34 @@ extension VideoConversionEngine {
             return cached
         }
 
+        let (inFlight, shouldBuild) = sourceCapabilityCacheQueue.sync {
+            if let existing = audioSourceCapabilitiesInFlight[cacheKey] {
+                return (existing, false)
+            }
+
+            let created = InFlightCapability<AudioSourceCapabilities>()
+            audioSourceCapabilitiesInFlight[cacheKey] = created
+            return (created, true)
+        }
+
+        if !shouldBuild {
+            return await awaitAudioSourceCapabilities(inFlight)
+        }
+
         let resolved = await Task.detached(priority: .userInitiated) {
             await resolveAudioSourceCapabilities(for: inputURL, ffmpegPath: ffmpegPath)
         }.value
 
+        var continuations: [CheckedContinuation<AudioSourceCapabilities, Never>] = []
         sourceCapabilityCacheQueue.sync {
             audioSourceCapabilitiesCache[cacheKey] = resolved
+            inFlight.result = resolved
+            continuations = inFlight.continuations
+            inFlight.continuations.removeAll()
+            audioSourceCapabilitiesInFlight[cacheKey] = nil
+        }
+        for continuation in continuations {
+            continuation.resume(returning: resolved)
         }
         return resolved
     }
@@ -107,14 +129,76 @@ extension VideoConversionEngine {
             return cached
         }
 
+        let (inFlight, shouldBuild) = sourceCapabilityCacheQueue.sync {
+            if let existing = videoSourceCapabilitiesInFlight[cacheKey] {
+                return (existing, false)
+            }
+
+            let created = InFlightCapability<VideoSourceCapabilities>()
+            videoSourceCapabilitiesInFlight[cacheKey] = created
+            return (created, true)
+        }
+
+        if !shouldBuild {
+            return await awaitVideoSourceCapabilities(inFlight)
+        }
+
         let resolved = await Task.detached(priority: .userInitiated) {
             await resolveVideoSourceCapabilities(for: inputURL, ffmpegPath: ffmpegPath)
         }.value
 
+        var continuations: [CheckedContinuation<VideoSourceCapabilities, Never>] = []
         sourceCapabilityCacheQueue.sync {
             videoSourceCapabilitiesCache[cacheKey] = resolved
+            inFlight.result = resolved
+            continuations = inFlight.continuations
+            inFlight.continuations.removeAll()
+            videoSourceCapabilitiesInFlight[cacheKey] = nil
+        }
+        for continuation in continuations {
+            continuation.resume(returning: resolved)
         }
         return resolved
+    }
+
+    private static func awaitAudioSourceCapabilities(
+        _ inFlight: InFlightCapability<AudioSourceCapabilities>
+    ) async -> AudioSourceCapabilities {
+        await withCheckedContinuation { continuation in
+            var resolved: AudioSourceCapabilities?
+
+            sourceCapabilityCacheQueue.sync {
+                if let result = inFlight.result {
+                    resolved = result
+                } else {
+                    inFlight.continuations.append(continuation)
+                }
+            }
+
+            if let resolved {
+                continuation.resume(returning: resolved)
+            }
+        }
+    }
+
+    private static func awaitVideoSourceCapabilities(
+        _ inFlight: InFlightCapability<VideoSourceCapabilities>
+    ) async -> VideoSourceCapabilities {
+        await withCheckedContinuation { continuation in
+            var resolved: VideoSourceCapabilities?
+
+            sourceCapabilityCacheQueue.sync {
+                if let result = inFlight.result {
+                    resolved = result
+                } else {
+                    inFlight.continuations.append(continuation)
+                }
+            }
+
+            if let resolved {
+                continuation.resume(returning: resolved)
+            }
+        }
     }
 
     private static func resolveVideoSourceCapabilities(
