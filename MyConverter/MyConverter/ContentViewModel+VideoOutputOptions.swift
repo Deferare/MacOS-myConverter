@@ -6,20 +6,18 @@ extension ContentViewModel {
     }
 
     var videoEncoderOptions: [VideoEncoderOption] {
-        if !availableVideoEncoders.isEmpty {
-            return availableVideoEncoders
+        resolvedOptions(availableVideoEncoders) {
+            selectedOutputFormat.avFileType == nil ? [] : [.auto]
         }
-        return selectedOutputFormat.avFileType == nil ? [] : [.auto]
     }
 
     var audioEncoderOptions: [AudioEncoderOption] {
         if !shouldShowAudioSettings {
             return []
         }
-        if !availableAudioEncoders.isEmpty {
-            return availableAudioEncoders
+        return resolvedOptions(availableAudioEncoders) {
+            selectedOutputFormat.avFileType == nil ? [] : [.auto]
         }
-        return selectedOutputFormat.avFileType == nil ? [] : [.auto]
     }
 
     var shouldShowVideoEncoderOption: Bool {
