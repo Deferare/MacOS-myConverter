@@ -6,14 +6,13 @@ extension ContentViewModel {
             return "Selected output settings require ffmpeg. Install ffmpeg or reset advanced options to Auto/Original."
         }
 
-        return await validateOutputFormatAvailability(
+        return await validateSelectedOutputFormatAvailability(
             for: sourceURL,
-            selectedFormatNormalizedID: selectedOutputFormat.normalizedID,
+            formatDescriptor: videoOutputFormatDescriptor(),
             unavailableMessage: "Selected container is not available for this source.",
             fetchCapabilities: { await VideoConversionEngine.sourceCapabilities(for: $0) },
             availableFormats: { $0.availableOutputFormats },
-            errorMessage: { $0.errorMessage },
-            formatNormalizedID: { $0.normalizedID }
+            errorMessage: { $0.errorMessage }
         )
     }
 }

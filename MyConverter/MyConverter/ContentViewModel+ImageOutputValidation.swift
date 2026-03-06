@@ -2,14 +2,13 @@ import Foundation
 
 extension ContentViewModel {
     func validateImageOutputSettings(for sourceURL: URL) async -> String? {
-        await validateOutputFormatAvailability(
+        await validateSelectedOutputFormatAvailability(
             for: sourceURL,
-            selectedFormatNormalizedID: selectedImageOutputFormat.normalizedID,
+            formatDescriptor: imageOutputFormatDescriptor(),
             unavailableMessage: "Selected output format is not available for this source.",
             fetchCapabilities: { await ImageConversionEngine.sourceCapabilities(for: $0) },
             availableFormats: { $0.availableOutputFormats },
             errorMessage: { $0.errorMessage },
-            formatNormalizedID: { $0.normalizedID },
             additionalValidation: { capabilities in
                 if capabilities.frameCount > 1 &&
                     preserveImageAnimation &&

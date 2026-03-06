@@ -2,11 +2,7 @@ import Foundation
 
 extension ContentViewModel {
     var canConvertAudio: Bool {
-        canStartConversion(
-            for: .audio,
-            validationMessage: audioSettingsValidationMessage,
-            selectedFormatAvailable: isSelectedOutputFormatAvailable(using: audioOutputFormatDescriptor())
-        )
+        canStartConversion(for: .audio, validationMessage: audioSettingsValidationMessage)
     }
 
     var selectedAudioSourceURLs: [URL] {
@@ -26,15 +22,15 @@ extension ContentViewModel {
     }
 
     var audioConversionStatusMessage: String {
-        audioConversionStatus.message
+        statusMessage(
+            for: .audio,
+            validationMessage: audioSettingsValidationMessage,
+            hintMessage: audioFormatHintMessage
+        )
     }
 
     var audioConversionStatusLevel: ConversionStatusLevel {
-        audioConversionStatus.level
-    }
-
-    private var audioConversionStatus: (message: String, level: ConversionStatusLevel) {
-        conversionStatus(
+        statusLevel(
             for: .audio,
             validationMessage: audioSettingsValidationMessage,
             hintMessage: audioFormatHintMessage

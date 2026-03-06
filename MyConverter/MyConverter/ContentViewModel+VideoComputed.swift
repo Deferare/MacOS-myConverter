@@ -22,17 +22,10 @@ extension ContentViewModel {
     }
 
     var conversionStatusMessage: String {
-        conversionStatus.message
+        statusMessage(for: .video, validationMessage: videoSettingsValidationMessage)
     }
 
     var conversionStatusLevel: ConversionStatusLevel {
-        conversionStatus.level
-    }
-
-    private var conversionStatus: (message: String, level: ConversionStatusLevel) {
-        conversionStatus(
-            for: .video,
-            validationMessage: videoSettingsValidationMessage
-        )
+        statusLevel(for: .video, validationMessage: videoSettingsValidationMessage)
     }
 }

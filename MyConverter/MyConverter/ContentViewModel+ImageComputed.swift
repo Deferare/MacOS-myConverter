@@ -6,11 +6,7 @@ extension ContentViewModel {
     }
 
     var canConvertImage: Bool {
-        canStartConversion(
-            for: .image,
-            validationMessage: imageSettingsValidationMessage,
-            selectedFormatAvailable: isSelectedOutputFormatAvailable(using: imageOutputFormatDescriptor())
-        )
+        canStartConversion(for: .image, validationMessage: imageSettingsValidationMessage)
     }
 
     var selectedImageSourceURLs: [URL] {
@@ -30,15 +26,15 @@ extension ContentViewModel {
     }
 
     var imageConversionStatusMessage: String {
-        imageConversionStatus.message
+        statusMessage(
+            for: .image,
+            validationMessage: imageSettingsValidationMessage,
+            hintMessage: imageFormatHintMessage
+        )
     }
 
     var imageConversionStatusLevel: ConversionStatusLevel {
-        imageConversionStatus.level
-    }
-
-    private var imageConversionStatus: (message: String, level: ConversionStatusLevel) {
-        conversionStatus(
+        statusLevel(
             for: .image,
             validationMessage: imageSettingsValidationMessage,
             hintMessage: imageFormatHintMessage

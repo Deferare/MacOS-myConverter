@@ -20,10 +20,33 @@ extension ContentViewModel {
         )
     }
 
-    func canStartConversion(
+    func statusMessage(
         for kind: MediaKind,
         validationMessage: String?,
-        selectedFormatAvailable: Bool = true
+        hintMessage: String? = nil
+    ) -> String {
+        conversionStatus(
+            for: kind,
+            validationMessage: validationMessage,
+            hintMessage: hintMessage
+        ).message
+    }
+
+    func statusLevel(
+        for kind: MediaKind,
+        validationMessage: String?,
+        hintMessage: String? = nil
+    ) -> ConversionStatusLevel {
+        conversionStatus(
+            for: kind,
+            validationMessage: validationMessage,
+            hintMessage: hintMessage
+        ).level
+    }
+
+    func canStartConversion(
+        for kind: MediaKind,
+        validationMessage: String?
     ) -> Bool {
         let descriptor = mediaStateDescriptor(for: kind)
 
@@ -31,8 +54,7 @@ extension ContentViewModel {
             sourceURL: self[keyPath: descriptor.sourceURL],
             isConverting: self[keyPath: descriptor.isConverting],
             isAnalyzingSource: self[keyPath: descriptor.isAnalyzing],
-            validationMessage: validationMessage,
-            selectedFormatAvailable: selectedFormatAvailable
+            validationMessage: validationMessage
         )
     }
 
@@ -95,14 +117,12 @@ extension ContentViewModel {
         sourceURL: URL?,
         isConverting: Bool,
         isAnalyzingSource: Bool,
-        validationMessage: String?,
-        selectedFormatAvailable: Bool = true
+        validationMessage: String?
     ) -> Bool {
         sourceURL != nil &&
             !isConverting &&
             !isAnalyzingSource &&
-            validationMessage == nil &&
-            selectedFormatAvailable
+            validationMessage == nil
     }
 
     func defaultedOutputFormats<Format>(

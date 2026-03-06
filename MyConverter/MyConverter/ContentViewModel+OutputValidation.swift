@@ -40,6 +40,33 @@ extension ContentViewModel {
         return additionalValidation()
     }
 
+    func selectedOutputFormatNormalizedID<Format>(
+        using descriptor: OutputFormatDescriptor<Format>
+    ) -> String {
+        descriptor.formatNormalizedID(self[keyPath: descriptor.selectedFormat])
+    }
+
+    func validateSelectedOutputFormatAvailability<Capability, Format>(
+        for sourceURL: URL,
+        formatDescriptor: OutputFormatDescriptor<Format>,
+        unavailableMessage: String,
+        fetchCapabilities: (URL) async -> Capability,
+        availableFormats: (Capability) -> [Format],
+        errorMessage: (Capability) -> String?,
+        additionalValidation: (Capability) -> String? = { _ in nil }
+    ) async -> String? {
+        await validateOutputFormatAvailability(
+            for: sourceURL,
+            selectedFormatNormalizedID: selectedOutputFormatNormalizedID(using: formatDescriptor),
+            unavailableMessage: unavailableMessage,
+            fetchCapabilities: fetchCapabilities,
+            availableFormats: availableFormats,
+            errorMessage: errorMessage,
+            formatNormalizedID: formatDescriptor.formatNormalizedID,
+            additionalValidation: additionalValidation
+        )
+    }
+
     func validateOutputFormatAvailability<Capability, Format>(
         for sourceURL: URL,
         selectedFormatNormalizedID: String,
