@@ -14,10 +14,7 @@ extension ContentViewModel {
     func handleDrop(providers: [NSItemProvider], for kind: MediaKind) -> Bool {
         handleMediaDrop(
             providers: providers,
-            accept: { [weak self] url in
-                guard let self else { return false }
-                return self.acceptsInput(url, for: kind)
-            },
+            accept: kind.acceptsInput(_:),
             applySelection: { [weak self] urls in
                 self?.applySelectedSources(urls, for: kind)
             }

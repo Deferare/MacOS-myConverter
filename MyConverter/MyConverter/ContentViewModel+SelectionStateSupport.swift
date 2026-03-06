@@ -6,25 +6,38 @@ extension ContentViewModel {
         case image
         case audio
 
-        var converterTitle: String {
+        var sidebarTitle: String {
             switch self {
             case .video:
-                return "Convert Video"
+                return "Video"
             case .image:
-                return "Convert Image"
+                return "Image"
             case .audio:
-                return "Convert Audio"
+                return "Audio"
+            }
+        }
+
+        var converterTitle: String {
+            "Convert \(sidebarTitle)"
+        }
+
+        var sidebarSystemImage: String {
+            switch self {
+            case .video:
+                return "film"
+            case .image:
+                return "photo"
+            case .audio:
+                return "waveform"
             }
         }
 
         var inputSystemImage: String {
             switch self {
-            case .video:
-                return "film.fill"
-            case .image:
-                return "photo.fill"
             case .audio:
-                return "waveform"
+                return sidebarSystemImage
+            case .video, .image:
+                return "\(sidebarSystemImage).fill"
             }
         }
     }

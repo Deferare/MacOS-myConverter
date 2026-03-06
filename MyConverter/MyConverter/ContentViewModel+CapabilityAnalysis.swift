@@ -57,6 +57,60 @@ extension ContentViewModel {
         )
     }
 
+    func makeResolvedOutputSelectionHandlers<Capability: Sendable, Format>(
+        persistKind: MediaKind,
+        formatDescriptor: @escaping (ContentViewModel) -> OutputFormatDescriptor<Format>,
+        postSelectionUpdate: @escaping (ContentViewModel) -> Void = { _ in }
+    ) -> (ContentViewModel, [URL]) -> SourceAnalysisSelectionHandlers<Capability, Format> {
+        { viewModel, _ in
+            SourceAnalysisSelectionHandlers(
+                onCapability: { _, _ in },
+                onFormatsResolved: { resolvedFormats in
+                    viewModel.applyResolvedOutputFormats(
+                        resolvedFormats,
+                        formatDescriptor: formatDescriptor(viewModel),
+                        postSelectionUpdate: {
+                            postSelectionUpdate(viewModel)
+                        },
+                        persistSettings: {
+                            viewModel.persistCurrentSourceSettingsIfNeeded(for: persistKind)
+                        }
+                    )
+                }
+            )
+        }
+    }
+
+    func makeImageSourceSelectionHandlers()
+        -> (ContentViewModel, [URL]) -> SourceAnalysisSelectionHandlers<ImageSourceCapabilities, ImageFormatOption> {
+        { viewModel, urls in
+            let primarySourceID = viewModel.uniqueStandardizedURLs(urls)
+                .first
+                .map(viewModel.sourceIdentifier(for:))
+            var primaryFrameCount = 0
+            var primaryHasAlpha = false
+
+            return SourceAnalysisSelectionHandlers(
+                onCapability: { source, capabilities in
+                    guard viewModel.sourceIdentifier(for: source) == primarySourceID else { return }
+                    primaryFrameCount = capabilities.frameCount
+                    primaryHasAlpha = capabilities.hasAlpha
+                },
+                onFormatsResolved: { resolvedFormats in
+                    viewModel.imageSourceFrameCount = primaryFrameCount
+                    viewModel.imageSourceHasAlpha = primaryHasAlpha
+                    viewModel.applyResolvedOutputFormats(
+                        resolvedFormats,
+                        formatDescriptor: viewModel.imageOutputFormatDescriptor(),
+                        persistSettings: {
+                            viewModel.persistCurrentSourceSettingsIfNeeded(for: .image)
+                        }
+                    )
+                }
+            )
+        }
+    }
+
     func selectedSourceIDs(for kind: MediaKind) -> [String] {
         selectedSourceURLs(for: kind).map(sourceIdentifier(for:))
     }

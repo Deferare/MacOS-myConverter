@@ -9,31 +9,9 @@ enum ConverterTab: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    var title: String {
-        switch self {
-        case .video:
-            return "Video"
-        case .image:
-            return "Image"
-        case .audio:
-            return "Audio"
-        case .about:
-            return "About"
-        }
-    }
+    var title: String { mediaKind?.sidebarTitle ?? "About" }
 
-    var systemImage: String {
-        switch self {
-        case .video:
-            return "film"
-        case .image:
-            return "photo"
-        case .audio:
-            return "waveform"
-        case .about:
-            return "info.circle"
-        }
-    }
+    var systemImage: String { mediaKind?.sidebarSystemImage ?? "info.circle" }
 }
 
 @MainActor

@@ -12,21 +12,11 @@ extension ContentViewModel {
             formatNormalizedID: { $0.normalizedID },
             deduplicatedAndSorted: { AudioFormatOption.deduplicatedAndSorted($0) },
             noCommonFormatsMessage: "No common audio output format is available for the selected files.",
-            buildSelectionHandlers: { viewModel, _ in
-                SourceAnalysisSelectionHandlers(
-                    onCapability: { _, _ in },
-                    onFormatsResolved: { resolvedFormats in
-                        viewModel.applyResolvedOutputFormats(
-                            resolvedFormats,
-                            formatDescriptor: viewModel.audioOutputFormatDescriptor(),
-                            postSelectionUpdate: viewModel.refreshAudioCodecOptions,
-                            persistSettings: {
-                                viewModel.persistCurrentSourceSettingsIfNeeded(for: .audio)
-                            }
-                        )
-                    }
-                )
-            }
+            buildSelectionHandlers: makeResolvedOutputSelectionHandlers(
+                persistKind: .audio,
+                formatDescriptor: { $0.audioOutputFormatDescriptor() },
+                postSelectionUpdate: { $0.refreshAudioCodecOptions() }
+            )
         )
     }
 }

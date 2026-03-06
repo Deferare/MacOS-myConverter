@@ -25,10 +25,7 @@ extension ContentViewModel {
     func applyImportedSources(_ urls: [URL], for kind: MediaKind) {
         applyImportedSources(
             urls,
-            accept: { [weak self] url in
-                guard let self else { return false }
-                return self.acceptsInput(url, for: kind)
-            },
+            accept: kind.acceptsInput(_:),
             applySelection: { [weak self] acceptedURLs in
                 self?.applySelectedSources(acceptedURLs, for: kind)
             }

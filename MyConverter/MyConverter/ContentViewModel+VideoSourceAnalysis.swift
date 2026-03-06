@@ -12,21 +12,11 @@ extension ContentViewModel {
             formatNormalizedID: { $0.normalizedID },
             deduplicatedAndSorted: { VideoFormatOption.deduplicatedAndSorted($0) },
             noCommonFormatsMessage: "No common output container is available for the selected files.",
-            buildSelectionHandlers: { viewModel, _ in
-                SourceAnalysisSelectionHandlers(
-                    onCapability: { _, _ in },
-                    onFormatsResolved: { resolvedFormats in
-                        viewModel.applyResolvedOutputFormats(
-                            resolvedFormats,
-                            formatDescriptor: viewModel.videoOutputFormatDescriptor(),
-                            postSelectionUpdate: viewModel.refreshVideoCodecOptions,
-                            persistSettings: {
-                                viewModel.persistCurrentSourceSettingsIfNeeded(for: .video)
-                            }
-                        )
-                    }
-                )
-            }
+            buildSelectionHandlers: makeResolvedOutputSelectionHandlers(
+                persistKind: .video,
+                formatDescriptor: { $0.videoOutputFormatDescriptor() },
+                postSelectionUpdate: { $0.refreshVideoCodecOptions() }
+            )
         )
     }
 }

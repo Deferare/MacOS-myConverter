@@ -1,5 +1,18 @@
 import Foundation
 
+extension ContentViewModel.MediaKind {
+    func acceptsInput(_ url: URL) -> Bool {
+        switch self {
+        case .video:
+            return ContentViewModelSupport.isVideoInputURL(url)
+        case .image:
+            return ContentViewModelSupport.isImageInputURL(url)
+        case .audio:
+            return ContentViewModelSupport.isAudioInputURL(url)
+        }
+    }
+}
+
 extension ConverterTab {
     var mediaKind: ContentViewModel.MediaKind? {
         switch self {
@@ -18,17 +31,6 @@ extension ConverterTab {
 extension ContentViewModel {
     func uniqueStandardizedURLs(_ urls: [URL]) -> [URL] {
         ContentViewModelSupport.uniqueStandardizedURLs(urls)
-    }
-
-    func acceptsInput(_ url: URL, for kind: MediaKind) -> Bool {
-        switch kind {
-        case .video:
-            return ContentViewModelSupport.isVideoInputURL(url)
-        case .image:
-            return ContentViewModelSupport.isImageInputURL(url)
-        case .audio:
-            return ContentViewModelSupport.isAudioInputURL(url)
-        }
     }
 
     func cancelTask(_ task: inout Task<Void, Never>?) {
