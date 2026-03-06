@@ -15,11 +15,14 @@ enum VideoConversionEngine {
     nonisolated(unsafe) static var audioFormatEncoderOptionsCache: [String: [AudioEncoderOption]] = [:]
     nonisolated static let exportPresetCompatibilityCacheQueue = DispatchQueue(label: "myconverter.video.exportpreset.cache")
     nonisolated(unsafe) static var exportPresetCompatibilityCache: [String: [String]] = [:]
+    nonisolated(unsafe) static var exportPresetCompatibilityInFlight: [String: InFlightCapability<[String]>] = [:]
     nonisolated static let sourceCapabilityCacheQueue = DispatchQueue(label: "myconverter.video.source.capability.cache")
     nonisolated(unsafe) static var videoSourceCapabilitiesCache: [String: VideoSourceCapabilities] = [:]
     nonisolated(unsafe) static var audioSourceCapabilitiesCache: [String: AudioSourceCapabilities] = [:]
+    nonisolated(unsafe) static var assetTrackProbeCache: [String: AssetTrackProbe] = [:]
     nonisolated(unsafe) static var videoSourceCapabilitiesInFlight: [String: InFlightCapability<VideoSourceCapabilities>] = [:]
     nonisolated(unsafe) static var audioSourceCapabilitiesInFlight: [String: InFlightCapability<AudioSourceCapabilities>] = [:]
+    nonisolated(unsafe) static var assetTrackProbeInFlight: [String: InFlightCapability<AssetTrackProbe>] = [:]
     nonisolated static let preferredExportPresets = [
         AVAssetExportPresetPassthrough,
         AVAssetExportPresetHighestQuality,
@@ -54,5 +57,11 @@ enum VideoConversionEngine {
     struct FFmpegMuxerDescriptor {
         let name: String
         let description: String
+    }
+
+    struct AssetTrackProbe: Sendable {
+        let isReadable: Bool
+        let hasVideoTrack: Bool
+        let hasAudioTrack: Bool
     }
 }

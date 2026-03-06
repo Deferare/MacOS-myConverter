@@ -2,6 +2,44 @@ import AVFoundation
 import Foundation
 
 extension VideoConversionEngine {
+    static func assetTrackProbe(for inputURL: URL) async -> AssetTrackProbe {
+        let cacheKey = assetTrackProbeCacheKey(for: inputURL)
+        if let cached = sourceCapabilityCacheQueue.sync(execute: { assetTrackProbeCache[cacheKey] }) {
+            return cached
+        }
+
+        let (inFlight, shouldBuild) = sourceCapabilityCacheQueue.sync {
+            if let existing = assetTrackProbeInFlight[cacheKey] {
+                return (existing, false)
+            }
+
+            let created = InFlightCapability<AssetTrackProbe>()
+            assetTrackProbeInFlight[cacheKey] = created
+            return (created, true)
+        }
+
+        if !shouldBuild {
+            return await awaitAssetTrackProbe(inFlight)
+        }
+
+        let resolved = await Task.detached(priority: .userInitiated) {
+            await loadAssetTrackProbe(for: inputURL)
+        }.value
+
+        var continuations: [CheckedContinuation<AssetTrackProbe, Never>] = []
+        sourceCapabilityCacheQueue.sync {
+            assetTrackProbeCache[cacheKey] = resolved
+            inFlight.result = resolved
+            continuations = inFlight.continuations
+            inFlight.continuations.removeAll()
+            assetTrackProbeInFlight[cacheKey] = nil
+        }
+        for continuation in continuations {
+            continuation.resume(returning: resolved)
+        }
+        return resolved
+    }
+
     static func supportedOutputFormatsWithAVFoundation(for asset: AVURLAsset) async -> [VideoFormatOption] {
         var supported: [VideoFormatOption] = []
         for format in VideoFormatOption.avFoundationDefaultFormats {
@@ -120,6 +158,57 @@ extension VideoConversionEngine {
         }
 
         return false
+    }
+
+    private static func assetTrackProbeCacheKey(for inputURL: URL) -> String {
+        let standardizedURL = inputURL.standardizedFileURL
+        let resourceValues = try? standardizedURL.resourceValues(
+            forKeys: [.contentModificationDateKey, .fileSizeKey]
+        )
+        let fileSize = resourceValues?.fileSize ?? -1
+        let modificationInterval = resourceValues?.contentModificationDate?.timeIntervalSinceReferenceDate ?? -1
+        return "\(standardizedURL.path)|\(fileSize)|\(modificationInterval)"
+    }
+
+    private static func awaitAssetTrackProbe(
+        _ inFlight: InFlightCapability<AssetTrackProbe>
+    ) async -> AssetTrackProbe {
+        await withCheckedContinuation { continuation in
+            var resolved: AssetTrackProbe?
+
+            sourceCapabilityCacheQueue.sync {
+                if let result = inFlight.result {
+                    resolved = result
+                } else {
+                    inFlight.continuations.append(continuation)
+                }
+            }
+
+            if let resolved {
+                continuation.resume(returning: resolved)
+            }
+        }
+    }
+
+    private static func loadAssetTrackProbe(for inputURL: URL) async -> AssetTrackProbe {
+        let asset = AVURLAsset(url: inputURL)
+
+        do {
+            try await validatePlayableAsset(asset)
+            let videoTracks = try await asset.loadTracks(withMediaType: .video)
+            let audioTracks = try await asset.loadTracks(withMediaType: .audio)
+            return AssetTrackProbe(
+                isReadable: true,
+                hasVideoTrack: !videoTracks.isEmpty,
+                hasAudioTrack: !audioTracks.isEmpty
+            )
+        } catch {
+            return AssetTrackProbe(
+                isReadable: false,
+                hasVideoTrack: false,
+                hasAudioTrack: false
+            )
+        }
     }
 
     private static func validatePlayableAsset(_ asset: AVURLAsset) async throws {

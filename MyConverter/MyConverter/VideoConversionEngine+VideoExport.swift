@@ -138,6 +138,20 @@ extension VideoConversionEngine {
             return cached
         }
 
+        let (inFlight, shouldBuild) = exportPresetCompatibilityCacheQueue.sync {
+            if let existing = exportPresetCompatibilityInFlight[cacheKey] {
+                return (existing, false)
+            }
+
+            let created = InFlightCapability<[String]>()
+            exportPresetCompatibilityInFlight[cacheKey] = created
+            return (created, true)
+        }
+
+        if !shouldBuild {
+            return await awaitCompatibleExportPresets(inFlight)
+        }
+
         var presets: [String] = []
         for preset in preferredPresets {
             let isCompatible = await AVAssetExportSession.compatibility(
@@ -150,10 +164,38 @@ extension VideoConversionEngine {
             }
         }
 
+        var continuations: [CheckedContinuation<[String], Never>] = []
         exportPresetCompatibilityCacheQueue.sync {
             exportPresetCompatibilityCache[cacheKey] = presets
+            inFlight.result = presets
+            continuations = inFlight.continuations
+            inFlight.continuations.removeAll()
+            exportPresetCompatibilityInFlight[cacheKey] = nil
+        }
+        for continuation in continuations {
+            continuation.resume(returning: presets)
         }
         return presets
+    }
+
+    private static func awaitCompatibleExportPresets(
+        _ inFlight: InFlightCapability<[String]>
+    ) async -> [String] {
+        await withCheckedContinuation { continuation in
+            var resolved: [String]?
+
+            exportPresetCompatibilityCacheQueue.sync {
+                if let result = inFlight.result {
+                    resolved = result
+                } else {
+                    inFlight.continuations.append(continuation)
+                }
+            }
+
+            if let resolved {
+                continuation.resume(returning: resolved)
+            }
+        }
     }
 
     private static func exportPresetCompatibilityCacheKey(
