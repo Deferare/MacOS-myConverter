@@ -25,7 +25,8 @@ extension BatchConversionSupport {
         for sourceURL: URL,
         fileExtension: String,
         in outputDirectory: URL,
-        reservedPaths: Set<String>
+        reservedPaths: Set<String>,
+        checksDirectoryContents: Bool
     ) -> URL {
         let baseName = sourceURL.deletingPathExtension().lastPathComponent.isEmpty
             ? "output"
@@ -34,7 +35,8 @@ extension BatchConversionSupport {
             forBaseName: baseName,
             fileExtension: fileExtension,
             in: outputDirectory,
-            reservedPaths: reservedPaths
+            reservedPaths: reservedPaths,
+            checksDirectoryContents: checksDirectoryContents
         )
     }
 
@@ -43,6 +45,7 @@ extension BatchConversionSupport {
         fileExtension: String,
         outputDirectory: URL,
         reservedPaths: inout Set<String>,
+        checksDirectoryContents: Bool,
         destinationsBySourceID: inout [String: URL]
     ) {
         for sourceURL in sourceURLs {
@@ -50,7 +53,8 @@ extension BatchConversionSupport {
                 for: sourceURL,
                 fileExtension: fileExtension,
                 in: outputDirectory,
-                reservedPaths: reservedPaths
+                reservedPaths: reservedPaths,
+                checksDirectoryContents: checksDirectoryContents
             )
             destinationsBySourceID[ContentViewModelSupport.sourceIdentifier(for: sourceURL)] = destinationURL
             reservedPaths.insert(destinationURL.standardizedFileURL.path)
@@ -68,7 +72,9 @@ extension BatchConversionSupport {
         }
 
         var remapped: [String: URL] = [:]
-        var reservedPaths: Set<String> = []
+        let preloadedReservedPaths = OutputPathUtilities.existingDirectoryEntryPaths(in: outputDirectory)
+        let shouldCheckDirectoryContents = preloadedReservedPaths == nil
+        var reservedPaths = preloadedReservedPaths ?? []
         let firstSourceID = ContentViewModelSupport.sourceIdentifier(for: firstSourceURL)
 
         if let originalFirstDestinationURL = originalDestinationsBySourceID[firstSourceID] {
@@ -76,14 +82,21 @@ extension BatchConversionSupport {
                 outputDirectory.appendingPathComponent(originalFirstDestinationURL.lastPathComponent),
                 fileExtension: fileExtension
             )
+            let preferredFirstPath = preferredFirstDestinationURL.standardizedFileURL.path
 
             let firstDestinationURL: URL
-            if FileManager.default.fileExists(atPath: preferredFirstDestinationURL.path) {
+            let preferredPathIsReserved = reservedPaths.contains(preferredFirstPath)
+            let preferredPathExistsOnDisk =
+                shouldCheckDirectoryContents &&
+                FileManager.default.fileExists(atPath: preferredFirstDestinationURL.path)
+
+            if preferredPathIsReserved || preferredPathExistsOnDisk {
                 firstDestinationURL = uniqueBatchDestinationURL(
                     for: firstSourceURL,
                     fileExtension: fileExtension,
                     in: outputDirectory,
-                    reservedPaths: reservedPaths
+                    reservedPaths: reservedPaths,
+                    checksDirectoryContents: shouldCheckDirectoryContents
                 )
             } else {
                 firstDestinationURL = preferredFirstDestinationURL
@@ -98,6 +111,7 @@ extension BatchConversionSupport {
             fileExtension: fileExtension,
             outputDirectory: outputDirectory,
             reservedPaths: &reservedPaths,
+            checksDirectoryContents: shouldCheckDirectoryContents,
             destinationsBySourceID: &remapped
         )
 

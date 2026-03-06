@@ -9,9 +9,11 @@ struct ImageConverterInputSectionView: View {
     private let fileSelectionAnimation: Animation = .easeOut(duration: 0.22)
 
     var body: some View {
+        let selectedURLs = viewModel.selectedSourceURLs(for: .image)
+
         ConverterInputArea(
             isDropTargeted: isDropTargeted,
-            selectedURLs: viewModel.selectedSourceURLs(for: .image),
+            selectedURLs: selectedURLs,
             outputURLs: viewModel.convertedImageURLs,
             isConverting: viewModel.isImageConverting,
             currentBatchIndex: viewModel.currentImageBatchIndex,
@@ -31,7 +33,7 @@ struct ImageConverterInputSectionView: View {
                 viewModel.moveSelectedSource(from: draggedURL, to: targetURL, for: .image)
             }
         )
-        .animation(fileSelectionAnimation, value: viewModel.selectedFileCount(for: .image))
+        .animation(fileSelectionAnimation, value: selectedURLs.count)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isDropTargeted)
     }
 }
@@ -95,19 +97,16 @@ struct ImageConversionControlsView: View {
     var body: some View {
         let validationMessage = viewModel.validationMessage(for: .image)
         let hintMessage = viewModel.hintMessage(for: .image)
+        let status = viewModel.conversionStatus(
+            for: .image,
+            validationMessage: validationMessage,
+            hintMessage: hintMessage
+        )
         let progress = viewModel.displayedProgress(for: .image)
 
         ConversionControlBar(
-            statusMessage: viewModel.statusMessage(
-                for: .image,
-                validationMessage: validationMessage,
-                hintMessage: hintMessage
-            ),
-            statusColor: viewModel.statusLevel(
-                for: .image,
-                validationMessage: validationMessage,
-                hintMessage: hintMessage
-            ).color,
+            statusMessage: status.message,
+            statusColor: status.level.color,
             progress: progress,
             progressText: viewModel.progressPercentageText(for: .image),
             progressTint: progress > 0 ? .accentColor : .clear,

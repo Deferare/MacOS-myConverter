@@ -9,9 +9,11 @@ struct VideoConverterInputSectionView: View {
     private let fileSelectionAnimation: Animation = .easeOut(duration: 0.22)
 
     var body: some View {
+        let selectedURLs = viewModel.selectedSourceURLs(for: .video)
+
         ConverterInputArea(
             isDropTargeted: isDropTargeted,
-            selectedURLs: viewModel.selectedSourceURLs(for: .video),
+            selectedURLs: selectedURLs,
             outputURLs: viewModel.convertedURLs,
             isConverting: viewModel.isConverting,
             currentBatchIndex: viewModel.currentVideoBatchIndex,
@@ -31,7 +33,7 @@ struct VideoConverterInputSectionView: View {
                 viewModel.moveSelectedSource(from: draggedURL, to: targetURL, for: .video)
             }
         )
-        .animation(fileSelectionAnimation, value: viewModel.selectedFileCount(for: .video))
+        .animation(fileSelectionAnimation, value: selectedURLs.count)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isDropTargeted)
     }
 }
@@ -124,11 +126,12 @@ struct VideoConversionControlsView: View {
 
     var body: some View {
         let validationMessage = viewModel.validationMessage(for: .video)
+        let status = viewModel.conversionStatus(for: .video, validationMessage: validationMessage)
         let progress = viewModel.displayedProgress(for: .video)
 
         ConversionControlBar(
-            statusMessage: viewModel.statusMessage(for: .video, validationMessage: validationMessage),
-            statusColor: viewModel.statusLevel(for: .video, validationMessage: validationMessage).color,
+            statusMessage: status.message,
+            statusColor: status.level.color,
             progress: progress,
             progressText: viewModel.progressPercentageText(for: .video),
             progressTint: progress > 0 ? .accentColor : .clear,

@@ -4,7 +4,7 @@ extension ContentViewModelSupport {
     static func inferredUTType(for url: URL) -> UTType? {
         let fileExtension = url.pathExtension.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !fileExtension.isEmpty else { return nil }
-        return UTType(filenameExtension: fileExtension)
+        return FormatOptionUtilities.cachedUTType(forFilenameExtension: fileExtension)
     }
 
     static func isVideoInputURL(_ url: URL) -> Bool {

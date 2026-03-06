@@ -11,7 +11,7 @@ extension ImageFormatCatalog {
             }
 
             if let identifier = profile.imageIOUTTypeIdentifier,
-               let utType = UTType(identifier),
+               let utType = FormatOptionUtilities.cachedUTType(forIdentifier: identifier),
                let preferred = utType.preferredFilenameExtension?.lowercased(),
                map[preferred] == nil {
                 map[preferred] = profile

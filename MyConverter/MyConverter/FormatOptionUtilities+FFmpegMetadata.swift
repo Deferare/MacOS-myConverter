@@ -19,7 +19,7 @@ extension FormatOptionUtilities {
     ) {
         let normalizedExtension = normalizedFileExtension(fileExtension)
         let normalizedMuxer = muxer.lowercased()
-        let extensionUTType = UTType(filenameExtension: normalizedExtension)
+        let extensionUTType = cachedUTType(forFilenameExtension: normalizedExtension)
 
         let resolvedID =
             profile.map(profileID) ??

@@ -19,12 +19,15 @@ extension BatchConversionSupport {
         }
 
         var selected: [String: URL] = [:]
-        var reservedPaths: Set<String> = []
+        let preloadedReservedPaths = OutputPathUtilities.existingDirectoryEntryPaths(in: outputDirectory)
+        let shouldCheckDirectoryContents = preloadedReservedPaths == nil
+        var reservedPaths = preloadedReservedPaths ?? []
         assignAutoBatchDestinations(
             for: sourceURLs[...],
             fileExtension: fileExtension,
             outputDirectory: outputDirectory,
             reservedPaths: &reservedPaths,
+            checksDirectoryContents: shouldCheckDirectoryContents,
             destinationsBySourceID: &selected
         )
 

@@ -3,7 +3,7 @@ import UniformTypeIdentifiers
 
 extension ContentViewModel {
     func preferredImportTypes(for kind: MediaKind) -> [UTType] {
-        let mkvType = UTType(filenameExtension: "mkv")
+        let mkvType = FormatOptionUtilities.cachedUTType(forFilenameExtension: "mkv")
 
         switch kind {
         case .video:

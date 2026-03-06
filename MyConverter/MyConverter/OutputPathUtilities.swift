@@ -66,7 +66,8 @@ enum OutputPathUtilities {
         forBaseName baseName: String,
         fileExtension: String,
         in outputDirectory: URL,
-        reservedPaths: Set<String> = []
+        reservedPaths: Set<String> = [],
+        checksDirectoryContents: Bool = true
     ) -> URL {
         let trimmedBaseName = baseName.trimmingCharacters(in: .whitespacesAndNewlines)
         let effectiveBaseName = trimmedBaseName.isEmpty ? "output" : trimmedBaseName
@@ -91,13 +92,25 @@ enum OutputPathUtilities {
             let candidate = makeCandidate(suffix: index == 0 ? nil : index)
             let standardizedPath = candidate.standardizedFileURL.path
             let isReserved = reservedPaths.contains(standardizedPath)
-            let existsOnDisk = FileManager.default.fileExists(atPath: candidate.path)
+            let existsOnDisk = checksDirectoryContents && FileManager.default.fileExists(atPath: candidate.path)
 
             if !isReserved && !existsOnDisk {
                 return candidate
             }
             index += 1
         }
+    }
+
+    nonisolated static func existingDirectoryEntryPaths(in directoryURL: URL) -> Set<String>? {
+        guard let existingURLs = try? FileManager.default.contentsOfDirectory(
+            at: directoryURL,
+            includingPropertiesForKeys: nil,
+            options: [.skipsSubdirectoryDescendants]
+        ) else {
+            return nil
+        }
+
+        return Set(existingURLs.map { $0.standardizedFileURL.path })
     }
 
     nonisolated static func temporaryOutputURL(

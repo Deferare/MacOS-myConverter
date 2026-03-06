@@ -74,7 +74,7 @@ struct AudioFormatOption: Identifiable, Hashable, Sendable {
         let normalized = FormatOptionUtilities.normalizedFileExtension(fileExtension)
         guard !normalized.isEmpty else { return false }
 
-        if let utType = UTType(filenameExtension: normalized),
+        if let utType = FormatOptionUtilities.cachedUTType(forFilenameExtension: normalized),
            utType.conforms(to: .audio) {
             return true
         }

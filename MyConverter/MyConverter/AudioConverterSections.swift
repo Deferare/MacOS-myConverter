@@ -9,9 +9,11 @@ struct AudioConverterInputSectionView: View {
     private let fileSelectionAnimation: Animation = .easeOut(duration: 0.22)
 
     var body: some View {
+        let selectedURLs = viewModel.selectedSourceURLs(for: .audio)
+
         ConverterInputArea(
             isDropTargeted: isDropTargeted,
-            selectedURLs: viewModel.selectedSourceURLs(for: .audio),
+            selectedURLs: selectedURLs,
             outputURLs: viewModel.convertedAudioURLs,
             isConverting: viewModel.isAudioConverting,
             currentBatchIndex: viewModel.currentAudioBatchIndex,
@@ -31,7 +33,7 @@ struct AudioConverterInputSectionView: View {
                 viewModel.moveSelectedSource(from: draggedURL, to: targetURL, for: .audio)
             }
         )
-        .animation(fileSelectionAnimation, value: viewModel.selectedFileCount(for: .audio))
+        .animation(fileSelectionAnimation, value: selectedURLs.count)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isDropTargeted)
     }
 }
@@ -82,19 +84,16 @@ struct AudioConversionControlsView: View {
     var body: some View {
         let validationMessage = viewModel.validationMessage(for: .audio)
         let hintMessage = viewModel.hintMessage(for: .audio)
+        let status = viewModel.conversionStatus(
+            for: .audio,
+            validationMessage: validationMessage,
+            hintMessage: hintMessage
+        )
         let progress = viewModel.displayedProgress(for: .audio)
 
         ConversionControlBar(
-            statusMessage: viewModel.statusMessage(
-                for: .audio,
-                validationMessage: validationMessage,
-                hintMessage: hintMessage
-            ),
-            statusColor: viewModel.statusLevel(
-                for: .audio,
-                validationMessage: validationMessage,
-                hintMessage: hintMessage
-            ).color,
+            statusMessage: status.message,
+            statusColor: status.level.color,
             progress: progress,
             progressText: viewModel.progressPercentageText(for: .audio),
             progressTint: progress > 0 ? .accentColor : .clear,

@@ -17,7 +17,7 @@ struct ImageFormatOption: Identifiable, Hashable, Sendable {
 
     nonisolated var utType: UTType? {
         let identifier = imageIOUTTypeIdentifier ?? id
-        return UTType(identifier)
+        return FormatOptionUtilities.cachedUTType(forIdentifier: identifier)
     }
 
     nonisolated var normalizedID: String {
@@ -35,7 +35,7 @@ struct ImageFormatOption: Identifiable, Hashable, Sendable {
     nonisolated static func fromImageIOTypeIdentifier(_ identifier: String) -> ImageFormatOption {
         let normalizedIdentifier = identifier.lowercased()
         let profile = ImageFormatCatalog.byIdentifier[normalizedIdentifier]
-        let utType = UTType(identifier)
+        let utType = FormatOptionUtilities.cachedUTType(forIdentifier: identifier)
 
         let displayName =
             profile?.displayName ??
@@ -66,14 +66,14 @@ struct ImageFormatOption: Identifiable, Hashable, Sendable {
         let normalizedExtension = FormatOptionUtilities.normalizedFileExtension(fileExtension)
         let normalizedMuxer = muxer.lowercased()
 
-        let extensionUTType = UTType(filenameExtension: normalizedExtension)
+        let extensionUTType = FormatOptionUtilities.cachedUTType(forFilenameExtension: normalizedExtension)
         let identifier = extensionUTType?.identifier.lowercased()
         let profile =
             identifier.flatMap { ImageFormatCatalog.byIdentifier[$0] } ??
             ImageFormatCatalog.byFileExtension[normalizedExtension]
 
         let resolvedUTType =
-            profile?.imageIOUTTypeIdentifier.flatMap(UTType.init) ??
+            profile?.imageIOUTTypeIdentifier.flatMap(FormatOptionUtilities.cachedUTType(forIdentifier:)) ??
             extensionUTType
 
         let resolvedIdentifier =
@@ -114,7 +114,8 @@ struct ImageFormatOption: Identifiable, Hashable, Sendable {
         let normalizedExtension = FormatOptionUtilities.normalizedFileExtension(fileExtension)
         guard !normalizedExtension.isEmpty else { return false }
 
-        if let utType = UTType(filenameExtension: normalizedExtension), utType.conforms(to: .image) {
+        if let utType = FormatOptionUtilities.cachedUTType(forFilenameExtension: normalizedExtension),
+           utType.conforms(to: .image) {
             return true
         }
 
