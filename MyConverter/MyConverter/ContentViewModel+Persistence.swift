@@ -1,31 +1,57 @@
 import Foundation
 
 extension ContentViewModel {
-    func scheduleVideoFormatChangeHandling() {
-        scheduleDeferredTask(\.taskState.pendingVideoFormatChangeTask) { viewModel in
-            viewModel.refreshVideoCodecOptions()
-            viewModel.persistCurrentSettingsIfNeeded()
+    enum DeferredPersistenceAction {
+        case videoFormatChange
+        case videoOptionNormalization
+        case audioFormatChange
+        case audioOptionNormalization
+    }
+
+    struct DeferredPersistenceDescriptor {
+        let taskKeyPath: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>
+        let action: @MainActor (ContentViewModel) -> Void
+    }
+
+    func deferredPersistenceDescriptor(for action: DeferredPersistenceAction) -> DeferredPersistenceDescriptor {
+        switch action {
+        case .videoFormatChange:
+            return DeferredPersistenceDescriptor(
+                taskKeyPath: \.taskState.pendingVideoFormatChangeTask,
+                action: { viewModel in
+                    viewModel.refreshVideoCodecOptions()
+                    viewModel.persistCurrentSettingsIfNeeded()
+                }
+            )
+        case .videoOptionNormalization:
+            return DeferredPersistenceDescriptor(
+                taskKeyPath: \.taskState.pendingVideoOptionNormalizationTask,
+                action: { viewModel in
+                    viewModel.normalizeVideoOptionDependencies()
+                    viewModel.persistCurrentSettingsIfNeeded()
+                }
+            )
+        case .audioFormatChange:
+            return DeferredPersistenceDescriptor(
+                taskKeyPath: \.taskState.pendingAudioFormatChangeTask,
+                action: { viewModel in
+                    viewModel.refreshAudioCodecOptions()
+                    viewModel.persistCurrentAudioSettingsIfNeeded()
+                }
+            )
+        case .audioOptionNormalization:
+            return DeferredPersistenceDescriptor(
+                taskKeyPath: \.taskState.pendingAudioOptionNormalizationTask,
+                action: { viewModel in
+                    viewModel.normalizeAudioOptionDependencies()
+                    viewModel.persistCurrentAudioSettingsIfNeeded()
+                }
+            )
         }
     }
 
-    func scheduleVideoOptionNormalizationAndPersist() {
-        scheduleDeferredTask(\.taskState.pendingVideoOptionNormalizationTask) { viewModel in
-            viewModel.normalizeVideoOptionDependencies()
-            viewModel.persistCurrentSettingsIfNeeded()
-        }
-    }
-
-    func scheduleAudioFormatChangeHandling() {
-        scheduleDeferredTask(\.taskState.pendingAudioFormatChangeTask) { viewModel in
-            viewModel.refreshAudioCodecOptions()
-            viewModel.persistCurrentAudioSettingsIfNeeded()
-        }
-    }
-
-    func scheduleAudioOptionNormalizationAndPersist() {
-        scheduleDeferredTask(\.taskState.pendingAudioOptionNormalizationTask) { viewModel in
-            viewModel.normalizeAudioOptionDependencies()
-            viewModel.persistCurrentAudioSettingsIfNeeded()
-        }
+    func scheduleDeferredPersistenceAction(_ action: DeferredPersistenceAction) {
+        let descriptor = deferredPersistenceDescriptor(for: action)
+        scheduleDeferredTask(descriptor.taskKeyPath, action: descriptor.action)
     }
 }
