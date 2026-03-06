@@ -12,6 +12,7 @@
 
 /* Begin PBXFileReference section */
 		E035400E2F404D4C0017223C /* MyConverter.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MyConverter.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E0912D482F5AF08700574DC4 /* LocalTesting.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; name = LocalTesting.storekit; path = ../LocalTesting.storekit; sourceTree = "<group>"; };
 		E0FB6AFB2F42182100AE34F0 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
@@ -38,6 +39,7 @@
 		E03540052F404D4C0017223C = {
 			isa = PBXGroup;
 			children = (
+				E0912D482F5AF08700574DC4 /* LocalTesting.storekit */,
 				E03540102F404D4C0017223C /* MyConverter */,
 				E0FB6AFA2F42182100AE34F0 /* Frameworks */,
 				E035400F2F404D4C0017223C /* Products */,
