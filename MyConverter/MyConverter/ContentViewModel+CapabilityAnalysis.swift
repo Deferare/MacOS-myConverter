@@ -13,6 +13,88 @@ extension ContentViewModel {
         var errors: [String] = []
     }
 
+    func selectedSourceIDs(for kind: MediaKind) -> [String] {
+        selectedSourceURLs(for: kind).map(sourceIdentifier(for:))
+    }
+
+    func resetAnalysisStateForEmptySelection<Format>(
+        for kind: MediaKind,
+        availableFormatsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [Format]>
+    ) {
+        let descriptor = mediaStateDescriptor(for: kind)
+        self[keyPath: descriptor.isAnalyzing] = false
+        self[keyPath: availableFormatsKeyPath] = []
+        resetCompatibilityState(for: kind)
+    }
+
+    func analyzeMediaSourceSelection<Capability: Sendable, Format>(
+        for kind: MediaKind,
+        urls: [URL],
+        availableFormatsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [Format]>,
+        fetchCapabilities: @escaping @Sendable (URL) async -> Capability,
+        availableFormats: @escaping (Capability) -> [Format],
+        warningMessage: @escaping (Capability) -> String?,
+        errorMessage: @escaping (Capability) -> String?,
+        formatNormalizedID: @escaping (Format) -> String,
+        deduplicatedAndSorted: @escaping ([Format]) -> [Format],
+        noCommonFormatsMessage: String,
+        onCapability: ((URL, Capability) -> Void)? = nil,
+        onEmptySelection: (() -> Void)? = nil,
+        onFormatsResolved: @escaping ([Format]) -> Void
+    ) {
+        let descriptor = mediaStateDescriptor(for: kind)
+
+        analyzeSourceSelection(
+            urls: urls,
+            analysisTaskKeyPath: descriptor.analysisTask,
+            isAnalyzingKeyPath: descriptor.isAnalyzing,
+            availableFormatsKeyPath: availableFormatsKeyPath,
+            warningMessageKeyPath: descriptor.compatibilityWarningMessage,
+            errorMessageKeyPath: descriptor.compatibilityErrorMessage,
+            selectedSourceIDs: {
+                self.selectedSourceIDs(for: kind)
+            },
+            resetForEmptySelection: {
+                self.resetAnalysisStateForEmptySelection(
+                    for: kind,
+                    availableFormatsKeyPath: availableFormatsKeyPath
+                )
+                onEmptySelection?()
+            },
+            fetchCapabilities: fetchCapabilities,
+            availableFormats: availableFormats,
+            warningMessage: warningMessage,
+            errorMessage: errorMessage,
+            intersect: { lhs, rhs in
+                ContentViewModelSupport.intersectFormats(lhs, rhs, normalizedID: formatNormalizedID)
+            },
+            deduplicatedAndSorted: deduplicatedAndSorted,
+            noCommonFormatsMessage: noCommonFormatsMessage,
+            onCapability: onCapability,
+            onFormatsResolved: onFormatsResolved
+        )
+    }
+
+    func applyResolvedOutputFormats<Format>(
+        _ resolvedFormats: [Format],
+        selectedFormatKeyPath: ReferenceWritableKeyPath<ContentViewModel, Format>,
+        formatNormalizedID: (Format) -> String,
+        ensureSelectedFormatIsAvailable: () -> Void,
+        postSelectionUpdate: () -> Void = {},
+        persistSettings: () -> Void
+    ) {
+        if let first = resolvedFormats.first,
+           !resolvedFormats.contains(where: {
+               formatNormalizedID($0) == formatNormalizedID(self[keyPath: selectedFormatKeyPath])
+           }) {
+            self[keyPath: selectedFormatKeyPath] = first
+        }
+
+        ensureSelectedFormatIsAvailable()
+        postSelectionUpdate()
+        persistSettings()
+    }
+
     func aggregateSourceCapabilities<Capability: Sendable, Format>(
         for selection: [URL],
         fetchCapabilities: @escaping @Sendable (URL) async -> Capability,

@@ -10,31 +10,15 @@ extension ContentViewModel {
         var primaryFrameCount = 0
         var primaryHasAlpha = false
 
-        analyzeSourceSelection(
+        analyzeMediaSourceSelection(
+            for: .image,
             urls: urls,
-            analysisTaskKeyPath: \.imageSourceAnalysisTask,
-            isAnalyzingKeyPath: \.isAnalyzingImageSource,
             availableFormatsKeyPath: \.availableImageOutputFormats,
-            warningMessageKeyPath: \.imageSourceCompatibilityWarningMessage,
-            errorMessageKeyPath: \.imageSourceCompatibilityErrorMessage,
-            selectedSourceIDs: {
-                self.selectedImageSourceURLs.map { self.sourceIdentifier(for: $0) }
-            },
-            resetForEmptySelection: {
-                isAnalyzingImageSource = false
-                availableImageOutputFormats = []
-                imageSourceFrameCount = 0
-                imageSourceHasAlpha = false
-                imageSourceCompatibilityErrorMessage = nil
-                imageSourceCompatibilityWarningMessage = nil
-            },
             fetchCapabilities: { await ImageConversionEngine.sourceCapabilities(for: $0) },
             availableFormats: { $0.availableOutputFormats },
             warningMessage: { $0.warningMessage },
             errorMessage: { $0.errorMessage },
-            intersect: { lhs, rhs in
-                ContentViewModelSupport.intersectFormats(lhs, rhs, normalizedID: { $0.normalizedID })
-            },
+            formatNormalizedID: { $0.normalizedID },
             deduplicatedAndSorted: { ImageFormatOption.deduplicatedAndSorted($0) },
             noCommonFormatsMessage: "No common output format is available for the selected files.",
             onCapability: { source, capabilities in
@@ -48,13 +32,13 @@ extension ContentViewModel {
                 self.imageSourceFrameCount = primaryFrameCount
                 self.imageSourceHasAlpha = primaryHasAlpha
 
-                if let first = resolvedFormats.first,
-                   !resolvedFormats.contains(where: { $0.normalizedID == self.selectedImageOutputFormat.normalizedID }) {
-                    self.selectedImageOutputFormat = first
-                }
-
-                self.ensureSelectedImageOutputFormatIsAvailable()
-                self.persistCurrentImageSettingsIfNeeded()
+                self.applyResolvedOutputFormats(
+                    resolvedFormats,
+                    selectedFormatKeyPath: \.selectedImageOutputFormat,
+                    formatNormalizedID: { $0.normalizedID },
+                    ensureSelectedFormatIsAvailable: self.ensureSelectedImageOutputFormatIsAvailable,
+                    persistSettings: self.persistCurrentImageSettingsIfNeeded
+                )
             }
         )
     }
