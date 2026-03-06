@@ -15,16 +15,26 @@ extension ContentViewModel {
         validationMessage: String?,
         hintMessage: String? = nil
     ) -> (message: String, level: ConversionStatusLevel) {
-        let descriptor = mediaStateDescriptor(for: kind)
-
-        return buildConversionStatus(
-            isConverting: self[keyPath: descriptor.isConverting],
-            currentBatchIndex: self[keyPath: descriptor.currentBatchIndex],
-            totalBatchCount: self[keyPath: descriptor.totalBatchCount],
-            isAnalyzingSource: self[keyPath: descriptor.isAnalyzing],
-            conversionErrorMessage: self[keyPath: descriptor.conversionErrorMessage],
+        conversionStatus(
+            using: mediaStateSnapshot(for: kind),
             validationMessage: validationMessage,
-            compatibilityWarningMessage: self[keyPath: descriptor.compatibilityWarningMessage],
+            hintMessage: hintMessage
+        )
+    }
+
+    func conversionStatus(
+        using snapshot: MediaStateSnapshot,
+        validationMessage: String?,
+        hintMessage: String? = nil
+    ) -> (message: String, level: ConversionStatusLevel) {
+        buildConversionStatus(
+            isConverting: snapshot.isConverting,
+            currentBatchIndex: snapshot.currentBatchIndex,
+            totalBatchCount: snapshot.totalBatchCount,
+            isAnalyzingSource: snapshot.isAnalyzing,
+            conversionErrorMessage: snapshot.conversionErrorMessage,
+            validationMessage: validationMessage,
+            compatibilityWarningMessage: snapshot.compatibilityWarningMessage,
             hintMessage: hintMessage
         )
     }
@@ -57,12 +67,8 @@ extension ContentViewModel {
         for kind: MediaKind,
         validationMessage: String?
     ) -> Bool {
-        let descriptor = mediaStateDescriptor(for: kind)
-
-        return canStartConversion(
-            sourceURL: self[keyPath: descriptor.sourceURL],
-            isConverting: self[keyPath: descriptor.isConverting],
-            isAnalyzingSource: self[keyPath: descriptor.isAnalyzing],
+        canStartConversion(
+            using: mediaStateSnapshot(for: kind),
             validationMessage: validationMessage
         )
     }
@@ -72,23 +78,23 @@ extension ContentViewModel {
     }
 
     func conversionControlState(for kind: MediaKind) -> ConversionControlState {
-        let descriptor = mediaStateDescriptor(for: kind)
+        let snapshot = mediaStateSnapshot(for: kind)
         let validationMessage = validationMessage(for: kind)
         let hintMessage = hintMessage(for: kind)
         let status = conversionStatus(
-            for: kind,
+            using: snapshot,
             validationMessage: validationMessage,
             hintMessage: hintMessage
         )
-        let progress = displayedProgress(for: kind)
+        let progress = displayedProgress(for: snapshot)
 
         return ConversionControlState(
             statusMessage: status.message,
             statusLevel: status.level,
             progress: progress,
             progressText: progressPercentageText(for: progress),
-            isConverting: self[keyPath: descriptor.isConverting],
-            canConvert: canStartConversion(for: kind, validationMessage: validationMessage)
+            isConverting: snapshot.isConverting,
+            canConvert: canStartConversion(using: snapshot, validationMessage: validationMessage)
         )
     }
 
@@ -141,6 +147,18 @@ extension ContentViewModel {
     func progressPercentageText(for progress: Double) -> String {
         let percent = Int((progress * 100).rounded())
         return "\(max(0, min(percent, 100)))%"
+    }
+
+    func canStartConversion(
+        using snapshot: MediaStateSnapshot,
+        validationMessage: String?
+    ) -> Bool {
+        canStartConversion(
+            sourceURL: snapshot.sourceURL,
+            isConverting: snapshot.isConverting,
+            isAnalyzingSource: snapshot.isAnalyzing,
+            validationMessage: validationMessage
+        )
     }
 
     func canStartConversion(

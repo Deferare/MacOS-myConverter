@@ -49,6 +49,19 @@ extension ContentViewModel {
         let currentBatchIndex: Int
     }
 
+    struct MediaStateSnapshot {
+        let sourceURL: URL?
+        let queuedSourceURLs: [URL]
+        let convertedURLs: [URL]
+        let conversionErrorMessage: String?
+        let compatibilityWarningMessage: String?
+        let isAnalyzing: Bool
+        let isConverting: Bool
+        let progress: Double
+        let currentBatchIndex: Int
+        let totalBatchCount: Int
+    }
+
     struct MediaStateDescriptor {
         let sourceURL: ReferenceWritableKeyPath<ContentViewModel, URL?>
         let queuedSourceURLs: ReferenceWritableKeyPath<ContentViewModel, [URL]>
@@ -152,34 +165,57 @@ extension ContentViewModel {
         mediaStateDescriptor(for: kind).analyzeSelection(self, urls)
     }
 
-    func selectedSourceURLs(for kind: MediaKind) -> [URL] {
+    func mediaStateSnapshot(for kind: MediaKind) -> MediaStateSnapshot {
         let descriptor = mediaStateDescriptor(for: kind)
-        guard let sourceURL = self[keyPath: descriptor.sourceURL] else { return [] }
-        return [sourceURL] + self[keyPath: descriptor.queuedSourceURLs]
-    }
 
-    func selectedFileCount(for kind: MediaKind) -> Int {
-        let descriptor = mediaStateDescriptor(for: kind)
-        guard self[keyPath: descriptor.sourceURL] != nil else { return 0 }
-        return self[keyPath: descriptor.queuedSourceURLs].count + 1
-    }
-
-    func displayedProgress(for kind: MediaKind) -> Double {
-        let descriptor = mediaStateDescriptor(for: kind)
-        return displayedProgress(
+        return MediaStateSnapshot(
+            sourceURL: self[keyPath: descriptor.sourceURL],
+            queuedSourceURLs: self[keyPath: descriptor.queuedSourceURLs],
+            convertedURLs: self[keyPath: descriptor.convertedURLs],
+            conversionErrorMessage: self[keyPath: descriptor.conversionErrorMessage],
+            compatibilityWarningMessage: self[keyPath: descriptor.compatibilityWarningMessage],
+            isAnalyzing: self[keyPath: descriptor.isAnalyzing],
             isConverting: self[keyPath: descriptor.isConverting],
-            rawProgress: self[keyPath: descriptor.progress]
+            progress: self[keyPath: descriptor.progress],
+            currentBatchIndex: self[keyPath: descriptor.currentBatchIndex],
+            totalBatchCount: self[keyPath: descriptor.totalBatchCount]
         )
     }
 
+    func selectedSourceURLs(using snapshot: MediaStateSnapshot) -> [URL] {
+        guard let sourceURL = snapshot.sourceURL else { return [] }
+        return [sourceURL] + snapshot.queuedSourceURLs
+    }
+
+    func selectedSourceURLs(for kind: MediaKind) -> [URL] {
+        selectedSourceURLs(using: mediaStateSnapshot(for: kind))
+    }
+
+    func selectedFileCount(for kind: MediaKind) -> Int {
+        let snapshot = mediaStateSnapshot(for: kind)
+        guard snapshot.sourceURL != nil else { return 0 }
+        return snapshot.queuedSourceURLs.count + 1
+    }
+
+    func displayedProgress(for snapshot: MediaStateSnapshot) -> Double {
+        return displayedProgress(
+            isConverting: snapshot.isConverting,
+            rawProgress: snapshot.progress
+        )
+    }
+
+    func displayedProgress(for kind: MediaKind) -> Double {
+        displayedProgress(for: mediaStateSnapshot(for: kind))
+    }
+
     func selectedFileListState(for kind: MediaKind) -> SelectedFileListState {
-        let descriptor = mediaStateDescriptor(for: kind)
+        let snapshot = mediaStateSnapshot(for: kind)
 
         return SelectedFileListState(
-            selectedURLs: selectedSourceURLs(for: kind),
-            outputURLs: self[keyPath: descriptor.convertedURLs],
-            isConverting: self[keyPath: descriptor.isConverting],
-            currentBatchIndex: self[keyPath: descriptor.currentBatchIndex]
+            selectedURLs: selectedSourceURLs(using: snapshot),
+            outputURLs: snapshot.convertedURLs,
+            isConverting: snapshot.isConverting,
+            currentBatchIndex: snapshot.currentBatchIndex
         )
     }
 
