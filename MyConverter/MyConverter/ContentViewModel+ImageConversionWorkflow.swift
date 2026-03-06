@@ -2,8 +2,6 @@ import Foundation
 
 extension ContentViewModel {
     func convertImage() async {
-        defer { imageConversionTask = nil }
-
         await performMediaBatchConversion(
             for: .image,
             canConvert: canConvertImage,
@@ -24,16 +22,21 @@ extension ContentViewModel {
                     outputSettings: outputSettings
                 ) { [weak self] progress in
                     guard let self else { return }
-                    await self.updateImageConversionProgress(
-                        self.normalizedBatchProgress(
-                            itemProgress: progress,
-                            index: index,
-                            totalCount: totalCount
-                        )
+                    await self.updateBatchProgress(
+                        for: .image,
+                        itemProgress: progress,
+                        index: index,
+                        totalCount: totalCount
                     )
                 }
             },
-            onError: applyImageConversionError(_:)
+            onError: {
+                self.applyConversionError(
+                    $0,
+                    for: .image,
+                    logPrefix: "Image conversion failed"
+                )
+            }
         )
     }
 }

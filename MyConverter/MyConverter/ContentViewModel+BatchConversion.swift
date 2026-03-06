@@ -98,6 +98,12 @@ extension ContentViewModel {
         let destinationURLsBySourceID = batchContext.destinationURLsBySourceID
         defer { batchContext.stopAccessingBatchDirectory() }
 
+        do {
+            try Task.checkCancellation()
+        } catch {
+            return
+        }
+
         startState()
         await executeBatchConversion(
             sourceURLs: sourceURLs,

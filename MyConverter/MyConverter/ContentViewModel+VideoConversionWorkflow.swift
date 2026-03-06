@@ -1,9 +1,7 @@
 import Foundation
 
 extension ContentViewModel {
-    func convert() async {
-        defer { conversionTask = nil }
-
+    func convertVideo() async {
         await performMediaBatchConversion(
             for: .video,
             canConvert: canConvert,
@@ -26,16 +24,23 @@ extension ContentViewModel {
                     inputDurationSeconds: nil
                 ) { [weak self] progress in
                     guard let self else { return }
-                    await self.updateConversionProgress(
-                        self.normalizedBatchProgress(
-                            itemProgress: progress,
-                            index: index,
-                            totalCount: totalCount
-                        )
+                    await self.updateBatchProgress(
+                        for: .video,
+                        itemProgress: progress,
+                        index: index,
+                        totalCount: totalCount
                     )
                 }
             },
-            onError: applyConversionError(_:)
+            onError: {
+                self.applyConversionError(
+                    $0,
+                    for: .video,
+                    logPrefix: "Conversion failed",
+                    treatExportCancellationAsCancelled: true,
+                    includeDebugInfo: true
+                )
+            }
         )
     }
 }

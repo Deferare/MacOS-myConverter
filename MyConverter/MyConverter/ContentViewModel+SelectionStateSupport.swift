@@ -1,7 +1,7 @@
 import Foundation
 
 extension ContentViewModel {
-    enum MediaKind: Equatable {
+    enum MediaKind: Equatable, Sendable {
         case video
         case image
         case audio

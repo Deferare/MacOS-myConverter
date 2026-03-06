@@ -1,33 +1,26 @@
 import Foundation
 
 extension ContentViewModel {
-    func applyConversionError(_ error: Error) {
-        if case ConversionError.exportCancelled = error {
-            conversionErrorMessage = nil
+    func applyConversionError(
+        _ error: Error,
+        for kind: MediaKind,
+        logPrefix: String,
+        treatExportCancellationAsCancelled: Bool = false,
+        includeDebugInfo: Bool = false
+    ) {
+        let descriptor = mediaStateDescriptor(for: kind)
+        if treatExportCancellationAsCancelled, case ConversionError.exportCancelled = error {
+            self[keyPath: descriptor.conversionErrorMessage] = nil
             return
         }
 
-        conversionErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        self[keyPath: descriptor.conversionErrorMessage] = message
 
-        if let conversionError = error as? ConversionError {
-            print("Conversion failed: \(conversionError.debugInfo)")
+        if includeDebugInfo, let conversionError = error as? ConversionError {
+            print("\(logPrefix): \(conversionError.debugInfo)")
         } else {
-            print("Conversion failed: \(error.localizedDescription)")
+            print("\(logPrefix): \(message)")
         }
-    }
-
-    func applyImageConversionError(_ error: Error) {
-        imageConversionErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-        print("Image conversion failed: \(imageConversionErrorMessage ?? error.localizedDescription)")
-    }
-
-    func applyAudioConversionError(_ error: Error) {
-        if case ConversionError.exportCancelled = error {
-            audioConversionErrorMessage = nil
-            return
-        }
-
-        audioConversionErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-        print("Audio conversion failed: \(audioConversionErrorMessage ?? error.localizedDescription)")
     }
 }

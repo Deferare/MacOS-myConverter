@@ -21,15 +21,24 @@ extension ContentViewModel {
         return (base + itemProgress) / total
     }
 
-    func updateConversionProgress(_ rawProgress: Double) {
-        setProgress(rawProgress, at: \.conversionProgress)
+    func setProgress(_ rawProgress: Double, for kind: MediaKind) {
+        let descriptor = mediaStateDescriptor(for: kind)
+        setProgress(rawProgress, at: descriptor.progress)
     }
 
-    func updateImageConversionProgress(_ rawProgress: Double) {
-        setProgress(rawProgress, at: \.imageConversionProgress)
-    }
-
-    func updateAudioConversionProgress(_ rawProgress: Double) {
-        setProgress(rawProgress, at: \.audioConversionProgress)
+    func updateBatchProgress(
+        for kind: MediaKind,
+        itemProgress: Double,
+        index: Int,
+        totalCount: Int
+    ) {
+        setProgress(
+            normalizedBatchProgress(
+                itemProgress: itemProgress,
+                index: index,
+                totalCount: totalCount
+            ),
+            for: kind
+        )
     }
 }

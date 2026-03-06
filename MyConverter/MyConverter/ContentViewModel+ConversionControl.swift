@@ -2,33 +2,48 @@ import Foundation
 
 extension ContentViewModel {
     func startConversion() {
-        launchConversionTask(for: .video) { [weak self] in
-            await self?.convert()
-        }
+        startConversion(for: .video)
     }
 
     func cancelConversion() {
-        cancelConversionTask(for: .video)
+        cancelConversion(for: .video)
     }
 
     func startImageConversion() {
-        launchConversionTask(for: .image) { [weak self] in
-            await self?.convertImage()
-        }
+        startConversion(for: .image)
     }
 
     func cancelImageConversion() {
-        cancelConversionTask(for: .image)
+        cancelConversion(for: .image)
     }
 
     func startAudioConversion() {
-        launchConversionTask(for: .audio) { [weak self] in
-            await self?.convertAudio()
-        }
+        startConversion(for: .audio)
     }
 
     func cancelAudioConversion() {
-        cancelConversionTask(for: .audio)
+        cancelConversion(for: .audio)
+    }
+
+    func startConversion(for kind: MediaKind) {
+        launchConversionTask(for: kind) { [weak self] in
+            await self?.runConversion(for: kind)
+        }
+    }
+
+    func cancelConversion(for kind: MediaKind) {
+        cancelConversionTask(for: kind)
+    }
+
+    func runConversion(for kind: MediaKind) async {
+        switch kind {
+        case .video:
+            await convertVideo()
+        case .image:
+            await convertImage()
+        case .audio:
+            await convertAudio()
+        }
     }
 
     func launchConversionTask(
@@ -36,16 +51,23 @@ extension ContentViewModel {
         operation: @escaping @MainActor () async -> Void
     ) {
         let descriptor = mediaStateDescriptor(for: kind)
+        guard self[keyPath: descriptor.conversionTask] == nil else { return }
         guard !self[keyPath: descriptor.isConverting] else { return }
 
-        self[keyPath: descriptor.conversionTask] = Task {
+        self[keyPath: descriptor.conversionTask] = Task { @MainActor [weak self] in
+            defer { self?.clearConversionTask(for: kind) }
             await operation()
         }
     }
 
     func cancelConversionTask(for kind: MediaKind) {
         let descriptor = mediaStateDescriptor(for: kind)
-        guard self[keyPath: descriptor.isConverting] else { return }
-        self[keyPath: descriptor.conversionTask]?.cancel()
+        guard let task = self[keyPath: descriptor.conversionTask] else { return }
+        task.cancel()
+    }
+
+    func clearConversionTask(for kind: MediaKind) {
+        let descriptor = mediaStateDescriptor(for: kind)
+        self[keyPath: descriptor.conversionTask] = nil
     }
 }

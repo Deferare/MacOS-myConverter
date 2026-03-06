@@ -2,8 +2,6 @@ import Foundation
 
 extension ContentViewModel {
     func convertAudio() async {
-        defer { audioConversionTask = nil }
-
         await performMediaBatchConversion(
             for: .audio,
             canConvert: canConvertAudio,
@@ -26,16 +24,22 @@ extension ContentViewModel {
                     inputDurationSeconds: nil
                 ) { [weak self] progress in
                     guard let self else { return }
-                    await self.updateAudioConversionProgress(
-                        self.normalizedBatchProgress(
-                            itemProgress: progress,
-                            index: index,
-                            totalCount: totalCount
-                        )
+                    await self.updateBatchProgress(
+                        for: .audio,
+                        itemProgress: progress,
+                        index: index,
+                        totalCount: totalCount
                     )
                 }
             },
-            onError: applyAudioConversionError(_:)
+            onError: {
+                self.applyConversionError(
+                    $0,
+                    for: .audio,
+                    logPrefix: "Audio conversion failed",
+                    treatExportCancellationAsCancelled: true
+                )
+            }
         )
     }
 }
