@@ -1,6 +1,45 @@
 import Foundation
 
 extension ContentViewModel {
+    func conversionStatus(
+        for kind: MediaKind,
+        validationMessage: String?,
+        hintMessage: String? = nil
+    ) -> (message: String, level: ConversionStatusLevel) {
+        let descriptor = mediaStateDescriptor(for: kind)
+
+        return buildConversionStatus(
+            isConverting: self[keyPath: descriptor.isConverting],
+            currentBatchIndex: self[keyPath: descriptor.currentBatchIndex],
+            totalBatchCount: self[keyPath: descriptor.totalBatchCount],
+            isAnalyzingSource: self[keyPath: descriptor.isAnalyzing],
+            conversionErrorMessage: self[keyPath: descriptor.conversionErrorMessage],
+            validationMessage: validationMessage,
+            compatibilityWarningMessage: self[keyPath: descriptor.compatibilityWarningMessage],
+            hintMessage: hintMessage
+        )
+    }
+
+    func canStartConversion(
+        for kind: MediaKind,
+        validationMessage: String?,
+        selectedFormatAvailable: Bool = true
+    ) -> Bool {
+        let descriptor = mediaStateDescriptor(for: kind)
+
+        return canStartConversion(
+            sourceURL: self[keyPath: descriptor.sourceURL],
+            isConverting: self[keyPath: descriptor.isConverting],
+            isAnalyzingSource: self[keyPath: descriptor.isAnalyzing],
+            validationMessage: validationMessage,
+            selectedFormatAvailable: selectedFormatAvailable
+        )
+    }
+
+    func progressPercentageText(for kind: MediaKind) -> String {
+        progressPercentageText(for: displayedProgress(for: kind))
+    }
+
     func buildConversionStatus(
         isConverting: Bool,
         currentBatchIndex: Int,

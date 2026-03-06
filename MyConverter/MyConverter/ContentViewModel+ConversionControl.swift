@@ -2,48 +2,50 @@ import Foundation
 
 extension ContentViewModel {
     func startConversion() {
-        launchConversionTask(&conversionTask, isRunning: isConverting) { [weak self] in
+        launchConversionTask(for: .video) { [weak self] in
             await self?.convert()
         }
     }
 
     func cancelConversion() {
-        cancelConversionTask(conversionTask, isRunning: isConverting)
+        cancelConversionTask(for: .video)
     }
 
     func startImageConversion() {
-        launchConversionTask(&imageConversionTask, isRunning: isImageConverting) { [weak self] in
+        launchConversionTask(for: .image) { [weak self] in
             await self?.convertImage()
         }
     }
 
     func cancelImageConversion() {
-        cancelConversionTask(imageConversionTask, isRunning: isImageConverting)
+        cancelConversionTask(for: .image)
     }
 
     func startAudioConversion() {
-        launchConversionTask(&audioConversionTask, isRunning: isAudioConverting) { [weak self] in
+        launchConversionTask(for: .audio) { [weak self] in
             await self?.convertAudio()
         }
     }
 
     func cancelAudioConversion() {
-        cancelConversionTask(audioConversionTask, isRunning: isAudioConverting)
+        cancelConversionTask(for: .audio)
     }
 
     func launchConversionTask(
-        _ task: inout Task<Void, Never>?,
-        isRunning: Bool,
+        for kind: MediaKind,
         operation: @escaping @MainActor () async -> Void
     ) {
-        guard !isRunning else { return }
-        task = Task {
+        let descriptor = mediaStateDescriptor(for: kind)
+        guard !self[keyPath: descriptor.isConverting] else { return }
+
+        self[keyPath: descriptor.conversionTask] = Task {
             await operation()
         }
     }
 
-    func cancelConversionTask(_ task: Task<Void, Never>?, isRunning: Bool) {
-        guard isRunning else { return }
-        task?.cancel()
+    func cancelConversionTask(for kind: MediaKind) {
+        let descriptor = mediaStateDescriptor(for: kind)
+        guard self[keyPath: descriptor.isConverting] else { return }
+        self[keyPath: descriptor.conversionTask]?.cancel()
     }
 }

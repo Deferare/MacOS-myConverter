@@ -1,45 +1,33 @@
 import Foundation
 
 extension ContentViewModel {
-    func removeProcessedVideoSource(_ processedURL: URL) {
+    func removeProcessedSource(_ processedURL: URL, for kind: MediaKind) {
+        let descriptor = mediaStateDescriptor(for: kind)
+
         removeProcessedSource(
             processedURL,
-            from: selectedVideoSourceURLs,
-            assignSelection: assignVideoSelection(_:),
+            from: selectedSourceURLs(for: kind),
+            assignSelection: { remainingURLs in
+                assignSelection(remainingURLs, for: kind)
+            },
             onSelectionEmptied: {
-                resetVideoCompatibilityMessages()
-                isAnalyzingSource = false
-                applyPlaceholderVideoCapabilities()
+                resetCompatibilityStateForSelectionChange(for: kind)
+                self[keyPath: descriptor.isAnalyzing] = false
+                descriptor.applyPlaceholderCapabilities(self)
                 scheduleCapabilityBootstrap()
             }
         )
+    }
+
+    func removeProcessedVideoSource(_ processedURL: URL) {
+        removeProcessedSource(processedURL, for: .video)
     }
 
     func removeProcessedImageSource(_ processedURL: URL) {
-        removeProcessedSource(
-            processedURL,
-            from: selectedImageSourceURLs,
-            assignSelection: assignImageSelection(_:),
-            onSelectionEmptied: {
-                resetImageCompatibilityState(resetMetadata: true)
-                isAnalyzingImageSource = false
-                applyPlaceholderImageCapabilities()
-                scheduleCapabilityBootstrap()
-            }
-        )
+        removeProcessedSource(processedURL, for: .image)
     }
 
     func removeProcessedAudioSource(_ processedURL: URL) {
-        removeProcessedSource(
-            processedURL,
-            from: selectedAudioSourceURLs,
-            assignSelection: assignAudioSelection(_:),
-            onSelectionEmptied: {
-                resetAudioCompatibilityMessages()
-                isAnalyzingAudioSource = false
-                applyPlaceholderAudioCapabilities()
-                scheduleCapabilityBootstrap()
-            }
-        )
+        removeProcessedSource(processedURL, for: .audio)
     }
 }

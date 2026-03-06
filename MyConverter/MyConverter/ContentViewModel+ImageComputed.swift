@@ -7,29 +7,26 @@ extension ContentViewModel {
 
     var canConvertImage: Bool {
         canStartConversion(
-            sourceURL: imageSourceURL,
-            isConverting: isImageConverting,
-            isAnalyzingSource: isAnalyzingImageSource,
+            for: .image,
             validationMessage: imageSettingsValidationMessage,
             selectedFormatAvailable: availableImageOutputFormats.contains(where: { $0.normalizedID == selectedImageOutputFormat.normalizedID })
         )
     }
 
     var selectedImageSourceURLs: [URL] {
-        guard let imageSourceURL else { return [] }
-        return [imageSourceURL] + queuedImageSourceURLs
+        selectedSourceURLs(for: .image)
     }
 
     var selectedImageFileCount: Int {
-        imageSourceURL == nil ? 0 : queuedImageSourceURLs.count + 1
+        selectedFileCount(for: .image)
     }
 
     var displayedImageConversionProgress: Double {
-        displayedProgress(isConverting: isImageConverting, rawProgress: imageConversionProgress)
+        displayedProgress(for: .image)
     }
 
     var imageProgressPercentageText: String {
-        progressPercentageText(for: displayedImageConversionProgress)
+        progressPercentageText(for: .image)
     }
 
     var imageConversionStatusMessage: String {
@@ -41,14 +38,9 @@ extension ContentViewModel {
     }
 
     private var imageConversionStatus: (message: String, level: ConversionStatusLevel) {
-        buildConversionStatus(
-            isConverting: isImageConverting,
-            currentBatchIndex: currentImageBatchIndex,
-            totalBatchCount: totalImageBatchCount,
-            isAnalyzingSource: isAnalyzingImageSource,
-            conversionErrorMessage: imageConversionErrorMessage,
+        conversionStatus(
+            for: .image,
             validationMessage: imageSettingsValidationMessage,
-            compatibilityWarningMessage: imageSourceCompatibilityWarningMessage,
             hintMessage: imageFormatHintMessage
         )
     }

@@ -1,6 +1,33 @@
 import Foundation
 
 extension ContentViewModel {
+    func moveSelectedSource(from draggedURL: URL, to targetURL: URL, for kind: MediaKind) {
+        let descriptor = mediaStateDescriptor(for: kind)
+
+        moveSelectedSource(
+            from: draggedURL,
+            to: targetURL,
+            isConversionRunning: self[keyPath: descriptor.isConverting],
+            currentPrimaryURL: self[keyPath: descriptor.sourceURL],
+            selectedSourceURLs: selectedSourceURLs(for: kind),
+            assignSelection: { reordered in
+                assignSelection(reordered, for: kind)
+            },
+            cancelAnalysisTask: {
+                cancelTask(at: descriptor.analysisTask)
+            },
+            resetCompatibilityState: {
+                resetCompatibilityStateForSelectionChange(for: kind)
+            },
+            applyStoredSettingsForSourceID: { sourceID in
+                applyStoredSettings(for: kind, sourceID: sourceID)
+            },
+            analyzeSelection: { urls in
+                reanalyzeSelection(urls, for: kind)
+            }
+        )
+    }
+
     func moveSelectedSource(
         from draggedURL: URL,
         to targetURL: URL,
@@ -33,81 +60,38 @@ extension ContentViewModel {
     }
 
     func moveSelectedVideoSource(from draggedURL: URL, to targetURL: URL) {
-        moveSelectedSource(
-            from: draggedURL,
-            to: targetURL,
-            isConversionRunning: isConverting,
-            currentPrimaryURL: sourceURL,
-            selectedSourceURLs: selectedVideoSourceURLs,
-            assignSelection: { reordered in
-                assignVideoSelection(reordered)
-            },
-            cancelAnalysisTask: {
-                cancelTask(&sourceAnalysisTask)
-            },
-            resetCompatibilityState: {
-                resetVideoCompatibilityMessages()
-            },
-            applyStoredSettingsForSourceID: { sourceID in
-                applyStoredVideoSettings(for: sourceID)
-            },
-            analyzeSelection: { urls in
-                analyzeSourceCompatibility(for: urls)
-            }
-        )
+        moveSelectedSource(from: draggedURL, to: targetURL, for: .video)
     }
 
     func moveSelectedImageSource(from draggedURL: URL, to targetURL: URL) {
-        moveSelectedSource(
-            from: draggedURL,
-            to: targetURL,
-            isConversionRunning: isImageConverting,
-            currentPrimaryURL: imageSourceURL,
-            selectedSourceURLs: selectedImageSourceURLs,
-            assignSelection: { reordered in
-                assignImageSelection(reordered)
-            },
-            cancelAnalysisTask: {
-                cancelTask(&imageSourceAnalysisTask)
-            },
-            resetCompatibilityState: {
-                resetImageCompatibilityState(resetMetadata: true)
-            },
-            applyStoredSettingsForSourceID: { sourceID in
-                applyStoredImageSettings(for: sourceID)
-            },
-            analyzeSelection: { urls in
-                analyzeImageSourceCompatibility(for: urls)
-            }
-        )
+        moveSelectedSource(from: draggedURL, to: targetURL, for: .image)
     }
 
     func moveSelectedAudioSource(from draggedURL: URL, to targetURL: URL) {
-        moveSelectedSource(
-            from: draggedURL,
-            to: targetURL,
-            isConversionRunning: isAudioConverting,
-            currentPrimaryURL: audioSourceURL,
-            selectedSourceURLs: selectedAudioSourceURLs,
-            assignSelection: { reordered in
-                assignAudioSelection(reordered)
-            },
-            cancelAnalysisTask: {
-                cancelTask(&audioSourceAnalysisTask)
-            },
-            resetCompatibilityState: {
-                resetAudioCompatibilityMessages()
-            },
-            applyStoredSettingsForSourceID: { sourceID in
-                applyStoredAudioSettings(for: sourceID)
-            },
-            analyzeSelection: { urls in
-                analyzeAudioSourceCompatibility(for: urls)
-            }
-        )
+        moveSelectedSource(from: draggedURL, to: targetURL, for: .audio)
     }
 
     func reorderedURLsByMoving(_ draggedURL: URL, to targetURL: URL, in urls: [URL]) -> [URL]? {
         ContentViewModelSupport.reorderedURLsByMoving(draggedURL, to: targetURL, in: urls)
+    }
+
+    func resetCompatibilityStateForSelectionChange(for kind: MediaKind) {
+        switch kind {
+        case .image:
+            resetImageCompatibilityState(resetMetadata: true)
+        case .video, .audio:
+            resetCompatibilityState(for: kind, resetImageMetadata: false)
+        }
+    }
+
+    func reanalyzeSelection(_ urls: [URL], for kind: MediaKind) {
+        switch kind {
+        case .video:
+            analyzeSourceCompatibility(for: urls)
+        case .image:
+            analyzeImageSourceCompatibility(for: urls)
+        case .audio:
+            analyzeAudioSourceCompatibility(for: urls)
+        }
     }
 }

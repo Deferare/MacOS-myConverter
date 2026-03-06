@@ -1,27 +1,24 @@
 import Foundation
 
 extension ContentViewModel {
-    func assignVideoSelection(_ urls: [URL]) {
+    func assignSelection(_ urls: [URL], for kind: MediaKind) {
+        let descriptor = mediaStateDescriptor(for: kind)
         assignPrimaryAndQueuedSources(
             urls,
-            primaryKeyPath: \.sourceURL,
-            queuedKeyPath: \.queuedSourceURLs
+            primaryKeyPath: descriptor.sourceURL,
+            queuedKeyPath: descriptor.queuedSourceURLs
         )
+    }
+
+    func assignVideoSelection(_ urls: [URL]) {
+        assignSelection(urls, for: .video)
     }
 
     func assignImageSelection(_ urls: [URL]) {
-        assignPrimaryAndQueuedSources(
-            urls,
-            primaryKeyPath: \.imageSourceURL,
-            queuedKeyPath: \.queuedImageSourceURLs
-        )
+        assignSelection(urls, for: .image)
     }
 
     func assignAudioSelection(_ urls: [URL]) {
-        assignPrimaryAndQueuedSources(
-            urls,
-            primaryKeyPath: \.audioSourceURL,
-            queuedKeyPath: \.queuedAudioSourceURLs
-        )
+        assignSelection(urls, for: .audio)
     }
 }

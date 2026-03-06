@@ -3,29 +3,26 @@ import Foundation
 extension ContentViewModel {
     var canConvertAudio: Bool {
         canStartConversion(
-            sourceURL: audioSourceURL,
-            isConverting: isAudioConverting,
-            isAnalyzingSource: isAnalyzingAudioSource,
+            for: .audio,
             validationMessage: audioSettingsValidationMessage,
             selectedFormatAvailable: availableAudioOutputFormats.contains(where: { $0.normalizedID == selectedAudioOutputFormat.normalizedID })
         )
     }
 
     var selectedAudioSourceURLs: [URL] {
-        guard let audioSourceURL else { return [] }
-        return [audioSourceURL] + queuedAudioSourceURLs
+        selectedSourceURLs(for: .audio)
     }
 
     var selectedAudioFileCount: Int {
-        audioSourceURL == nil ? 0 : queuedAudioSourceURLs.count + 1
+        selectedFileCount(for: .audio)
     }
 
     var displayedAudioConversionProgress: Double {
-        displayedProgress(isConverting: isAudioConverting, rawProgress: audioConversionProgress)
+        displayedProgress(for: .audio)
     }
 
     var audioProgressPercentageText: String {
-        progressPercentageText(for: displayedAudioConversionProgress)
+        progressPercentageText(for: .audio)
     }
 
     var audioConversionStatusMessage: String {
@@ -37,14 +34,9 @@ extension ContentViewModel {
     }
 
     private var audioConversionStatus: (message: String, level: ConversionStatusLevel) {
-        buildConversionStatus(
-            isConverting: isAudioConverting,
-            currentBatchIndex: currentAudioBatchIndex,
-            totalBatchCount: totalAudioBatchCount,
-            isAnalyzingSource: isAnalyzingAudioSource,
-            conversionErrorMessage: audioConversionErrorMessage,
+        conversionStatus(
+            for: .audio,
             validationMessage: audioSettingsValidationMessage,
-            compatibilityWarningMessage: audioSourceCompatibilityWarningMessage,
             hintMessage: audioFormatHintMessage
         )
     }
