@@ -11,9 +11,7 @@ struct ContentView: View {
     @StateObject private var viewModel = ContentViewModel()
     @StateObject private var donationStore = DonationStore()
     @State private var selectedTab: ConverterTab = .video
-    @State private var isVideoDropTargeted = false
-    @State private var isImageDropTargeted = false
-    @State private var isAudioDropTargeted = false
+    @State private var dropTargetedKinds: Set<ContentViewModel.MediaKind> = []
     @State private var draggedSelectedFileURL: URL?
 
     private var fileDropAreaHeight: CGFloat {
@@ -57,13 +55,29 @@ struct ContentView: View {
     }
 
     private func dropTargetBinding(for kind: ContentViewModel.MediaKind) -> Binding<Bool> {
-        switch kind {
-        case .video:
-            return $isVideoDropTargeted
-        case .image:
-            return $isImageDropTargeted
-        case .audio:
-            return $isAudioDropTargeted
+        Binding(
+            get: {
+                dropTargetedKinds.contains(kind)
+            },
+            set: { isTargeted in
+                if isTargeted {
+                    dropTargetedKinds.insert(kind)
+                } else {
+                    dropTargetedKinds.remove(kind)
+                }
+            }
+        )
+    }
+
+    private func mediaDetailView(for kind: ContentViewModel.MediaKind) -> some View {
+        MediaConverterDetailView(
+            viewModel: viewModel,
+            kind: kind,
+            isDropTargeted: dropTargetBinding(for: kind),
+            draggedSelectedFileURL: $draggedSelectedFileURL,
+            fileDropAreaHeight: fileDropAreaHeight
+        ) {
+            mediaFormSections(for: kind)
         }
     }
 
@@ -79,17 +93,6 @@ struct ContentView: View {
         }
     }
 
-    private func mediaDetailView(for kind: ContentViewModel.MediaKind) -> some View {
-        MediaConverterDetailView(
-            viewModel: viewModel,
-            kind: kind,
-            isDropTargeted: dropTargetBinding(for: kind),
-            draggedSelectedFileURL: $draggedSelectedFileURL,
-            fileDropAreaHeight: fileDropAreaHeight
-        ) {
-            mediaFormSections(for: kind)
-        }
-    }
 }
 
 #Preview {
