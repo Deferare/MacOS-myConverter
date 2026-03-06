@@ -64,6 +64,8 @@ extension ContentViewModel {
         let totalBatchCount: ReferenceWritableKeyPath<ContentViewModel, Int>
         let analysisTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>
         let conversionTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>
+        let resetCompatibilityMetadata: (ContentViewModel) -> Void
+        let analyzeSelection: (ContentViewModel, [URL]) -> Void
     }
 
     func mediaStateDescriptor(for kind: MediaKind) -> MediaStateDescriptor {
@@ -83,7 +85,14 @@ extension ContentViewModel {
                 currentBatchIndex: \.currentVideoBatchIndex,
                 totalBatchCount: \.totalVideoBatchCount,
                 analysisTask: \.taskState.sourceAnalysisTask,
-                conversionTask: \.taskState.conversionTask
+                conversionTask: \.taskState.conversionTask,
+                resetCompatibilityMetadata: { _ in },
+                analyzeSelection: { viewModel, urls in
+                    viewModel.analyzeSourceCompatibility(
+                        for: urls,
+                        using: viewModel.videoSourceAnalysisDescriptor()
+                    )
+                }
             )
         case .image:
             return MediaStateDescriptor(
@@ -100,7 +109,17 @@ extension ContentViewModel {
                 currentBatchIndex: \.currentImageBatchIndex,
                 totalBatchCount: \.totalImageBatchCount,
                 analysisTask: \.taskState.imageSourceAnalysisTask,
-                conversionTask: \.taskState.imageConversionTask
+                conversionTask: \.taskState.imageConversionTask,
+                resetCompatibilityMetadata: { viewModel in
+                    viewModel.imageSourceFrameCount = 0
+                    viewModel.imageSourceHasAlpha = false
+                },
+                analyzeSelection: { viewModel, urls in
+                    viewModel.analyzeSourceCompatibility(
+                        for: urls,
+                        using: viewModel.imageSourceAnalysisDescriptor()
+                    )
+                }
             )
         case .audio:
             return MediaStateDescriptor(
@@ -117,20 +136,20 @@ extension ContentViewModel {
                 currentBatchIndex: \.currentAudioBatchIndex,
                 totalBatchCount: \.totalAudioBatchCount,
                 analysisTask: \.taskState.audioSourceAnalysisTask,
-                conversionTask: \.taskState.audioConversionTask
+                conversionTask: \.taskState.audioConversionTask,
+                resetCompatibilityMetadata: { _ in },
+                analyzeSelection: { viewModel, urls in
+                    viewModel.analyzeSourceCompatibility(
+                        for: urls,
+                        using: viewModel.audioSourceAnalysisDescriptor()
+                    )
+                }
             )
         }
     }
 
     func analyzeSelectedSources(_ urls: [URL], for kind: MediaKind) {
-        switch kind {
-        case .video:
-            analyzeSourceCompatibility(for: urls, using: videoSourceAnalysisDescriptor())
-        case .image:
-            analyzeSourceCompatibility(for: urls, using: imageSourceAnalysisDescriptor())
-        case .audio:
-            analyzeSourceCompatibility(for: urls, using: audioSourceAnalysisDescriptor())
-        }
+        mediaStateDescriptor(for: kind).analyzeSelection(self, urls)
     }
 
     func selectedSourceURLs(for kind: MediaKind) -> [URL] {
@@ -219,17 +238,18 @@ extension ContentViewModel {
         self[keyPath: descriptor.conversionErrorMessage] = nil
     }
 
-    func resetCompatibilityState(for kind: MediaKind, resetImageMetadata: Bool = true) {
+    func resetCompatibilityState(for kind: MediaKind, resetMetadata: Bool = true) {
         let descriptor = mediaStateDescriptor(for: kind)
-        if kind == .image, resetImageMetadata {
-            imageSourceFrameCount = 0
-            imageSourceHasAlpha = false
+
+        if resetMetadata {
+            descriptor.resetCompatibilityMetadata(self)
         }
+
         self[keyPath: descriptor.compatibilityErrorMessage] = nil
         self[keyPath: descriptor.compatibilityWarningMessage] = nil
     }
 
     func resetSelectionCompatibilityState(for kind: MediaKind) {
-        resetCompatibilityState(for: kind, resetImageMetadata: kind == .image)
+        resetCompatibilityState(for: kind)
     }
 }
