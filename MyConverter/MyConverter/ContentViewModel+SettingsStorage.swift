@@ -24,6 +24,12 @@ extension ContentViewModel {
         let postApply: (ContentViewModel) -> Void
     }
 
+    struct SourceSettingsActions {
+        let applyDefault: (ContentViewModel) -> Void
+        let applyForSourceID: (ContentViewModel, String) -> Void
+        let persistCurrent: (ContentViewModel) -> Void
+    }
+
     func saveSettings<Value: Encodable>(
         _ settings: Value,
         forKey storageKey: String,
@@ -206,6 +212,65 @@ extension ContentViewModel {
         )
     }
 
+    func sourceSettingsActions(for kind: MediaKind) -> SourceSettingsActions {
+        switch kind {
+        case .video:
+            return SourceSettingsActions(
+                applyDefault: { viewModel in
+                    let descriptor = viewModel.videoSettingsFlowDescriptor()
+                    viewModel.applySourceSettings(descriptor.defaultSettings(), using: descriptor)
+                },
+                applyForSourceID: { viewModel, sourceID in
+                    viewModel.applySourceSettingsForSource(
+                        sourceID: sourceID,
+                        using: viewModel.videoSettingsFlowDescriptor()
+                    )
+                },
+                persistCurrent: { viewModel in
+                    viewModel.persistCurrentSourceSettingsIfNeeded(
+                        using: viewModel.videoSettingsFlowDescriptor()
+                    )
+                }
+            )
+        case .image:
+            return SourceSettingsActions(
+                applyDefault: { viewModel in
+                    let descriptor = viewModel.imageSettingsFlowDescriptor()
+                    viewModel.applySourceSettings(descriptor.defaultSettings(), using: descriptor)
+                },
+                applyForSourceID: { viewModel, sourceID in
+                    viewModel.applySourceSettingsForSource(
+                        sourceID: sourceID,
+                        using: viewModel.imageSettingsFlowDescriptor()
+                    )
+                },
+                persistCurrent: { viewModel in
+                    viewModel.persistCurrentSourceSettingsIfNeeded(
+                        using: viewModel.imageSettingsFlowDescriptor()
+                    )
+                }
+            )
+        case .audio:
+            return SourceSettingsActions(
+                applyDefault: { viewModel in
+                    let descriptor = viewModel.audioSettingsFlowDescriptor()
+                    viewModel.applySourceSettings(descriptor.defaultSettings(), using: descriptor)
+                },
+                applyForSourceID: { viewModel, sourceID in
+                    viewModel.applySourceSettingsForSource(
+                        sourceID: sourceID,
+                        using: viewModel.audioSettingsFlowDescriptor()
+                    )
+                },
+                persistCurrent: { viewModel in
+                    viewModel.persistCurrentSourceSettingsIfNeeded(
+                        using: viewModel.audioSettingsFlowDescriptor()
+                    )
+                }
+            )
+        }
+    }
+
     func persistSourceSettingsIfNeeded<Settings>(
         isApplyingStoredSettings: Bool,
         sourceURL: URL?,
@@ -342,5 +407,17 @@ extension ContentViewModel {
                 applySourceSettings($0, using: descriptor)
             }
         )
+    }
+
+    func applyDefaultSourceSettings(for kind: MediaKind) {
+        sourceSettingsActions(for: kind).applyDefault(self)
+    }
+
+    func applyStoredSourceSettings(for sourceID: String, for kind: MediaKind) {
+        sourceSettingsActions(for: kind).applyForSourceID(self, sourceID)
+    }
+
+    func persistCurrentSourceSettingsIfNeeded(for kind: MediaKind) {
+        sourceSettingsActions(for: kind).persistCurrent(self)
     }
 }

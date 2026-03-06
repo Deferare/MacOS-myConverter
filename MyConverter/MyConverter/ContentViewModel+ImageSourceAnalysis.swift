@@ -33,9 +33,7 @@ extension ContentViewModel {
                             resolvedFormats,
                             formatDescriptor: viewModel.imageOutputFormatDescriptor(),
                             persistSettings: {
-                                viewModel.persistCurrentSourceSettingsIfNeeded(
-                                    using: viewModel.imageSettingsFlowDescriptor()
-                                )
+                                viewModel.persistCurrentSourceSettingsIfNeeded(for: .image)
                             }
                         )
                     }

@@ -21,9 +21,7 @@ extension ContentViewModel {
                             formatDescriptor: viewModel.audioOutputFormatDescriptor(),
                             postSelectionUpdate: viewModel.refreshAudioCodecOptions,
                             persistSettings: {
-                                viewModel.persistCurrentSourceSettingsIfNeeded(
-                                    using: viewModel.audioSettingsFlowDescriptor()
-                                )
+                                viewModel.persistCurrentSourceSettingsIfNeeded(for: .audio)
                             }
                         )
                     }

@@ -24,7 +24,7 @@ extension ContentViewModel {
         get { stateValue(in: \.videoOptionsState, at: \.selectedResolution) }
         set {
             updateState(\.videoOptionsState, value: \.selectedResolution, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(using: videoSettingsFlowDescriptor())
+                persistCurrentSourceSettingsIfNeeded(for: .video)
             }
         }
     }
@@ -33,7 +33,7 @@ extension ContentViewModel {
         get { stateValue(in: \.videoOptionsState, at: \.selectedFrameRate) }
         set {
             updateState(\.videoOptionsState, value: \.selectedFrameRate, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(using: videoSettingsFlowDescriptor())
+                persistCurrentSourceSettingsIfNeeded(for: .video)
             }
         }
     }
@@ -42,7 +42,7 @@ extension ContentViewModel {
         get { stateValue(in: \.videoOptionsState, at: \.selectedGIFPlaybackSpeed) }
         set {
             updateState(\.videoOptionsState, value: \.selectedGIFPlaybackSpeed, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(using: videoSettingsFlowDescriptor())
+                persistCurrentSourceSettingsIfNeeded(for: .video)
             }
         }
     }
@@ -51,7 +51,7 @@ extension ContentViewModel {
         get { stateValue(in: \.videoOptionsState, at: \.selectedVideoBitRate) }
         set {
             updateState(\.videoOptionsState, value: \.selectedVideoBitRate, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(using: videoSettingsFlowDescriptor())
+                persistCurrentSourceSettingsIfNeeded(for: .video)
             }
         }
     }
@@ -60,7 +60,7 @@ extension ContentViewModel {
         get { stateValue(in: \.videoOptionsState, at: \.customVideoBitRate) }
         set {
             updateState(\.videoOptionsState, value: \.customVideoBitRate, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(using: videoSettingsFlowDescriptor())
+                persistCurrentSourceSettingsIfNeeded(for: .video)
             }
         }
     }
@@ -78,7 +78,7 @@ extension ContentViewModel {
         get { stateValue(in: \.videoOptionsState, at: \.selectedAudioMode) }
         set {
             updateState(\.videoOptionsState, value: \.selectedAudioMode, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(using: videoSettingsFlowDescriptor())
+                persistCurrentSourceSettingsIfNeeded(for: .video)
             }
         }
     }
@@ -87,7 +87,7 @@ extension ContentViewModel {
         get { stateValue(in: \.videoOptionsState, at: \.selectedSampleRate) }
         set {
             updateState(\.videoOptionsState, value: \.selectedSampleRate, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(using: videoSettingsFlowDescriptor())
+                persistCurrentSourceSettingsIfNeeded(for: .video)
             }
         }
     }
@@ -96,7 +96,7 @@ extension ContentViewModel {
         get { stateValue(in: \.videoOptionsState, at: \.selectedAudioBitRate) }
         set {
             updateState(\.videoOptionsState, value: \.selectedAudioBitRate, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(using: videoSettingsFlowDescriptor())
+                persistCurrentSourceSettingsIfNeeded(for: .video)
             }
         }
     }
@@ -106,7 +106,7 @@ extension ContentViewModel {
         get { stateValue(in: \.imageOptionsState, at: \.selectedOutputFormat) }
         set {
             updateState(\.imageOptionsState, value: \.selectedOutputFormat, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(using: imageSettingsFlowDescriptor())
+                persistCurrentSourceSettingsIfNeeded(for: .image)
             }
         }
     }
@@ -115,7 +115,7 @@ extension ContentViewModel {
         get { stateValue(in: \.imageOptionsState, at: \.selectedResolution) }
         set {
             updateState(\.imageOptionsState, value: \.selectedResolution, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(using: imageSettingsFlowDescriptor())
+                persistCurrentSourceSettingsIfNeeded(for: .image)
             }
         }
     }
@@ -124,7 +124,7 @@ extension ContentViewModel {
         get { stateValue(in: \.imageOptionsState, at: \.selectedQuality) }
         set {
             updateState(\.imageOptionsState, value: \.selectedQuality, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(using: imageSettingsFlowDescriptor())
+                persistCurrentSourceSettingsIfNeeded(for: .image)
             }
         }
     }
@@ -133,7 +133,7 @@ extension ContentViewModel {
         get { stateValue(in: \.imageOptionsState, at: \.selectedPNGCompressionLevel) }
         set {
             updateState(\.imageOptionsState, value: \.selectedPNGCompressionLevel, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(using: imageSettingsFlowDescriptor())
+                persistCurrentSourceSettingsIfNeeded(for: .image)
             }
         }
     }
@@ -142,7 +142,7 @@ extension ContentViewModel {
         get { stateValue(in: \.imageOptionsState, at: \.preserveAnimation) }
         set {
             updateState(\.imageOptionsState, value: \.preserveAnimation, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(using: imageSettingsFlowDescriptor())
+                persistCurrentSourceSettingsIfNeeded(for: .image)
             }
         }
     }
@@ -170,7 +170,7 @@ extension ContentViewModel {
         get { stateValue(in: \.audioOptionsState, at: \.selectedOutputMode) }
         set {
             updateState(\.audioOptionsState, value: \.selectedOutputMode, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(using: audioSettingsFlowDescriptor())
+                persistCurrentSourceSettingsIfNeeded(for: .audio)
             }
         }
     }
@@ -179,7 +179,7 @@ extension ContentViewModel {
         get { stateValue(in: \.audioOptionsState, at: \.selectedOutputSampleRate) }
         set {
             updateState(\.audioOptionsState, value: \.selectedOutputSampleRate, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(using: audioSettingsFlowDescriptor())
+                persistCurrentSourceSettingsIfNeeded(for: .audio)
             }
         }
     }
@@ -188,7 +188,7 @@ extension ContentViewModel {
         get { stateValue(in: \.audioOptionsState, at: \.selectedOutputBitRate) }
         set {
             updateState(\.audioOptionsState, value: \.selectedOutputBitRate, to: newValue) {
-                persistCurrentSourceSettingsIfNeeded(using: audioSettingsFlowDescriptor())
+                persistCurrentSourceSettingsIfNeeded(for: .audio)
             }
         }
     }

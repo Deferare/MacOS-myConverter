@@ -20,9 +20,7 @@ extension ContentViewModel {
                 taskKeyPath: \.taskState.pendingVideoFormatChangeTask,
                 action: { viewModel in
                     viewModel.refreshVideoCodecOptions()
-                    viewModel.persistCurrentSourceSettingsIfNeeded(
-                        using: viewModel.videoSettingsFlowDescriptor()
-                    )
+                    viewModel.persistCurrentSourceSettingsIfNeeded(for: .video)
                 }
             )
         case .videoOptionNormalization:
@@ -30,9 +28,7 @@ extension ContentViewModel {
                 taskKeyPath: \.taskState.pendingVideoOptionNormalizationTask,
                 action: { viewModel in
                     viewModel.normalizeVideoOptionDependencies()
-                    viewModel.persistCurrentSourceSettingsIfNeeded(
-                        using: viewModel.videoSettingsFlowDescriptor()
-                    )
+                    viewModel.persistCurrentSourceSettingsIfNeeded(for: .video)
                 }
             )
         case .audioFormatChange:
@@ -40,9 +36,7 @@ extension ContentViewModel {
                 taskKeyPath: \.taskState.pendingAudioFormatChangeTask,
                 action: { viewModel in
                     viewModel.refreshAudioCodecOptions()
-                    viewModel.persistCurrentSourceSettingsIfNeeded(
-                        using: viewModel.audioSettingsFlowDescriptor()
-                    )
+                    viewModel.persistCurrentSourceSettingsIfNeeded(for: .audio)
                 }
             )
         case .audioOptionNormalization:
@@ -50,9 +44,7 @@ extension ContentViewModel {
                 taskKeyPath: \.taskState.pendingAudioOptionNormalizationTask,
                 action: { viewModel in
                     viewModel.normalizeAudioOptionDependencies()
-                    viewModel.persistCurrentSourceSettingsIfNeeded(
-                        using: viewModel.audioSettingsFlowDescriptor()
-                    )
+                    viewModel.persistCurrentSourceSettingsIfNeeded(for: .audio)
                 }
             )
         }
