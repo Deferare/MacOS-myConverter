@@ -4,6 +4,7 @@ extension ProcessCommandRunner {
     nonisolated static func runCommand(
         path: String,
         arguments: [String],
+        maximumRetainedOutputBytes: Int = 262_144,
         outputLineHandler: ((String) -> Void)? = nil
     ) async throws -> (terminationStatus: Int32, output: String) {
         let cancellationController = ProcessCancellationController()
@@ -28,7 +29,11 @@ extension ProcessCommandRunner {
                     guard !data.isEmpty else { return }
 
                     syncQueue.async {
-                        accumulated.append(data)
+                        appendRetainedOutput(
+                            &accumulated,
+                            chunk: data,
+                            maximumRetainedOutputBytes: maximumRetainedOutputBytes
+                        )
                         lineBuffer.append(data)
                         let lines = consumeCompleteLines(from: &lineBuffer)
                         guard let outputLineHandler else { return }
@@ -44,7 +49,11 @@ extension ProcessCommandRunner {
 
                     syncQueue.async {
                         if !trailingData.isEmpty {
-                            accumulated.append(trailingData)
+                            appendRetainedOutput(
+                                &accumulated,
+                                chunk: trailingData,
+                                maximumRetainedOutputBytes: maximumRetainedOutputBytes
+                            )
                             lineBuffer.append(trailingData)
                         }
 
@@ -62,7 +71,7 @@ extension ProcessCommandRunner {
                             }
                         }
 
-                        let output = String(data: accumulated, encoding: .utf8) ?? ""
+                        let output = String(decoding: accumulated, as: UTF8.self)
                         cancellationController.clearProcess()
                         continuation.resume(returning: (proc.terminationStatus, output))
                     }
@@ -78,6 +87,28 @@ extension ProcessCommandRunner {
             }
         } onCancel: {
             cancellationController.terminateIfNeeded()
+        }
+    }
+
+    nonisolated private static func appendRetainedOutput(
+        _ accumulated: inout Data,
+        chunk: Data,
+        maximumRetainedOutputBytes: Int
+    ) {
+        guard maximumRetainedOutputBytes > 0 else {
+            accumulated.removeAll(keepingCapacity: true)
+            return
+        }
+
+        if chunk.count >= maximumRetainedOutputBytes {
+            accumulated = Data(chunk.suffix(maximumRetainedOutputBytes))
+            return
+        }
+
+        accumulated.append(chunk)
+        let overflow = accumulated.count - maximumRetainedOutputBytes
+        if overflow > 0 {
+            accumulated.removeSubrange(accumulated.startIndex..<(accumulated.startIndex + overflow))
         }
     }
 

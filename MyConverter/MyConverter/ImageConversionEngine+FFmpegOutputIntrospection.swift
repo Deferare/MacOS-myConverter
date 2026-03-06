@@ -6,6 +6,31 @@ extension ImageConversionEngine {
             return cached
         }
 
+        let (inFlight, shouldBuild) = introspectionCacheQueue.sync { () -> (InFlightFFmpegIntrospection, Bool) in
+            if let existing = introspectionInFlight[ffmpegPath] {
+                return (existing, false)
+            }
+
+            let created = InFlightFFmpegIntrospection()
+            introspectionInFlight[ffmpegPath] = created
+            return (created, true)
+        }
+
+        if !shouldBuild {
+            return try waitForFFmpegIntrospection(inFlight, ffmpegPath: ffmpegPath)
+        }
+
+        do {
+            let introspection = try buildFFmpegIntrospection(at: ffmpegPath)
+            finishFFmpegIntrospection(inFlight, ffmpegPath: ffmpegPath, result: .success(introspection))
+            return introspection
+        } catch {
+            finishFFmpegIntrospection(inFlight, ffmpegPath: ffmpegPath, result: .failure(error))
+            throw error
+        }
+    }
+
+    nonisolated private static func buildFFmpegIntrospection(at ffmpegPath: String) throws -> FFmpegIntrospection {
         let encodersResult = ProcessCommandRunner.runCommandSync(path: ffmpegPath, arguments: ["-hide_banner", "-encoders"])
         let muxersResult = ProcessCommandRunner.runCommandSync(path: ffmpegPath, arguments: ["-hide_banner", "-muxers"])
 
@@ -25,17 +50,42 @@ extension ImageConversionEngine {
             muxerDescriptors: muxerDescriptors
         )
 
-        let introspection = FFmpegIntrospection(
+        return FFmpegIntrospection(
             encoders: encoders,
             muxers: muxers,
             muxerExtensions: muxerExtensions
         )
+    }
 
-        introspectionCacheQueue.sync {
-            introspectionCache[ffmpegPath] = introspection
+    nonisolated private static func waitForFFmpegIntrospection(
+        _ inFlight: InFlightFFmpegIntrospection,
+        ffmpegPath: String
+    ) throws -> FFmpegIntrospection {
+        inFlight.group.wait()
+        if let result = inFlight.result {
+            return try result.get()
         }
 
-        return introspection
+        if let cached = introspectionCacheQueue.sync(execute: { introspectionCache[ffmpegPath] }) {
+            return cached
+        }
+
+        throw ImageConversionError.ffmpegFailed(-1, "FFmpeg introspection did not produce a result.")
+    }
+
+    nonisolated private static func finishFFmpegIntrospection(
+        _ inFlight: InFlightFFmpegIntrospection,
+        ffmpegPath: String,
+        result: Result<FFmpegIntrospection, Error>
+    ) {
+        introspectionCacheQueue.sync {
+            if case .success(let introspection) = result {
+                introspectionCache[ffmpegPath] = introspection
+            }
+            inFlight.result = result
+            introspectionInFlight[ffmpegPath] = nil
+            inFlight.group.leave()
+        }
     }
 
     nonisolated private static func parseFFmpegEncoders(from output: String) -> Set<String> {

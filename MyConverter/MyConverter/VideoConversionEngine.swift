@@ -6,6 +6,7 @@ enum VideoConversionEngine {
 
     nonisolated static let ffmpegIntrospectionCacheQueue = DispatchQueue(label: "myconverter.video.ffmpeg.introspection.cache")
     nonisolated(unsafe) static var ffmpegIntrospectionCache: [String: FFmpegIntrospection] = [:]
+    nonisolated(unsafe) static var ffmpegIntrospectionInFlight: [String: InFlightFFmpegIntrospection] = [:]
     nonisolated static let capabilityCacheQueue = DispatchQueue(label: "myconverter.video.ffmpeg.capability.cache")
     nonisolated(unsafe) static var defaultVideoFormatsCache: [String: [VideoFormatOption]] = [:]
     nonisolated(unsafe) static var defaultAudioFormatsCache: [String: [AudioFormatOption]] = [:]
@@ -27,6 +28,16 @@ enum VideoConversionEngine {
         let audioEncoders: Set<String>
         let muxers: Set<String>
         let muxerExtensions: [String: [String]]
+    }
+
+    final class InFlightFFmpegIntrospection: @unchecked Sendable {
+        nonisolated let group: DispatchGroup
+        nonisolated(unsafe) var result: Result<FFmpegIntrospection, Error>?
+
+        nonisolated init() {
+            group = DispatchGroup()
+            group.enter()
+        }
     }
 
     struct FFmpegMuxerDescriptor {

@@ -2,9 +2,10 @@ import Foundation
 
 extension OutputPathUtilities {
     nonisolated static func stageInputURL(for sourceURL: URL) throws -> URL {
+        let fileManager = FileManager.default
         let stagingDirectory = workingDirectoryURL().appendingPathComponent("FFmpegInput", isDirectory: true)
         do {
-            try FileManager.default.createDirectory(
+            try fileManager.createDirectory(
                 at: stagingDirectory,
                 withIntermediateDirectories: true,
                 attributes: nil
@@ -26,7 +27,15 @@ extension OutputPathUtilities {
 
         do {
             return try SecurityScopedResourceAccess.withAccess(to: sourceURL) {
-                try FileManager.default.copyItem(at: sourceURL, to: stagedURL)
+                do {
+                    // Hard links avoid copying large media files when the source is on the same volume.
+                    try fileManager.linkItem(at: sourceURL, to: stagedURL)
+                } catch {
+                    if fileManager.fileExists(atPath: stagedURL.path) {
+                        try? fileManager.removeItem(at: stagedURL)
+                    }
+                    try fileManager.copyItem(at: sourceURL, to: stagedURL)
+                }
                 return stagedURL
             }
         } catch {

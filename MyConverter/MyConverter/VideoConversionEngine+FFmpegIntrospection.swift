@@ -6,6 +6,31 @@ extension VideoConversionEngine {
             return cached
         }
 
+        let (inFlight, shouldBuild) = ffmpegIntrospectionCacheQueue.sync { () -> (InFlightFFmpegIntrospection, Bool) in
+            if let existing = ffmpegIntrospectionInFlight[ffmpegPath] {
+                return (existing, false)
+            }
+
+            let created = InFlightFFmpegIntrospection()
+            ffmpegIntrospectionInFlight[ffmpegPath] = created
+            return (created, true)
+        }
+
+        if !shouldBuild {
+            return try waitForFFmpegIntrospection(inFlight, ffmpegPath: ffmpegPath)
+        }
+
+        do {
+            let introspection = try buildFFmpegIntrospection(at: ffmpegPath)
+            finishFFmpegIntrospection(inFlight, ffmpegPath: ffmpegPath, result: .success(introspection))
+            return introspection
+        } catch {
+            finishFFmpegIntrospection(inFlight, ffmpegPath: ffmpegPath, result: .failure(error))
+            throw error
+        }
+    }
+
+    nonisolated private static func buildFFmpegIntrospection(at ffmpegPath: String) throws -> FFmpegIntrospection {
         let encodersResult = ProcessCommandRunner.runCommandSync(path: ffmpegPath, arguments: ["-hide_banner", "-encoders"])
         let muxersResult = ProcessCommandRunner.runCommandSync(path: ffmpegPath, arguments: ["-hide_banner", "-muxers"])
 
@@ -25,17 +50,43 @@ extension VideoConversionEngine {
             muxerDescriptors: muxerDescriptors
         )
 
-        let introspection = FFmpegIntrospection(
+        return FFmpegIntrospection(
             videoEncoders: videoEncoders,
             audioEncoders: audioEncoders,
             muxers: muxers,
             muxerExtensions: muxerExtensions
         )
+    }
 
-        ffmpegIntrospectionCacheQueue.sync {
-            ffmpegIntrospectionCache[ffmpegPath] = introspection
+    nonisolated private static func waitForFFmpegIntrospection(
+        _ inFlight: InFlightFFmpegIntrospection,
+        ffmpegPath: String
+    ) throws -> FFmpegIntrospection {
+        inFlight.group.wait()
+        if let result = inFlight.result {
+            return try result.get()
         }
-        return introspection
+
+        if let cached = ffmpegIntrospectionCacheQueue.sync(execute: { ffmpegIntrospectionCache[ffmpegPath] }) {
+            return cached
+        }
+
+        throw ConversionError.ffmpegFailed(-1, "FFmpeg introspection did not produce a result.")
+    }
+
+    nonisolated private static func finishFFmpegIntrospection(
+        _ inFlight: InFlightFFmpegIntrospection,
+        ffmpegPath: String,
+        result: Result<FFmpegIntrospection, Error>
+    ) {
+        ffmpegIntrospectionCacheQueue.sync {
+            if case .success(let introspection) = result {
+                ffmpegIntrospectionCache[ffmpegPath] = introspection
+            }
+            inFlight.result = result
+            ffmpegIntrospectionInFlight[ffmpegPath] = nil
+            inFlight.group.leave()
+        }
     }
 
     nonisolated static func isFFmpegFormatSupported(_ format: VideoFormatOption, introspection: FFmpegIntrospection) -> Bool {

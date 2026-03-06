@@ -22,6 +22,7 @@ enum ImageConversionEngine {
 
     nonisolated static let introspectionCacheQueue = DispatchQueue(label: "myconverter.image.ffmpeg.introspection.cache")
     nonisolated(unsafe) static var introspectionCache: [String: FFmpegIntrospection] = [:]
+    nonisolated(unsafe) static var introspectionInFlight: [String: InFlightFFmpegIntrospection] = [:]
     nonisolated static let outputFormatCacheQueue = DispatchQueue(label: "myconverter.image.output.cache")
     nonisolated(unsafe) static var defaultOutputFormatsCache: [String: [ImageFormatOption]] = [:]
     nonisolated(unsafe) static var imageIODestinationTypeCache: Set<String>? = nil
@@ -33,6 +34,16 @@ enum ImageConversionEngine {
         let encoders: Set<String>
         let muxers: Set<String>
         let muxerExtensions: [String: [String]]
+    }
+
+    final class InFlightFFmpegIntrospection: @unchecked Sendable {
+        nonisolated let group: DispatchGroup
+        nonisolated(unsafe) var result: Result<FFmpegIntrospection, Error>?
+
+        nonisolated init() {
+            group = DispatchGroup()
+            group.enter()
+        }
     }
 
     struct FFmpegMuxerDescriptor {
