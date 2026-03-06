@@ -18,15 +18,44 @@ extension ContentViewModel {
         let applyWarmedIfIdle: (ContentViewModel, WarmedDefaultCapabilities) -> Void
     }
 
+    func makeCapabilityBootstrapDescriptor<Format>(
+        for kind: MediaKind,
+        placeholderFormats: @escaping () -> [Format],
+        formatDescriptor: @escaping (ContentViewModel) -> OutputFormatDescriptor<Format>,
+        warmedFormats: @escaping (WarmedDefaultCapabilities) -> [Format],
+        applyAdditionalPlaceholderState: @escaping (ContentViewModel) -> Void = { _ in },
+        postApplyWhenWarmed: @escaping (ContentViewModel) -> Void = { _ in }
+    ) -> CapabilityBootstrapDescriptor {
+        CapabilityBootstrapDescriptor(
+            applyPlaceholder: { viewModel in
+                viewModel.applyAvailableOutputFormats(
+                    placeholderFormats(),
+                    using: formatDescriptor(viewModel)
+                )
+                applyAdditionalPlaceholderState(viewModel)
+            },
+            applyWarmedIfIdle: { viewModel, warmed in
+                viewModel.applyWarmedOutputFormatsIfIdle(
+                    warmedFormats(warmed),
+                    for: kind,
+                    formatDescriptor: formatDescriptor(viewModel),
+                    postApply: {
+                        postApplyWhenWarmed(viewModel)
+                    }
+                )
+            }
+        )
+    }
+
     func capabilityBootstrapDescriptor(for kind: MediaKind) -> CapabilityBootstrapDescriptor {
         switch kind {
         case .video:
-            return CapabilityBootstrapDescriptor(
-                applyPlaceholder: { viewModel in
-                    viewModel.applyAvailableOutputFormats(
-                        ContentViewModelSupport.placeholderVideoFormats(),
-                        using: viewModel.videoOutputFormatDescriptor()
-                    )
+            return makeCapabilityBootstrapDescriptor(
+                for: .video,
+                placeholderFormats: ContentViewModelSupport.placeholderVideoFormats,
+                formatDescriptor: { $0.videoOutputFormatDescriptor() },
+                warmedFormats: { $0.videoFormats },
+                applyAdditionalPlaceholderState: { viewModel in
                     viewModel.availableVideoEncoders = ContentViewModelSupport.placeholderVideoEncoders(
                         for: viewModel.selectedOutputFormat
                     )
@@ -35,52 +64,29 @@ extension ContentViewModel {
                     )
                     viewModel.normalizeVideoOptionDependencies()
                 },
-                applyWarmedIfIdle: { viewModel, warmed in
-                    viewModel.applyWarmedOutputFormatsIfIdle(
-                        warmed.videoFormats,
-                        for: .video,
-                        formatDescriptor: viewModel.videoOutputFormatDescriptor(),
-                        postApply: viewModel.refreshVideoCodecOptions
-                    )
-                }
+                postApplyWhenWarmed: { $0.refreshVideoCodecOptions() }
             )
         case .image:
-            return CapabilityBootstrapDescriptor(
-                applyPlaceholder: { viewModel in
-                    viewModel.applyAvailableOutputFormats(
-                        ContentViewModelSupport.placeholderImageFormats(),
-                        using: viewModel.imageOutputFormatDescriptor()
-                    )
-                },
-                applyWarmedIfIdle: { viewModel, warmed in
-                    viewModel.applyWarmedOutputFormatsIfIdle(
-                        warmed.imageFormats,
-                        for: .image,
-                        formatDescriptor: viewModel.imageOutputFormatDescriptor()
-                    )
-                }
+            return makeCapabilityBootstrapDescriptor(
+                for: .image,
+                placeholderFormats: ContentViewModelSupport.placeholderImageFormats,
+                formatDescriptor: { $0.imageOutputFormatDescriptor() },
+                warmedFormats: { $0.imageFormats }
             )
         case .audio:
-            return CapabilityBootstrapDescriptor(
-                applyPlaceholder: { viewModel in
-                    viewModel.applyAvailableOutputFormats(
-                        ContentViewModelSupport.placeholderAudioFormats(),
-                        using: viewModel.audioOutputFormatDescriptor()
-                    )
+            return makeCapabilityBootstrapDescriptor(
+                for: .audio,
+                placeholderFormats: ContentViewModelSupport.placeholderAudioFormats,
+                formatDescriptor: { $0.audioOutputFormatDescriptor() },
+                warmedFormats: { $0.audioFormats },
+                applyAdditionalPlaceholderState: { viewModel in
                     viewModel.availableAudioOutputEncoders =
                         ContentViewModelSupport.placeholderAudioOutputEncoders(
                             for: viewModel.selectedAudioOutputFormat
                         )
                     viewModel.normalizeAudioOptionDependencies()
                 },
-                applyWarmedIfIdle: { viewModel, warmed in
-                    viewModel.applyWarmedOutputFormatsIfIdle(
-                        warmed.audioFormats,
-                        for: .audio,
-                        formatDescriptor: viewModel.audioOutputFormatDescriptor(),
-                        postApply: viewModel.refreshAudioCodecOptions
-                    )
-                }
+                postApplyWhenWarmed: { $0.refreshAudioCodecOptions() }
             )
         }
     }

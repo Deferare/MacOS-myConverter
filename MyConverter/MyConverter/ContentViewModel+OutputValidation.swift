@@ -7,6 +7,18 @@ extension ContentViewModel {
         let validateSourceOutputSettings: (ContentViewModel, URL) async -> String?
     }
 
+    func makeMediaValidationDescriptor(
+        validationMessage: @escaping (ContentViewModel) -> String?,
+        hintMessage: @escaping (ContentViewModel) -> String? = { _ in nil },
+        validateSourceOutputSettings: @escaping (ContentViewModel, URL) async -> String?
+    ) -> MediaValidationDescriptor {
+        MediaValidationDescriptor(
+            validationMessage: validationMessage,
+            hintMessage: hintMessage,
+            validateSourceOutputSettings: validateSourceOutputSettings
+        )
+    }
+
     func nonEmptyMessage(_ message: String?) -> String? {
         guard let message, !message.isEmpty else { return nil }
         return message
@@ -29,7 +41,7 @@ extension ContentViewModel {
     func mediaValidationDescriptor(for kind: MediaKind) -> MediaValidationDescriptor {
         switch kind {
         case .video:
-            return MediaValidationDescriptor(
+            return makeMediaValidationDescriptor(
                 validationMessage: { viewModel in
                     if viewModel.sourceURL != nil &&
                         viewModel.requiresFFmpegForCurrentVideoSettings &&
@@ -56,7 +68,6 @@ extension ContentViewModel {
                         return nil
                     }
                 },
-                hintMessage: { _ in nil },
                 validateSourceOutputSettings: { viewModel, sourceURL in
                     if viewModel.requiresFFmpegForCurrentVideoSettings &&
                         !VideoConversionEngine.isFFmpegAvailable() {
@@ -74,7 +85,7 @@ extension ContentViewModel {
                 }
             )
         case .image:
-            return MediaValidationDescriptor(
+            return makeMediaValidationDescriptor(
                 validationMessage: { viewModel in
                     viewModel.outputSettingsValidationMessage(
                         for: .image,
@@ -121,7 +132,7 @@ extension ContentViewModel {
                 }
             )
         case .audio:
-            return MediaValidationDescriptor(
+            return makeMediaValidationDescriptor(
                 validationMessage: { viewModel in
                     viewModel.outputSettingsValidationMessage(
                         for: .audio,

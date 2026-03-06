@@ -35,6 +35,26 @@ extension ContentViewModel {
         let persistCurrent: (ContentViewModel) -> Void
     }
 
+    func makeSourceSettingsActions<Settings, Persisted: Codable, Format>(
+        using descriptor: @escaping (ContentViewModel) -> SourceSettingsFlowDescriptor<Settings, Persisted, Format>
+    ) -> SourceSettingsActions {
+        SourceSettingsActions(
+            applyDefault: { viewModel in
+                let flow = descriptor(viewModel)
+                viewModel.applySourceSettings(flow.defaultSettings(), using: flow)
+            },
+            applyForSourceID: { viewModel, sourceID in
+                viewModel.applySourceSettingsForSource(
+                    sourceID: sourceID,
+                    using: descriptor(viewModel)
+                )
+            },
+            persistCurrent: { viewModel in
+                viewModel.persistCurrentSourceSettingsIfNeeded(using: descriptor(viewModel))
+            }
+        )
+    }
+
     func saveSettings<Value: Encodable>(
         _ settings: Value,
         forKey storageKey: String,
@@ -222,59 +242,11 @@ extension ContentViewModel {
     func sourceSettingsActions(for kind: MediaKind) -> SourceSettingsActions {
         switch kind {
         case .video:
-            return SourceSettingsActions(
-                applyDefault: { viewModel in
-                    let descriptor = viewModel.videoSettingsFlowDescriptor()
-                    viewModel.applySourceSettings(descriptor.defaultSettings(), using: descriptor)
-                },
-                applyForSourceID: { viewModel, sourceID in
-                    viewModel.applySourceSettingsForSource(
-                        sourceID: sourceID,
-                        using: viewModel.videoSettingsFlowDescriptor()
-                    )
-                },
-                persistCurrent: { viewModel in
-                    viewModel.persistCurrentSourceSettingsIfNeeded(
-                        using: viewModel.videoSettingsFlowDescriptor()
-                    )
-                }
-            )
+            return makeSourceSettingsActions { $0.videoSettingsFlowDescriptor() }
         case .image:
-            return SourceSettingsActions(
-                applyDefault: { viewModel in
-                    let descriptor = viewModel.imageSettingsFlowDescriptor()
-                    viewModel.applySourceSettings(descriptor.defaultSettings(), using: descriptor)
-                },
-                applyForSourceID: { viewModel, sourceID in
-                    viewModel.applySourceSettingsForSource(
-                        sourceID: sourceID,
-                        using: viewModel.imageSettingsFlowDescriptor()
-                    )
-                },
-                persistCurrent: { viewModel in
-                    viewModel.persistCurrentSourceSettingsIfNeeded(
-                        using: viewModel.imageSettingsFlowDescriptor()
-                    )
-                }
-            )
+            return makeSourceSettingsActions { $0.imageSettingsFlowDescriptor() }
         case .audio:
-            return SourceSettingsActions(
-                applyDefault: { viewModel in
-                    let descriptor = viewModel.audioSettingsFlowDescriptor()
-                    viewModel.applySourceSettings(descriptor.defaultSettings(), using: descriptor)
-                },
-                applyForSourceID: { viewModel, sourceID in
-                    viewModel.applySourceSettingsForSource(
-                        sourceID: sourceID,
-                        using: viewModel.audioSettingsFlowDescriptor()
-                    )
-                },
-                persistCurrent: { viewModel in
-                    viewModel.persistCurrentSourceSettingsIfNeeded(
-                        using: viewModel.audioSettingsFlowDescriptor()
-                    )
-                }
-            )
+            return makeSourceSettingsActions { $0.audioSettingsFlowDescriptor() }
         }
     }
 
