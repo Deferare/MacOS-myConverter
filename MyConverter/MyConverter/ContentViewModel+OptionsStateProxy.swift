@@ -3,99 +3,99 @@ import Foundation
 extension ContentViewModel {
     // Video options
     var selectedOutputFormat: VideoFormatOption {
-        get { videoOptionsValue(\.selectedOutputFormat) }
+        get { stateValue(in: \.videoOptionsState, at: \.selectedOutputFormat) }
         set {
-            updateVideoOptions(\.selectedOutputFormat, to: newValue) {
+            updateState(\.videoOptionsState, value: \.selectedOutputFormat, to: newValue) {
                 scheduleDeferredPersistenceAction(.videoFormatChange)
             }
         }
     }
 
     var selectedVideoEncoder: VideoEncoderOption {
-        get { videoOptionsValue(\.selectedVideoEncoder) }
+        get { stateValue(in: \.videoOptionsState, at: \.selectedVideoEncoder) }
         set {
-            updateVideoOptions(\.selectedVideoEncoder, to: newValue) {
+            updateState(\.videoOptionsState, value: \.selectedVideoEncoder, to: newValue) {
                 scheduleDeferredPersistenceAction(.videoOptionNormalization)
             }
         }
     }
 
     var selectedResolution: ResolutionOption {
-        get { videoOptionsValue(\.selectedResolution) }
+        get { stateValue(in: \.videoOptionsState, at: \.selectedResolution) }
         set {
-            updateVideoOptions(\.selectedResolution, to: newValue) {
+            updateState(\.videoOptionsState, value: \.selectedResolution, to: newValue) {
                 persistCurrentSettingsIfNeeded()
             }
         }
     }
 
     var selectedFrameRate: FrameRateOption {
-        get { videoOptionsValue(\.selectedFrameRate) }
+        get { stateValue(in: \.videoOptionsState, at: \.selectedFrameRate) }
         set {
-            updateVideoOptions(\.selectedFrameRate, to: newValue) {
+            updateState(\.videoOptionsState, value: \.selectedFrameRate, to: newValue) {
                 persistCurrentSettingsIfNeeded()
             }
         }
     }
 
     var selectedGIFPlaybackSpeed: GIFPlaybackSpeedOption {
-        get { videoOptionsValue(\.selectedGIFPlaybackSpeed) }
+        get { stateValue(in: \.videoOptionsState, at: \.selectedGIFPlaybackSpeed) }
         set {
-            updateVideoOptions(\.selectedGIFPlaybackSpeed, to: newValue) {
+            updateState(\.videoOptionsState, value: \.selectedGIFPlaybackSpeed, to: newValue) {
                 persistCurrentSettingsIfNeeded()
             }
         }
     }
 
     var selectedVideoBitRate: VideoBitRateOption {
-        get { videoOptionsValue(\.selectedVideoBitRate) }
+        get { stateValue(in: \.videoOptionsState, at: \.selectedVideoBitRate) }
         set {
-            updateVideoOptions(\.selectedVideoBitRate, to: newValue) {
+            updateState(\.videoOptionsState, value: \.selectedVideoBitRate, to: newValue) {
                 persistCurrentSettingsIfNeeded()
             }
         }
     }
 
     var customVideoBitRate: String {
-        get { videoOptionsValue(\.customVideoBitRate) }
+        get { stateValue(in: \.videoOptionsState, at: \.customVideoBitRate) }
         set {
-            updateVideoOptions(\.customVideoBitRate, to: newValue) {
+            updateState(\.videoOptionsState, value: \.customVideoBitRate, to: newValue) {
                 persistCurrentSettingsIfNeeded()
             }
         }
     }
 
     var selectedAudioEncoder: AudioEncoderOption {
-        get { videoOptionsValue(\.selectedAudioEncoder) }
+        get { stateValue(in: \.videoOptionsState, at: \.selectedAudioEncoder) }
         set {
-            updateVideoOptions(\.selectedAudioEncoder, to: newValue) {
+            updateState(\.videoOptionsState, value: \.selectedAudioEncoder, to: newValue) {
                 scheduleDeferredPersistenceAction(.videoOptionNormalization)
             }
         }
     }
 
     var selectedAudioMode: AudioModeOption {
-        get { videoOptionsValue(\.selectedAudioMode) }
+        get { stateValue(in: \.videoOptionsState, at: \.selectedAudioMode) }
         set {
-            updateVideoOptions(\.selectedAudioMode, to: newValue) {
+            updateState(\.videoOptionsState, value: \.selectedAudioMode, to: newValue) {
                 persistCurrentSettingsIfNeeded()
             }
         }
     }
 
     var selectedSampleRate: SampleRateOption {
-        get { videoOptionsValue(\.selectedSampleRate) }
+        get { stateValue(in: \.videoOptionsState, at: \.selectedSampleRate) }
         set {
-            updateVideoOptions(\.selectedSampleRate, to: newValue) {
+            updateState(\.videoOptionsState, value: \.selectedSampleRate, to: newValue) {
                 persistCurrentSettingsIfNeeded()
             }
         }
     }
 
     var selectedAudioBitRate: AudioBitRateOption {
-        get { videoOptionsValue(\.selectedAudioBitRate) }
+        get { stateValue(in: \.videoOptionsState, at: \.selectedAudioBitRate) }
         set {
-            updateVideoOptions(\.selectedAudioBitRate, to: newValue) {
+            updateState(\.videoOptionsState, value: \.selectedAudioBitRate, to: newValue) {
                 persistCurrentSettingsIfNeeded()
             }
         }
@@ -103,45 +103,45 @@ extension ContentViewModel {
 
     // Image options
     var selectedImageOutputFormat: ImageFormatOption {
-        get { imageOptionsValue(\.selectedOutputFormat) }
+        get { stateValue(in: \.imageOptionsState, at: \.selectedOutputFormat) }
         set {
-            updateImageOptions(\.selectedOutputFormat, to: newValue) {
+            updateState(\.imageOptionsState, value: \.selectedOutputFormat, to: newValue) {
                 persistCurrentImageSettingsIfNeeded()
             }
         }
     }
 
     var selectedImageResolution: ResolutionOption {
-        get { imageOptionsValue(\.selectedResolution) }
+        get { stateValue(in: \.imageOptionsState, at: \.selectedResolution) }
         set {
-            updateImageOptions(\.selectedResolution, to: newValue) {
+            updateState(\.imageOptionsState, value: \.selectedResolution, to: newValue) {
                 persistCurrentImageSettingsIfNeeded()
             }
         }
     }
 
     var selectedImageQuality: ImageQualityOption {
-        get { imageOptionsValue(\.selectedQuality) }
+        get { stateValue(in: \.imageOptionsState, at: \.selectedQuality) }
         set {
-            updateImageOptions(\.selectedQuality, to: newValue) {
+            updateState(\.imageOptionsState, value: \.selectedQuality, to: newValue) {
                 persistCurrentImageSettingsIfNeeded()
             }
         }
     }
 
     var selectedPNGCompressionLevel: PNGCompressionLevelOption {
-        get { imageOptionsValue(\.selectedPNGCompressionLevel) }
+        get { stateValue(in: \.imageOptionsState, at: \.selectedPNGCompressionLevel) }
         set {
-            updateImageOptions(\.selectedPNGCompressionLevel, to: newValue) {
+            updateState(\.imageOptionsState, value: \.selectedPNGCompressionLevel, to: newValue) {
                 persistCurrentImageSettingsIfNeeded()
             }
         }
     }
 
     var preserveImageAnimation: Bool {
-        get { imageOptionsValue(\.preserveAnimation) }
+        get { stateValue(in: \.imageOptionsState, at: \.preserveAnimation) }
         set {
-            updateImageOptions(\.preserveAnimation, to: newValue) {
+            updateState(\.imageOptionsState, value: \.preserveAnimation, to: newValue) {
                 persistCurrentImageSettingsIfNeeded()
             }
         }
@@ -149,45 +149,45 @@ extension ContentViewModel {
 
     // Audio options
     var selectedAudioOutputFormat: AudioFormatOption {
-        get { audioOptionsValue(\.selectedOutputFormat) }
+        get { stateValue(in: \.audioOptionsState, at: \.selectedOutputFormat) }
         set {
-            updateAudioOptions(\.selectedOutputFormat, to: newValue) {
+            updateState(\.audioOptionsState, value: \.selectedOutputFormat, to: newValue) {
                 scheduleDeferredPersistenceAction(.audioFormatChange)
             }
         }
     }
 
     var selectedAudioOutputEncoder: AudioEncoderOption {
-        get { audioOptionsValue(\.selectedOutputEncoder) }
+        get { stateValue(in: \.audioOptionsState, at: \.selectedOutputEncoder) }
         set {
-            updateAudioOptions(\.selectedOutputEncoder, to: newValue) {
+            updateState(\.audioOptionsState, value: \.selectedOutputEncoder, to: newValue) {
                 scheduleDeferredPersistenceAction(.audioOptionNormalization)
             }
         }
     }
 
     var selectedAudioOutputMode: AudioModeOption {
-        get { audioOptionsValue(\.selectedOutputMode) }
+        get { stateValue(in: \.audioOptionsState, at: \.selectedOutputMode) }
         set {
-            updateAudioOptions(\.selectedOutputMode, to: newValue) {
+            updateState(\.audioOptionsState, value: \.selectedOutputMode, to: newValue) {
                 persistCurrentAudioSettingsIfNeeded()
             }
         }
     }
 
     var selectedAudioOutputSampleRate: SampleRateOption {
-        get { audioOptionsValue(\.selectedOutputSampleRate) }
+        get { stateValue(in: \.audioOptionsState, at: \.selectedOutputSampleRate) }
         set {
-            updateAudioOptions(\.selectedOutputSampleRate, to: newValue) {
+            updateState(\.audioOptionsState, value: \.selectedOutputSampleRate, to: newValue) {
                 persistCurrentAudioSettingsIfNeeded()
             }
         }
     }
 
     var selectedAudioOutputBitRate: AudioBitRateOption {
-        get { audioOptionsValue(\.selectedOutputBitRate) }
+        get { stateValue(in: \.audioOptionsState, at: \.selectedOutputBitRate) }
         set {
-            updateAudioOptions(\.selectedOutputBitRate, to: newValue) {
+            updateState(\.audioOptionsState, value: \.selectedOutputBitRate, to: newValue) {
                 persistCurrentAudioSettingsIfNeeded()
             }
         }
