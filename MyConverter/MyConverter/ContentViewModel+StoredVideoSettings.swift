@@ -3,7 +3,7 @@ import Foundation
 extension ContentViewModel {
     func applyStoredSettings(_ settings: VideoConversionSettings) {
         applyStoredSourceSettings(
-            applyingFlagKeyPath: \.isApplyingStoredSettings,
+            applyingFlagKeyPath: \.settingsState.isApplyingVideoSettings,
             storedFormatID: settings.outputFormatID,
             normalizeStoredID: VideoFormatOption.legacyNormalizedID(from:),
             formatDescriptor: videoOutputFormatDescriptor(),

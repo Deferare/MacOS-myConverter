@@ -45,11 +45,11 @@ extension ContentViewModel {
 
     func videoSettingsDescriptor() -> SourceSettingsDescriptor<VideoConversionSettings, PersistedVideoConversionSettings> {
         SourceSettingsDescriptor(
-            isApplyingStoredSettings: \.isApplyingStoredSettings,
+            isApplyingStoredSettings: \.settingsState.isApplyingVideoSettings,
             sourceURL: \.sourceURL,
-            settingsBySourceID: \.videoSettingsBySourceID,
-            pendingSaveTask: \.pendingVideoSettingsSaveTask,
-            storageKey: videoSettingsStorageKey,
+            settingsBySourceID: \.settingsState.videoSettingsBySourceID,
+            pendingSaveTask: \.taskState.pendingVideoSettingsSaveTask,
+            storageKey: settingsState.videoStorageKey,
             saveFailureContext: "Failed to persist video settings",
             loadFailureContext: "Failed to load persisted video settings",
             mapToPersisted: { PersistedVideoConversionSettings(from: $0) },
@@ -59,11 +59,11 @@ extension ContentViewModel {
 
     func imageSettingsDescriptor() -> SourceSettingsDescriptor<ImageConversionSettings, PersistedImageConversionSettings> {
         SourceSettingsDescriptor(
-            isApplyingStoredSettings: \.isApplyingStoredImageSettings,
+            isApplyingStoredSettings: \.settingsState.isApplyingImageSettings,
             sourceURL: \.imageSourceURL,
-            settingsBySourceID: \.imageSettingsBySourceID,
-            pendingSaveTask: \.pendingImageSettingsSaveTask,
-            storageKey: imageSettingsStorageKey,
+            settingsBySourceID: \.settingsState.imageSettingsBySourceID,
+            pendingSaveTask: \.taskState.pendingImageSettingsSaveTask,
+            storageKey: settingsState.imageStorageKey,
             saveFailureContext: "Failed to persist image settings",
             loadFailureContext: "Failed to load persisted image settings",
             mapToPersisted: { PersistedImageConversionSettings(from: $0) },
@@ -73,11 +73,11 @@ extension ContentViewModel {
 
     func audioSettingsDescriptor() -> SourceSettingsDescriptor<AudioConversionSettings, PersistedAudioConversionSettings> {
         SourceSettingsDescriptor(
-            isApplyingStoredSettings: \.isApplyingStoredAudioSettings,
+            isApplyingStoredSettings: \.settingsState.isApplyingAudioSettings,
             sourceURL: \.audioSourceURL,
-            settingsBySourceID: \.audioSettingsBySourceID,
-            pendingSaveTask: \.pendingAudioSettingsSaveTask,
-            storageKey: audioSettingsStorageKey,
+            settingsBySourceID: \.settingsState.audioSettingsBySourceID,
+            pendingSaveTask: \.taskState.pendingAudioSettingsSaveTask,
+            storageKey: settingsState.audioStorageKey,
             saveFailureContext: "Failed to persist audio settings",
             loadFailureContext: "Failed to load persisted audio settings",
             mapToPersisted: { PersistedAudioConversionSettings(from: $0) },

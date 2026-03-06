@@ -72,11 +72,11 @@ extension ContentViewModel {
     }
 
     func scheduleCapabilityBootstrap() {
-        cancelTask(&capabilityBootstrapTask)
+        cancelTask(&taskState.capabilityBootstrapTask)
 
         let selectedVideoFormat = selectedOutputFormat
         let selectedAudioFormat = selectedAudioOutputFormat
-        capabilityBootstrapTask = Task { [weak self] in
+        taskState.capabilityBootstrapTask = Task { [weak self] in
             let warmed = await Task.detached(priority: .userInitiated) {
                 var warmed = WarmedDefaultCapabilities(
                     videoFormats: [],
@@ -140,7 +140,7 @@ extension ContentViewModel {
 
             guard !Task.isCancelled, let self else { return }
             applyWarmedDefaultCapabilitiesIfNeeded(warmed)
-            capabilityBootstrapTask = nil
+            taskState.capabilityBootstrapTask = nil
         }
     }
 

@@ -42,8 +42,8 @@ extension ContentViewModel {
                 progress: \.conversionProgress,
                 currentBatchIndex: \.currentVideoBatchIndex,
                 totalBatchCount: \.totalVideoBatchCount,
-                analysisTask: \.sourceAnalysisTask,
-                conversionTask: \.conversionTask,
+                analysisTask: \.taskState.sourceAnalysisTask,
+                conversionTask: \.taskState.conversionTask,
                 applyPlaceholderCapabilities: { $0.applyPlaceholderVideoCapabilities() },
                 applyDefaultSettings: { $0.applyStoredSettings(.init()) }
             )
@@ -61,8 +61,8 @@ extension ContentViewModel {
                 progress: \.imageConversionProgress,
                 currentBatchIndex: \.currentImageBatchIndex,
                 totalBatchCount: \.totalImageBatchCount,
-                analysisTask: \.imageSourceAnalysisTask,
-                conversionTask: \.imageConversionTask,
+                analysisTask: \.taskState.imageSourceAnalysisTask,
+                conversionTask: \.taskState.imageConversionTask,
                 applyPlaceholderCapabilities: { $0.applyPlaceholderImageCapabilities() },
                 applyDefaultSettings: { $0.applyStoredImageSettings(.init()) }
             )
@@ -80,8 +80,8 @@ extension ContentViewModel {
                 progress: \.audioConversionProgress,
                 currentBatchIndex: \.currentAudioBatchIndex,
                 totalBatchCount: \.totalAudioBatchCount,
-                analysisTask: \.audioSourceAnalysisTask,
-                conversionTask: \.audioConversionTask,
+                analysisTask: \.taskState.audioSourceAnalysisTask,
+                conversionTask: \.taskState.audioConversionTask,
                 applyPlaceholderCapabilities: { $0.applyPlaceholderAudioCapabilities() },
                 applyDefaultSettings: { $0.applyStoredAudioSettings(.init()) }
             )

@@ -3,7 +3,7 @@ import Foundation
 extension ContentViewModel {
     func applyStoredImageSettings(_ settings: ImageConversionSettings) {
         applyStoredSourceSettings(
-            applyingFlagKeyPath: \.isApplyingStoredImageSettings,
+            applyingFlagKeyPath: \.settingsState.isApplyingImageSettings,
             storedFormatID: settings.outputFormatID,
             normalizeStoredID: { $0.lowercased() },
             formatDescriptor: imageOutputFormatDescriptor(),

@@ -3,7 +3,7 @@ import Foundation
 extension ContentViewModel {
     func applyStoredAudioSettings(_ settings: AudioConversionSettings) {
         applyStoredSourceSettings(
-            applyingFlagKeyPath: \.isApplyingStoredAudioSettings,
+            applyingFlagKeyPath: \.settingsState.isApplyingAudioSettings,
             storedFormatID: settings.outputFormatID,
             normalizeStoredID: { $0.lowercased() },
             formatDescriptor: audioOutputFormatDescriptor(),

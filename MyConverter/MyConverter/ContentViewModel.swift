@@ -44,6 +44,35 @@ final class ContentViewModel: ObservableObject {
         case error
     }
 
+    struct PersistedSettingsState {
+        var videoSettingsBySourceID: [String: VideoConversionSettings] = [:]
+        var imageSettingsBySourceID: [String: ImageConversionSettings] = [:]
+        var audioSettingsBySourceID: [String: AudioConversionSettings] = [:]
+        var isApplyingVideoSettings = false
+        var isApplyingImageSettings = false
+        var isApplyingAudioSettings = false
+        let videoStorageKey = "ContentViewModel.VideoSettingsBySource"
+        let imageStorageKey = "ContentViewModel.ImageSettingsBySource"
+        let audioStorageKey = "ContentViewModel.AudioSettingsBySource"
+    }
+
+    struct TaskState {
+        var sourceAnalysisTask: Task<Void, Never>?
+        var conversionTask: Task<Void, Never>?
+        var imageSourceAnalysisTask: Task<Void, Never>?
+        var imageConversionTask: Task<Void, Never>?
+        var audioSourceAnalysisTask: Task<Void, Never>?
+        var audioConversionTask: Task<Void, Never>?
+        var pendingVideoFormatChangeTask: Task<Void, Never>?
+        var pendingVideoOptionNormalizationTask: Task<Void, Never>?
+        var pendingAudioFormatChangeTask: Task<Void, Never>?
+        var pendingAudioOptionNormalizationTask: Task<Void, Never>?
+        var pendingVideoSettingsSaveTask: Task<Void, Never>?
+        var pendingImageSettingsSaveTask: Task<Void, Never>?
+        var pendingAudioSettingsSaveTask: Task<Void, Never>?
+        var capabilityBootstrapTask: Task<Void, Never>?
+    }
+
     private static var defaultVideoFormat: VideoFormatOption {
         ContentViewModelSupport.defaultVideoFormat()
     }
@@ -189,37 +218,13 @@ final class ContentViewModel: ObservableObject {
         didSet { persistCurrentAudioSettingsIfNeeded() }
     }
 
-    var videoSettingsBySourceID: [String: VideoConversionSettings] = [:]
-    var imageSettingsBySourceID: [String: ImageConversionSettings] = [:]
-    var audioSettingsBySourceID: [String: AudioConversionSettings] = [:]
-
-    var isApplyingStoredSettings = false
-    var isApplyingStoredImageSettings = false
-    var isApplyingStoredAudioSettings = false
-
-    var sourceAnalysisTask: Task<Void, Never>?
-    var conversionTask: Task<Void, Never>?
-    var imageSourceAnalysisTask: Task<Void, Never>?
-    var imageConversionTask: Task<Void, Never>?
-    var audioSourceAnalysisTask: Task<Void, Never>?
-    var audioConversionTask: Task<Void, Never>?
-    var pendingVideoFormatChangeTask: Task<Void, Never>?
-    var pendingVideoOptionNormalizationTask: Task<Void, Never>?
-    var pendingAudioFormatChangeTask: Task<Void, Never>?
-    var pendingAudioOptionNormalizationTask: Task<Void, Never>?
-    var pendingVideoSettingsSaveTask: Task<Void, Never>?
-    var pendingImageSettingsSaveTask: Task<Void, Never>?
-    var pendingAudioSettingsSaveTask: Task<Void, Never>?
-    var capabilityBootstrapTask: Task<Void, Never>?
-
-    let videoSettingsStorageKey = "ContentViewModel.VideoSettingsBySource"
-    let imageSettingsStorageKey = "ContentViewModel.ImageSettingsBySource"
-    let audioSettingsStorageKey = "ContentViewModel.AudioSettingsBySource"
+    var settingsState = PersistedSettingsState()
+    var taskState = TaskState()
 
     init() {
-        videoSettingsBySourceID = loadPersistedSourceSettings(using: videoSettingsDescriptor())
-        imageSettingsBySourceID = loadPersistedSourceSettings(using: imageSettingsDescriptor())
-        audioSettingsBySourceID = loadPersistedSourceSettings(using: audioSettingsDescriptor())
+        settingsState.videoSettingsBySourceID = loadPersistedSourceSettings(using: videoSettingsDescriptor())
+        settingsState.imageSettingsBySourceID = loadPersistedSourceSettings(using: imageSettingsDescriptor())
+        settingsState.audioSettingsBySourceID = loadPersistedSourceSettings(using: audioSettingsDescriptor())
         applyPlaceholderCapabilityState()
         scheduleCapabilityBootstrap()
     }
