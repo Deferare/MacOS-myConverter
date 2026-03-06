@@ -16,11 +16,13 @@ struct UnifiedFileListView: View {
     let onClear: () -> Void
     let onReorder: (_ draggedURL: URL, _ targetURL: URL) -> Void
 
+    private let contentTransition: AnyTransition = .opacity
+
     var body: some View {
         Group {
             if !isDropTargeted, !sourceURLs.isEmpty {
                 populatedListView
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transition(contentTransition)
             } else {
                 DropFileView(
                     isDropTargeted: isDropTargeted,
@@ -28,7 +30,7 @@ struct UnifiedFileListView: View {
                     fileDropAreaHeight: fileDropAreaHeight,
                     action: onImport
                 )
-                .transition(.scale(scale: 0.98).combined(with: .opacity))
+                .transition(contentTransition)
             }
         }
     }
@@ -53,6 +55,7 @@ struct UnifiedFileListView: View {
                             isConverting: isConverting,
                             isCurrentlyConverting: isCurrentItem
                         )
+                        .transition(.opacity)
                         .onDrag {
                             guard !isConverting else {
                                 return NSItemProvider()
