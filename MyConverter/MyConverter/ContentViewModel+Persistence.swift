@@ -1,46 +1,58 @@
 import Foundation
 
 extension ContentViewModel {
+    struct DeferredPersistenceMetadata {
+        let kind: MediaKind
+        let taskKeyPath: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>
+        let apply: @MainActor (ContentViewModel) -> Void
+    }
+
     enum DeferredPersistenceAction {
         case videoFormatChange
         case videoOptionNormalization
         case audioFormatChange
         case audioOptionNormalization
 
-        var kind: MediaKind {
+        var metadata: DeferredPersistenceMetadata {
             switch self {
-            case .videoFormatChange, .videoOptionNormalization:
-                return .video
-            case .audioFormatChange, .audioOptionNormalization:
-                return .audio
+            case .videoFormatChange:
+                return DeferredPersistenceMetadata(
+                    kind: .video,
+                    taskKeyPath: \.taskState.pendingVideoFormatChangeTask,
+                    apply: { $0.refreshVideoCodecOptions() }
+                )
+            case .videoOptionNormalization:
+                return DeferredPersistenceMetadata(
+                    kind: .video,
+                    taskKeyPath: \.taskState.pendingVideoOptionNormalizationTask,
+                    apply: { $0.normalizeVideoOptionDependencies() }
+                )
+            case .audioFormatChange:
+                return DeferredPersistenceMetadata(
+                    kind: .audio,
+                    taskKeyPath: \.taskState.pendingAudioFormatChangeTask,
+                    apply: { $0.refreshAudioCodecOptions() }
+                )
+            case .audioOptionNormalization:
+                return DeferredPersistenceMetadata(
+                    kind: .audio,
+                    taskKeyPath: \.taskState.pendingAudioOptionNormalizationTask,
+                    apply: { $0.normalizeAudioOptionDependencies() }
+                )
             }
         }
 
+        var kind: MediaKind {
+            metadata.kind
+        }
+
         var taskKeyPath: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?> {
-            switch self {
-            case .videoFormatChange:
-                return \.taskState.pendingVideoFormatChangeTask
-            case .videoOptionNormalization:
-                return \.taskState.pendingVideoOptionNormalizationTask
-            case .audioFormatChange:
-                return \.taskState.pendingAudioFormatChangeTask
-            case .audioOptionNormalization:
-                return \.taskState.pendingAudioOptionNormalizationTask
-            }
+            metadata.taskKeyPath
         }
 
         @MainActor
         func apply(to viewModel: ContentViewModel) {
-            switch self {
-            case .videoFormatChange:
-                viewModel.refreshVideoCodecOptions()
-            case .videoOptionNormalization:
-                viewModel.normalizeVideoOptionDependencies()
-            case .audioFormatChange:
-                viewModel.refreshAudioCodecOptions()
-            case .audioOptionNormalization:
-                viewModel.normalizeAudioOptionDependencies()
-            }
+            metadata.apply(viewModel)
         }
     }
 

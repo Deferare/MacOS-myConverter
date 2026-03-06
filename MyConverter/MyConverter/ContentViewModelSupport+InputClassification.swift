@@ -1,13 +1,13 @@
 import UniformTypeIdentifiers
 
 extension ContentViewModelSupport {
-    static func inferredUTType(for url: URL) -> UTType? {
+    nonisolated static func inferredUTType(for url: URL) -> UTType? {
         let fileExtension = url.pathExtension.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !fileExtension.isEmpty else { return nil }
         return FormatOptionUtilities.cachedUTType(forFilenameExtension: fileExtension)
     }
 
-    static func isVideoInputURL(_ url: URL) -> Bool {
+    nonisolated static func isVideoInputURL(_ url: URL) -> Bool {
         if let type = inferredUTType(for: url),
            type.conforms(to: .movie) || type.conforms(to: .video) {
             return true
@@ -15,7 +15,7 @@ extension ContentViewModelSupport {
         return VideoFormatOption.isLikelyVideoFileExtension(url.pathExtension)
     }
 
-    static func isImageInputURL(_ url: URL) -> Bool {
+    nonisolated static func isImageInputURL(_ url: URL) -> Bool {
         if let type = inferredUTType(for: url),
            type.conforms(to: .image) {
             return true
@@ -23,7 +23,7 @@ extension ContentViewModelSupport {
         return ImageFormatOption.isLikelyImageFileExtension(url.pathExtension)
     }
 
-    static func isAudioInputURL(_ url: URL) -> Bool {
+    nonisolated static func isAudioInputURL(_ url: URL) -> Bool {
         if let type = inferredUTType(for: url),
            type.conforms(to: .audio) ||
             type.conforms(to: .movie) ||

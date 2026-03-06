@@ -1,16 +1,42 @@
 import Foundation
 import UniformTypeIdentifiers
 
+extension ContentViewModel {
+    struct MediaInputDescriptor {
+        let acceptsInput: (URL) -> Bool
+        let preferredImportTypes: (UTType?) -> [UTType]
+    }
+}
+
 extension ContentViewModel.MediaKind {
-    func preferredImportTypes(mkvType: UTType?) -> [UTType] {
+    var inputDescriptor: ContentViewModel.MediaInputDescriptor {
         switch self {
         case .video:
-            return [.movie, .video, mkvType].compactMap { $0 }
+            return ContentViewModel.MediaInputDescriptor(
+                acceptsInput: ContentViewModelSupport.isVideoInputURL(_:),
+                preferredImportTypes: { [.movie, .video, $0].compactMap { $0 } }
+            )
         case .image:
-            return [.image]
+            return ContentViewModel.MediaInputDescriptor(
+                acceptsInput: ContentViewModelSupport.isImageInputURL(_:),
+                preferredImportTypes: { _ in [.image] }
+            )
         case .audio:
-            return [.audio, .movie, .video, .audiovisualContent, mkvType].compactMap { $0 }
+            return ContentViewModel.MediaInputDescriptor(
+                acceptsInput: ContentViewModelSupport.isAudioInputURL(_:),
+                preferredImportTypes: {
+                    [.audio, .movie, .video, .audiovisualContent, $0].compactMap { $0 }
+                }
+            )
         }
+    }
+
+    func acceptsInput(_ url: URL) -> Bool {
+        inputDescriptor.acceptsInput(url)
+    }
+
+    func preferredImportTypes(mkvType: UTType?) -> [UTType] {
+        inputDescriptor.preferredImportTypes(mkvType)
     }
 }
 

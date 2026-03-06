@@ -1,20 +1,13 @@
 import Foundation
 
 extension ContentViewModel {
-    enum MediaKind: Equatable, Sendable, CaseIterable {
+    enum MediaKind: String, Equatable, Sendable, CaseIterable {
         case video
         case image
         case audio
 
         var sidebarTitle: String {
-            switch self {
-            case .video:
-                return "Video"
-            case .image:
-                return "Image"
-            case .audio:
-                return "Audio"
-            }
+            rawValue.capitalized
         }
 
         var converterTitle: String {

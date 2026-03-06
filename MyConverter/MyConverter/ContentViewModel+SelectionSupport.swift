@@ -1,30 +1,8 @@
 import Foundation
 
-extension ContentViewModel.MediaKind {
-    func acceptsInput(_ url: URL) -> Bool {
-        switch self {
-        case .video:
-            return ContentViewModelSupport.isVideoInputURL(url)
-        case .image:
-            return ContentViewModelSupport.isImageInputURL(url)
-        case .audio:
-            return ContentViewModelSupport.isAudioInputURL(url)
-        }
-    }
-}
-
 extension ConverterTab {
     var mediaKind: ContentViewModel.MediaKind? {
-        switch self {
-        case .video:
-            return .video
-        case .image:
-            return .image
-        case .audio:
-            return .audio
-        case .about:
-            return nil
-        }
+        ContentViewModel.MediaKind(rawValue: rawValue)
     }
 }
 
