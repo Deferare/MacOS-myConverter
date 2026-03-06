@@ -17,13 +17,13 @@ extension ContentViewModel {
                 cancelTask(at: descriptor.analysisTask)
             },
             resetCompatibilityState: {
-                resetCompatibilityStateForSelectionChange(for: kind)
+                descriptor.resetSelectionCompatibilityState(self)
             },
             applyStoredSettingsForSourceID: { sourceID in
-                applyStoredSettings(for: kind, sourceID: sourceID)
+                descriptor.applyStoredSettingsForSourceID(self, sourceID)
             },
             analyzeSelection: { urls in
-                reanalyzeSelection(urls, for: kind)
+                descriptor.analyzeSelection(self, urls)
             }
         )
     }
@@ -61,25 +61,5 @@ extension ContentViewModel {
 
     func reorderedURLsByMoving(_ draggedURL: URL, to targetURL: URL, in urls: [URL]) -> [URL]? {
         ContentViewModelSupport.reorderedURLsByMoving(draggedURL, to: targetURL, in: urls)
-    }
-
-    func resetCompatibilityStateForSelectionChange(for kind: MediaKind) {
-        switch kind {
-        case .image:
-            resetImageCompatibilityState(resetMetadata: true)
-        case .video, .audio:
-            resetCompatibilityState(for: kind, resetImageMetadata: false)
-        }
-    }
-
-    func reanalyzeSelection(_ urls: [URL], for kind: MediaKind) {
-        switch kind {
-        case .video:
-            analyzeSourceCompatibility(for: urls)
-        case .image:
-            analyzeImageSourceCompatibility(for: urls)
-        case .audio:
-            analyzeAudioSourceCompatibility(for: urls)
-        }
     }
 }

@@ -11,23 +11,11 @@ extension ContentViewModel {
                 assignSelection(remainingURLs, for: kind)
             },
             onSelectionEmptied: {
-                resetCompatibilityStateForSelectionChange(for: kind)
+                descriptor.resetSelectionCompatibilityState(self)
                 self[keyPath: descriptor.isAnalyzing] = false
                 descriptor.applyPlaceholderCapabilities(self)
                 scheduleCapabilityBootstrap()
             }
         )
-    }
-
-    func removeProcessedVideoSource(_ processedURL: URL) {
-        removeProcessedSource(processedURL, for: .video)
-    }
-
-    func removeProcessedImageSource(_ processedURL: URL) {
-        removeProcessedSource(processedURL, for: .image)
-    }
-
-    func removeProcessedAudioSource(_ processedURL: URL) {
-        removeProcessedSource(processedURL, for: .audio)
     }
 }

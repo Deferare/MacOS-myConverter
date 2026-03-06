@@ -21,24 +21,12 @@ extension ContentViewModel {
     func acceptsInput(_ url: URL, for kind: MediaKind) -> Bool {
         switch kind {
         case .video:
-            return isVideoInputURL(url)
+            return ContentViewModelSupport.isVideoInputURL(url)
         case .image:
-            return isImageInputURL(url)
+            return ContentViewModelSupport.isImageInputURL(url)
         case .audio:
-            return isAudioInputURL(url)
+            return ContentViewModelSupport.isAudioInputURL(url)
         }
-    }
-
-    func isVideoInputURL(_ url: URL) -> Bool {
-        ContentViewModelSupport.isVideoInputURL(url)
-    }
-
-    func isImageInputURL(_ url: URL) -> Bool {
-        ContentViewModelSupport.isImageInputURL(url)
-    }
-
-    func isAudioInputURL(_ url: URL) -> Bool {
-        ContentViewModelSupport.isAudioInputURL(url)
     }
 
     func cancelTask(_ task: inout Task<Void, Never>?) {
@@ -87,13 +75,14 @@ extension ContentViewModel {
                 assignSelection(selection, for: kind)
             },
             resetState: {
-                resetSelectionStateForSelectedSources(for: kind)
+                resetConversionOutputs(for: kind)
+                descriptor.resetSelectionCompatibilityState(self)
             },
             applyStoredSettingsForSourceID: { sourceID in
-                applyStoredSettings(for: kind, sourceID: sourceID)
+                descriptor.applyStoredSettingsForSourceID(self, sourceID)
             },
             analyzeSelection: { selection in
-                reanalyzeSelection(selection, for: kind)
+                descriptor.analyzeSelection(self, selection)
             }
         )
     }
@@ -129,10 +118,5 @@ extension ContentViewModel {
 
     func joinedCapabilityMessages(_ messages: [String]) -> String? {
         ContentViewModelSupport.joinedCapabilityMessages(messages)
-    }
-
-    func resetSelectionStateForSelectedSources(for kind: MediaKind) {
-        resetConversionOutputs(for: kind)
-        resetCompatibilityStateForSelectionChange(for: kind)
     }
 }

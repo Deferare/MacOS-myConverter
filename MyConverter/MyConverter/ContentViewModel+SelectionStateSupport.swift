@@ -24,6 +24,9 @@ extension ContentViewModel {
         let conversionTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>
         let applyPlaceholderCapabilities: (ContentViewModel) -> Void
         let applyDefaultSettings: (ContentViewModel) -> Void
+        let resetSelectionCompatibilityState: (ContentViewModel) -> Void
+        let applyStoredSettingsForSourceID: (ContentViewModel, String) -> Void
+        let analyzeSelection: (ContentViewModel, [URL]) -> Void
     }
 
     func mediaStateDescriptor(for kind: MediaKind) -> MediaStateDescriptor {
@@ -45,7 +48,10 @@ extension ContentViewModel {
                 analysisTask: \.taskState.sourceAnalysisTask,
                 conversionTask: \.taskState.conversionTask,
                 applyPlaceholderCapabilities: { $0.applyPlaceholderVideoCapabilities() },
-                applyDefaultSettings: { $0.applyStoredSettings(.init()) }
+                applyDefaultSettings: { $0.applyStoredSettings(.init()) },
+                resetSelectionCompatibilityState: { $0.resetCompatibilityState(for: .video, resetImageMetadata: false) },
+                applyStoredSettingsForSourceID: { $0.applyStoredVideoSettings(for: $1) },
+                analyzeSelection: { $0.analyzeSourceCompatibility(for: $1) }
             )
         case .image:
             return MediaStateDescriptor(
@@ -64,7 +70,10 @@ extension ContentViewModel {
                 analysisTask: \.taskState.imageSourceAnalysisTask,
                 conversionTask: \.taskState.imageConversionTask,
                 applyPlaceholderCapabilities: { $0.applyPlaceholderImageCapabilities() },
-                applyDefaultSettings: { $0.applyStoredImageSettings(.init()) }
+                applyDefaultSettings: { $0.applyStoredImageSettings(.init()) },
+                resetSelectionCompatibilityState: { $0.resetCompatibilityState(for: .image, resetImageMetadata: true) },
+                applyStoredSettingsForSourceID: { $0.applyStoredImageSettings(for: $1) },
+                analyzeSelection: { $0.analyzeImageSourceCompatibility(for: $1) }
             )
         case .audio:
             return MediaStateDescriptor(
@@ -83,7 +92,10 @@ extension ContentViewModel {
                 analysisTask: \.taskState.audioSourceAnalysisTask,
                 conversionTask: \.taskState.audioConversionTask,
                 applyPlaceholderCapabilities: { $0.applyPlaceholderAudioCapabilities() },
-                applyDefaultSettings: { $0.applyStoredAudioSettings(.init()) }
+                applyDefaultSettings: { $0.applyStoredAudioSettings(.init()) },
+                resetSelectionCompatibilityState: { $0.resetCompatibilityState(for: .audio, resetImageMetadata: false) },
+                applyStoredSettingsForSourceID: { $0.applyStoredAudioSettings(for: $1) },
+                analyzeSelection: { $0.analyzeAudioSourceCompatibility(for: $1) }
             )
         }
     }
@@ -166,29 +178,5 @@ extension ContentViewModel {
         }
         self[keyPath: descriptor.compatibilityErrorMessage] = nil
         self[keyPath: descriptor.compatibilityWarningMessage] = nil
-    }
-
-    func resetVideoConversionOutputs() {
-        resetConversionOutputs(for: .video)
-    }
-
-    func resetImageConversionOutputs() {
-        resetConversionOutputs(for: .image)
-    }
-
-    func resetAudioConversionOutputs() {
-        resetConversionOutputs(for: .audio)
-    }
-
-    func resetVideoCompatibilityMessages() {
-        resetCompatibilityState(for: .video, resetImageMetadata: false)
-    }
-
-    func resetImageCompatibilityState(resetMetadata: Bool) {
-        resetCompatibilityState(for: .image, resetImageMetadata: resetMetadata)
-    }
-
-    func resetAudioCompatibilityMessages() {
-        resetCompatibilityState(for: .audio, resetImageMetadata: false)
     }
 }

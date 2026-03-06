@@ -1,17 +1,6 @@
 import Foundation
 
 extension ContentViewModel {
-    func applyStoredSettings(for kind: MediaKind, sourceID: String) {
-        switch kind {
-        case .video:
-            applyStoredVideoSettings(for: sourceID)
-        case .image:
-            applyStoredImageSettings(for: sourceID)
-        case .audio:
-            applyStoredAudioSettings(for: sourceID)
-        }
-    }
-
     func applyStoredVideoSettings(for sourceID: String) {
         applyStoredSettingsForSource(sourceID: sourceID, using: videoSettingsDescriptor(), defaultSettings: VideoConversionSettings()) {
             applyStoredSettings($0)
