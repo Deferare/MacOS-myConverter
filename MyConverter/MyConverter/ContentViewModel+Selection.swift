@@ -9,16 +9,4 @@ extension ContentViewModel {
             queuedKeyPath: descriptor.queuedSourceURLs
         )
     }
-
-    func assignVideoSelection(_ urls: [URL]) {
-        assignSelection(urls, for: .video)
-    }
-
-    func assignImageSelection(_ urls: [URL]) {
-        assignSelection(urls, for: .image)
-    }
-
-    func assignAudioSelection(_ urls: [URL]) {
-        assignSelection(urls, for: .audio)
-    }
 }

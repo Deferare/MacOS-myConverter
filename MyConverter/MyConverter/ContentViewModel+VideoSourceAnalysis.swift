@@ -1,10 +1,6 @@
 import Foundation
 
 extension ContentViewModel {
-    func applySelectedVideoSources(_ urls: [URL]) {
-        applySelectedSources(urls, for: .video)
-    }
-
     func analyzeSourceCompatibility(for urls: [URL]) {
         analyzeMediaSourceSelection(
             for: .video,

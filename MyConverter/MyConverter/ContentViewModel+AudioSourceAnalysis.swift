@@ -1,10 +1,6 @@
 import Foundation
 
 extension ContentViewModel {
-    func applySelectedAudioSources(_ urls: [URL]) {
-        applySelectedSources(urls, for: .audio)
-    }
-
     func analyzeAudioSourceCompatibility(for urls: [URL]) {
         analyzeMediaSourceSelection(
             for: .audio,

@@ -1,10 +1,6 @@
 import Foundation
 
 extension ContentViewModel {
-    func applySelectedImageSources(_ urls: [URL]) {
-        applySelectedSources(urls, for: .image)
-    }
-
     func analyzeImageSourceCompatibility(for urls: [URL]) {
         let primarySourceID = uniqueStandardizedURLs(urls).first.map(sourceIdentifier(for:))
         var primaryFrameCount = 0
