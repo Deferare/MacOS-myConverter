@@ -7,39 +7,19 @@ extension ContentViewModel {
         let apply: @MainActor (ContentViewModel) -> Void
     }
 
-    enum DeferredPersistenceAction {
-        case videoFormatChange
-        case videoOptionNormalization
-        case audioFormatChange
-        case audioOptionNormalization
+    struct DeferredPersistenceAction {
+        let metadata: DeferredPersistenceMetadata
 
-        var metadata: DeferredPersistenceMetadata {
-            switch self {
-            case .videoFormatChange:
-                return DeferredPersistenceMetadata(
-                    kind: .video,
-                    taskKeyPath: \.taskState.pendingVideoFormatChangeTask,
-                    apply: { $0.refreshVideoCodecOptions() }
-                )
-            case .videoOptionNormalization:
-                return DeferredPersistenceMetadata(
-                    kind: .video,
-                    taskKeyPath: \.taskState.pendingVideoOptionNormalizationTask,
-                    apply: { $0.normalizeVideoOptionDependencies() }
-                )
-            case .audioFormatChange:
-                return DeferredPersistenceMetadata(
-                    kind: .audio,
-                    taskKeyPath: \.taskState.pendingAudioFormatChangeTask,
-                    apply: { $0.refreshAudioCodecOptions() }
-                )
-            case .audioOptionNormalization:
-                return DeferredPersistenceMetadata(
-                    kind: .audio,
-                    taskKeyPath: \.taskState.pendingAudioOptionNormalizationTask,
-                    apply: { $0.normalizeAudioOptionDependencies() }
-                )
-            }
+        init(
+            kind: MediaKind,
+            taskKeyPath: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>,
+            apply: @escaping @MainActor (ContentViewModel) -> Void
+        ) {
+            metadata = DeferredPersistenceMetadata(
+                kind: kind,
+                taskKeyPath: taskKeyPath,
+                apply: apply
+            )
         }
 
         var kind: MediaKind {
@@ -54,6 +34,30 @@ extension ContentViewModel {
         func apply(to viewModel: ContentViewModel) {
             metadata.apply(viewModel)
         }
+
+        static let videoFormatChange = DeferredPersistenceAction(
+            kind: .video,
+            taskKeyPath: \.taskState.pendingVideoFormatChangeTask,
+            apply: { $0.refreshVideoCodecOptions() }
+        )
+
+        static let videoOptionNormalization = DeferredPersistenceAction(
+            kind: .video,
+            taskKeyPath: \.taskState.pendingVideoOptionNormalizationTask,
+            apply: { $0.normalizeVideoOptionDependencies() }
+        )
+
+        static let audioFormatChange = DeferredPersistenceAction(
+            kind: .audio,
+            taskKeyPath: \.taskState.pendingAudioFormatChangeTask,
+            apply: { $0.refreshAudioCodecOptions() }
+        )
+
+        static let audioOptionNormalization = DeferredPersistenceAction(
+            kind: .audio,
+            taskKeyPath: \.taskState.pendingAudioOptionNormalizationTask,
+            apply: { $0.normalizeAudioOptionDependencies() }
+        )
     }
 
     func scheduleDeferredPersistenceAction(_ action: DeferredPersistenceAction) {
