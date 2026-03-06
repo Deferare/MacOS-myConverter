@@ -34,9 +34,7 @@ enum BatchConversionSupport {
 
         guard let batchAccess = prepareBatchDirectoryAccess(
             sourceURLs: sourceURLs,
-            destinationURLsBySourceID: destinationURLsBySourceID,
-            fileExtension: fileExtension,
-            outputLabel: outputLabel
+            destinationURLsBySourceID: destinationURLsBySourceID
         ) else {
             return nil
         }
