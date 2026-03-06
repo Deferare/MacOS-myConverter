@@ -81,8 +81,6 @@ struct UnifiedFileListView: View {
                 }
                 .padding(4)
             }
-
-            footerBar
         }
         .padding(20)
         .frame(maxWidth: .infinity, minHeight: fileDropAreaHeight, maxHeight: fileDropAreaHeight)
@@ -102,16 +100,7 @@ struct UnifiedFileListView: View {
             Text("Files")
                 .font(.headline)
 
-            Text("\(sourceURLs.count)")
-                .font(.caption2.weight(.bold))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 2)
-                .background(Capsule().fill(Color.secondary.opacity(0.1)))
-
-            if !outputURLs.isEmpty {
-                completionBadge
-            }
+            progressBadge
 
             Spacer()
 
@@ -134,49 +123,36 @@ struct UnifiedFileListView: View {
         }
     }
 
-    private var completionBadge: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.caption2)
-                .foregroundStyle(.green)
-
-            Text("\(outputURLs.count)/\(sourceURLs.count)")
-                .font(.caption2.weight(.bold))
-                .foregroundStyle(.green)
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 3)
-        .background(Capsule().fill(Color.green.opacity(0.1)))
+    private var progressBadge: some View {
+        Text("\(displayedProgressCount)/\(sourceURLs.count)")
+            .font(.caption2.weight(.bold))
+            .foregroundStyle(progressBadgeColor)
+            .monospacedDigit()
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(Capsule().fill(progressBadgeColor.opacity(0.12)))
     }
 
-    // MARK: - Footer
+    private var displayedProgressCount: Int {
+        let completedCount = min(outputURLs.count, sourceURLs.count)
 
-    private var footerBar: some View {
-        HStack {
-            Text(footerText)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-            Spacer()
-
-            Button(action: onImport) {
-                Label("Add Files", systemImage: "plus")
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.regular)
-            .disabled(isConverting)
+        guard isConverting else {
+            return completedCount
         }
+
+        let inFlightCount = min(currentBatchIndex, sourceURLs.count)
+        return max(completedCount, inFlightCount)
     }
 
-    private var footerText: String {
+    private var progressBadgeColor: Color {
+        if !sourceURLs.isEmpty && outputURLs.count >= sourceURLs.count {
+            return .green
+        }
+
         if isConverting {
-            return "Converting \(currentBatchIndex) of \(sourceURLs.count)…"
-        } else if !outputURLs.isEmpty && outputURLs.count == sourceURLs.count {
-            return "All files converted successfully"
-        } else if !outputURLs.isEmpty {
-            return "\(outputURLs.count) of \(sourceURLs.count) converted"
-        } else {
-            return "Ready for conversion · Drag rows to reorder"
+            return .accentColor
         }
+
+        return .secondary
     }
 }
