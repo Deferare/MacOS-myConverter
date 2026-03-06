@@ -13,6 +13,24 @@ extension ContentViewModel {
         var errors: [String] = []
     }
 
+    struct SourceAnalysisSelectionHandlers<Capability: Sendable, Format> {
+        let onCapability: (URL, Capability) -> Void
+        let onFormatsResolved: ([Format]) -> Void
+    }
+
+    struct SourceAnalysisDescriptor<Capability: Sendable, Format> {
+        let kind: MediaKind
+        let availableFormatsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [Format]>
+        let fetchCapabilities: @Sendable (URL) async -> Capability
+        let availableFormats: (Capability) -> [Format]
+        let warningMessage: (Capability) -> String?
+        let errorMessage: (Capability) -> String?
+        let formatNormalizedID: (Format) -> String
+        let deduplicatedAndSorted: ([Format]) -> [Format]
+        let noCommonFormatsMessage: String
+        let buildSelectionHandlers: (ContentViewModel, [URL]) -> SourceAnalysisSelectionHandlers<Capability, Format>
+    }
+
     func selectedSourceIDs(for kind: MediaKind) -> [String] {
         selectedSourceURLs(for: kind).map(sourceIdentifier(for:))
     }
@@ -25,6 +43,28 @@ extension ContentViewModel {
         self[keyPath: descriptor.isAnalyzing] = false
         self[keyPath: availableFormatsKeyPath] = []
         resetCompatibilityState(for: kind)
+    }
+
+    func analyzeSourceCompatibility<Capability: Sendable, Format>(
+        for urls: [URL],
+        using descriptor: SourceAnalysisDescriptor<Capability, Format>
+    ) {
+        let handlers = descriptor.buildSelectionHandlers(self, urls)
+
+        analyzeMediaSourceSelection(
+            for: descriptor.kind,
+            urls: urls,
+            availableFormatsKeyPath: descriptor.availableFormatsKeyPath,
+            fetchCapabilities: descriptor.fetchCapabilities,
+            availableFormats: descriptor.availableFormats,
+            warningMessage: descriptor.warningMessage,
+            errorMessage: descriptor.errorMessage,
+            formatNormalizedID: descriptor.formatNormalizedID,
+            deduplicatedAndSorted: descriptor.deduplicatedAndSorted,
+            noCommonFormatsMessage: descriptor.noCommonFormatsMessage,
+            onCapability: handlers.onCapability,
+            onFormatsResolved: handlers.onFormatsResolved
+        )
     }
 
     func analyzeMediaSourceSelection<Capability: Sendable, Format>(

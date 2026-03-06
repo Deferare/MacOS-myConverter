@@ -1,10 +1,9 @@
 import Foundation
 
 extension ContentViewModel {
-    func analyzeAudioSourceCompatibility(for urls: [URL]) {
-        analyzeMediaSourceSelection(
-            for: .audio,
-            urls: urls,
+    func audioSourceAnalysisDescriptor() -> SourceAnalysisDescriptor<AudioSourceCapabilities, AudioFormatOption> {
+        SourceAnalysisDescriptor(
+            kind: .audio,
             availableFormatsKeyPath: \.availableAudioOutputFormats,
             fetchCapabilities: { await VideoConversionEngine.sourceCapabilitiesForAudio(for: $0) },
             availableFormats: { $0.availableOutputFormats },
@@ -13,12 +12,17 @@ extension ContentViewModel {
             formatNormalizedID: { $0.normalizedID },
             deduplicatedAndSorted: { AudioFormatOption.deduplicatedAndSorted($0) },
             noCommonFormatsMessage: "No common audio output format is available for the selected files.",
-            onFormatsResolved: { resolvedFormats in
-                self.applyResolvedOutputFormats(
-                    resolvedFormats,
-                    formatDescriptor: self.audioOutputFormatDescriptor(),
-                    postSelectionUpdate: self.refreshAudioCodecOptions,
-                    persistSettings: self.persistCurrentAudioSettingsIfNeeded
+            buildSelectionHandlers: { viewModel, _ in
+                SourceAnalysisSelectionHandlers(
+                    onCapability: { _, _ in },
+                    onFormatsResolved: { resolvedFormats in
+                        viewModel.applyResolvedOutputFormats(
+                            resolvedFormats,
+                            formatDescriptor: viewModel.audioOutputFormatDescriptor(),
+                            postSelectionUpdate: viewModel.refreshAudioCodecOptions,
+                            persistSettings: viewModel.persistCurrentAudioSettingsIfNeeded
+                        )
+                    }
                 )
             }
         )

@@ -51,7 +51,12 @@ extension ContentViewModel {
                 applyDefaultSettings: { $0.applyStoredSettings(.init()) },
                 resetSelectionCompatibilityState: { $0.resetCompatibilityState(for: .video, resetImageMetadata: false) },
                 applyStoredSettingsForSourceID: { $0.applyStoredVideoSettings(for: $1) },
-                analyzeSelection: { $0.analyzeSourceCompatibility(for: $1) }
+                analyzeSelection: { viewModel, urls in
+                    viewModel.analyzeSourceCompatibility(
+                        for: urls,
+                        using: viewModel.videoSourceAnalysisDescriptor()
+                    )
+                }
             )
         case .image:
             return MediaStateDescriptor(
@@ -73,7 +78,12 @@ extension ContentViewModel {
                 applyDefaultSettings: { $0.applyStoredImageSettings(.init()) },
                 resetSelectionCompatibilityState: { $0.resetCompatibilityState(for: .image, resetImageMetadata: true) },
                 applyStoredSettingsForSourceID: { $0.applyStoredImageSettings(for: $1) },
-                analyzeSelection: { $0.analyzeImageSourceCompatibility(for: $1) }
+                analyzeSelection: { viewModel, urls in
+                    viewModel.analyzeSourceCompatibility(
+                        for: urls,
+                        using: viewModel.imageSourceAnalysisDescriptor()
+                    )
+                }
             )
         case .audio:
             return MediaStateDescriptor(
@@ -95,7 +105,12 @@ extension ContentViewModel {
                 applyDefaultSettings: { $0.applyStoredAudioSettings(.init()) },
                 resetSelectionCompatibilityState: { $0.resetCompatibilityState(for: .audio, resetImageMetadata: false) },
                 applyStoredSettingsForSourceID: { $0.applyStoredAudioSettings(for: $1) },
-                analyzeSelection: { $0.analyzeAudioSourceCompatibility(for: $1) }
+                analyzeSelection: { viewModel, urls in
+                    viewModel.analyzeSourceCompatibility(
+                        for: urls,
+                        using: viewModel.audioSourceAnalysisDescriptor()
+                    )
+                }
             )
         }
     }
