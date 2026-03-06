@@ -16,7 +16,7 @@ struct VideoConverterInputSectionView: View {
             isConverting: viewModel.isConverting,
             currentBatchIndex: viewModel.currentVideoBatchIndex,
             systemImage: "film.fill",
-            dropPlaceholder: "Drop Video Here",
+            dropPlaceholder: "Drop Files Here",
             fileDropAreaHeight: fileDropAreaHeight,
             draggedSelectedFileURL: $draggedSelectedFileURL,
             onImport: {

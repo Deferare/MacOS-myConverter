@@ -16,7 +16,7 @@ struct AudioConverterInputSectionView: View {
             isConverting: viewModel.isAudioConverting,
             currentBatchIndex: viewModel.currentAudioBatchIndex,
             systemImage: "waveform",
-            dropPlaceholder: "Drop Audio Here",
+            dropPlaceholder: "Drop Files Here",
             fileDropAreaHeight: fileDropAreaHeight,
             draggedSelectedFileURL: $draggedSelectedFileURL,
             onImport: {

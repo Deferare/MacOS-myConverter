@@ -16,7 +16,7 @@ struct ImageConverterInputSectionView: View {
             isConverting: viewModel.isImageConverting,
             currentBatchIndex: viewModel.currentImageBatchIndex,
             systemImage: "photo.fill",
-            dropPlaceholder: "Drop Image Here",
+            dropPlaceholder: "Drop Files Here",
             fileDropAreaHeight: fileDropAreaHeight,
             draggedSelectedFileURL: $draggedSelectedFileURL,
             onImport: {

@@ -3,14 +3,15 @@ import UniformTypeIdentifiers
 
 extension ContentViewModel {
     func preferredImportTypes(for selectedTab: ConverterTab) -> [UTType] {
+        let mkvType = UTType(filenameExtension: "mkv")
+
         switch selectedTab {
         case .video:
-            let mkvType = UTType(filenameExtension: "mkv")
             return [.movie, .video, mkvType].compactMap { $0 }
         case .image:
             return [.image]
         case .audio:
-            return [.audio, .audiovisualContent]
+            return [.audio, .movie, .video, .audiovisualContent, mkvType].compactMap { $0 }
         case .about:
             return [.item]
         }
