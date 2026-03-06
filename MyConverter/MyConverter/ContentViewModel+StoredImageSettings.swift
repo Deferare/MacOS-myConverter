@@ -14,12 +14,8 @@ extension ContentViewModel {
                 preserveImageAnimation = settings.preserveAnimation
             },
             postApply: {
-                ensureSelectedImageOutputFormatIsAvailable()
+                ensureSelectedOutputFormatIsAvailable(using: imageOutputFormatDescriptor())
             }
         )
-    }
-
-    func ensureSelectedImageOutputFormatIsAvailable() {
-        ensureSelectedOutputFormatIsAvailable(using: imageOutputFormatDescriptor())
     }
 }

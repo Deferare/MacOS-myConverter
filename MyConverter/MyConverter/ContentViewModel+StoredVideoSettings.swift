@@ -20,13 +20,9 @@ extension ContentViewModel {
                 selectedAudioBitRate = settings.audioBitRate
             },
             postApply: {
-                ensureSelectedVideoOutputFormatIsAvailable()
+                ensureSelectedOutputFormatIsAvailable(using: videoOutputFormatDescriptor())
                 refreshVideoCodecOptions()
             }
         )
-    }
-
-    func ensureSelectedVideoOutputFormatIsAvailable() {
-        ensureSelectedOutputFormatIsAvailable(using: videoOutputFormatDescriptor())
     }
 }

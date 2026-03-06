@@ -14,13 +14,9 @@ extension ContentViewModel {
                 selectedAudioOutputBitRate = settings.audioBitRate
             },
             postApply: {
-                ensureSelectedAudioOutputFormatIsAvailable()
+                ensureSelectedOutputFormatIsAvailable(using: audioOutputFormatDescriptor())
                 refreshAudioCodecOptions()
             }
         )
-    }
-
-    func ensureSelectedAudioOutputFormatIsAvailable() {
-        ensureSelectedOutputFormatIsAvailable(using: audioOutputFormatDescriptor())
     }
 }
