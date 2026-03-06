@@ -3,10 +3,6 @@ import Foundation
 import UniformTypeIdentifiers
 
 extension ContentViewModel {
-    func handleDrop(providers: [NSItemProvider]) -> Bool {
-        handleDrop(providers: providers, for: .video)
-    }
-
     func handleMediaDrop(
         providers: [NSItemProvider],
         accept: @escaping (URL) -> Bool,
@@ -26,18 +22,6 @@ extension ContentViewModel {
                 self?.applySelectedSources(urls, for: kind)
             }
         )
-    }
-
-    func handleVideoDrop(providers: [NSItemProvider]) -> Bool {
-        handleDrop(providers: providers, for: .video)
-    }
-
-    func handleImageDrop(providers: [NSItemProvider]) -> Bool {
-        handleDrop(providers: providers, for: .image)
-    }
-
-    func handleAudioDrop(providers: [NSItemProvider]) -> Bool {
-        handleDrop(providers: providers, for: .audio)
     }
 
     func handleDroppedFiles(

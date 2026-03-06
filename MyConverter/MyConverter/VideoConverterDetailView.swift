@@ -11,7 +11,7 @@ struct VideoConverterDetailView: View {
             title: "Convert Video",
             isDropTargeted: $isDropTargeted,
             onDrop: { providers in
-                viewModel.handleVideoDrop(providers: providers)
+                viewModel.handleDrop(providers: providers, for: .video)
             },
             inputArea: {
                 VideoConverterInputSectionView(

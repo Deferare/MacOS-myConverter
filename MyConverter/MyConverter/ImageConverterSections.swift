@@ -24,11 +24,11 @@ struct ImageConverterInputSectionView: View {
             },
             onClear: {
                 withAnimation(fileSelectionAnimation) {
-                    viewModel.clearSelectedImageSource()
+                    viewModel.clearSelectedSource(for: .image)
                 }
             },
             onReorder: { draggedURL, targetURL in
-                viewModel.moveSelectedImageSource(from: draggedURL, to: targetURL)
+                viewModel.moveSelectedSource(from: draggedURL, to: targetURL, for: .image)
             }
         )
         .animation(fileSelectionAnimation, value: viewModel.selectedImageFileCount)
@@ -101,8 +101,8 @@ struct ImageConversionControlsView: View {
             progressTint: viewModel.displayedImageConversionProgress > 0 ? .accentColor : .clear,
             isConverting: viewModel.isImageConverting,
             canConvert: viewModel.canConvertImage,
-            onStart: { viewModel.startImageConversion() },
-            onCancel: { viewModel.cancelImageConversion() }
+            onStart: { viewModel.startConversion(for: .image) },
+            onCancel: { viewModel.cancelConversion(for: .image) }
         )
     }
 }

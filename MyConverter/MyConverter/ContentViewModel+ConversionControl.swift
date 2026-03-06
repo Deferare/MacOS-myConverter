@@ -1,30 +1,6 @@
 import Foundation
 
 extension ContentViewModel {
-    func startConversion() {
-        startConversion(for: .video)
-    }
-
-    func cancelConversion() {
-        cancelConversion(for: .video)
-    }
-
-    func startImageConversion() {
-        startConversion(for: .image)
-    }
-
-    func cancelImageConversion() {
-        cancelConversion(for: .image)
-    }
-
-    func startAudioConversion() {
-        startConversion(for: .audio)
-    }
-
-    func cancelAudioConversion() {
-        cancelConversion(for: .audio)
-    }
-
     func startConversion(for kind: MediaKind) {
         launchConversionTask(for: kind) { [weak self] in
             await self?.runConversion(for: kind)

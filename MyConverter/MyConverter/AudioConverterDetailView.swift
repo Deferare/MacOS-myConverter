@@ -11,7 +11,7 @@ struct AudioConverterDetailView: View {
             title: "Convert Audio",
             isDropTargeted: $isDropTargeted,
             onDrop: { providers in
-                viewModel.handleAudioDrop(providers: providers)
+                viewModel.handleDrop(providers: providers, for: .audio)
             },
             inputArea: {
                 AudioConverterInputSectionView(

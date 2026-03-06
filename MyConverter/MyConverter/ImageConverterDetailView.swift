@@ -11,7 +11,7 @@ struct ImageConverterDetailView: View {
             title: "Convert Image",
             isDropTargeted: $isDropTargeted,
             onDrop: { providers in
-                viewModel.handleImageDrop(providers: providers)
+                viewModel.handleDrop(providers: providers, for: .image)
             },
             inputArea: {
                 ImageConverterInputSectionView(

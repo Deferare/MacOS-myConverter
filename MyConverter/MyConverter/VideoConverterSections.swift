@@ -24,11 +24,11 @@ struct VideoConverterInputSectionView: View {
             },
             onClear: {
                 withAnimation(fileSelectionAnimation) {
-                    viewModel.clearSelectedVideoSource()
+                    viewModel.clearSelectedSource(for: .video)
                 }
             },
             onReorder: { draggedURL, targetURL in
-                viewModel.moveSelectedVideoSource(from: draggedURL, to: targetURL)
+                viewModel.moveSelectedSource(from: draggedURL, to: targetURL, for: .video)
             }
         )
         .animation(fileSelectionAnimation, value: viewModel.selectedVideoFileCount)
@@ -131,8 +131,8 @@ struct VideoConversionControlsView: View {
             progressTint: viewModel.displayedConversionProgress > 0 ? .accentColor : .clear,
             isConverting: viewModel.isConverting,
             canConvert: viewModel.canConvert,
-            onStart: { viewModel.startConversion() },
-            onCancel: { viewModel.cancelConversion() }
+            onStart: { viewModel.startConversion(for: .video) },
+            onCancel: { viewModel.cancelConversion(for: .video) }
         )
     }
 }

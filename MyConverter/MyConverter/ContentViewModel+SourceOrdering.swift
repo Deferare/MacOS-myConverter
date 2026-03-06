@@ -59,18 +59,6 @@ extension ContentViewModel {
         analyzeSelection(reordered)
     }
 
-    func moveSelectedVideoSource(from draggedURL: URL, to targetURL: URL) {
-        moveSelectedSource(from: draggedURL, to: targetURL, for: .video)
-    }
-
-    func moveSelectedImageSource(from draggedURL: URL, to targetURL: URL) {
-        moveSelectedSource(from: draggedURL, to: targetURL, for: .image)
-    }
-
-    func moveSelectedAudioSource(from draggedURL: URL, to targetURL: URL) {
-        moveSelectedSource(from: draggedURL, to: targetURL, for: .audio)
-    }
-
     func reorderedURLsByMoving(_ draggedURL: URL, to targetURL: URL, in urls: [URL]) -> [URL]? {
         ContentViewModelSupport.reorderedURLsByMoving(draggedURL, to: targetURL, in: urls)
     }

@@ -24,11 +24,11 @@ struct AudioConverterInputSectionView: View {
             },
             onClear: {
                 withAnimation(fileSelectionAnimation) {
-                    viewModel.clearSelectedAudioSource()
+                    viewModel.clearSelectedSource(for: .audio)
                 }
             },
             onReorder: { draggedURL, targetURL in
-                viewModel.moveSelectedAudioSource(from: draggedURL, to: targetURL)
+                viewModel.moveSelectedSource(from: draggedURL, to: targetURL, for: .audio)
             }
         )
         .animation(fileSelectionAnimation, value: viewModel.selectedAudioFileCount)
@@ -88,8 +88,8 @@ struct AudioConversionControlsView: View {
             progressTint: viewModel.displayedAudioConversionProgress > 0 ? .accentColor : .clear,
             isConverting: viewModel.isAudioConverting,
             canConvert: viewModel.canConvertAudio,
-            onStart: { viewModel.startAudioConversion() },
-            onCancel: { viewModel.cancelAudioConversion() }
+            onStart: { viewModel.startConversion(for: .audio) },
+            onCancel: { viewModel.cancelConversion(for: .audio) }
         )
     }
 }
