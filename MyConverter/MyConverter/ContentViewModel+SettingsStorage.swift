@@ -35,6 +35,55 @@ extension ContentViewModel {
         let persistCurrent: (ContentViewModel) -> Void
     }
 
+    func makeSourceSettingsDescriptor<Settings, Persisted: Codable>(
+        isApplyingStoredSettings: ReferenceWritableKeyPath<ContentViewModel, Bool>,
+        sourceURL: ReferenceWritableKeyPath<ContentViewModel, URL?>,
+        settingsBySourceID: ReferenceWritableKeyPath<ContentViewModel, [String: Settings]>,
+        pendingSaveTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>,
+        storageKey: String,
+        saveFailureContext: String,
+        loadFailureContext: String,
+        mapToPersisted: @escaping (Settings) -> Persisted,
+        restore: @escaping (Persisted) -> Settings
+    ) -> SourceSettingsDescriptor<Settings, Persisted> {
+        SourceSettingsDescriptor(
+            isApplyingStoredSettings: isApplyingStoredSettings,
+            sourceURL: sourceURL,
+            settingsBySourceID: settingsBySourceID,
+            pendingSaveTask: pendingSaveTask,
+            storageKey: storageKey,
+            saveFailureContext: saveFailureContext,
+            loadFailureContext: loadFailureContext,
+            mapToPersisted: mapToPersisted,
+            restore: restore
+        )
+    }
+
+    func makeSourceSettingsFlowDescriptor<Settings, Persisted: Codable, Format>(
+        storage: SourceSettingsDescriptor<Settings, Persisted>,
+        formatDescriptor: OutputFormatDescriptor<Format>,
+        defaultSettings: @escaping () -> Settings,
+        outputFormatID: @escaping (Settings) -> String,
+        normalizeStoredID: @escaping (String) -> String?,
+        buildCurrentSettings: @escaping (ContentViewModel) -> Settings,
+        applyAdditionalSettings: @escaping (ContentViewModel, Settings) -> Void,
+        refreshDependentOptions: @escaping (ContentViewModel) -> Void = { _ in }
+    ) -> SourceSettingsFlowDescriptor<Settings, Persisted, Format> {
+        SourceSettingsFlowDescriptor(
+            storage: storage,
+            formatDescriptor: formatDescriptor,
+            defaultSettings: defaultSettings,
+            outputFormatID: outputFormatID,
+            normalizeStoredID: normalizeStoredID,
+            buildCurrentSettings: buildCurrentSettings,
+            applyAdditionalSettings: applyAdditionalSettings,
+            postApply: { viewModel in
+                viewModel.ensureSelectedOutputFormatIsAvailable(using: formatDescriptor)
+                refreshDependentOptions(viewModel)
+            }
+        )
+    }
+
     func makeSourceSettingsActions<Settings, Persisted: Codable, Format>(
         using descriptor: @escaping (ContentViewModel) -> SourceSettingsFlowDescriptor<Settings, Persisted, Format>
     ) -> SourceSettingsActions {
@@ -88,7 +137,7 @@ extension ContentViewModel {
     }
 
     func videoSettingsDescriptor() -> SourceSettingsDescriptor<VideoConversionSettings, PersistedVideoConversionSettings> {
-        SourceSettingsDescriptor(
+        makeSourceSettingsDescriptor(
             isApplyingStoredSettings: \.settingsState.isApplyingVideoSettings,
             sourceURL: \.sourceURL,
             settingsBySourceID: \.settingsState.videoSettingsBySourceID,
@@ -106,7 +155,7 @@ extension ContentViewModel {
         PersistedVideoConversionSettings,
         VideoFormatOption
     > {
-        SourceSettingsFlowDescriptor(
+        makeSourceSettingsFlowDescriptor(
             storage: videoSettingsDescriptor(),
             formatDescriptor: videoOutputFormatDescriptor(),
             defaultSettings: { VideoConversionSettings() },
@@ -139,15 +188,12 @@ extension ContentViewModel {
                 viewModel.selectedSampleRate = settings.sampleRate
                 viewModel.selectedAudioBitRate = settings.audioBitRate
             },
-            postApply: { viewModel in
-                viewModel.ensureSelectedOutputFormatIsAvailable(using: viewModel.videoOutputFormatDescriptor())
-                viewModel.refreshVideoCodecOptions()
-            }
+            refreshDependentOptions: { $0.refreshVideoCodecOptions() }
         )
     }
 
     func imageSettingsDescriptor() -> SourceSettingsDescriptor<ImageConversionSettings, PersistedImageConversionSettings> {
-        SourceSettingsDescriptor(
+        makeSourceSettingsDescriptor(
             isApplyingStoredSettings: \.settingsState.isApplyingImageSettings,
             sourceURL: \.imageSourceURL,
             settingsBySourceID: \.settingsState.imageSettingsBySourceID,
@@ -165,7 +211,7 @@ extension ContentViewModel {
         PersistedImageConversionSettings,
         ImageFormatOption
     > {
-        SourceSettingsFlowDescriptor(
+        makeSourceSettingsFlowDescriptor(
             storage: imageSettingsDescriptor(),
             formatDescriptor: imageOutputFormatDescriptor(),
             defaultSettings: { ImageConversionSettings() },
@@ -185,15 +231,12 @@ extension ContentViewModel {
                 viewModel.selectedImageQuality = settings.quality
                 viewModel.selectedPNGCompressionLevel = settings.pngCompressionLevel
                 viewModel.preserveImageAnimation = settings.preserveAnimation
-            },
-            postApply: { viewModel in
-                viewModel.ensureSelectedOutputFormatIsAvailable(using: viewModel.imageOutputFormatDescriptor())
             }
         )
     }
 
     func audioSettingsDescriptor() -> SourceSettingsDescriptor<AudioConversionSettings, PersistedAudioConversionSettings> {
-        SourceSettingsDescriptor(
+        makeSourceSettingsDescriptor(
             isApplyingStoredSettings: \.settingsState.isApplyingAudioSettings,
             sourceURL: \.audioSourceURL,
             settingsBySourceID: \.settingsState.audioSettingsBySourceID,
@@ -211,7 +254,7 @@ extension ContentViewModel {
         PersistedAudioConversionSettings,
         AudioFormatOption
     > {
-        SourceSettingsFlowDescriptor(
+        makeSourceSettingsFlowDescriptor(
             storage: audioSettingsDescriptor(),
             formatDescriptor: audioOutputFormatDescriptor(),
             defaultSettings: { AudioConversionSettings() },
@@ -232,10 +275,7 @@ extension ContentViewModel {
                 viewModel.selectedAudioOutputSampleRate = settings.sampleRate
                 viewModel.selectedAudioOutputBitRate = settings.audioBitRate
             },
-            postApply: { viewModel in
-                viewModel.ensureSelectedOutputFormatIsAvailable(using: viewModel.audioOutputFormatDescriptor())
-                viewModel.refreshAudioCodecOptions()
-            }
+            refreshDependentOptions: { $0.refreshAudioCodecOptions() }
         )
     }
 
