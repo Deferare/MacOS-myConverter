@@ -171,10 +171,12 @@ extension ContentViewModel {
             validate: workflow.validate,
             makeWorkingOutputURL: workflow.makeWorkingOutputURL,
             runConversion: workflow.runConversion,
-            onSavedOutput: { savedURL in
-                self.appendConvertedOutput(savedURL, for: workflow.kind)
+            onSavedOutput: { sourceURL, savedURL in
+                self.appendConvertedOutput(savedURL, from: sourceURL, for: workflow.kind)
             },
-            onSourceProcessed: { _ in },
+            onSourceProcessed: { sourceURL in
+                self.markProcessedSource(sourceURL, for: workflow.kind)
+            },
             onError: { error in
                 self.applyConversionError(
                     error,
@@ -207,7 +209,7 @@ extension ContentViewModel {
         validate: @escaping (URL) async -> String?,
         makeWorkingOutputURL: @escaping (URL) -> URL,
         runConversion: @escaping (URL, URL, OutputSettings, Int, Int) async throws -> URL,
-        onSavedOutput: @escaping (URL) -> Void,
+        onSavedOutput: @escaping (URL, URL) -> Void,
         onSourceProcessed: @escaping (URL) -> Void,
         onError: (Error) -> Void
     ) async {

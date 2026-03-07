@@ -4,11 +4,13 @@ import UniformTypeIdentifiers
 
 struct UnifiedFileListView: View {
     let sourceURLs: [URL]
-    let outputURLs: [URL]
+    let outputURLsBySourceID: [String: URL]
+    let processedSourceIDs: Set<String>
     let systemImage: String
     let dropPlaceholder: String
     let isConverting: Bool
     let currentBatchIndex: Int
+    let currentItemProgress: Double
     let fileDropAreaHeight: CGFloat
     let isDropTargeted: Bool
     @Binding var draggedSelectedFileURL: URL?
@@ -16,7 +18,7 @@ struct UnifiedFileListView: View {
     let onClear: () -> Void
     let onReorder: (_ draggedURL: URL, _ targetURL: URL) -> Void
 
-    private let contentTransition: AnyTransition = .opacity
+    private let contentTransition: AnyTransition = .identity
 
     var body: some View {
         Group {
@@ -46,19 +48,16 @@ struct UnifiedFileListView: View {
             ScrollView(.vertical, showsIndicators: true) {
                 LazyVStack(spacing: 8) {
                     ForEach(Array(sourceURLs.enumerated()), id: \.element.path) { index, url in
-                        let outputURL = index < outputURLs.count ? outputURLs[index] : nil
-                        let isCurrentItem = isConverting && (index + 1) == currentBatchIndex
+                        let sourceID = ContentViewModelSupport.sourceIdentifier(for: url)
 
                         UnifiedFileRowView(
                             sourceURL: url,
-                            outputURL: outputURL,
                             order: index + 1,
                             systemImage: systemImage,
-                            isConverting: isConverting,
-                            isCurrentlyConverting: isCurrentItem
+                            rowState: rowState(for: sourceID, order: index + 1)
                         )
                         .equatable()
-                        .transition(.opacity)
+                        .transition(.identity)
                         .onDrag {
                             guard !isConverting else {
                                 return NSItemProvider()
@@ -103,8 +102,6 @@ struct UnifiedFileListView: View {
             Text("Files")
                 .font(.headline)
 
-            progressBadge
-
             Spacer()
 
             if !isConverting {
@@ -126,36 +123,19 @@ struct UnifiedFileListView: View {
         }
     }
 
-    private var progressBadge: some View {
-        Text("\(displayedProgressCount)/\(sourceURLs.count)")
-            .font(.caption2.weight(.bold))
-            .foregroundStyle(progressBadgeColor)
-            .monospacedDigit()
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(Capsule().fill(progressBadgeColor.opacity(0.12)))
-    }
-
-    private var displayedProgressCount: Int {
-        let completedCount = min(outputURLs.count, sourceURLs.count)
-
-        guard isConverting else {
-            return completedCount
+    private func rowState(for sourceID: String, order: Int) -> UnifiedFileRowView.RowState {
+        if let outputURL = outputURLsBySourceID[sourceID] {
+            return .completed(outputURL)
         }
 
-        let inFlightCount = min(currentBatchIndex, sourceURLs.count)
-        return max(completedCount, inFlightCount)
-    }
-
-    private var progressBadgeColor: Color {
-        if !sourceURLs.isEmpty && outputURLs.count >= sourceURLs.count {
-            return .green
+        if isConverting && order == currentBatchIndex {
+            return .converting(progress: currentItemProgress)
         }
 
-        if isConverting {
-            return .accentColor
+        if processedSourceIDs.contains(sourceID) {
+            return .skipped
         }
 
-        return .secondary
+        return .pending
     }
 }

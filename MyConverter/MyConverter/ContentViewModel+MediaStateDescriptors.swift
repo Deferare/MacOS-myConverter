@@ -5,6 +5,8 @@ extension ContentViewModel {
         let sourceURL: URL?
         let queuedSourceURLs: [URL]
         let convertedURLs: [URL]
+        let convertedOutputURLsBySourceID: [String: URL]
+        let processedSourceIDs: Set<String>
         let conversionErrorMessage: String?
         let compatibilityWarningMessage: String?
         let isAnalyzing: Bool
@@ -19,6 +21,8 @@ extension ContentViewModel {
         let queuedSourceURLs: ReferenceWritableKeyPath<ContentViewModel, [URL]>
         let convertedURL: ReferenceWritableKeyPath<ContentViewModel, URL?>
         let convertedURLs: ReferenceWritableKeyPath<ContentViewModel, [URL]>
+        let convertedOutputURLsBySourceID: ReferenceWritableKeyPath<ContentViewModel, [String: URL]>
+        let processedSourceIDs: ReferenceWritableKeyPath<ContentViewModel, Set<String>>
         let conversionErrorMessage: ReferenceWritableKeyPath<ContentViewModel, String?>
         let compatibilityErrorMessage: ReferenceWritableKeyPath<ContentViewModel, String?>
         let compatibilityWarningMessage: ReferenceWritableKeyPath<ContentViewModel, String?>
@@ -57,16 +61,29 @@ extension ContentViewModel {
         self[keyPath: descriptor.isConverting] = true
         self[keyPath: descriptor.convertedURL] = nil
         self[keyPath: descriptor.convertedURLs] = []
+        self[keyPath: descriptor.convertedOutputURLsBySourceID] = [:]
+        self[keyPath: descriptor.processedSourceIDs] = []
         self[keyPath: descriptor.conversionErrorMessage] = nil
         self[keyPath: descriptor.progress] = 0
     }
 
-    func appendConvertedOutput(_ outputURL: URL, for kind: MediaKind) {
+    func appendConvertedOutput(_ outputURL: URL, from sourceURL: URL, for kind: MediaKind) {
         let descriptor = mediaStateDescriptor(for: kind)
+        let sourceID = sourceIdentifier(for: sourceURL)
         self[keyPath: descriptor.convertedURL] = outputURL
         var outputs = self[keyPath: descriptor.convertedURLs]
         outputs.append(outputURL)
         self[keyPath: descriptor.convertedURLs] = outputs
+        var outputsBySourceID = self[keyPath: descriptor.convertedOutputURLsBySourceID]
+        outputsBySourceID[sourceID] = outputURL
+        self[keyPath: descriptor.convertedOutputURLsBySourceID] = outputsBySourceID
+    }
+
+    func markProcessedSource(_ sourceURL: URL, for kind: MediaKind) {
+        let descriptor = mediaStateDescriptor(for: kind)
+        var processedSourceIDs = self[keyPath: descriptor.processedSourceIDs]
+        processedSourceIDs.insert(sourceIdentifier(for: sourceURL))
+        self[keyPath: descriptor.processedSourceIDs] = processedSourceIDs
     }
 
     func videoMediaStateDescriptor() -> MediaStateDescriptor {
@@ -75,6 +92,8 @@ extension ContentViewModel {
             queuedSourceURLs: \.queuedSourceURLs,
             convertedURL: \.convertedURL,
             convertedURLs: \.convertedURLs,
+            convertedOutputURLsBySourceID: \.convertedOutputURLsBySourceID,
+            processedSourceIDs: \.processedSourceIDs,
             conversionErrorMessage: \.conversionErrorMessage,
             compatibilityErrorMessage: \.sourceCompatibilityErrorMessage,
             compatibilityWarningMessage: \.sourceCompatibilityWarningMessage,
@@ -107,6 +126,8 @@ extension ContentViewModel {
             queuedSourceURLs: \.queuedImageSourceURLs,
             convertedURL: \.convertedImageURL,
             convertedURLs: \.convertedImageURLs,
+            convertedOutputURLsBySourceID: \.convertedImageOutputURLsBySourceID,
+            processedSourceIDs: \.processedImageSourceIDs,
             conversionErrorMessage: \.imageConversionErrorMessage,
             compatibilityErrorMessage: \.imageSourceCompatibilityErrorMessage,
             compatibilityWarningMessage: \.imageSourceCompatibilityWarningMessage,
@@ -142,6 +163,8 @@ extension ContentViewModel {
             queuedSourceURLs: \.queuedAudioSourceURLs,
             convertedURL: \.convertedAudioURL,
             convertedURLs: \.convertedAudioURLs,
+            convertedOutputURLsBySourceID: \.convertedAudioOutputURLsBySourceID,
+            processedSourceIDs: \.processedAudioSourceIDs,
             conversionErrorMessage: \.audioConversionErrorMessage,
             compatibilityErrorMessage: \.audioSourceCompatibilityErrorMessage,
             compatibilityWarningMessage: \.audioSourceCompatibilityWarningMessage,
@@ -190,6 +213,8 @@ extension ContentViewModel {
             sourceURL: self[keyPath: descriptor.sourceURL],
             queuedSourceURLs: self[keyPath: descriptor.queuedSourceURLs],
             convertedURLs: self[keyPath: descriptor.convertedURLs],
+            convertedOutputURLsBySourceID: self[keyPath: descriptor.convertedOutputURLsBySourceID],
+            processedSourceIDs: self[keyPath: descriptor.processedSourceIDs],
             conversionErrorMessage: self[keyPath: descriptor.conversionErrorMessage],
             compatibilityWarningMessage: self[keyPath: descriptor.compatibilityWarningMessage],
             isAnalyzing: self[keyPath: descriptor.isAnalyzing],

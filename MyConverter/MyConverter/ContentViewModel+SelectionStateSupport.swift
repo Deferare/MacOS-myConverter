@@ -27,9 +27,11 @@ extension ContentViewModel {
 
     struct SelectedFileListState {
         let selectedURLs: [URL]
-        let outputURLs: [URL]
+        let outputURLsBySourceID: [String: URL]
+        let processedSourceIDs: Set<String>
         let isConverting: Bool
         let currentBatchIndex: Int
+        let currentItemProgress: Double
     }
 
     func selectedSourceURLs(using snapshot: MediaStateSnapshot) -> [URL] {
@@ -63,10 +65,25 @@ extension ContentViewModel {
 
         return SelectedFileListState(
             selectedURLs: selectedSourceURLs(using: snapshot),
-            outputURLs: snapshot.convertedURLs,
+            outputURLsBySourceID: snapshot.convertedOutputURLsBySourceID,
+            processedSourceIDs: snapshot.processedSourceIDs,
             isConverting: snapshot.isConverting,
-            currentBatchIndex: snapshot.currentBatchIndex
+            currentBatchIndex: snapshot.currentBatchIndex,
+            currentItemProgress: currentBatchItemProgress(using: snapshot)
         )
+    }
+
+    func currentBatchItemProgress(using snapshot: MediaStateSnapshot) -> Double {
+        guard snapshot.isConverting,
+              snapshot.currentBatchIndex > 0,
+              snapshot.totalBatchCount > 0 else {
+            return 0
+        }
+
+        let completedBatchCount = Double(snapshot.currentBatchIndex - 1)
+        let totalBatchCount = Double(max(snapshot.totalBatchCount, 1))
+        let itemProgress = (snapshot.progress * totalBatchCount) - completedBatchCount
+        return clampedProgress(itemProgress)
     }
 
     func cancelTask(at keyPath: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>) {
@@ -121,6 +138,8 @@ extension ContentViewModel {
         let descriptor = mediaStateDescriptor(for: kind)
         self[keyPath: descriptor.convertedURL] = nil
         self[keyPath: descriptor.convertedURLs] = []
+        self[keyPath: descriptor.convertedOutputURLsBySourceID] = [:]
+        self[keyPath: descriptor.processedSourceIDs] = []
         self[keyPath: descriptor.conversionErrorMessage] = nil
     }
 

@@ -6,6 +6,8 @@ extension ContentViewModel {
         var queuedSourceURLs: [URL] = []
         var convertedURL: URL?
         var convertedURLs: [URL] = []
+        var convertedOutputURLsBySourceID: [String: URL] = [:]
+        var processedSourceIDs: Set<String> = []
         var conversionErrorMessage: String?
         var sourceCompatibilityErrorMessage: String?
         var sourceCompatibilityWarningMessage: String?
@@ -28,6 +30,8 @@ extension ContentViewModel {
         var queuedSourceURLs: [URL] = []
         var convertedURL: URL?
         var convertedURLs: [URL] = []
+        var convertedOutputURLsBySourceID: [String: URL] = [:]
+        var processedSourceIDs: Set<String> = []
         var conversionErrorMessage: String?
         var sourceCompatibilityErrorMessage: String?
         var sourceCompatibilityWarningMessage: String?
@@ -46,6 +50,8 @@ extension ContentViewModel {
         var queuedSourceURLs: [URL] = []
         var convertedURL: URL?
         var convertedURLs: [URL] = []
+        var convertedOutputURLsBySourceID: [String: URL] = [:]
+        var processedSourceIDs: Set<String> = []
         var conversionErrorMessage: String?
         var sourceCompatibilityErrorMessage: String?
         var sourceCompatibilityWarningMessage: String?

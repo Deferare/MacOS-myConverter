@@ -15,7 +15,7 @@ extension ContentViewModel {
         validate: @escaping (URL) async -> String?,
         makeWorkingOutputURL: @escaping (URL) -> URL,
         runConversion: @escaping (URL, URL, Int, Int) async throws -> URL,
-        onSavedOutput: @escaping (URL) -> Void,
+        onSavedOutput: @escaping (URL, URL) -> Void,
         onSourceProcessed: @escaping (URL) -> Void,
         onBatchIndexChanged: @escaping (Int) -> Void
     ) async throws -> [String] {
@@ -51,7 +51,7 @@ extension ContentViewModel {
                 try Task.checkCancellation()
 
                 let savedURL = try BatchConversionSupport.saveConvertedOutput(from: output, to: destinationURL)
-                onSavedOutput(savedURL)
+                onSavedOutput(currentSourceURL, savedURL)
                 onSourceProcessed(currentSourceURL)
                 return false
             }

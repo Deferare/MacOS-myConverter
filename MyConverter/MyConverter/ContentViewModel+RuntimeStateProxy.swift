@@ -70,6 +70,16 @@ extension ContentViewModel {
         set { setVideoRuntimeValue(\.convertedURLs, to: newValue) }
     }
 
+    var convertedOutputURLsBySourceID: [String: URL] {
+        get { videoRuntimeValue(\.convertedOutputURLsBySourceID) }
+        set { setVideoRuntimeValue(\.convertedOutputURLsBySourceID, to: newValue) }
+    }
+
+    var processedSourceIDs: Set<String> {
+        get { videoRuntimeValue(\.processedSourceIDs) }
+        set { setVideoRuntimeValue(\.processedSourceIDs, to: newValue) }
+    }
+
     var conversionErrorMessage: String? {
         get { videoRuntimeValue(\.conversionErrorMessage) }
         set { setVideoRuntimeValue(\.conversionErrorMessage, to: newValue) }
@@ -146,6 +156,16 @@ extension ContentViewModel {
         set { setImageRuntimeValue(\.convertedURLs, to: newValue) }
     }
 
+    var convertedImageOutputURLsBySourceID: [String: URL] {
+        get { imageRuntimeValue(\.convertedOutputURLsBySourceID) }
+        set { setImageRuntimeValue(\.convertedOutputURLsBySourceID, to: newValue) }
+    }
+
+    var processedImageSourceIDs: Set<String> {
+        get { imageRuntimeValue(\.processedSourceIDs) }
+        set { setImageRuntimeValue(\.processedSourceIDs, to: newValue) }
+    }
+
     var imageConversionErrorMessage: String? {
         get { imageRuntimeValue(\.conversionErrorMessage) }
         set { setImageRuntimeValue(\.conversionErrorMessage, to: newValue) }
@@ -220,6 +240,16 @@ extension ContentViewModel {
     var convertedAudioURLs: [URL] {
         get { audioRuntimeValue(\.convertedURLs) }
         set { setAudioRuntimeValue(\.convertedURLs, to: newValue) }
+    }
+
+    var convertedAudioOutputURLsBySourceID: [String: URL] {
+        get { audioRuntimeValue(\.convertedOutputURLsBySourceID) }
+        set { setAudioRuntimeValue(\.convertedOutputURLsBySourceID, to: newValue) }
+    }
+
+    var processedAudioSourceIDs: Set<String> {
+        get { audioRuntimeValue(\.processedSourceIDs) }
+        set { setAudioRuntimeValue(\.processedSourceIDs, to: newValue) }
     }
 
     var audioConversionErrorMessage: String? {

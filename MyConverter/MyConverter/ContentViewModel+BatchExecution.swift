@@ -15,7 +15,7 @@ extension ContentViewModel {
         validate: @escaping (URL) async -> String?,
         makeWorkingOutputURL: @escaping (URL) -> URL,
         runConversion: @escaping (URL, URL, Int, Int) async throws -> URL,
-        onSavedOutput: @escaping (URL) -> Void,
+        onSavedOutput: @escaping (URL, URL) -> Void,
         onSourceProcessed: @escaping (URL) -> Void,
         onError: (Error) -> Void
     ) async {

@@ -42,17 +42,10 @@ struct ConverterDetailContainer<InputArea: View, FormSections: View, Controls: V
                 .scrollContentBackground(.hidden)
             }
         }
-        .safeAreaInset(edge: .bottom) {
-            controls
-                .padding(.horizontal, 24)
-                .padding(.vertical, 20)
-                .background(.ultraThinMaterial)
-                .overlay(
-                    Rectangle()
-                        .frame(height: 1)
-                        .foregroundStyle(.primary.opacity(0.05)),
-                    alignment: .top
-                )
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                controls
+            }
         }
         .navigationTitle(title)
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted, perform: onDrop)
@@ -62,9 +55,11 @@ struct ConverterDetailContainer<InputArea: View, FormSections: View, Controls: V
 struct ConverterInputArea: View {
     let isDropTargeted: Bool
     let selectedURLs: [URL]
-    let outputURLs: [URL]
+    let outputURLsBySourceID: [String: URL]
+    let processedSourceIDs: Set<String>
     let isConverting: Bool
     let currentBatchIndex: Int
+    let currentItemProgress: Double
     let systemImage: String
     let dropPlaceholder: String
     let fileDropAreaHeight: CGFloat
@@ -76,11 +71,13 @@ struct ConverterInputArea: View {
     var body: some View {
         UnifiedFileListView(
             sourceURLs: selectedURLs,
-            outputURLs: outputURLs,
+            outputURLsBySourceID: outputURLsBySourceID,
+            processedSourceIDs: processedSourceIDs,
             systemImage: systemImage,
             dropPlaceholder: dropPlaceholder,
             isConverting: isConverting,
             currentBatchIndex: currentBatchIndex,
+            currentItemProgress: currentItemProgress,
             fileDropAreaHeight: fileDropAreaHeight,
             isDropTargeted: isDropTargeted,
             draggedSelectedFileURL: $draggedSelectedFileURL,
@@ -126,9 +123,11 @@ struct MediaConverterInputSectionView: View {
         ConverterInputArea(
             isDropTargeted: isDropTargeted,
             selectedURLs: state.selectedURLs,
-            outputURLs: state.outputURLs,
+            outputURLsBySourceID: state.outputURLsBySourceID,
+            processedSourceIDs: state.processedSourceIDs,
             isConverting: state.isConverting,
             currentBatchIndex: state.currentBatchIndex,
+            currentItemProgress: state.currentItemProgress,
             systemImage: kind.inputSystemImage,
             dropPlaceholder: "Drop Files Here",
             fileDropAreaHeight: fileDropAreaHeight,
@@ -157,12 +156,7 @@ struct MediaConversionControlsView: View {
     var body: some View {
         let state = viewModel.conversionControlState(for: kind)
 
-        ConversionControlBar(
-            statusMessage: state.statusMessage,
-            statusColor: state.statusLevel.color,
-            progress: state.progress,
-            progressText: state.progressText,
-            progressTint: state.progress > 0 ? .accentColor : .clear,
+        ConversionToolbarButton(
             isConverting: state.isConverting,
             canConvert: state.canConvert,
             onStart: { viewModel.startConversion(for: kind) },

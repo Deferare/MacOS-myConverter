@@ -22,7 +22,7 @@ struct OutputFilesSection: View {
                     }
                 }
                 .padding(.vertical, 4)
-                .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                .transition(.identity)
             }
         }
     }
