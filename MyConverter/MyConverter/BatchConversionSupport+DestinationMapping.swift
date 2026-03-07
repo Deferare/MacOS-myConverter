@@ -27,7 +27,7 @@ extension BatchConversionSupport {
         using allocator: inout OutputPathUtilities.ReservedOutputAllocator
     ) -> URL {
         allocator.reserveUniqueOutputURL(
-            forBaseName: sourceURL.deletingPathExtension().lastPathComponent,
+            forBaseName: OutputPathUtilities.sourceBaseName(for: sourceURL, fallback: "output"),
             fileExtension: fileExtension
         )
     }

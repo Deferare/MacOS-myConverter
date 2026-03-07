@@ -189,7 +189,7 @@ enum OutputPathUtilities {
         in outputDirectory: URL
     ) -> URL {
         uniqueOutputURL(
-            forBaseName: sourceURL.deletingPathExtension().lastPathComponent,
+            forBaseName: sourceBaseName(for: sourceURL, fallback: "output"),
             fileExtension: fileExtension,
             in: outputDirectory
         )
@@ -226,10 +226,17 @@ enum OutputPathUtilities {
         for sourceURL: URL,
         fileExtension: String
     ) -> URL {
-        let baseName = sourceURL.deletingPathExtension().lastPathComponent
+        let baseName = sourceBaseName(for: sourceURL, fallback: "output")
         let ext = fileExtension
         return workingDirectoryURL()
             .appendingPathComponent("\(baseName)_working_\(UUID().uuidString).\(ext)")
+    }
+
+    nonisolated static func sourceBaseName(for sourceURL: URL, fallback: String) -> String {
+        let baseName = sourceURL.deletingPathExtension()
+            .lastPathComponent
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return baseName.isEmpty ? fallback : baseName
     }
 
     nonisolated private static func normalizedOutputComponents(

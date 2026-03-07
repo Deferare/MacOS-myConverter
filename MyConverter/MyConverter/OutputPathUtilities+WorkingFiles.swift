@@ -21,9 +21,7 @@ extension OutputPathUtilities {
             )
         }
 
-        let baseName = sourceURL.deletingPathExtension().lastPathComponent.isEmpty
-            ? "input"
-            : sourceURL.deletingPathExtension().lastPathComponent
+        let baseName = sourceBaseName(for: sourceURL, fallback: "input")
         var stagedURL = stagingDirectory.appendingPathComponent("\(baseName)_\(UUID().uuidString)")
         if !sourceURL.pathExtension.isEmpty {
             stagedURL.appendPathExtension(sourceURL.pathExtension)

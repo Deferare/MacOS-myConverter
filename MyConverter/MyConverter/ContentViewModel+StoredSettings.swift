@@ -10,6 +10,24 @@ extension ContentViewModel {
         let preferredSelection: ([Format]) -> Format?
     }
 
+    func makeOutputFormatDescriptor<Format>(
+        sourceURL: ReferenceWritableKeyPath<ContentViewModel, URL?>,
+        availableFormats: ReferenceWritableKeyPath<ContentViewModel, [Format]>,
+        selectedFormat: ReferenceWritableKeyPath<ContentViewModel, Format>,
+        placeholderFormats: @escaping () -> [Format],
+        formatNormalizedID: @escaping (Format) -> String,
+        preferredSelection: @escaping ([Format]) -> Format?
+    ) -> OutputFormatDescriptor<Format> {
+        OutputFormatDescriptor(
+            sourceURL: sourceURL,
+            availableFormats: availableFormats,
+            selectedFormat: selectedFormat,
+            placeholderFormats: placeholderFormats,
+            formatNormalizedID: formatNormalizedID,
+            preferredSelection: preferredSelection
+        )
+    }
+
     func withSettingsApplicationFlag(
         _ keyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
         operation: () -> Void
@@ -72,7 +90,7 @@ extension ContentViewModel {
     }
 
     func videoOutputFormatDescriptor() -> OutputFormatDescriptor<VideoFormatOption> {
-        OutputFormatDescriptor(
+        makeOutputFormatDescriptor(
             sourceURL: \.sourceURL,
             availableFormats: \.availableOutputFormats,
             selectedFormat: \.selectedOutputFormat,
@@ -83,7 +101,7 @@ extension ContentViewModel {
     }
 
     func imageOutputFormatDescriptor() -> OutputFormatDescriptor<ImageFormatOption> {
-        OutputFormatDescriptor(
+        makeOutputFormatDescriptor(
             sourceURL: \.imageSourceURL,
             availableFormats: \.availableImageOutputFormats,
             selectedFormat: \.selectedImageOutputFormat,
@@ -94,7 +112,7 @@ extension ContentViewModel {
     }
 
     func audioOutputFormatDescriptor() -> OutputFormatDescriptor<AudioFormatOption> {
-        OutputFormatDescriptor(
+        makeOutputFormatDescriptor(
             sourceURL: \.audioSourceURL,
             availableFormats: \.availableAudioOutputFormats,
             selectedFormat: \.selectedAudioOutputFormat,
