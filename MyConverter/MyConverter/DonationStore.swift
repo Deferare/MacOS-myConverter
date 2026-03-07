@@ -4,11 +4,15 @@ import StoreKit
 
 @MainActor
 final class DonationStore: ObservableObject {
-    static let productIDs: [String] = [
-        "com.deferare.MyConverter.donation.1",
-        "com.deferare.MyConverter.donation.3",
-        "com.deferare.MyConverter.donation.5"
+    private static let supportProducts: [(id: String, amountText: String)] = [
+        ("com.deferare.MyConverter.donation.1", "$1"),
+        ("com.deferare.MyConverter.donation.3", "$3"),
+        ("com.deferare.MyConverter.donation.5", "$5")
     ]
+    static let productIDs: [String] = supportProducts.map(\.id)
+    private static let amountTextByProductID = Dictionary(
+        uniqueKeysWithValues: supportProducts.map { ($0.id, $0.amountText) }
+    )
 
     @Published private(set) var products: [Product] = []
     @Published private(set) var isLoadingProducts = false
@@ -17,6 +21,18 @@ final class DonationStore: ObservableObject {
     @Published private(set) var statusIsError = false
 
     private var hasLoadedProducts = false
+    private var observedTransactionIDs = Set<Transaction.ID>()
+    private var transactionListenerTask: Task<Void, Never>?
+
+    init() {
+        transactionListenerTask = Task { [weak self] in
+            await self?.observeTransactions()
+        }
+    }
+
+    deinit {
+        transactionListenerTask?.cancel()
+    }
 
     func loadProductsIfNeeded() async {
         guard !hasLoadedProducts else { return }
@@ -34,13 +50,16 @@ final class DonationStore: ObservableObject {
             let idOrder = Dictionary(uniqueKeysWithValues: Self.productIDs.enumerated().map { ($1, $0) })
 
             products = fetchedProducts.sorted { lhs, rhs in
-                (idOrder[lhs.id] ?? .max) < (idOrder[rhs.id] ?? .max)
+                if lhs.price != rhs.price {
+                    return lhs.price < rhs.price
+                }
+                return (idOrder[lhs.id] ?? .max) < (idOrder[rhs.id] ?? .max)
             }
             hasLoadedProducts = true
-            statusMessage = products.isEmpty ? "후원 상품을 찾지 못했습니다. App Store Connect 상품 ID를 확인해주세요." : nil
+            statusMessage = products.isEmpty ? "No support products were found. Check the product IDs in App Store Connect." : nil
             statusIsError = products.isEmpty
         } catch {
-            statusMessage = "후원 상품을 불러오지 못했습니다: \(error.localizedDescription)"
+            statusMessage = "Could not load support products: \(error.localizedDescription)"
             statusIsError = true
         }
     }
@@ -58,34 +77,23 @@ final class DonationStore: ObservableObject {
             let purchaseResult = try await product.purchase()
             switch purchaseResult {
             case .success(let verificationResult):
-                let transaction = try Self.checkVerified(verificationResult)
-                await transaction.finish()
-                statusMessage = "후원 감사합니다! 앱을 계속 무료로 유지하는 데 큰 도움이 됩니다."
+                try await handle(transactionResult: verificationResult, showsSuccessMessage: true)
             case .pending:
-                statusMessage = "결제가 승인 대기 중입니다."
+                statusMessage = "Your purchase is pending approval."
             case .userCancelled:
-                statusMessage = "결제가 취소되었습니다."
+                statusMessage = "The purchase was cancelled."
             @unknown default:
-                statusMessage = "알 수 없는 결제 상태가 발생했습니다."
+                statusMessage = "An unknown purchase state occurred."
                 statusIsError = true
             }
         } catch {
-            statusMessage = "결제 처리 중 오류가 발생했습니다: \(error.localizedDescription)"
+            statusMessage = "An error occurred while processing the purchase: \(error.localizedDescription)"
             statusIsError = true
         }
     }
 
     func suggestedAmountText(for productID: String) -> String {
-        switch productID {
-        case "com.deferare.MyConverter.donation.1":
-            return "$1"
-        case "com.deferare.MyConverter.donation.3":
-            return "$3"
-        case "com.deferare.MyConverter.donation.5":
-            return "$5"
-        default:
-            return "Support"
-        }
+        Self.amountTextByProductID[productID] ?? "Support"
     }
 
     private static func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
@@ -97,11 +105,52 @@ final class DonationStore: ObservableObject {
         }
     }
 
+    private func observeTransactions() async {
+        await consume(Transaction.unfinished)
+
+        for await result in Transaction.updates {
+            guard !Task.isCancelled else { return }
+            await consume(result)
+        }
+    }
+
+    private func consume(_ transactions: Transaction.Transactions) async {
+        for await result in transactions {
+            guard !Task.isCancelled else { return }
+            await consume(result)
+        }
+    }
+
+    private func consume(_ result: VerificationResult<Transaction>) async {
+        do {
+            try await handle(transactionResult: result, showsSuccessMessage: true)
+        } catch {
+            statusMessage = "An error occurred while verifying the purchase: \(error.localizedDescription)"
+            statusIsError = true
+        }
+    }
+
+    private func handle(
+        transactionResult: VerificationResult<Transaction>,
+        showsSuccessMessage: Bool
+    ) async throws {
+        let transaction = try Self.checkVerified(transactionResult)
+
+        guard observedTransactionIDs.insert(transaction.id).inserted else { return }
+
+        await transaction.finish()
+
+        if Self.productIDs.contains(transaction.productID), showsSuccessMessage {
+            statusMessage = "Thank you for your support. It helps keep the app free."
+            statusIsError = false
+        }
+    }
+
     private enum DonationStoreError: LocalizedError {
         case failedVerification
 
         var errorDescription: String? {
-            "결제 검증에 실패했습니다."
+            "Purchase verification failed."
         }
     }
 }

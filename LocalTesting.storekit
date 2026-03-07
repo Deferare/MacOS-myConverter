@@ -1,0 +1,112 @@
+{
+  "identifier" : "9E0F4A21",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "1.00",
+      "familyShareable" : false,
+      "internalID" : "2F1A3C7D",
+      "localizations" : [
+        {
+          "description" : "Support the continued development of MyConverter.",
+          "displayName" : "Support MyConverter",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.deferare.MyConverter.donation.1",
+      "referenceName" : "Donation 1",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "3.00",
+      "familyShareable" : false,
+      "internalID" : "48B9E2C1",
+      "localizations" : [
+        {
+          "description" : "Support the continued development of MyConverter.",
+          "displayName" : "Support MyConverter",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.deferare.MyConverter.donation.3",
+      "referenceName" : "Donation 3",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "5.00",
+      "familyShareable" : false,
+      "internalID" : "7AC52D90",
+      "localizations" : [
+        {
+          "description" : "Support the continued development of MyConverter.",
+          "displayName" : "Support MyConverter",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.deferare.MyConverter.donation.5",
+      "referenceName" : "Donation 5",
+      "type" : "Consumable"
+    }
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Purchase"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Verification"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Store Sync"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Subscription Status"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Transaction"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Manage Subscriptions Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Refund Request Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Offer Code Redeem Sheet"
+      }
+    ]
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}
