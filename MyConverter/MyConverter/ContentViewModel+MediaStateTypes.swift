@@ -1,7 +1,7 @@
 import Foundation
 
 extension ContentViewModel {
-    struct VideoRuntimeState {
+    struct MediaRuntimeState<Format> {
         var sourceURL: URL?
         var queuedSourceURLs: [URL] = []
         var convertedURL: URL?
@@ -16,7 +16,17 @@ extension ContentViewModel {
         var conversionProgress: Double = 0
         var currentBatchIndex = 0
         var totalBatchCount = 0
-        var availableOutputFormats: [VideoFormatOption] = ContentViewModelSupport.placeholderVideoFormats()
+        var availableOutputFormats: [Format]
+
+        init(availableOutputFormats: [Format]) {
+            self.availableOutputFormats = availableOutputFormats
+        }
+    }
+
+    struct VideoRuntimeState {
+        var media = MediaRuntimeState(
+            availableOutputFormats: ContentViewModelSupport.placeholderVideoFormats()
+        )
         var availableVideoEncoders: [VideoEncoderOption] = ContentViewModelSupport.placeholderVideoEncoders(
             for: ContentViewModelSupport.defaultVideoFormat()
         )
@@ -26,41 +36,17 @@ extension ContentViewModel {
     }
 
     struct ImageRuntimeState {
-        var sourceURL: URL?
-        var queuedSourceURLs: [URL] = []
-        var convertedURL: URL?
-        var convertedURLs: [URL] = []
-        var convertedOutputURLsBySourceID: [String: URL] = [:]
-        var processedSourceIDs: Set<String> = []
-        var conversionErrorMessage: String?
-        var sourceCompatibilityErrorMessage: String?
-        var sourceCompatibilityWarningMessage: String?
-        var isAnalyzingSource = false
+        var media = MediaRuntimeState(
+            availableOutputFormats: ContentViewModelSupport.placeholderImageFormats()
+        )
         var sourceFrameCount = 0
         var sourceHasAlpha = false
-        var isConverting = false
-        var conversionProgress: Double = 0
-        var currentBatchIndex = 0
-        var totalBatchCount = 0
-        var availableOutputFormats: [ImageFormatOption] = ContentViewModelSupport.placeholderImageFormats()
     }
 
     struct AudioRuntimeState {
-        var sourceURL: URL?
-        var queuedSourceURLs: [URL] = []
-        var convertedURL: URL?
-        var convertedURLs: [URL] = []
-        var convertedOutputURLsBySourceID: [String: URL] = [:]
-        var processedSourceIDs: Set<String> = []
-        var conversionErrorMessage: String?
-        var sourceCompatibilityErrorMessage: String?
-        var sourceCompatibilityWarningMessage: String?
-        var isAnalyzingSource = false
-        var isConverting = false
-        var conversionProgress: Double = 0
-        var currentBatchIndex = 0
-        var totalBatchCount = 0
-        var availableOutputFormats: [AudioFormatOption] = ContentViewModelSupport.placeholderAudioFormats()
+        var media = MediaRuntimeState(
+            availableOutputFormats: ContentViewModelSupport.placeholderAudioFormats()
+        )
         var availableOutputEncoders: [AudioEncoderOption] = ContentViewModelSupport.placeholderAudioOutputEncoders(
             for: ContentViewModelSupport.defaultAudioFormat()
         )
