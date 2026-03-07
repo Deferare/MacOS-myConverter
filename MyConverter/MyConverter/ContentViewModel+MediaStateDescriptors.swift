@@ -167,7 +167,7 @@ extension ContentViewModel {
                 conversionTask: \.taskState.conversionTask
             ),
             behavior: makeMediaBehaviorDescriptor(
-                sourceSettings: { $0.videoSettingsFlowDescriptor() },
+                sourceSettings: { $0.videoSourceSettingsComponents().flow },
                 capabilityBootstrap: videoCapabilityBootstrapDescriptor(),
                 validation: videoValidationDescriptor(),
                 conversionWorkflow: { $0.videoConversionWorkflowDescriptor() },
@@ -199,7 +199,7 @@ extension ContentViewModel {
                 conversionTask: \.taskState.imageConversionTask
             ),
             behavior: makeMediaBehaviorDescriptor(
-                sourceSettings: { $0.imageSettingsFlowDescriptor() },
+                sourceSettings: { $0.imageSourceSettingsComponents().flow },
                 capabilityBootstrap: imageCapabilityBootstrapDescriptor(),
                 validation: imageValidationDescriptor(),
                 conversionWorkflow: { $0.imageConversionWorkflowDescriptor() },
@@ -235,7 +235,7 @@ extension ContentViewModel {
                 conversionTask: \.taskState.audioConversionTask
             ),
             behavior: makeMediaBehaviorDescriptor(
-                sourceSettings: { $0.audioSettingsFlowDescriptor() },
+                sourceSettings: { $0.audioSourceSettingsComponents().flow },
                 capabilityBootstrap: audioCapabilityBootstrapDescriptor(),
                 validation: audioValidationDescriptor(),
                 conversionWorkflow: { $0.audioConversionWorkflowDescriptor() },

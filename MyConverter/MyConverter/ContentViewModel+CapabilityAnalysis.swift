@@ -1,6 +1,14 @@
 import Foundation
 
 extension ContentViewModel {
+    protocol SourceCapabilitySummary {
+        associatedtype Format
+
+        var availableOutputFormats: [Format] { get }
+        var warningMessage: String? { get }
+        var errorMessage: String? { get }
+    }
+
     struct IndexedCapabilityResult<Capability: Sendable>: Sendable {
         let index: Int
         let source: URL
@@ -61,6 +69,32 @@ extension ContentViewModel {
             availableFormats: availableFormats,
             warningMessage: warningMessage,
             errorMessage: errorMessage,
+            formatNormalizedID: formatNormalizedID,
+            deduplicatedAndSorted: deduplicatedAndSorted,
+            noCommonFormatsMessage: noCommonFormatsMessage,
+            buildSelectionHandlers: buildSelectionHandlers
+        )
+    }
+
+    func makeCapabilitySummaryDescriptor<Capability: SourceCapabilitySummary & Sendable>(
+        kind: MediaKind,
+        availableFormatsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [Capability.Format]>,
+        fetchCapabilities: @escaping @Sendable (URL) async -> Capability,
+        formatNormalizedID: @escaping (Capability.Format) -> String,
+        deduplicatedAndSorted: @escaping ([Capability.Format]) -> [Capability.Format],
+        noCommonFormatsMessage: String,
+        buildSelectionHandlers: @escaping (
+            ContentViewModel,
+            [URL]
+        ) -> SourceAnalysisSelectionHandlers<Capability, Capability.Format>
+    ) -> SourceAnalysisDescriptor<Capability, Capability.Format> {
+        makeSourceAnalysisDescriptor(
+            kind: kind,
+            availableFormatsKeyPath: availableFormatsKeyPath,
+            fetchCapabilities: fetchCapabilities,
+            availableFormats: { $0.availableOutputFormats },
+            warningMessage: { $0.warningMessage },
+            errorMessage: { $0.errorMessage },
             formatNormalizedID: formatNormalizedID,
             deduplicatedAndSorted: deduplicatedAndSorted,
             noCommonFormatsMessage: noCommonFormatsMessage,
@@ -319,3 +353,7 @@ extension ContentViewModel {
         }
     }
 }
+
+extension VideoSourceCapabilities: ContentViewModel.SourceCapabilitySummary {}
+extension ImageSourceCapabilities: ContentViewModel.SourceCapabilitySummary {}
+extension AudioSourceCapabilities: ContentViewModel.SourceCapabilitySummary {}

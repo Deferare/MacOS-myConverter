@@ -35,9 +35,7 @@ final class ContentViewModel: ObservableObject {
     var taskState = TaskState()
 
     init() {
-        settingsState.videoSettingsBySourceID = loadPersistedSourceSettings(using: videoSettingsDescriptor())
-        settingsState.imageSettingsBySourceID = loadPersistedSourceSettings(using: imageSettingsDescriptor())
-        settingsState.audioSettingsBySourceID = loadPersistedSourceSettings(using: audioSettingsDescriptor())
+        loadPersistedSourceSettingsState()
         applyPlaceholderCapabilityState()
     }
 }

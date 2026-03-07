@@ -35,6 +35,11 @@ extension ContentViewModel {
         let persistCurrent: (ContentViewModel) -> Void
     }
 
+    struct SourceSettingsComponents<Settings: Equatable, Persisted: Codable, Format> {
+        let storage: SourceSettingsDescriptor<Settings, Persisted>
+        let flow: SourceSettingsFlowDescriptor<Settings, Persisted, Format>
+    }
+
     func makeSourceSettingsDescriptor<Settings: Equatable, Persisted: Codable>(
         isApplyingStoredSettings: ReferenceWritableKeyPath<ContentViewModel, Bool>,
         sourceURL: ReferenceWritableKeyPath<ContentViewModel, URL?>,
@@ -81,6 +86,51 @@ extension ContentViewModel {
                 viewModel.ensureSelectedOutputFormatIsAvailable(using: formatDescriptor)
                 refreshDependentOptions(viewModel)
             }
+        )
+    }
+
+    func makeSourceSettingsComponents<Settings: Equatable, Persisted: Codable, Format>(
+        isApplyingStoredSettings: ReferenceWritableKeyPath<ContentViewModel, Bool>,
+        sourceURL: ReferenceWritableKeyPath<ContentViewModel, URL?>,
+        settingsBySourceID: ReferenceWritableKeyPath<ContentViewModel, [String: Settings]>,
+        pendingSaveTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>,
+        storageKey: String,
+        saveFailureContext: String,
+        loadFailureContext: String,
+        mapToPersisted: @escaping (Settings) -> Persisted,
+        restore: @escaping (Persisted) -> Settings,
+        formatDescriptor: OutputFormatDescriptor<Format>,
+        defaultSettings: @escaping () -> Settings,
+        outputFormatID: @escaping (Settings) -> String,
+        normalizeStoredID: @escaping (String) -> String?,
+        buildCurrentSettings: @escaping (ContentViewModel) -> Settings,
+        applyAdditionalSettings: @escaping (ContentViewModel, Settings) -> Void,
+        refreshDependentOptions: @escaping (ContentViewModel) -> Void = { _ in }
+    ) -> SourceSettingsComponents<Settings, Persisted, Format> {
+        let storage = makeSourceSettingsDescriptor(
+            isApplyingStoredSettings: isApplyingStoredSettings,
+            sourceURL: sourceURL,
+            settingsBySourceID: settingsBySourceID,
+            pendingSaveTask: pendingSaveTask,
+            storageKey: storageKey,
+            saveFailureContext: saveFailureContext,
+            loadFailureContext: loadFailureContext,
+            mapToPersisted: mapToPersisted,
+            restore: restore
+        )
+
+        return SourceSettingsComponents(
+            storage: storage,
+            flow: makeSourceSettingsFlowDescriptor(
+                storage: storage,
+                formatDescriptor: formatDescriptor,
+                defaultSettings: defaultSettings,
+                outputFormatID: outputFormatID,
+                normalizeStoredID: normalizeStoredID,
+                buildCurrentSettings: buildCurrentSettings,
+                applyAdditionalSettings: applyAdditionalSettings,
+                refreshDependentOptions: refreshDependentOptions
+            )
         )
     }
 
@@ -136,71 +186,12 @@ extension ContentViewModel {
         }
     }
 
-    func currentVideoSettings() -> VideoConversionSettings {
-        VideoConversionSettings(
-            outputFormatID: selectedOutputFormat.id,
-            videoEncoder: selectedVideoEncoder,
-            resolution: selectedResolution,
-            frameRate: selectedFrameRate,
-            gifPlaybackSpeed: selectedGIFPlaybackSpeed,
-            videoBitRate: selectedVideoBitRate,
-            customVideoBitRate: customVideoBitRate,
-            audioEncoder: selectedAudioEncoder,
-            audioMode: selectedAudioMode,
-            sampleRate: selectedSampleRate,
-            audioBitRate: selectedAudioBitRate
-        )
-    }
-
-    func applyVideoSettings(_ settings: VideoConversionSettings) {
-        selectedVideoEncoder = settings.videoEncoder
-        selectedResolution = settings.resolution
-        selectedFrameRate = settings.frameRate
-        selectedGIFPlaybackSpeed = settings.gifPlaybackSpeed
-        selectedVideoBitRate = settings.videoBitRate
-        customVideoBitRate = settings.customVideoBitRate
-        selectedAudioEncoder = settings.audioEncoder
-        selectedAudioMode = settings.audioMode
-        selectedSampleRate = settings.sampleRate
-        selectedAudioBitRate = settings.audioBitRate
-    }
-
-    func currentImageSettings() -> ImageConversionSettings {
-        ImageConversionSettings(
-            outputFormatID: selectedImageOutputFormat.id,
-            resolution: selectedImageResolution,
-            quality: selectedImageQuality,
-            pngCompressionLevel: selectedPNGCompressionLevel,
-            preserveAnimation: preserveImageAnimation
-        )
-    }
-
-    func applyImageSettings(_ settings: ImageConversionSettings) {
-        selectedImageResolution = settings.resolution
-        selectedImageQuality = settings.quality
-        selectedPNGCompressionLevel = settings.pngCompressionLevel
-        preserveImageAnimation = settings.preserveAnimation
-    }
-
-    func currentAudioSettings() -> AudioConversionSettings {
-        AudioConversionSettings(
-            outputFormatID: selectedAudioOutputFormat.id,
-            audioEncoder: selectedAudioOutputEncoder,
-            audioMode: selectedAudioOutputMode,
-            sampleRate: selectedAudioOutputSampleRate,
-            audioBitRate: selectedAudioOutputBitRate
-        )
-    }
-
-    func applyAudioSettings(_ settings: AudioConversionSettings) {
-        selectedAudioOutputEncoder = settings.audioEncoder
-        selectedAudioOutputMode = settings.audioMode
-        selectedAudioOutputSampleRate = settings.sampleRate
-        selectedAudioOutputBitRate = settings.audioBitRate
-    }
-
-    func videoSettingsDescriptor() -> SourceSettingsDescriptor<VideoConversionSettings, PersistedVideoConversionSettings> {
-        makeSourceSettingsDescriptor(
+    func videoSourceSettingsComponents() -> SourceSettingsComponents<
+        VideoConversionSettings,
+        PersistedVideoConversionSettings,
+        VideoFormatOption
+    > {
+        makeSourceSettingsComponents(
             isApplyingStoredSettings: \.settingsState.isApplyingVideoSettings,
             sourceURL: \.sourceURL,
             settingsBySourceID: \.settingsState.videoSettingsBySourceID,
@@ -209,29 +200,48 @@ extension ContentViewModel {
             saveFailureContext: "Failed to persist video settings",
             loadFailureContext: "Failed to load persisted video settings",
             mapToPersisted: { PersistedVideoConversionSettings(from: $0) },
-            restore: { $0.restoredSettings }
-        )
-    }
-
-    func videoSettingsFlowDescriptor() -> SourceSettingsFlowDescriptor<
-        VideoConversionSettings,
-        PersistedVideoConversionSettings,
-        VideoFormatOption
-    > {
-        makeSourceSettingsFlowDescriptor(
-            storage: videoSettingsDescriptor(),
+            restore: { $0.restoredSettings },
             formatDescriptor: videoOutputFormatDescriptor(),
             defaultSettings: { VideoConversionSettings() },
             outputFormatID: { $0.outputFormatID },
             normalizeStoredID: VideoFormatOption.legacyNormalizedID(from:),
-            buildCurrentSettings: { $0.currentVideoSettings() },
-            applyAdditionalSettings: { $0.applyVideoSettings($1) },
+            buildCurrentSettings: { viewModel in
+                VideoConversionSettings(
+                    outputFormatID: viewModel.selectedOutputFormat.id,
+                    videoEncoder: viewModel.selectedVideoEncoder,
+                    resolution: viewModel.selectedResolution,
+                    frameRate: viewModel.selectedFrameRate,
+                    gifPlaybackSpeed: viewModel.selectedGIFPlaybackSpeed,
+                    videoBitRate: viewModel.selectedVideoBitRate,
+                    customVideoBitRate: viewModel.customVideoBitRate,
+                    audioEncoder: viewModel.selectedAudioEncoder,
+                    audioMode: viewModel.selectedAudioMode,
+                    sampleRate: viewModel.selectedSampleRate,
+                    audioBitRate: viewModel.selectedAudioBitRate
+                )
+            },
+            applyAdditionalSettings: { viewModel, settings in
+                viewModel.selectedVideoEncoder = settings.videoEncoder
+                viewModel.selectedResolution = settings.resolution
+                viewModel.selectedFrameRate = settings.frameRate
+                viewModel.selectedGIFPlaybackSpeed = settings.gifPlaybackSpeed
+                viewModel.selectedVideoBitRate = settings.videoBitRate
+                viewModel.customVideoBitRate = settings.customVideoBitRate
+                viewModel.selectedAudioEncoder = settings.audioEncoder
+                viewModel.selectedAudioMode = settings.audioMode
+                viewModel.selectedSampleRate = settings.sampleRate
+                viewModel.selectedAudioBitRate = settings.audioBitRate
+            },
             refreshDependentOptions: { $0.refreshVideoCodecOptions() }
         )
     }
 
-    func imageSettingsDescriptor() -> SourceSettingsDescriptor<ImageConversionSettings, PersistedImageConversionSettings> {
-        makeSourceSettingsDescriptor(
+    func imageSourceSettingsComponents() -> SourceSettingsComponents<
+        ImageConversionSettings,
+        PersistedImageConversionSettings,
+        ImageFormatOption
+    > {
+        makeSourceSettingsComponents(
             isApplyingStoredSettings: \.settingsState.isApplyingImageSettings,
             sourceURL: \.imageSourceURL,
             settingsBySourceID: \.settingsState.imageSettingsBySourceID,
@@ -240,28 +250,35 @@ extension ContentViewModel {
             saveFailureContext: "Failed to persist image settings",
             loadFailureContext: "Failed to load persisted image settings",
             mapToPersisted: { PersistedImageConversionSettings(from: $0) },
-            restore: { $0.restoredSettings }
-        )
-    }
-
-    func imageSettingsFlowDescriptor() -> SourceSettingsFlowDescriptor<
-        ImageConversionSettings,
-        PersistedImageConversionSettings,
-        ImageFormatOption
-    > {
-        makeSourceSettingsFlowDescriptor(
-            storage: imageSettingsDescriptor(),
+            restore: { $0.restoredSettings },
             formatDescriptor: imageOutputFormatDescriptor(),
             defaultSettings: { ImageConversionSettings() },
             outputFormatID: { $0.outputFormatID },
             normalizeStoredID: { $0.lowercased() },
-            buildCurrentSettings: { $0.currentImageSettings() },
-            applyAdditionalSettings: { $0.applyImageSettings($1) }
+            buildCurrentSettings: { viewModel in
+                ImageConversionSettings(
+                    outputFormatID: viewModel.selectedImageOutputFormat.id,
+                    resolution: viewModel.selectedImageResolution,
+                    quality: viewModel.selectedImageQuality,
+                    pngCompressionLevel: viewModel.selectedPNGCompressionLevel,
+                    preserveAnimation: viewModel.preserveImageAnimation
+                )
+            },
+            applyAdditionalSettings: { viewModel, settings in
+                viewModel.selectedImageResolution = settings.resolution
+                viewModel.selectedImageQuality = settings.quality
+                viewModel.selectedPNGCompressionLevel = settings.pngCompressionLevel
+                viewModel.preserveImageAnimation = settings.preserveAnimation
+            }
         )
     }
 
-    func audioSettingsDescriptor() -> SourceSettingsDescriptor<AudioConversionSettings, PersistedAudioConversionSettings> {
-        makeSourceSettingsDescriptor(
+    func audioSourceSettingsComponents() -> SourceSettingsComponents<
+        AudioConversionSettings,
+        PersistedAudioConversionSettings,
+        AudioFormatOption
+    > {
+        makeSourceSettingsComponents(
             isApplyingStoredSettings: \.settingsState.isApplyingAudioSettings,
             sourceURL: \.audioSourceURL,
             settingsBySourceID: \.settingsState.audioSettingsBySourceID,
@@ -270,29 +287,41 @@ extension ContentViewModel {
             saveFailureContext: "Failed to persist audio settings",
             loadFailureContext: "Failed to load persisted audio settings",
             mapToPersisted: { PersistedAudioConversionSettings(from: $0) },
-            restore: { $0.restoredSettings }
-        )
-    }
-
-    func audioSettingsFlowDescriptor() -> SourceSettingsFlowDescriptor<
-        AudioConversionSettings,
-        PersistedAudioConversionSettings,
-        AudioFormatOption
-    > {
-        makeSourceSettingsFlowDescriptor(
-            storage: audioSettingsDescriptor(),
+            restore: { $0.restoredSettings },
             formatDescriptor: audioOutputFormatDescriptor(),
             defaultSettings: { AudioConversionSettings() },
             outputFormatID: { $0.outputFormatID },
             normalizeStoredID: { $0.lowercased() },
-            buildCurrentSettings: { $0.currentAudioSettings() },
-            applyAdditionalSettings: { $0.applyAudioSettings($1) },
+            buildCurrentSettings: { viewModel in
+                AudioConversionSettings(
+                    outputFormatID: viewModel.selectedAudioOutputFormat.id,
+                    audioEncoder: viewModel.selectedAudioOutputEncoder,
+                    audioMode: viewModel.selectedAudioOutputMode,
+                    sampleRate: viewModel.selectedAudioOutputSampleRate,
+                    audioBitRate: viewModel.selectedAudioOutputBitRate
+                )
+            },
+            applyAdditionalSettings: { viewModel, settings in
+                viewModel.selectedAudioOutputEncoder = settings.audioEncoder
+                viewModel.selectedAudioOutputMode = settings.audioMode
+                viewModel.selectedAudioOutputSampleRate = settings.sampleRate
+                viewModel.selectedAudioOutputBitRate = settings.audioBitRate
+            },
             refreshDependentOptions: { $0.refreshAudioCodecOptions() }
         )
     }
 
     func sourceSettingsActions(for kind: MediaKind) -> SourceSettingsActions {
         mediaBehaviorDescriptor(for: kind).sourceSettingsActions
+    }
+
+    func loadPersistedSourceSettingsState() {
+        settingsState.videoSettingsBySourceID =
+            loadPersistedSourceSettings(using: videoSourceSettingsComponents().storage)
+        settingsState.imageSettingsBySourceID =
+            loadPersistedSourceSettings(using: imageSourceSettingsComponents().storage)
+        settingsState.audioSettingsBySourceID =
+            loadPersistedSourceSettings(using: audioSourceSettingsComponents().storage)
     }
 
     func persistSourceSettingsIfNeeded<Settings: Equatable>(
