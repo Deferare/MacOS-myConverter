@@ -106,7 +106,7 @@ extension ContentViewModel {
     }
 
     func capabilityBootstrapDescriptor(for kind: MediaKind) -> CapabilityBootstrapDescriptor {
-        mediaStateDescriptor(for: kind).capabilityBootstrap
+        mediaBehaviorDescriptor(for: kind).capabilityBootstrap
     }
 
     func applyPlaceholderCapabilityState() {
@@ -139,7 +139,7 @@ extension ContentViewModel {
     }
 
     func applyPlaceholderCapabilities(for kind: MediaKind) {
-        mediaStateDescriptor(for: kind).capabilityBootstrap.applyPlaceholder(self)
+        capabilityBootstrapDescriptor(for: kind).applyPlaceholder(self)
     }
 
     func scheduleCapabilityBootstrap(for kind: MediaKind) {
@@ -155,7 +155,7 @@ extension ContentViewModel {
         taskState.capabilityBootstrapTask = Task { [weak self] in
             guard let self else { return }
             let warmDefaultCapabilities = requestedKinds.map {
-                self.mediaStateDescriptor(for: $0).capabilityBootstrap.warmDefaultCapabilities
+                self.capabilityBootstrapDescriptor(for: $0).warmDefaultCapabilities
             }
 
             let warmed = await Task.detached(priority: .userInitiated) {
@@ -201,7 +201,7 @@ extension ContentViewModel {
         for kinds: [MediaKind]
     ) {
         kinds.forEach {
-            mediaStateDescriptor(for: $0).capabilityBootstrap.applyWarmedIfIdle(self, warmed)
+            capabilityBootstrapDescriptor(for: $0).applyWarmedIfIdle(self, warmed)
         }
     }
 }

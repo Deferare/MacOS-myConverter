@@ -198,7 +198,7 @@ extension ContentViewModel {
     }
 
     func mediaValidationDescriptor(for kind: MediaKind) -> MediaValidationDescriptor {
-        mediaStateDescriptor(for: kind).validation
+        mediaBehaviorDescriptor(for: kind).validation
     }
 
     func validationMessage(for kind: MediaKind) -> String? {

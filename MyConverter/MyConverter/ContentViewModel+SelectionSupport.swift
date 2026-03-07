@@ -24,6 +24,13 @@ extension ContentViewModel {
         ContentViewModelSupport.uniqueStandardizedURLs(urls)
     }
 
+    func acceptedInputURLs(
+        _ urls: [URL],
+        accept: (URL) -> Bool
+    ) -> [URL] {
+        uniqueStandardizedURLs(urls).filter(accept)
+    }
+
     func cancelTask(_ task: inout Task<Void, Never>?) {
         task?.cancel()
         task = nil
@@ -72,35 +79,21 @@ extension ContentViewModel {
 
     func applySelectedSources(
         _ urls: [URL],
-        cancelAnalysisTask: () -> Void,
-        assignSelection: ([URL]) -> Void,
-        resetState: () -> Void,
-        applyStoredSettingsForSourceID: (String) -> Void,
-        analyzeSelection: ([URL]) -> Void
+        using workflow: MediaSelectionWorkflowDescriptor
     ) {
         let uniqueURLs = uniqueStandardizedURLs(urls)
-        guard let firstURL = uniqueURLs.first else { return }
+        guard let primaryURL = uniqueURLs.first else { return }
 
-        cancelAnalysisTask()
-        assignSelection(uniqueURLs)
-        resetState()
+        workflow.cancelAnalysisTask()
+        workflow.assignSelection(uniqueURLs)
+        workflow.resetSelectionState()
 
-        let sourceID = sourceIdentifier(for: firstURL)
-        applyStoredSettingsForSourceID(sourceID)
-        analyzeSelection(uniqueURLs)
+        workflow.applyStoredSettingsForSourceID(sourceIdentifier(for: primaryURL))
+        workflow.analyzeSelection(uniqueURLs)
     }
 
     func applySelectedSources(_ urls: [URL], for kind: MediaKind) {
-        let workflow = selectionWorkflowDescriptor(for: kind)
-
-        applySelectedSources(
-            urls,
-            cancelAnalysisTask: workflow.cancelAnalysisTask,
-            assignSelection: workflow.assignSelection,
-            resetState: workflow.resetSelectionState,
-            applyStoredSettingsForSourceID: workflow.applyStoredSettingsForSourceID,
-            analyzeSelection: workflow.analyzeSelection
-        )
+        applySelectedSources(urls, using: selectionWorkflowDescriptor(for: kind))
     }
 
     func applyStoredSettingsForSource<Settings>(
@@ -113,17 +106,32 @@ extension ContentViewModel {
         apply(stored)
     }
 
+    func refreshSelectionAfterPrimarySourceChange(
+        _ urls: [URL],
+        using workflow: MediaSelectionWorkflowDescriptor
+    ) {
+        guard let primaryURL = urls.first else { return }
+
+        let primarySourceID = sourceIdentifier(for: primaryURL)
+        guard workflow.currentPrimaryURL.map(sourceIdentifier(for:)) != primarySourceID else {
+            return
+        }
+
+        workflow.cancelAnalysisTask()
+        workflow.resetCompatibilityState()
+        workflow.applyStoredSettingsForSourceID(primarySourceID)
+        workflow.analyzeSelection(urls)
+    }
+
     func removeProcessedSource(
         _ processedURL: URL,
-        from selectedSourceURLs: [URL],
-        assignSelection: ([URL]) -> Void,
-        onSelectionEmptied: () -> Void
+        using workflow: MediaSelectionWorkflowDescriptor
     ) {
         let processedID = sourceIdentifier(for: processedURL)
-        let remainingSources = selectedSourceURLs.filter { sourceIdentifier(for: $0) != processedID }
-        assignSelection(remainingSources)
+        let remainingSources = workflow.selectedSourceURLs.filter { sourceIdentifier(for: $0) != processedID }
+        workflow.assignSelection(remainingSources)
         guard !remainingSources.isEmpty else {
-            onSelectionEmptied()
+            workflow.onSelectionEmptied()
             return
         }
     }

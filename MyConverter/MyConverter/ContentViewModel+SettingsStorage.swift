@@ -280,7 +280,7 @@ extension ContentViewModel {
     }
 
     func sourceSettingsActions(for kind: MediaKind) -> SourceSettingsActions {
-        mediaStateDescriptor(for: kind).sourceSettingsActions
+        mediaBehaviorDescriptor(for: kind).sourceSettingsActions
     }
 
     func persistSourceSettingsIfNeeded<Settings>(
