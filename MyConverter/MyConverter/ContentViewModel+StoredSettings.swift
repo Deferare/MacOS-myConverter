@@ -122,6 +122,17 @@ extension ContentViewModel {
         )
     }
 
+    func defaultedOutputFormats<Format>(
+        sourceURL: URL?,
+        availableFormats: [Format],
+        fallbackFormats: () -> [Format]
+    ) -> [Format] {
+        if sourceURL == nil && availableFormats.isEmpty {
+            return fallbackFormats()
+        }
+        return availableFormats
+    }
+
     func availableOutputFormatOptions<Format>(
         using descriptor: OutputFormatDescriptor<Format>
     ) -> [Format] {
