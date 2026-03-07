@@ -26,10 +26,21 @@ extension BatchConversionSupport {
         fileExtension: String,
         using allocator: inout OutputPathUtilities.ReservedOutputAllocator
     ) -> URL {
-        let baseName = sourceURL.deletingPathExtension().lastPathComponent.isEmpty
-            ? "output"
-            : sourceURL.deletingPathExtension().lastPathComponent
-        return allocator.reserveUniqueOutputURL(forBaseName: baseName, fileExtension: fileExtension)
+        allocator.reserveUniqueOutputURL(
+            forBaseName: sourceURL.deletingPathExtension().lastPathComponent,
+            fileExtension: fileExtension
+        )
+    }
+
+    static func preferredBatchDestinationURL(
+        from originalDestinationURL: URL,
+        outputDirectory: URL,
+        fileExtension: String
+    ) -> URL {
+        normalizedDestinationURL(
+            outputDirectory.appendingPathComponent(originalDestinationURL.lastPathComponent),
+            fileExtension: fileExtension
+        )
     }
 
     static func assignAutoBatchDestinations(
@@ -59,18 +70,13 @@ extension BatchConversionSupport {
         }
 
         var remapped: [String: URL] = [:]
-        let preloadedReservedPaths = OutputPathUtilities.existingDirectoryEntryPaths(in: outputDirectory)
-        let shouldCheckDirectoryContents = preloadedReservedPaths == nil
-        var allocator = OutputPathUtilities.ReservedOutputAllocator(
-            outputDirectory: outputDirectory,
-            reservedPaths: preloadedReservedPaths ?? [],
-            checksDirectoryContents: shouldCheckDirectoryContents
-        )
+        var allocator = OutputPathUtilities.ReservedOutputAllocator.preloaded(for: outputDirectory)
         let firstSourceID = ContentViewModelSupport.sourceIdentifier(for: firstSourceURL)
 
         if let originalFirstDestinationURL = originalDestinationsBySourceID[firstSourceID] {
-            let preferredFirstDestinationURL = normalizedDestinationURL(
-                outputDirectory.appendingPathComponent(originalFirstDestinationURL.lastPathComponent),
+            let preferredFirstDestinationURL = preferredBatchDestinationURL(
+                from: originalFirstDestinationURL,
+                outputDirectory: outputDirectory,
                 fileExtension: fileExtension
             )
 

@@ -25,6 +25,16 @@ enum OutputPathUtilities {
         }
 
         nonisolated
+        static func preloaded(for outputDirectory: URL) -> Self {
+            let preloadedReservedPaths = OutputPathUtilities.existingDirectoryEntryPaths(in: outputDirectory)
+            return Self(
+                outputDirectory: outputDirectory,
+                reservedPaths: preloadedReservedPaths ?? [],
+                checksDirectoryContents: preloadedReservedPaths == nil
+            )
+        }
+
+        nonisolated
         mutating func reserve(_ url: URL) -> Bool {
             let standardizedPath = url.standardizedFileURL.path
             guard !reservedPaths.contains(standardizedPath) else {
