@@ -24,22 +24,22 @@ struct SidebarView: View {
             appIconImage
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .frame(width: 40, height: 40)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                .frame(width: 36, height: 36)
+                .padding(8)
+                .glassEffect(.regular.interactive(false), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
 
-            VStack(alignment: .leading, spacing: -2) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text("MyConverter")
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .font(.headline)
                 Text("Personal Media Tool")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.secondary.opacity(0.8))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Spacer()
         }
         .padding(.horizontal, 20)
-        .padding(.top, 28)
+        .padding(.top, 18)
         .padding(.bottom, 16)
     }
 

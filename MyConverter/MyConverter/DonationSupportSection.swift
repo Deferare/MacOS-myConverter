@@ -26,34 +26,38 @@ struct DonationSupportSection: View {
                     await donationStore.loadProducts()
                 }
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.glass)
+            .controlSize(.regular)
         } else {
-            HStack(spacing: 12) {
-                ForEach(donationStore.products, id: \.id) { product in
-                    Button {
-                        Task {
-                            await donationStore.purchase(product)
-                        }
-                    } label: {
-                        VStack(spacing: 6) {
-                            Text(donationStore.suggestedAmountText(for: product.id))
-                                .font(.subheadline.weight(.bold))
-                            Text(product.displayPrice)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-
-                            if donationStore.purchasingProductID == product.id {
-                                ProgressView()
-                                    .controlSize(.small)
+            GlassEffectContainer(spacing: 12) {
+                HStack(spacing: 12) {
+                    ForEach(donationStore.products, id: \.id) { product in
+                        Button {
+                            Task {
+                                await donationStore.purchase(product)
                             }
+                        } label: {
+                            VStack(spacing: 6) {
+                                Text(donationStore.suggestedAmountText(for: product.id))
+                                    .font(.subheadline.weight(.bold))
+                                Text(product.displayPrice)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+
+                                if donationStore.purchasingProductID == product.id {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 60)
                         }
-                        .frame(maxWidth: .infinity, minHeight: 60)
+                        .buttonStyle(.glass)
+                        .controlSize(.large)
+                        .disabled(
+                            donationStore.isLoadingProducts ||
+                            (donationStore.purchasingProductID != nil && donationStore.purchasingProductID != product.id)
+                        )
                     }
-                    .buttonStyle(.bordered)
-                    .disabled(
-                        donationStore.isLoadingProducts ||
-                        (donationStore.purchasingProductID != nil && donationStore.purchasingProductID != product.id)
-                    )
                 }
             }
 

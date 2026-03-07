@@ -2,8 +2,57 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
+extension ContentViewModel.MediaKind {
+    var liquidGlassTint: Color {
+        switch self {
+        case .video:
+            return .blue
+        case .image:
+            return .orange
+        case .audio:
+            return .teal
+        }
+    }
+}
+
+struct LiquidGlassBackdrop: View {
+    let tint: Color
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(nsColor: .underPageBackgroundColor),
+                    Color(nsColor: .windowBackgroundColor)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            Circle()
+                .fill(tint.opacity(0.18))
+                .frame(width: 420, height: 420)
+                .blur(radius: 96)
+                .offset(x: 240, y: -220)
+
+            Circle()
+                .fill(tint.opacity(0.12))
+                .frame(width: 320, height: 320)
+                .blur(radius: 110)
+                .offset(x: -260, y: 260)
+
+            RoundedRectangle(cornerRadius: 40, style: .continuous)
+                .fill(.white.opacity(0.08))
+                .frame(width: 480, height: 220)
+                .blur(radius: 120)
+                .offset(x: -120, y: -260)
+        }
+    }
+}
+
 struct ConverterDetailContainer<InputArea: View, FormSections: View, Controls: View>: View {
     let title: String
+    let tint: Color
     @Binding var isDropTargeted: Bool
     let onDrop: ([NSItemProvider]) -> Bool
     let inputArea: InputArea
@@ -12,6 +61,7 @@ struct ConverterDetailContainer<InputArea: View, FormSections: View, Controls: V
 
     init(
         title: String,
+        tint: Color,
         isDropTargeted: Binding<Bool>,
         onDrop: @escaping ([NSItemProvider]) -> Bool,
         @ViewBuilder inputArea: () -> InputArea,
@@ -19,6 +69,7 @@ struct ConverterDetailContainer<InputArea: View, FormSections: View, Controls: V
         @ViewBuilder controls: () -> Controls
     ) {
         self.title = title
+        self.tint = tint
         _isDropTargeted = isDropTargeted
         self.onDrop = onDrop
         self.inputArea = inputArea()
@@ -28,12 +79,13 @@ struct ConverterDetailContainer<InputArea: View, FormSections: View, Controls: V
 
     var body: some View {
         ZStack {
-            Color(nsColor: .windowBackgroundColor)
+            LiquidGlassBackdrop(tint: tint)
                 .ignoresSafeArea()
 
-            VStack(spacing: 0) {
+            VStack(spacing: 20) {
                 inputArea
-                    .padding(24)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 24)
 
                 Form {
                     formSections
@@ -43,7 +95,7 @@ struct ConverterDetailContainer<InputArea: View, FormSections: View, Controls: V
             }
         }
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItem(placement: .automatic) {
                 controls
             }
         }
@@ -189,6 +241,7 @@ struct MediaConverterDetailView<FormSections: View>: View {
     var body: some View {
         ConverterDetailContainer(
             title: kind.converterTitle,
+            tint: kind.liquidGlassTint,
             isDropTargeted: $isDropTargeted,
             onDrop: { providers in
                 viewModel.handleDrop(providers: providers, for: kind)
@@ -209,5 +262,6 @@ struct MediaConverterDetailView<FormSections: View>: View {
                 MediaConversionControlsView(viewModel: viewModel, kind: kind)
             }
         )
+        .tint(kind.liquidGlassTint)
     }
 }

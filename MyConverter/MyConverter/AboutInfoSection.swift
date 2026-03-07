@@ -14,7 +14,8 @@ struct AboutInfoSection: View {
             Button("Open Source Licenses") {
                 onOpenLicenses()
             }
-            .buttonStyle(.link)
+            .buttonStyle(.glass)
+            .controlSize(.small)
             .font(.subheadline.weight(.medium))
 
             Divider()

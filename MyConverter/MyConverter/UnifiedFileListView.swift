@@ -117,21 +117,24 @@ struct UnifiedFileListView: View {
             Text("Files")
                 .font(.headline)
 
+            Text("\(sourceURLs.count)")
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .glassEffect(.regular.interactive(false), in: Capsule())
+
             Spacer()
 
             if !isConverting {
-                Button(action: onClear) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.title3)
-                        .foregroundStyle(Color.secondary.opacity(0.5))
-                        .contentShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .onHover { inside in
-                    if inside {
-                        NSCursor.pointingHand.push()
-                    } else {
-                        NSCursor.pop()
+                GlassEffectContainer(spacing: 8) {
+                    HStack(spacing: 8) {
+                        Button(action: onClear) {
+                            Label("Clear Files", systemImage: "xmark")
+                                .labelStyle(.iconOnly)
+                        }
+                        .buttonStyle(.glass)
+                        .controlSize(.small)
+                        .tint(.secondary)
                     }
                 }
             }

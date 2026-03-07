@@ -6,56 +6,55 @@ struct AboutDetailView: View {
     @State private var isShowingOpenSourceLicenses = false
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 32) {
-                VStack(spacing: 20) {
-                    appIconImage
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 140, height: 140)
-                        .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
-                        .shadow(color: .black.opacity(0.12), radius: 10, x: 0, y: 4)
+        ZStack {
+            LiquidGlassBackdrop(tint: .indigo)
+                .ignoresSafeArea()
 
-                    VStack(spacing: 8) {
-                        Text("MyConverter")
-                            .font(.system(size: 36, weight: .black))
+            ScrollView {
+                VStack(spacing: 32) {
+                    VStack(spacing: 18) {
+                        appIconImage
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 140, height: 140)
+                            .padding(20)
+                            .glassEffect(.regular.interactive(false), in: RoundedRectangle(cornerRadius: 36, style: .continuous))
 
-                        Text(appVersionText)
-                            .font(.headline)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .padding(.top, 60)
+                        VStack(spacing: 8) {
+                            Text("MyConverter")
+                                .font(.system(size: 36, weight: .black))
 
-                VStack(alignment: .leading, spacing: 20) {
-                    AboutInfoSection(
-                        onOpenLicenses: {
-                            isShowingOpenSourceLicenses = true
+                            Text(appVersionText)
+                                .font(.headline)
+                                .foregroundStyle(.secondary)
                         }
-                    )
+                    }
+                    .padding(.top, 60)
 
-                    DonationSupportSection(donationStore: donationStore)
-                }
-                .padding(32)
-                .background(
-                    RoundedRectangle(cornerRadius: 24)
-                        .fill(Color.primary.opacity(0.02))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 24)
-                                .stroke(Color.primary.opacity(0.05), lineWidth: 1)
+                    VStack(alignment: .leading, spacing: 20) {
+                        AboutInfoSection(
+                            onOpenLicenses: {
+                                isShowingOpenSourceLicenses = true
+                            }
                         )
-                )
 
-                Text("Built with SwiftUI & FFmpeg")
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(.tertiary)
-                    .padding(.bottom, 40)
+                        DonationSupportSection(donationStore: donationStore)
+                    }
+                    .padding(32)
+                    .glassEffect(.regular.interactive(false), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+
+                    Text("Built with SwiftUI & FFmpeg")
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.tertiary)
+                        .padding(.bottom, 40)
+                }
+                .padding(.horizontal, 40)
+                .frame(maxWidth: 640)
+                .frame(maxWidth: .infinity)
             }
-            .padding(.horizontal, 40)
-            .frame(maxWidth: 640)
-            .frame(maxWidth: .infinity)
         }
         .navigationTitle("About")
+        .backgroundExtensionEffect()
         .task {
             await donationStore.loadProductsIfNeeded()
         }
@@ -64,6 +63,7 @@ struct AboutDetailView: View {
                 isPresented: $isShowingOpenSourceLicenses
             )
         }
+        .tint(.indigo)
     }
 
     private var appVersionText: String {

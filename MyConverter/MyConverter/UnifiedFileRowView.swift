@@ -165,6 +165,14 @@ struct UnifiedFileRowView: View, Equatable {
         displayedCompletedOutputURL != nil
     }
 
+    private var decorativeGlass: Glass {
+        Glass.regular.interactive(false)
+    }
+
+    private func statusGlass(_ color: Color) -> Glass {
+        Glass.regular.tint(color).interactive(false)
+    }
+
     private func cancelCompletionAccessoryReveal() {
         completionAccessoryRevealTask?.cancel()
         completionAccessoryRevealTask = nil
@@ -213,16 +221,16 @@ struct UnifiedFileRowView: View, Equatable {
     private var sourceSection: some View {
         HStack(spacing: Metrics.titleSpacing) {
             Text("\(order)")
-                .font(.system(.caption2, design: .monospaced).weight(.bold))
+                .font(.system(.caption2, design: .monospaced).weight(.semibold))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 5)
-                .padding(.vertical, 1)
-                .background(Capsule().fill(Color.primary.opacity(0.05)))
+                .padding(.vertical, 3)
+                .glassEffect(decorativeGlass, in: Capsule())
                 .fixedSize(horizontal: true, vertical: false)
                 .layoutPriority(1)
 
             Text(sourceURL.lastPathComponent)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.subheadline.weight(.semibold))
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
@@ -234,7 +242,7 @@ struct UnifiedFileRowView: View, Equatable {
 
     private var statusIndicator: some View {
         Image(systemName: rowState.statusAppearance.symbolName)
-            .font(.system(size: 13, weight: .semibold))
+            .font(.callout.weight(.semibold))
             .foregroundStyle(rowState.statusAppearance.color)
             .frame(width: Metrics.statusIndicatorWidth)
     }
@@ -258,49 +266,46 @@ struct UnifiedFileRowView: View, Equatable {
 
     private var extensionBadgeView: some View {
         Text(sourceURL.pathExtension.uppercased())
-            .font(.system(size: 10, weight: .bold))
+            .font(.caption2.weight(.semibold))
             .foregroundStyle(.secondary)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 1)
-            .background(Capsule().fill(Color.primary.opacity(0.04)))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .glassEffect(decorativeGlass, in: Capsule())
             .fixedSize(horizontal: true, vertical: false)
     }
 
     private func completedActionsView(_ url: URL) -> some View {
-        HStack(spacing: Metrics.outputSectionSpacing) {
-            Button {
-                NSWorkspace.shared.activateFileViewerSelecting([url])
-            } label: {
-                Image(systemName: "folder")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 26, height: 26)
-                    .background(Circle().fill(Color.primary.opacity(0.05)))
-            }
-            .buttonStyle(.plain)
-            .help("Show in Finder")
-            .fixedSize(horizontal: true, vertical: false)
+        GlassEffectContainer(spacing: Metrics.outputSectionSpacing) {
+            HStack(spacing: Metrics.outputSectionSpacing) {
+                Button {
+                    NSWorkspace.shared.activateFileViewerSelecting([url])
+                } label: {
+                    Label("Show in Finder", systemImage: "folder")
+                        .labelStyle(.iconOnly)
+                }
+                .buttonStyle(.glass)
+                .controlSize(.small)
+                .tint(.secondary)
 
-            Button {
-                NSWorkspace.shared.open(url)
-            } label: {
-                Text("Open")
-                    .font(.system(size: 11, weight: .bold))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(Capsule().fill(Color.accentColor))
-                    .foregroundStyle(.white)
+                Button {
+                    NSWorkspace.shared.open(url)
+                } label: {
+                    Text("Open")
+                }
+                .buttonStyle(.glassProminent)
+                .controlSize(.small)
             }
-            .buttonStyle(.plain)
-            .fixedSize(horizontal: true, vertical: false)
         }
         .fixedSize(horizontal: true, vertical: false)
     }
 
     private func statusPlaceholderView(_ title: String, color: Color) -> some View {
         Text(title)
-            .font(.system(size: 12, weight: .medium))
+            .font(.caption.weight(.medium))
             .foregroundStyle(color)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .glassEffect(statusGlass(color), in: Capsule())
             .fixedSize(horizontal: true, vertical: false)
     }
 
@@ -313,14 +318,13 @@ struct UnifiedFileRowView: View, Equatable {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .stroke(rowBorderColor, lineWidth: 1)
             )
-            .shadow(color: .black.opacity(0.02), radius: 4, x: 0, y: 2)
     }
 
     private var rowFillColor: Color {
-        Color.primary.opacity(0.015)
+        .white.opacity(0.06)
     }
 
     private var rowBorderColor: Color {
-        Color.primary.opacity(0.06)
+        .white.opacity(0.10)
     }
 }

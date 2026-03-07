@@ -6,23 +6,16 @@ struct ConversionToolbarButton: View {
     let onStart: () -> Void
     let onCancel: () -> Void
 
-    private var actionTitle: String {
-        isConverting ? "Cancel" : "Start"
-    }
-
     var body: some View {
-        Button {
-            if isConverting {
-                onCancel()
-            } else {
-                onStart()
-            }
-        } label: {
-            Text(actionTitle)
-                .font(.system(size: 12, weight: .semibold))
+        if isConverting {
+            Button("Cancel", action: onCancel)
+                .controlSize(.regular)
+                .tint(nil)
+        } else {
+            Button("Start", action: onStart)
+                .controlSize(.regular)
+                .tint(nil)
+                .disabled(!canConvert)
         }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.regular)
-        .disabled(isConverting ? false : !canConvert)
     }
 }

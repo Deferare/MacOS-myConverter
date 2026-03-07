@@ -32,77 +32,73 @@ struct OutputFileCardView: View {
     let url: URL
     let order: Int
 
+    private var statusGlass: Glass {
+        Glass.regular.tint(.green).interactive(false)
+    }
+
     var body: some View {
         HStack(spacing: 16) {
-            ZStack {
-                Circle()
-                    .fill(Color.green.opacity(0.1))
-                    .frame(width: 36, height: 36)
-                Image(systemName: "checkmark")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(.green)
-            }
+            Image(systemName: "checkmark")
+                .font(.callout.weight(.bold))
+                .foregroundStyle(.green)
+                .padding(12)
+                .glassEffect(statusGlass, in: Circle())
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
                     Text("\(order)")
-                        .font(.system(.caption2, design: .monospaced).weight(.bold))
+                        .font(.system(.caption2, design: .monospaced).weight(.semibold))
                         .foregroundStyle(.secondary)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Capsule().fill(Color.primary.opacity(0.05)))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .glassEffect(.regular.interactive(false), in: Capsule())
 
                     Text(url.lastPathComponent)
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.body.weight(.semibold))
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
 
                 Text(url.deletingLastPathComponent().path)
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary.opacity(0.6))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
 
             Spacer()
 
-            HStack(spacing: 10) {
-                Button {
-                    NSWorkspace.shared.activateFileViewerSelecting([url])
-                } label: {
-                    Image(systemName: "folder")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 32, height: 32)
-                        .background(Circle().fill(Color.primary.opacity(0.05)))
-                }
-                .buttonStyle(.plain)
-                .help("Show in Finder")
+            GlassEffectContainer(spacing: 10) {
+                HStack(spacing: 10) {
+                    Button {
+                        NSWorkspace.shared.activateFileViewerSelecting([url])
+                    } label: {
+                        Label("Show in Finder", systemImage: "folder")
+                            .labelStyle(.iconOnly)
+                    }
+                    .buttonStyle(.glass)
+                    .controlSize(.small)
+                    .tint(.secondary)
 
-                Button {
-                    NSWorkspace.shared.open(url)
-                } label: {
-                    Text("Open")
-                        .font(.system(size: 12, weight: .bold))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 6)
-                        .background(Capsule().fill(Color.accentColor))
-                        .foregroundStyle(.white)
+                    Button {
+                        NSWorkspace.shared.open(url)
+                    } label: {
+                        Text("Open")
+                    }
+                    .buttonStyle(.glassProminent)
+                    .controlSize(.small)
                 }
-                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
         .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(.background.opacity(0.4))
+                .fill(.white.opacity(0.06))
                 .overlay(
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+                        .stroke(.white.opacity(0.10), lineWidth: 1)
                 )
         )
-        .shadow(color: .black.opacity(0.02), radius: 6, x: 0, y: 3)
     }
 }

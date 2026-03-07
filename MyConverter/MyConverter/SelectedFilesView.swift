@@ -26,29 +26,22 @@ struct SelectedFilesView: View {
                     .font(.headline)
 
                 Text("\(urls.count)")
-                    .font(.caption2.weight(.bold))
+                    .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 2)
-                    .background(Capsule().fill(Color.secondary.opacity(0.1)))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .glassEffect(.regular.interactive(false), in: Capsule())
 
                 Spacer()
 
                 if !isConverting {
                     Button(action: onClear) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.title3)
-                            .foregroundStyle(Color.secondary.opacity(0.5))
-                            .contentShape(Circle())
+                        Label("Clear Files", systemImage: "xmark")
+                            .labelStyle(.iconOnly)
                     }
-                    .buttonStyle(.plain)
-                    .onHover { inside in
-                        if inside {
-                            NSCursor.pointingHand.push()
-                        } else {
-                            NSCursor.pop()
-                        }
-                    }
+                    .buttonStyle(.glass)
+                    .controlSize(.small)
+                    .tint(.secondary)
                 }
             }
 
@@ -95,8 +88,8 @@ struct SelectedFilesView: View {
                 Button(action: onImport) {
                     Label("Add Files", systemImage: "plus")
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.regular)
+                .buttonStyle(.glassProminent)
+                .controlSize(.large)
                 .disabled(isConverting)
             }
         }

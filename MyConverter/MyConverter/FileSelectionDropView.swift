@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct ConverterInputAreaBackground: View {
@@ -8,17 +9,28 @@ struct ConverterInputAreaBackground: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: cornerRadius)
-            .fill(isDropTargeted ? Color.accentColor.opacity(0.03) : Color.primary.opacity(0.01))
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .strokeBorder(
-                        isDropTargeted ? Color.accentColor.opacity(0.5) : Color.secondary.opacity(0.2),
-                        style: StrokeStyle(
-                            lineWidth: isDropTargeted ? 2 : 1,
-                            dash: usesDashedBorder && !isDropTargeted ? [4, 4] : []
-                        )
-                    )
+            .fill(
+                LinearGradient(
+                    colors: [
+                        isDropTargeted ? Color.accentColor.opacity(0.10) : .white.opacity(0.05),
+                        isDropTargeted ? Color.accentColor.opacity(0.03) : .clear
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
             )
+            .overlay {
+                if isDropTargeted {
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .strokeBorder(Color.accentColor.opacity(0.35), lineWidth: 1.5)
+                }
+            }
+            .overlay {
+                if isDropTargeted {
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .stroke(.white.opacity(0.10), lineWidth: 1)
+                }
+            }
     }
 }
 
@@ -28,46 +40,67 @@ struct DropFileView: View {
     let fileDropAreaHeight: CGFloat
     let action: () -> Void
 
+    private var decorativeGlass: Glass {
+        Glass.regular.interactive(false)
+    }
+
     var body: some View {
-        Button(action: action) {
-            VStack(spacing: 20) {
-                ZStack {
-                    Circle()
-                        .fill(isDropTargeted ? Color.accentColor.opacity(0.15) : Color.accentColor.opacity(0.05))
-                        .frame(width: 88, height: 88)
-                        .blur(radius: isDropTargeted ? 10 : 0)
-                        .scaleEffect(isDropTargeted ? 1.15 : 1.0)
+        VStack(spacing: 18) {
+            Image(systemName: isDropTargeted ? "arrow.down.circle.fill" : "plus.circle.fill")
+                .font(.system(size: 34, weight: .semibold))
+                .foregroundStyle(.primary)
+                .symbolRenderingMode(.hierarchical)
+                .padding(24)
+                .glassEffect(decorativeGlass, in: Circle())
+                .scaleEffect(isDropTargeted ? 1.08 : 1.0)
 
-                    Circle()
-                        .stroke(Color.accentColor.opacity(isDropTargeted ? 0.3 : 0.1), lineWidth: 1)
-                        .frame(width: 104, height: 104)
-                        .scaleEffect(isDropTargeted ? 1.05 : 1.0)
+            VStack(spacing: 10) {
+                Text(isDropTargeted ? "Drop to Import" : placeholder)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.primary)
 
-                    Image(systemName: isDropTargeted ? "arrow.down.circle.fill" : "plus.circle.fill")
-                        .font(.system(size: 38, weight: .light))
-                        .foregroundStyle(isDropTargeted ? Color.accentColor : Color.secondary.opacity(0.6))
-                        .symbolRenderingMode(.hierarchical)
-                        .scaleEffect(isDropTargeted ? 1.1 : 1.0)
-                }
-
-                VStack(spacing: 8) {
-                    Text(isDropTargeted ? "Drop to Import" : placeholder)
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(isDropTargeted ? Color.accentColor : .primary)
-
-                    Text(isDropTargeted ? "Release to start conversion setup" : "or click to browse local files")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .opacity(0.8)
-                }
+                Text(isDropTargeted ? "Release to start conversion setup" : "or click to browse local files")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: fileDropAreaHeight)
-            .background(ConverterInputAreaBackground(isDropTargeted: isDropTargeted, usesDashedBorder: true))
-            .contentShape(Rectangle())
-            .scaleEffect(isDropTargeted ? 1.01 : 1.0)
+
+            Text(isDropTargeted ? "Release to import" : "Browse Files")
+                .font(.subheadline.weight(.semibold))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .glassEffect(decorativeGlass, in: Capsule())
+                .foregroundStyle(.primary)
         }
-        .buttonStyle(.plain)
+        .padding(24)
+        .frame(maxWidth: .infinity)
+        .frame(height: fileDropAreaHeight)
+        .background(
+            ConverterInputAreaBackground(
+                isDropTargeted: isDropTargeted,
+                usesDashedBorder: true
+            )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(.white.opacity(0.03))
+                .blur(radius: isDropTargeted ? 18 : 0)
+                .opacity(isDropTargeted ? 1 : 0)
+        )
+        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .onTapGesture(perform: action)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction {
+            action()
+        }
+        .onHover { isHovering in
+            if isHovering {
+                NSCursor.pointingHand.push()
+            } else {
+                NSCursor.pop()
+            }
+        }
+        .scaleEffect(isDropTargeted ? 1.005 : 1.0)
         .animation(.spring(response: 0.35, dampingFraction: 0.7), value: isDropTargeted)
     }
 }
