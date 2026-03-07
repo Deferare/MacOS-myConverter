@@ -2,6 +2,25 @@ import AppKit
 import SwiftUI
 
 struct UnifiedFileRowView: View, Equatable {
+    private enum Metrics {
+        static let rowSpacing: CGFloat = 10
+        static let rowHorizontalPadding: CGFloat = 16
+        static let rowVerticalPadding: CGFloat = 12
+        static let leadingSectionSpacing: CGFloat = 12
+        static let titleSpacing: CGFloat = 6
+        static let outputSectionSpacing: CGFloat = 8
+        static let statusIndicatorWidth: CGFloat = 36
+        static let completionAccessoryOffset: CGFloat = 12
+        static let completionAccessoryRevealDelayNanoseconds: UInt64 = 180_000_000
+        static let visibilityTransitionAnimation = Animation.spring(response: 0.24, dampingFraction: 0.86)
+        static let progressAnimationDuration: Double = 0.12
+    }
+
+    struct StatusAppearance {
+        let symbolName: String
+        let color: Color
+    }
+
     enum RowState: Equatable {
         case pending
         case converting(progress: Double)
@@ -30,42 +49,36 @@ struct UnifiedFileRowView: View, Equatable {
             }
         }
 
-        var progressTint: Color {
-            switch self {
-            case .pending:
-                return .secondary.opacity(0.45)
-            case .converting:
-                return .accentColor
-            case .completed:
-                return .green
-            case .skipped:
-                return .orange
+        var completedOutputURL: URL? {
+            guard case .completed(let outputURL) = self else {
+                return nil
             }
+
+            return outputURL
         }
 
-        var symbolName: String {
+        var statusAppearance: StatusAppearance {
             switch self {
             case .pending:
-                return "circle.dashed"
+                return StatusAppearance(
+                    symbolName: "circle.dashed",
+                    color: .secondary.opacity(0.45)
+                )
             case .converting:
-                return "circle.fill"
+                return StatusAppearance(
+                    symbolName: "circle.fill",
+                    color: .accentColor
+                )
             case .completed:
-                return "checkmark.circle.fill"
+                return StatusAppearance(
+                    symbolName: "checkmark.circle.fill",
+                    color: .green
+                )
             case .skipped:
-                return "exclamationmark.triangle.fill"
-            }
-        }
-
-        var symbolColor: Color {
-            switch self {
-            case .pending:
-                return .secondary.opacity(0.45)
-            case .converting:
-                return .accentColor
-            case .completed:
-                return .green
-            case .skipped:
-                return .orange
+                return StatusAppearance(
+                    symbolName: "exclamationmark.triangle.fill",
+                    color: .orange
+                )
             }
         }
     }
@@ -87,7 +100,7 @@ struct UnifiedFileRowView: View, Equatable {
         self.order = order
         self.systemImage = systemImage
         self.rowState = rowState
-        _displayedCompletedOutputURL = State(initialValue: Self.initialCompletedOutputURL(for: rowState))
+        _displayedCompletedOutputURL = State(initialValue: rowState.completedOutputURL)
         _completionAccessoryRevealTask = State(initialValue: nil)
     }
 
@@ -98,16 +111,8 @@ struct UnifiedFileRowView: View, Equatable {
         lhs.rowState == rhs.rowState
     }
 
-    private static func initialCompletedOutputURL(for rowState: RowState) -> URL? {
-        guard case .completed(let outputURL) = rowState else {
-            return nil
-        }
-
-        return outputURL
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Metrics.rowSpacing) {
             HStack(spacing: 0) {
                 sourceSection
                 outputSection
@@ -117,18 +122,18 @@ struct UnifiedFileRowView: View, Equatable {
             if rowState.showsProgressBar {
                 ProgressView(value: rowState.progressValue, total: 1.0)
                     .progressViewStyle(.linear)
-                    .tint(rowState.progressTint)
+                    .tint(rowState.statusAppearance.color)
                     .animation(progressAnimation, value: rowState.progressValue)
                     .transition(progressTransition)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.horizontal, Metrics.rowHorizontalPadding)
+        .padding(.vertical, Metrics.rowVerticalPadding)
         .background(rowBackground)
         .animation(visibilityTransitionAnimation, value: rowState.showsProgressBar)
-        .animation(visibilityTransitionAnimation, value: displayedCompletedOutputURL != nil)
+        .animation(visibilityTransitionAnimation, value: showsCompletedActions)
         .onDisappear {
-            completionAccessoryRevealTask?.cancel()
+            cancelCompletionAccessoryReveal()
         }
         .onChange(of: rowState) { oldValue, newValue in
             syncCompletedActions(from: oldValue, to: newValue)
@@ -136,7 +141,7 @@ struct UnifiedFileRowView: View, Equatable {
     }
 
     private var visibilityTransitionAnimation: Animation {
-        .spring(response: 0.24, dampingFraction: 0.86)
+        Metrics.visibilityTransitionAnimation
     }
 
     private var progressTransition: AnyTransition {
@@ -149,46 +154,67 @@ struct UnifiedFileRowView: View, Equatable {
     private var progressAnimation: Animation? {
         switch rowState {
         case .converting:
-            return .linear(duration: 0.12)
+            return .linear(duration: Metrics.progressAnimationDuration)
         case .pending, .completed, .skipped:
             return nil
         }
     }
 
     private var completedActionsTransition: AnyTransition {
-        .offset(x: 12)
+        .offset(x: Metrics.completionAccessoryOffset)
+    }
+
+    private var showsCompletedActions: Bool {
+        displayedCompletedOutputURL != nil
+    }
+
+    private func cancelCompletionAccessoryReveal() {
+        completionAccessoryRevealTask?.cancel()
+        completionAccessoryRevealTask = nil
+    }
+
+    private func showCompletedActionsImmediately(for outputURL: URL) {
+        cancelCompletionAccessoryReveal()
+        displayedCompletedOutputURL = outputURL
+    }
+
+    private func scheduleCompletedActionsReveal(for outputURL: URL) {
+        displayedCompletedOutputURL = nil
+        completionAccessoryRevealTask = Task { @MainActor in
+            defer {
+                completionAccessoryRevealTask = nil
+            }
+
+            try? await Task.sleep(nanoseconds: Metrics.completionAccessoryRevealDelayNanoseconds)
+            guard !Task.isCancelled else { return }
+            guard rowState.completedOutputURL == outputURL else { return }
+
+            withAnimation(visibilityTransitionAnimation) {
+                displayedCompletedOutputURL = outputURL
+            }
+        }
     }
 
     private func syncCompletedActions(from previousState: RowState, to newState: RowState) {
-        completionAccessoryRevealTask?.cancel()
+        cancelCompletionAccessoryReveal()
 
-        switch newState {
-        case .completed(let outputURL):
+        if let outputURL = newState.completedOutputURL {
             guard previousState.showsProgressBar else {
-                displayedCompletedOutputURL = outputURL
+                showCompletedActionsImmediately(for: outputURL)
                 return
             }
 
-            displayedCompletedOutputURL = nil
-            completionAccessoryRevealTask = Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 180_000_000)
-                guard !Task.isCancelled else { return }
-                guard case .completed(let currentURL) = rowState, currentURL == outputURL else { return }
-
-                withAnimation(visibilityTransitionAnimation) {
-                    displayedCompletedOutputURL = outputURL
-                }
-            }
-
-        case .pending, .converting, .skipped:
-            displayedCompletedOutputURL = nil
+            scheduleCompletedActionsReveal(for: outputURL)
+            return
         }
+
+        displayedCompletedOutputURL = nil
     }
 
     // MARK: - Source Section
 
     private var sourceSection: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: Metrics.leadingSectionSpacing) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color.accentColor.opacity(0.1))
@@ -198,7 +224,7 @@ struct UnifiedFileRowView: View, Equatable {
                     .foregroundStyle(Color.accentColor)
             }
 
-            HStack(spacing: 6) {
+            HStack(spacing: Metrics.titleSpacing) {
                 Text("\(order)")
                     .font(.system(.caption2, design: .monospaced).weight(.bold))
                     .foregroundStyle(.secondary)
@@ -222,16 +248,16 @@ struct UnifiedFileRowView: View, Equatable {
     // MARK: - Status Indicator
 
     private var statusIndicator: some View {
-        Image(systemName: rowState.symbolName)
+        Image(systemName: rowState.statusAppearance.symbolName)
             .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(rowState.symbolColor)
-        .frame(width: 36)
+            .foregroundStyle(rowState.statusAppearance.color)
+            .frame(width: Metrics.statusIndicatorWidth)
     }
 
     // MARK: - Output Section
 
     private var outputSection: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Metrics.outputSectionSpacing) {
             extensionBadgeView
 
             if let outputURL = displayedCompletedOutputURL {
@@ -256,7 +282,7 @@ struct UnifiedFileRowView: View, Equatable {
     }
 
     private func completedActionsView(_ url: URL) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Metrics.outputSectionSpacing) {
             Button {
                 NSWorkspace.shared.activateFileViewerSelecting([url])
             } label: {

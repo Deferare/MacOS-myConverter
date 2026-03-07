@@ -3,6 +3,16 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct UnifiedFileListView: View {
+    private struct RowDescriptor: Identifiable {
+        let url: URL
+        let order: Int
+        let rowState: UnifiedFileRowView.RowState
+
+        var id: String {
+            url.path
+        }
+    }
+
     let sourceURLs: [URL]
     let outputURLsBySourceID: [String: URL]
     let processedSourceIDs: Set<String>
@@ -40,21 +50,20 @@ struct UnifiedFileListView: View {
     // MARK: - Populated List
 
     private var populatedListView: some View {
-        let availableURLPaths = Set(sourceURLs.map(\.path))
+        let rowDescriptors = makeRowDescriptors()
+        let availableURLPaths = Set(rowDescriptors.map(\.url.path))
 
         return VStack(alignment: .leading, spacing: 14) {
             headerBar
 
             ScrollView(.vertical, showsIndicators: true) {
                 LazyVStack(spacing: 8) {
-                    ForEach(Array(sourceURLs.enumerated()), id: \.element.path) { index, url in
-                        let sourceID = ContentViewModelSupport.sourceIdentifier(for: url)
-
+                    ForEach(rowDescriptors) { row in
                         UnifiedFileRowView(
-                            sourceURL: url,
-                            order: index + 1,
+                            sourceURL: row.url,
+                            order: row.order,
                             systemImage: systemImage,
-                            rowState: rowState(for: sourceID, order: index + 1)
+                            rowState: row.rowState
                         )
                         .equatable()
                         .transition(.identity)
@@ -62,13 +71,13 @@ struct UnifiedFileListView: View {
                             guard !isConverting else {
                                 return NSItemProvider()
                             }
-                            draggedSelectedFileURL = url
-                            return NSItemProvider(object: NSString(string: url.path))
+                            draggedSelectedFileURL = row.url
+                            return NSItemProvider(object: NSString(string: row.url.path))
                         }
                         .onDrop(
                             of: [UTType.text],
                             delegate: SelectedFileReorderDropDelegate(
-                                targetURL: url,
+                                targetURL: row.url,
                                 availableURLPaths: availableURLPaths,
                                 draggedURL: $draggedSelectedFileURL,
                                 isEnabled: !isConverting,
@@ -88,6 +97,19 @@ struct UnifiedFileListView: View {
         .frame(maxWidth: .infinity, minHeight: fileDropAreaHeight, maxHeight: fileDropAreaHeight)
         .background(ConverterInputAreaBackground(isDropTargeted: false, usesDashedBorder: false))
         .clipShape(RoundedRectangle(cornerRadius: 24))
+    }
+
+    private func makeRowDescriptors() -> [RowDescriptor] {
+        sourceURLs.enumerated().map { index, url in
+            let order = index + 1
+            let sourceID = ContentViewModelSupport.sourceIdentifier(for: url)
+
+            return RowDescriptor(
+                url: url,
+                order: order,
+                rowState: rowState(for: sourceID, order: order)
+            )
+        }
     }
 
     // MARK: - Header
