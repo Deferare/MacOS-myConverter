@@ -60,7 +60,6 @@ struct ConverterInputArea: View {
     let isConverting: Bool
     let currentBatchIndex: Int
     let currentItemProgress: Double
-    let systemImage: String
     let dropPlaceholder: String
     let fileDropAreaHeight: CGFloat
     @Binding var draggedSelectedFileURL: URL?
@@ -73,7 +72,6 @@ struct ConverterInputArea: View {
             sourceURLs: selectedURLs,
             outputURLsBySourceID: outputURLsBySourceID,
             processedSourceIDs: processedSourceIDs,
-            systemImage: systemImage,
             dropPlaceholder: dropPlaceholder,
             isConverting: isConverting,
             currentBatchIndex: currentBatchIndex,
@@ -128,7 +126,6 @@ struct MediaConverterInputSectionView: View {
             isConverting: state.isConverting,
             currentBatchIndex: state.currentBatchIndex,
             currentItemProgress: state.currentItemProgress,
-            systemImage: kind.inputSystemImage,
             dropPlaceholder: "Drop Files Here",
             fileDropAreaHeight: fileDropAreaHeight,
             draggedSelectedFileURL: $draggedSelectedFileURL,

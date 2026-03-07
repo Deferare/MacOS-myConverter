@@ -6,9 +6,9 @@ struct UnifiedFileRowView: View, Equatable {
         static let rowSpacing: CGFloat = 10
         static let rowHorizontalPadding: CGFloat = 16
         static let rowVerticalPadding: CGFloat = 12
-        static let leadingSectionSpacing: CGFloat = 12
         static let titleSpacing: CGFloat = 6
         static let outputSectionSpacing: CGFloat = 8
+        static let primaryContentMinHeight: CGFloat = 26
         static let statusIndicatorWidth: CGFloat = 36
         static let completionAccessoryOffset: CGFloat = 12
         static let completionAccessoryRevealDelayNanoseconds: UInt64 = 180_000_000
@@ -85,7 +85,6 @@ struct UnifiedFileRowView: View, Equatable {
 
     let sourceURL: URL
     let order: Int
-    let systemImage: String
     let rowState: RowState
     @State private var displayedCompletedOutputURL: URL?
     @State private var completionAccessoryRevealTask: Task<Void, Never>?
@@ -93,12 +92,10 @@ struct UnifiedFileRowView: View, Equatable {
     init(
         sourceURL: URL,
         order: Int,
-        systemImage: String,
         rowState: RowState
     ) {
         self.sourceURL = sourceURL
         self.order = order
-        self.systemImage = systemImage
         self.rowState = rowState
         _displayedCompletedOutputURL = State(initialValue: rowState.completedOutputURL)
         _completionAccessoryRevealTask = State(initialValue: nil)
@@ -107,7 +104,6 @@ struct UnifiedFileRowView: View, Equatable {
     static func == (lhs: UnifiedFileRowView, rhs: UnifiedFileRowView) -> Bool {
         lhs.sourceURL == rhs.sourceURL &&
         lhs.order == rhs.order &&
-        lhs.systemImage == rhs.systemImage &&
         lhs.rowState == rhs.rowState
     }
 
@@ -118,6 +114,7 @@ struct UnifiedFileRowView: View, Equatable {
                 outputSection
                 statusIndicator
             }
+            .frame(minHeight: Metrics.primaryContentMinHeight)
 
             if rowState.showsProgressBar {
                 ProgressView(value: rowState.progressValue, total: 1.0)
@@ -214,35 +211,23 @@ struct UnifiedFileRowView: View, Equatable {
     // MARK: - Source Section
 
     private var sourceSection: some View {
-        HStack(spacing: Metrics.leadingSectionSpacing) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.accentColor.opacity(0.1))
-                    .frame(width: 32, height: 32)
-                Image(systemName: systemImage)
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(Color.accentColor)
-            }
+        HStack(spacing: Metrics.titleSpacing) {
+            Text("\(order)")
+                .font(.system(.caption2, design: .monospaced).weight(.bold))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 1)
+                .background(Capsule().fill(Color.primary.opacity(0.05)))
+                .fixedSize(horizontal: true, vertical: false)
+                .layoutPriority(1)
 
-            HStack(spacing: Metrics.titleSpacing) {
-                Text("\(order)")
-                    .font(.system(.caption2, design: .monospaced).weight(.bold))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 1)
-                    .background(Capsule().fill(Color.primary.opacity(0.05)))
-                    .fixedSize(horizontal: true, vertical: false)
-                    .layoutPriority(1)
-
-                Text(sourceURL.lastPathComponent)
-                    .font(.system(size: 13, weight: .semibold))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
-            }
-            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+            Text(sourceURL.lastPathComponent)
+                .font(.system(size: 13, weight: .semibold))
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: - Status Indicator

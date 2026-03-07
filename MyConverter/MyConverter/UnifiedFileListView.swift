@@ -16,7 +16,6 @@ struct UnifiedFileListView: View {
     let sourceURLs: [URL]
     let outputURLsBySourceID: [String: URL]
     let processedSourceIDs: Set<String>
-    let systemImage: String
     let dropPlaceholder: String
     let isConverting: Bool
     let currentBatchIndex: Int
@@ -62,7 +61,6 @@ struct UnifiedFileListView: View {
                         UnifiedFileRowView(
                             sourceURL: row.url,
                             order: row.order,
-                            systemImage: systemImage,
                             rowState: row.rowState
                         )
                         .equatable()
@@ -116,11 +114,6 @@ struct UnifiedFileListView: View {
 
     private var headerBar: some View {
         HStack(spacing: 12) {
-            Image(systemName: systemImage)
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(Color.accentColor)
-                .symbolRenderingMode(.hierarchical)
-
             Text("Files")
                 .font(.headline)
 
