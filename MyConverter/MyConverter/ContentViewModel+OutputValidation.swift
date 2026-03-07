@@ -68,6 +68,15 @@ extension ContentViewModel {
         return "Animated output requires ffmpeg for the selected format."
     }
 
+    func unavailableOptionMessage<Option: Equatable>(
+        _ selectedOption: Option,
+        in availableOptions: [Option],
+        message: String
+    ) -> String? {
+        guard !availableOptions.contains(selectedOption) else { return nil }
+        return message
+    }
+
     func makeOutputFormatValidationDescriptor<Capability, Format>(
         kind: MediaKind,
         hintMessage: @escaping (ContentViewModel) -> String? = { _ in nil },
@@ -101,13 +110,16 @@ extension ContentViewModel {
                     return message
                 }
 
-                return await viewModel.validateSelectedOutputFormatAvailability(
+                let descriptor = formatDescriptor(viewModel)
+                return await viewModel.validateOutputFormatAvailability(
                     for: sourceURL,
-                    formatDescriptor: formatDescriptor(viewModel),
+                    selectedFormatNormalizedID:
+                        descriptor.formatNormalizedID(viewModel[keyPath: descriptor.selectedFormat]),
                     unavailableMessage: unavailableMessage,
                     fetchCapabilities: fetchCapabilities,
                     availableFormats: availableFormats,
                     errorMessage: errorMessage,
+                    formatNormalizedID: descriptor.formatNormalizedID,
                     additionalValidation: { capabilities in
                         additionalCapabilityValidation(viewModel, capabilities)
                     }
@@ -128,14 +140,20 @@ extension ContentViewModel {
                 )
             },
             additionalValidation: { viewModel in
-                if !viewModel.videoEncoderOptions.contains(viewModel.selectedVideoEncoder) {
-                    return "Selected video encoder is not available for this format."
-                }
-                if viewModel.shouldShowAudioSettings &&
-                    !viewModel.audioEncoderOptions.contains(viewModel.selectedAudioEncoder) {
-                    return "Selected audio encoder is not available for this format."
-                }
-                return nil
+                viewModel.firstNonEmptyMessage(
+                    viewModel.unavailableOptionMessage(
+                        viewModel.selectedVideoEncoder,
+                        in: viewModel.videoEncoderOptions,
+                        message: "Selected video encoder is not available for this format."
+                    ),
+                    viewModel.shouldShowAudioSettings
+                        ? viewModel.unavailableOptionMessage(
+                            viewModel.selectedAudioEncoder,
+                            in: viewModel.audioEncoderOptions,
+                            message: "Selected audio encoder is not available for this format."
+                        )
+                        : nil
+                )
             },
             fetchCapabilities: { await VideoConversionEngine.sourceCapabilities(for: $0) },
             availableFormats: { $0.availableOutputFormats },
@@ -186,10 +204,11 @@ extension ContentViewModel {
             formatDescriptor: { $0.audioOutputFormatDescriptor() },
             unavailableMessage: "Selected output format is not available for this source.",
             additionalValidation: { viewModel in
-                if !viewModel.audioOutputEncoderOptions.contains(viewModel.selectedAudioOutputEncoder) {
-                    return "Selected audio encoder is not available for this format."
-                }
-                return nil
+                viewModel.unavailableOptionMessage(
+                    viewModel.selectedAudioOutputEncoder,
+                    in: viewModel.audioOutputEncoderOptions,
+                    message: "Selected audio encoder is not available for this format."
+                )
             },
             fetchCapabilities: { await VideoConversionEngine.sourceCapabilitiesForAudio(for: $0) },
             availableFormats: { $0.availableOutputFormats },
@@ -231,33 +250,6 @@ extension ContentViewModel {
         }
 
         return additionalValidation()
-    }
-
-    func selectedOutputFormatNormalizedID<Format>(
-        using descriptor: OutputFormatDescriptor<Format>
-    ) -> String {
-        descriptor.formatNormalizedID(self[keyPath: descriptor.selectedFormat])
-    }
-
-    func validateSelectedOutputFormatAvailability<Capability, Format>(
-        for sourceURL: URL,
-        formatDescriptor: OutputFormatDescriptor<Format>,
-        unavailableMessage: String,
-        fetchCapabilities: (URL) async -> Capability,
-        availableFormats: (Capability) -> [Format],
-        errorMessage: (Capability) -> String?,
-        additionalValidation: (Capability) -> String? = { _ in nil }
-    ) async -> String? {
-        await validateOutputFormatAvailability(
-            for: sourceURL,
-            selectedFormatNormalizedID: selectedOutputFormatNormalizedID(using: formatDescriptor),
-            unavailableMessage: unavailableMessage,
-            fetchCapabilities: fetchCapabilities,
-            availableFormats: availableFormats,
-            errorMessage: errorMessage,
-            formatNormalizedID: formatDescriptor.formatNormalizedID,
-            additionalValidation: additionalValidation
-        )
     }
 
     func validateOutputFormatAvailability<Capability, Format>(
