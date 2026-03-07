@@ -41,6 +41,67 @@ extension ContentViewModel {
         let analyzeSelection: (ContentViewModel, [URL]) -> Void
     }
 
+    func makeMediaStateDescriptor(
+        sourceURL: ReferenceWritableKeyPath<ContentViewModel, URL?>,
+        queuedSourceURLs: ReferenceWritableKeyPath<ContentViewModel, [URL]>,
+        convertedURL: ReferenceWritableKeyPath<ContentViewModel, URL?>,
+        convertedURLs: ReferenceWritableKeyPath<ContentViewModel, [URL]>,
+        convertedOutputURLsBySourceID: ReferenceWritableKeyPath<ContentViewModel, [String: URL]>,
+        processedSourceIDs: ReferenceWritableKeyPath<ContentViewModel, Set<String>>,
+        conversionErrorMessage: ReferenceWritableKeyPath<ContentViewModel, String?>,
+        compatibilityErrorMessage: ReferenceWritableKeyPath<ContentViewModel, String?>,
+        compatibilityWarningMessage: ReferenceWritableKeyPath<ContentViewModel, String?>,
+        isAnalyzing: ReferenceWritableKeyPath<ContentViewModel, Bool>,
+        isConverting: ReferenceWritableKeyPath<ContentViewModel, Bool>,
+        progress: ReferenceWritableKeyPath<ContentViewModel, Double>,
+        currentBatchIndex: ReferenceWritableKeyPath<ContentViewModel, Int>,
+        totalBatchCount: ReferenceWritableKeyPath<ContentViewModel, Int>,
+        analysisTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>,
+        conversionTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>,
+        sourceSettingsActions: SourceSettingsActions,
+        capabilityBootstrap: CapabilityBootstrapDescriptor,
+        validation: MediaValidationDescriptor,
+        conversionExecution: ConversionExecutionDescriptor,
+        resetCompatibilityMetadata: @escaping (ContentViewModel) -> Void = { _ in },
+        analyzeSelection: @escaping (ContentViewModel, [URL]) -> Void
+    ) -> MediaStateDescriptor {
+        MediaStateDescriptor(
+            sourceURL: sourceURL,
+            queuedSourceURLs: queuedSourceURLs,
+            convertedURL: convertedURL,
+            convertedURLs: convertedURLs,
+            convertedOutputURLsBySourceID: convertedOutputURLsBySourceID,
+            processedSourceIDs: processedSourceIDs,
+            conversionErrorMessage: conversionErrorMessage,
+            compatibilityErrorMessage: compatibilityErrorMessage,
+            compatibilityWarningMessage: compatibilityWarningMessage,
+            isAnalyzing: isAnalyzing,
+            isConverting: isConverting,
+            progress: progress,
+            currentBatchIndex: currentBatchIndex,
+            totalBatchCount: totalBatchCount,
+            analysisTask: analysisTask,
+            conversionTask: conversionTask,
+            sourceSettingsActions: sourceSettingsActions,
+            capabilityBootstrap: capabilityBootstrap,
+            validation: validation,
+            conversionExecution: conversionExecution,
+            resetCompatibilityMetadata: resetCompatibilityMetadata,
+            analyzeSelection: analyzeSelection
+        )
+    }
+
+    func makeMediaSelectionAnalyzer<Capability: Sendable, Format>(
+        descriptor: @escaping (ContentViewModel) -> SourceAnalysisDescriptor<Capability, Format>
+    ) -> (ContentViewModel, [URL]) -> Void {
+        { viewModel, urls in
+            viewModel.analyzeSourceCompatibility(
+                for: urls,
+                using: descriptor(viewModel)
+            )
+        }
+    }
+
     func currentConversionTask(for kind: MediaKind) -> Task<Void, Never>? {
         let descriptor = mediaStateDescriptor(for: kind)
         return self[keyPath: descriptor.conversionTask]
@@ -87,7 +148,7 @@ extension ContentViewModel {
     }
 
     func videoMediaStateDescriptor() -> MediaStateDescriptor {
-        MediaStateDescriptor(
+        makeMediaStateDescriptor(
             sourceURL: \.sourceURL,
             queuedSourceURLs: \.queuedSourceURLs,
             convertedURL: \.convertedURL,
@@ -110,18 +171,12 @@ extension ContentViewModel {
             conversionExecution: makeConversionExecutionDescriptor {
                 $0.videoConversionWorkflowDescriptor()
             },
-            resetCompatibilityMetadata: { _ in },
-            analyzeSelection: { viewModel, urls in
-                viewModel.analyzeSourceCompatibility(
-                    for: urls,
-                    using: viewModel.videoSourceAnalysisDescriptor()
-                )
-            }
+            analyzeSelection: makeMediaSelectionAnalyzer { $0.videoSourceAnalysisDescriptor() }
         )
     }
 
     func imageMediaStateDescriptor() -> MediaStateDescriptor {
-        MediaStateDescriptor(
+        makeMediaStateDescriptor(
             sourceURL: \.imageSourceURL,
             queuedSourceURLs: \.queuedImageSourceURLs,
             convertedURL: \.convertedImageURL,
@@ -148,17 +203,12 @@ extension ContentViewModel {
                 viewModel.imageSourceFrameCount = 0
                 viewModel.imageSourceHasAlpha = false
             },
-            analyzeSelection: { viewModel, urls in
-                viewModel.analyzeSourceCompatibility(
-                    for: urls,
-                    using: viewModel.imageSourceAnalysisDescriptor()
-                )
-            }
+            analyzeSelection: makeMediaSelectionAnalyzer { $0.imageSourceAnalysisDescriptor() }
         )
     }
 
     func audioMediaStateDescriptor() -> MediaStateDescriptor {
-        MediaStateDescriptor(
+        makeMediaStateDescriptor(
             sourceURL: \.audioSourceURL,
             queuedSourceURLs: \.queuedAudioSourceURLs,
             convertedURL: \.convertedAudioURL,
@@ -181,13 +231,7 @@ extension ContentViewModel {
             conversionExecution: makeConversionExecutionDescriptor {
                 $0.audioConversionWorkflowDescriptor()
             },
-            resetCompatibilityMetadata: { _ in },
-            analyzeSelection: { viewModel, urls in
-                viewModel.analyzeSourceCompatibility(
-                    for: urls,
-                    using: viewModel.audioSourceAnalysisDescriptor()
-                )
-            }
+            analyzeSelection: makeMediaSelectionAnalyzer { $0.audioSourceAnalysisDescriptor() }
         )
     }
 
