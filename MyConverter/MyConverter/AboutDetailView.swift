@@ -7,49 +7,29 @@ struct AboutDetailView: View {
 
     var body: some View {
         ZStack {
-            LiquidGlassBackdrop(tint: .indigo)
+            LiquidGlassBackdrop(tint: .blue)
                 .ignoresSafeArea()
 
-            ScrollView {
-                VStack(spacing: 32) {
-                    VStack(spacing: 18) {
-                        appIconImage
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 140, height: 140)
-                            .padding(20)
-                            .glassEffect(.regular.interactive(false), in: RoundedRectangle(cornerRadius: 36, style: .continuous))
+            ScrollView(.vertical, showsIndicators: true) {
+                VStack(spacing: 20) {
+                    aboutHeroCard
 
-                        VStack(spacing: 8) {
-                            Text("MyConverter")
-                                .font(.system(size: 36, weight: .black))
-
-                            Text(appVersionText)
-                                .font(.headline)
-                                .foregroundStyle(.secondary)
+                    AboutInfoSection(
+                        onOpenLicenses: {
+                            isShowingOpenSourceLicenses = true
                         }
-                    }
-                    .padding(.top, 60)
+                    )
 
-                    VStack(alignment: .leading, spacing: 20) {
-                        AboutInfoSection(
-                            onOpenLicenses: {
-                                isShowingOpenSourceLicenses = true
-                            }
-                        )
-
-                        DonationSupportSection(donationStore: donationStore)
-                    }
-                    .padding(32)
-                    .glassEffect(.regular.interactive(false), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+                    DonationSupportSection(donationStore: donationStore)
 
                     Text("Built with SwiftUI & FFmpeg")
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(.tertiary)
-                        .padding(.bottom, 40)
+                        .padding(.bottom, 8)
                 }
-                .padding(.horizontal, 40)
-                .frame(maxWidth: 640)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 24)
+                .frame(maxWidth: 960)
                 .frame(maxWidth: .infinity)
             }
         }
@@ -63,7 +43,43 @@ struct AboutDetailView: View {
                 isPresented: $isShowingOpenSourceLicenses
             )
         }
-        .tint(.indigo)
+        .tint(.blue)
+    }
+
+    private var aboutHeroCard: some View {
+        AboutPanelCard {
+            HStack(spacing: 24) {
+                appIconImage
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 104, height: 104)
+                    .padding(18)
+                    .glassEffect(.regular.interactive(false), in: RoundedRectangle(cornerRadius: 30, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("MyConverter")
+                        .font(.system(size: 34, weight: .black))
+
+                    Text("Personal Media Tool")
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
+
+                    HStack(spacing: 8) {
+                        Text(appVersionText)
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .glassEffect(.regular.interactive(false), in: Capsule())
+
+                        Text("Built for fast local media conversion")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Spacer()
+            }
+        }
     }
 
     private var appVersionText: String {
