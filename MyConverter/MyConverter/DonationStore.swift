@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import OSLog
 import StoreKit
 
 @MainActor
@@ -12,6 +13,10 @@ final class DonationStore: ObservableObject {
     static let productIDs: [String] = supportProducts.map(\.id)
     private static let amountTextByProductID = Dictionary(
         uniqueKeysWithValues: supportProducts.map { ($0.id, $0.amountText) }
+    )
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "com.deferare.MyConverter",
+        category: "DonationStore"
     )
 
     @Published private(set) var products: [Product] = []
@@ -56,9 +61,17 @@ final class DonationStore: ObservableObject {
                 return (idOrder[lhs.id] ?? .max) < (idOrder[rhs.id] ?? .max)
             }
             hasLoadedProducts = true
-            statusMessage = products.isEmpty ? "No support products were found. Check the product IDs in App Store Connect." : nil
+            if products.isEmpty {
+                Self.logger.error(
+                    "App Store returned no support products. bundleID=\(Self.appBundleID, privacy: .public) productIDs=\(Self.requestedProductIDs, privacy: .public)"
+                )
+                statusMessage = "No support products are available from the App Store. Verify that the donation product IDs for \(Self.appBundleID) exist in App Store Connect and are approved for sale."
+            } else {
+                statusMessage = nil
+            }
             statusIsError = products.isEmpty
         } catch {
+            Self.logger.error("Failed to load support products: \(String(describing: error), privacy: .public)")
             statusMessage = "Could not load support products: \(error.localizedDescription)"
             statusIsError = true
         }
@@ -152,5 +165,13 @@ final class DonationStore: ObservableObject {
         var errorDescription: String? {
             "Purchase verification failed."
         }
+    }
+
+    private static var appBundleID: String {
+        Bundle.main.bundleIdentifier ?? "unknown.bundle.id"
+    }
+
+    private static var requestedProductIDs: String {
+        productIDs.joined(separator: ",")
     }
 }
