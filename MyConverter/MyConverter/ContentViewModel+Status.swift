@@ -11,18 +11,6 @@ extension ContentViewModel {
     }
 
     func conversionStatus(
-        for kind: MediaKind,
-        validationMessage: String?,
-        hintMessage: String? = nil
-    ) -> (message: String, level: ConversionStatusLevel) {
-        conversionStatus(
-            using: mediaStateSnapshot(for: kind),
-            validationMessage: validationMessage,
-            hintMessage: hintMessage
-        )
-    }
-
-    func conversionStatus(
         using snapshot: MediaStateSnapshot,
         validationMessage: String?,
         hintMessage: String? = nil
@@ -39,30 +27,6 @@ extension ContentViewModel {
         )
     }
 
-    func statusMessage(
-        for kind: MediaKind,
-        validationMessage: String?,
-        hintMessage: String? = nil
-    ) -> String {
-        conversionStatus(
-            for: kind,
-            validationMessage: validationMessage,
-            hintMessage: hintMessage
-        ).message
-    }
-
-    func statusLevel(
-        for kind: MediaKind,
-        validationMessage: String?,
-        hintMessage: String? = nil
-    ) -> ConversionStatusLevel {
-        conversionStatus(
-            for: kind,
-            validationMessage: validationMessage,
-            hintMessage: hintMessage
-        ).level
-    }
-
     func canStartConversion(
         for kind: MediaKind,
         validationMessage: String?
@@ -71,10 +35,6 @@ extension ContentViewModel {
             using: mediaStateSnapshot(for: kind),
             validationMessage: validationMessage
         )
-    }
-
-    func progressPercentageText(for kind: MediaKind) -> String {
-        progressPercentageText(for: displayedProgress(for: kind))
     }
 
     func conversionControlState(for kind: MediaKind) -> ConversionControlState {
@@ -171,16 +131,5 @@ extension ContentViewModel {
             !isConverting &&
             !isAnalyzingSource &&
             validationMessage == nil
-    }
-
-    func defaultedOutputFormats<Format>(
-        sourceURL: URL?,
-        availableFormats: [Format],
-        fallbackFormats: () -> [Format]
-    ) -> [Format] {
-        if sourceURL == nil && availableFormats.isEmpty {
-            return fallbackFormats()
-        }
-        return availableFormats
     }
 }

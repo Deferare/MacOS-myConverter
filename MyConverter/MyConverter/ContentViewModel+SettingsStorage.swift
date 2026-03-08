@@ -6,7 +6,7 @@ private let persistedSettingsSaveQueue = DispatchQueue(
 )
 
 extension ContentViewModel {
-    struct SourceSettingsDescriptor<Settings, Persisted: Codable> {
+    struct SourceSettingsDescriptor<Settings: Equatable, Persisted: Codable> {
         let isApplyingStoredSettings: ReferenceWritableKeyPath<ContentViewModel, Bool>
         let sourceURL: ReferenceWritableKeyPath<ContentViewModel, URL?>
         let settingsBySourceID: ReferenceWritableKeyPath<ContentViewModel, [String: Settings]>
@@ -18,7 +18,7 @@ extension ContentViewModel {
         let restore: (Persisted) -> Settings
     }
 
-    struct SourceSettingsFlowDescriptor<Settings, Persisted: Codable, Format> {
+    struct SourceSettingsFlowDescriptor<Settings: Equatable, Persisted: Codable, Format> {
         let storage: SourceSettingsDescriptor<Settings, Persisted>
         let formatDescriptor: OutputFormatDescriptor<Format>
         let defaultSettings: () -> Settings
@@ -35,7 +35,106 @@ extension ContentViewModel {
         let persistCurrent: (ContentViewModel) -> Void
     }
 
-    func makeSourceSettingsActions<Settings, Persisted: Codable, Format>(
+    struct SourceSettingsComponents<Settings: Equatable, Persisted: Codable, Format> {
+        let storage: SourceSettingsDescriptor<Settings, Persisted>
+        let flow: SourceSettingsFlowDescriptor<Settings, Persisted, Format>
+    }
+
+    func makeSourceSettingsDescriptor<Settings: Equatable, Persisted: Codable>(
+        isApplyingStoredSettings: ReferenceWritableKeyPath<ContentViewModel, Bool>,
+        sourceURL: ReferenceWritableKeyPath<ContentViewModel, URL?>,
+        settingsBySourceID: ReferenceWritableKeyPath<ContentViewModel, [String: Settings]>,
+        pendingSaveTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>,
+        storageKey: String,
+        saveFailureContext: String,
+        loadFailureContext: String,
+        mapToPersisted: @escaping (Settings) -> Persisted,
+        restore: @escaping (Persisted) -> Settings
+    ) -> SourceSettingsDescriptor<Settings, Persisted> {
+        SourceSettingsDescriptor(
+            isApplyingStoredSettings: isApplyingStoredSettings,
+            sourceURL: sourceURL,
+            settingsBySourceID: settingsBySourceID,
+            pendingSaveTask: pendingSaveTask,
+            storageKey: storageKey,
+            saveFailureContext: saveFailureContext,
+            loadFailureContext: loadFailureContext,
+            mapToPersisted: mapToPersisted,
+            restore: restore
+        )
+    }
+
+    func makeSourceSettingsFlowDescriptor<Settings: Equatable, Persisted: Codable, Format>(
+        storage: SourceSettingsDescriptor<Settings, Persisted>,
+        formatDescriptor: OutputFormatDescriptor<Format>,
+        defaultSettings: @escaping () -> Settings,
+        outputFormatID: @escaping (Settings) -> String,
+        normalizeStoredID: @escaping (String) -> String?,
+        buildCurrentSettings: @escaping (ContentViewModel) -> Settings,
+        applyAdditionalSettings: @escaping (ContentViewModel, Settings) -> Void,
+        refreshDependentOptions: @escaping (ContentViewModel) -> Void = { _ in }
+    ) -> SourceSettingsFlowDescriptor<Settings, Persisted, Format> {
+        SourceSettingsFlowDescriptor(
+            storage: storage,
+            formatDescriptor: formatDescriptor,
+            defaultSettings: defaultSettings,
+            outputFormatID: outputFormatID,
+            normalizeStoredID: normalizeStoredID,
+            buildCurrentSettings: buildCurrentSettings,
+            applyAdditionalSettings: applyAdditionalSettings,
+            postApply: { viewModel in
+                viewModel.ensureSelectedOutputFormatIsAvailable(using: formatDescriptor)
+                refreshDependentOptions(viewModel)
+            }
+        )
+    }
+
+    func makeSourceSettingsComponents<Settings: Equatable, Persisted: Codable, Format>(
+        isApplyingStoredSettings: ReferenceWritableKeyPath<ContentViewModel, Bool>,
+        sourceURL: ReferenceWritableKeyPath<ContentViewModel, URL?>,
+        settingsBySourceID: ReferenceWritableKeyPath<ContentViewModel, [String: Settings]>,
+        pendingSaveTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>,
+        storageKey: String,
+        saveFailureContext: String,
+        loadFailureContext: String,
+        mapToPersisted: @escaping (Settings) -> Persisted,
+        restore: @escaping (Persisted) -> Settings,
+        formatDescriptor: OutputFormatDescriptor<Format>,
+        defaultSettings: @escaping () -> Settings,
+        outputFormatID: @escaping (Settings) -> String,
+        normalizeStoredID: @escaping (String) -> String?,
+        buildCurrentSettings: @escaping (ContentViewModel) -> Settings,
+        applyAdditionalSettings: @escaping (ContentViewModel, Settings) -> Void,
+        refreshDependentOptions: @escaping (ContentViewModel) -> Void = { _ in }
+    ) -> SourceSettingsComponents<Settings, Persisted, Format> {
+        let storage = makeSourceSettingsDescriptor(
+            isApplyingStoredSettings: isApplyingStoredSettings,
+            sourceURL: sourceURL,
+            settingsBySourceID: settingsBySourceID,
+            pendingSaveTask: pendingSaveTask,
+            storageKey: storageKey,
+            saveFailureContext: saveFailureContext,
+            loadFailureContext: loadFailureContext,
+            mapToPersisted: mapToPersisted,
+            restore: restore
+        )
+
+        return SourceSettingsComponents(
+            storage: storage,
+            flow: makeSourceSettingsFlowDescriptor(
+                storage: storage,
+                formatDescriptor: formatDescriptor,
+                defaultSettings: defaultSettings,
+                outputFormatID: outputFormatID,
+                normalizeStoredID: normalizeStoredID,
+                buildCurrentSettings: buildCurrentSettings,
+                applyAdditionalSettings: applyAdditionalSettings,
+                refreshDependentOptions: refreshDependentOptions
+            )
+        )
+    }
+
+    func makeSourceSettingsActions<Settings: Equatable, Persisted: Codable, Format>(
         using descriptor: @escaping (ContentViewModel) -> SourceSettingsFlowDescriptor<Settings, Persisted, Format>
     ) -> SourceSettingsActions {
         SourceSettingsActions(
@@ -87,8 +186,12 @@ extension ContentViewModel {
         }
     }
 
-    func videoSettingsDescriptor() -> SourceSettingsDescriptor<VideoConversionSettings, PersistedVideoConversionSettings> {
-        SourceSettingsDescriptor(
+    func videoSourceSettingsComponents() -> SourceSettingsComponents<
+        VideoConversionSettings,
+        PersistedVideoConversionSettings,
+        VideoFormatOption
+    > {
+        makeSourceSettingsComponents(
             isApplyingStoredSettings: \.settingsState.isApplyingVideoSettings,
             sourceURL: \.sourceURL,
             settingsBySourceID: \.settingsState.videoSettingsBySourceID,
@@ -97,17 +200,7 @@ extension ContentViewModel {
             saveFailureContext: "Failed to persist video settings",
             loadFailureContext: "Failed to load persisted video settings",
             mapToPersisted: { PersistedVideoConversionSettings(from: $0) },
-            restore: { $0.restoredSettings }
-        )
-    }
-
-    func videoSettingsFlowDescriptor() -> SourceSettingsFlowDescriptor<
-        VideoConversionSettings,
-        PersistedVideoConversionSettings,
-        VideoFormatOption
-    > {
-        SourceSettingsFlowDescriptor(
-            storage: videoSettingsDescriptor(),
+            restore: { $0.restoredSettings },
             formatDescriptor: videoOutputFormatDescriptor(),
             defaultSettings: { VideoConversionSettings() },
             outputFormatID: { $0.outputFormatID },
@@ -139,15 +232,16 @@ extension ContentViewModel {
                 viewModel.selectedSampleRate = settings.sampleRate
                 viewModel.selectedAudioBitRate = settings.audioBitRate
             },
-            postApply: { viewModel in
-                viewModel.ensureSelectedOutputFormatIsAvailable(using: viewModel.videoOutputFormatDescriptor())
-                viewModel.refreshVideoCodecOptions()
-            }
+            refreshDependentOptions: { $0.refreshVideoCodecOptions() }
         )
     }
 
-    func imageSettingsDescriptor() -> SourceSettingsDescriptor<ImageConversionSettings, PersistedImageConversionSettings> {
-        SourceSettingsDescriptor(
+    func imageSourceSettingsComponents() -> SourceSettingsComponents<
+        ImageConversionSettings,
+        PersistedImageConversionSettings,
+        ImageFormatOption
+    > {
+        makeSourceSettingsComponents(
             isApplyingStoredSettings: \.settingsState.isApplyingImageSettings,
             sourceURL: \.imageSourceURL,
             settingsBySourceID: \.settingsState.imageSettingsBySourceID,
@@ -156,17 +250,7 @@ extension ContentViewModel {
             saveFailureContext: "Failed to persist image settings",
             loadFailureContext: "Failed to load persisted image settings",
             mapToPersisted: { PersistedImageConversionSettings(from: $0) },
-            restore: { $0.restoredSettings }
-        )
-    }
-
-    func imageSettingsFlowDescriptor() -> SourceSettingsFlowDescriptor<
-        ImageConversionSettings,
-        PersistedImageConversionSettings,
-        ImageFormatOption
-    > {
-        SourceSettingsFlowDescriptor(
-            storage: imageSettingsDescriptor(),
+            restore: { $0.restoredSettings },
             formatDescriptor: imageOutputFormatDescriptor(),
             defaultSettings: { ImageConversionSettings() },
             outputFormatID: { $0.outputFormatID },
@@ -185,15 +269,16 @@ extension ContentViewModel {
                 viewModel.selectedImageQuality = settings.quality
                 viewModel.selectedPNGCompressionLevel = settings.pngCompressionLevel
                 viewModel.preserveImageAnimation = settings.preserveAnimation
-            },
-            postApply: { viewModel in
-                viewModel.ensureSelectedOutputFormatIsAvailable(using: viewModel.imageOutputFormatDescriptor())
             }
         )
     }
 
-    func audioSettingsDescriptor() -> SourceSettingsDescriptor<AudioConversionSettings, PersistedAudioConversionSettings> {
-        SourceSettingsDescriptor(
+    func audioSourceSettingsComponents() -> SourceSettingsComponents<
+        AudioConversionSettings,
+        PersistedAudioConversionSettings,
+        AudioFormatOption
+    > {
+        makeSourceSettingsComponents(
             isApplyingStoredSettings: \.settingsState.isApplyingAudioSettings,
             sourceURL: \.audioSourceURL,
             settingsBySourceID: \.settingsState.audioSettingsBySourceID,
@@ -202,17 +287,7 @@ extension ContentViewModel {
             saveFailureContext: "Failed to persist audio settings",
             loadFailureContext: "Failed to load persisted audio settings",
             mapToPersisted: { PersistedAudioConversionSettings(from: $0) },
-            restore: { $0.restoredSettings }
-        )
-    }
-
-    func audioSettingsFlowDescriptor() -> SourceSettingsFlowDescriptor<
-        AudioConversionSettings,
-        PersistedAudioConversionSettings,
-        AudioFormatOption
-    > {
-        SourceSettingsFlowDescriptor(
-            storage: audioSettingsDescriptor(),
+            restore: { $0.restoredSettings },
             formatDescriptor: audioOutputFormatDescriptor(),
             defaultSettings: { AudioConversionSettings() },
             outputFormatID: { $0.outputFormatID },
@@ -232,30 +307,21 @@ extension ContentViewModel {
                 viewModel.selectedAudioOutputSampleRate = settings.sampleRate
                 viewModel.selectedAudioOutputBitRate = settings.audioBitRate
             },
-            postApply: { viewModel in
-                viewModel.ensureSelectedOutputFormatIsAvailable(using: viewModel.audioOutputFormatDescriptor())
-                viewModel.refreshAudioCodecOptions()
-            }
+            refreshDependentOptions: { $0.refreshAudioCodecOptions() }
         )
     }
 
     func sourceSettingsActions(for kind: MediaKind) -> SourceSettingsActions {
-        mediaStateDescriptor(for: kind).sourceSettingsActions
+        mediaBehaviorDescriptor(for: kind).sourceSettingsActions
     }
 
-    func persistSourceSettingsIfNeeded<Settings>(
-        isApplyingStoredSettings: Bool,
-        sourceURL: URL?,
-        settingsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [String: Settings]>,
-        buildSettings: () -> Settings,
-        savePersistedSettings: () -> Void
-    ) {
-        guard !isApplyingStoredSettings, let sourceURL else { return }
-
-        var settingsBySourceID = self[keyPath: settingsKeyPath]
-        settingsBySourceID[sourceIdentifier(for: sourceURL)] = buildSettings()
-        self[keyPath: settingsKeyPath] = settingsBySourceID
-        savePersistedSettings()
+    func loadPersistedSourceSettingsState() {
+        settingsState.videoSettingsBySourceID =
+            loadPersistedSourceSettings(using: videoSourceSettingsComponents().storage)
+        settingsState.imageSettingsBySourceID =
+            loadPersistedSourceSettings(using: imageSourceSettingsComponents().storage)
+        settingsState.audioSettingsBySourceID =
+            loadPersistedSourceSettings(using: audioSourceSettingsComponents().storage)
     }
 
     func persistSourceSettingsIfNeeded<Settings: Equatable>(
@@ -277,7 +343,7 @@ extension ContentViewModel {
         savePersistedSettings()
     }
 
-    func persistSourceSettingsIfNeeded<Settings, Persisted>(
+    func persistSourceSettingsIfNeeded<Settings: Equatable, Persisted>(
         using descriptor: SourceSettingsDescriptor<Settings, Persisted>,
         buildSettings: () -> Settings
     ) {
@@ -292,7 +358,7 @@ extension ContentViewModel {
         )
     }
 
-    func persistCurrentSourceSettingsIfNeeded<Settings, Persisted, Format>(
+    func persistCurrentSourceSettingsIfNeeded<Settings: Equatable, Persisted, Format>(
         using descriptor: SourceSettingsFlowDescriptor<Settings, Persisted, Format>
     ) {
         persistSourceSettingsIfNeeded(using: descriptor.storage) {
@@ -300,7 +366,7 @@ extension ContentViewModel {
         }
     }
 
-    func savePersistedSourceSettings<Settings, Persisted: Encodable>(
+    func savePersistedSourceSettings<Settings: Equatable, Persisted: Encodable>(
         settingsBySourceID: [String: Settings],
         mapToPersisted: (Settings) -> Persisted,
         storageKey: String,
@@ -314,7 +380,7 @@ extension ContentViewModel {
         )
     }
 
-    func schedulePersistedSourceSettingsSave<Settings, Persisted: Encodable>(
+    func schedulePersistedSourceSettingsSave<Settings: Equatable, Persisted: Encodable>(
         using descriptor: SourceSettingsDescriptor<Settings, Persisted>
     ) {
         scheduleDebouncedTask(descriptor.pendingSaveTask) { viewModel in
@@ -343,7 +409,7 @@ extension ContentViewModel {
         return decoded.mapValues(restore)
     }
 
-    func loadPersistedSourceSettings<Settings, Persisted>(
+    func loadPersistedSourceSettings<Settings: Equatable, Persisted>(
         using descriptor: SourceSettingsDescriptor<Settings, Persisted>
     ) -> [String: Settings] {
         loadPersistedSourceSettings(
@@ -354,7 +420,7 @@ extension ContentViewModel {
         )
     }
 
-    func applyStoredSettingsForSource<Settings, Persisted>(
+    func applyStoredSettingsForSource<Settings: Equatable, Persisted>(
         sourceID: String,
         using descriptor: SourceSettingsDescriptor<Settings, Persisted>,
         defaultSettings: @autoclosure () -> Settings,
@@ -368,7 +434,7 @@ extension ContentViewModel {
         )
     }
 
-    func applySourceSettings<Settings, Persisted, Format>(
+    func applySourceSettings<Settings: Equatable, Persisted, Format>(
         _ settings: Settings,
         using descriptor: SourceSettingsFlowDescriptor<Settings, Persisted, Format>
     ) {
@@ -386,7 +452,7 @@ extension ContentViewModel {
         )
     }
 
-    func applySourceSettingsForSource<Settings, Persisted, Format>(
+    func applySourceSettingsForSource<Settings: Equatable, Persisted, Format>(
         sourceID: String,
         using descriptor: SourceSettingsFlowDescriptor<Settings, Persisted, Format>
     ) {

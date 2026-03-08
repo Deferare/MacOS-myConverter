@@ -30,13 +30,44 @@ extension ContentViewModel {
         }
     }
 
-    func videoConversionWorkflowDescriptor() -> ConversionWorkflowDescriptor<VideoOutputSettings> {
+    func makeConversionWorkflowDescriptor<OutputSettings>(
+        kind: MediaKind,
+        missingSourceLog: String,
+        fileExtension: String,
+        outputLabel: String,
+        destinationErrorCode: Int,
+        skippedSummaryPrefix: String,
+        treatExportCancellationAsCancelled: Bool,
+        errorLogPrefix: String,
+        includeDebugInfo: Bool,
+        buildOutputSettings: @escaping () throws -> OutputSettings,
+        makeWorkingOutputURL: @escaping (URL) -> URL,
+        runConversion: @escaping (URL, URL, OutputSettings, Int, Int) async throws -> URL
+    ) -> ConversionWorkflowDescriptor<OutputSettings> {
         ConversionWorkflowDescriptor(
-            kind: .video,
+            kind: kind,
             canConvert: canStartConversion(
-                for: .video,
-                validationMessage: validationMessage(for: .video)
+                for: kind,
+                validationMessage: validationMessage(for: kind)
             ),
+            missingSourceLog: missingSourceLog,
+            fileExtension: fileExtension,
+            outputLabel: outputLabel,
+            destinationErrorCode: destinationErrorCode,
+            skippedSummaryPrefix: skippedSummaryPrefix,
+            treatExportCancellationAsCancelled: treatExportCancellationAsCancelled,
+            errorLogPrefix: errorLogPrefix,
+            includeDebugInfo: includeDebugInfo,
+            buildOutputSettings: buildOutputSettings,
+            validate: { await self.validateSourceOutputSettings(for: kind, sourceURL: $0) },
+            makeWorkingOutputURL: makeWorkingOutputURL,
+            runConversion: runConversion
+        )
+    }
+
+    func videoConversionWorkflowDescriptor() -> ConversionWorkflowDescriptor<VideoOutputSettings> {
+        makeConversionWorkflowDescriptor(
+            kind: .video,
             missingSourceLog: "No file to convert.",
             fileExtension: selectedOutputFormat.fileExtension,
             outputLabel: "Video",
@@ -46,7 +77,6 @@ extension ContentViewModel {
             errorLogPrefix: "Conversion failed",
             includeDebugInfo: true,
             buildOutputSettings: { try self.buildVideoOutputSettings() },
-            validate: { await self.validateSourceOutputSettings(for: .video, sourceURL: $0) },
             makeWorkingOutputURL: { sourceURL in
                 VideoConversionEngine.temporaryOutputURL(
                     for: sourceURL,
@@ -70,12 +100,8 @@ extension ContentViewModel {
     }
 
     func imageConversionWorkflowDescriptor() -> ConversionWorkflowDescriptor<ImageOutputSettings> {
-        ConversionWorkflowDescriptor(
+        makeConversionWorkflowDescriptor(
             kind: .image,
-            canConvert: canStartConversion(
-                for: .image,
-                validationMessage: validationMessage(for: .image)
-            ),
             missingSourceLog: "No image file to convert.",
             fileExtension: selectedImageOutputFormat.fileExtension,
             outputLabel: "Image",
@@ -85,7 +111,6 @@ extension ContentViewModel {
             errorLogPrefix: "Image conversion failed",
             includeDebugInfo: false,
             buildOutputSettings: { self.buildImageOutputSettings() },
-            validate: { await self.validateSourceOutputSettings(for: .image, sourceURL: $0) },
             makeWorkingOutputURL: { sourceURL in
                 ImageConversionEngine.temporaryOutputURL(
                     for: sourceURL,
@@ -108,12 +133,8 @@ extension ContentViewModel {
     }
 
     func audioConversionWorkflowDescriptor() -> ConversionWorkflowDescriptor<AudioOutputSettings> {
-        ConversionWorkflowDescriptor(
+        makeConversionWorkflowDescriptor(
             kind: .audio,
-            canConvert: canStartConversion(
-                for: .audio,
-                validationMessage: validationMessage(for: .audio)
-            ),
             missingSourceLog: "No audio file to convert.",
             fileExtension: selectedAudioOutputFormat.fileExtension,
             outputLabel: "Audio",
@@ -123,7 +144,6 @@ extension ContentViewModel {
             errorLogPrefix: "Audio conversion failed",
             includeDebugInfo: false,
             buildOutputSettings: { self.buildAudioOutputSettings() },
-            validate: { await self.validateSourceOutputSettings(for: .audio, sourceURL: $0) },
             makeWorkingOutputURL: { sourceURL in
                 VideoConversionEngine.temporaryOutputURL(
                     for: sourceURL,
