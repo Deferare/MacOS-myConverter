@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct AboutInfoSection: View {
@@ -14,9 +15,9 @@ struct AboutInfoSection: View {
             Button("Open Source Licenses") {
                 onOpenLicenses()
             }
-            .buttonStyle(.glass)
-            .controlSize(.small)
-            .font(.subheadline.weight(.medium))
+            .buttonStyle(.plain)
+            .font(.body.weight(.medium))
+            .foregroundStyle(Color(nsColor: .linkColor))
 
             Divider()
         }

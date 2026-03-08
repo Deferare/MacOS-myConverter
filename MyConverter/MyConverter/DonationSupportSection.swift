@@ -37,19 +37,16 @@ struct DonationSupportSection: View {
                                 await donationStore.purchase(product)
                             }
                         } label: {
-                            VStack(spacing: 6) {
+                            VStack(spacing: 8) {
                                 Text(donationStore.suggestedAmountText(for: product.id))
-                                    .font(.subheadline.weight(.bold))
-                                Text(product.displayPrice)
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
+                                    .font(.system(size: 30, weight: .black))
 
                                 if donationStore.purchasingProductID == product.id {
                                     ProgressView()
                                         .controlSize(.small)
                                 }
                             }
-                            .frame(maxWidth: .infinity, minHeight: 60)
+                            .frame(maxWidth: .infinity, minHeight: 82)
                         }
                         .buttonStyle(.glass)
                         .controlSize(.large)
