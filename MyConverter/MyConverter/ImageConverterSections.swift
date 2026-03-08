@@ -41,13 +41,11 @@ struct ImageConverterFormSectionView: View {
             }
 
             if viewModel.shouldShowPreserveAnimationOption {
-                Toggle("Preserve Animation", isOn: $viewModel.preserveImageAnimation)
+                ConverterToggleRow("Preserve Animation", isOn: $viewModel.preserveImageAnimation)
             }
 
             if let hint = viewModel.hintMessage(for: .image) {
-                Text(hint)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                ConverterSettingsHint(text: hint)
             }
         }
     }

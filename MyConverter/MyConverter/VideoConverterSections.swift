@@ -58,8 +58,11 @@ struct VideoConverterFormSectionView: View {
             }
 
             if viewModel.shouldShowVideoBitRateOption && viewModel.selectedVideoBitRate == .custom {
-                TextField("Custom Kbps (e.g. 5000)", text: $viewModel.customVideoBitRate)
-                    .textFieldStyle(.roundedBorder)
+                ConverterTextFieldRow(
+                    "Custom Video Bit Rate",
+                    prompt: "Custom Kbps (e.g. 5000)",
+                    text: $viewModel.customVideoBitRate
+                )
             }
 
             if viewModel.shouldShowAudioSettings {

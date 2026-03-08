@@ -123,12 +123,14 @@ struct ConverterDetailContainer<InputArea: View, FormSections: View>: View {
 
                 if screenState.showsSettings {
                     ConverterPanelCard {
-                        Form {
-                            formSections
+                        VStack(alignment: .leading, spacing: 18) {
+                            Text("Conversion Settings")
+                                .font(.headline)
+
+                            VStack(spacing: 10) {
+                                formSections
+                            }
                         }
-                        .formStyle(.grouped)
-                        .scrollContentBackground(.hidden)
-                        .scrollDisabled(true)
                     }
                 } else {
                     ConverterSettingsPlaceholder()
@@ -194,7 +196,7 @@ struct ConverterFormSections<SettingsContent: View>: View {
     }
 
     var body: some View {
-        Section("Conversion Settings") {
+        VStack(spacing: 10) {
             settingsContent
         }
         .disabled(isConverting)

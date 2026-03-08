@@ -32,9 +32,7 @@ struct AudioConverterFormSectionView: View {
             )
 
             if let hint = viewModel.hintMessage(for: .audio) {
-                Text(hint)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                ConverterSettingsHint(text: hint)
             }
         }
     }
