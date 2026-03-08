@@ -53,6 +53,23 @@ extension ContentViewModel {
         let behavior: MediaBehaviorDescriptor
     }
 
+    private struct MediaDescriptorInput<
+        Settings: Equatable,
+        Persisted: Codable,
+        Format,
+        Capability: Sendable,
+        OutputSettings
+    > {
+        let state: MediaStateKeyPaths
+        let tasks: MediaTaskKeyPaths
+        let sourceSettings: (ContentViewModel) -> SourceSettingsFlowDescriptor<Settings, Persisted, Format>
+        let capabilityBootstrap: CapabilityBootstrapDescriptor
+        let validation: MediaValidationDescriptor
+        let conversionWorkflow: (ContentViewModel) -> ConversionWorkflowDescriptor<OutputSettings>
+        let resetCompatibilityMetadata: (ContentViewModel) -> Void
+        let sourceAnalysis: (ContentViewModel) -> SourceAnalysisDescriptor<Capability, Format>
+    }
+
     struct MediaStateDescriptor {
         let sourceURL: ReferenceWritableKeyPath<ContentViewModel, URL?>
         let queuedSourceURLs: ReferenceWritableKeyPath<ContentViewModel, [URL]>
@@ -144,61 +161,127 @@ extension ContentViewModel {
         )
     }
 
-    func videoMediaDescriptorComponents() -> MediaDescriptorComponents {
+    private func makeMediaDescriptorComponents<
+        Settings: Equatable,
+        Persisted: Codable,
+        Format,
+        Capability: Sendable,
+        OutputSettings
+    >(
+        from input: MediaDescriptorInput<Settings, Persisted, Format, Capability, OutputSettings>
+    ) -> MediaDescriptorComponents {
         MediaDescriptorComponents(
-            state: MediaStateKeyPaths(
-                sourceURL: \.sourceURL,
-                queuedSourceURLs: \.queuedSourceURLs,
-                convertedURL: \.convertedURL,
-                convertedURLs: \.convertedURLs,
-                convertedOutputURLsBySourceID: \.convertedOutputURLsBySourceID,
-                processedSourceIDs: \.processedSourceIDs,
-                conversionErrorMessage: \.conversionErrorMessage,
-                compatibilityErrorMessage: \.sourceCompatibilityErrorMessage,
-                compatibilityWarningMessage: \.sourceCompatibilityWarningMessage,
-                isAnalyzing: \.isAnalyzingSource,
-                isConverting: \.isConverting,
-                progress: \.conversionProgress,
-                currentBatchIndex: \.currentVideoBatchIndex,
-                totalBatchCount: \.totalVideoBatchCount
-            ),
-            tasks: MediaTaskKeyPaths(
-                analysisTask: \.taskState.sourceAnalysisTask,
-                conversionTask: \.taskState.conversionTask
-            ),
+            state: input.state,
+            tasks: input.tasks,
             behavior: makeMediaBehaviorDescriptor(
+                sourceSettings: input.sourceSettings,
+                capabilityBootstrap: input.capabilityBootstrap,
+                validation: input.validation,
+                conversionWorkflow: input.conversionWorkflow,
+                resetCompatibilityMetadata: input.resetCompatibilityMetadata,
+                sourceAnalysis: input.sourceAnalysis
+            )
+        )
+    }
+
+    private func videoMediaStateKeyPaths() -> MediaStateKeyPaths {
+        MediaStateKeyPaths(
+            sourceURL: \.sourceURL,
+            queuedSourceURLs: \.queuedSourceURLs,
+            convertedURL: \.convertedURL,
+            convertedURLs: \.convertedURLs,
+            convertedOutputURLsBySourceID: \.convertedOutputURLsBySourceID,
+            processedSourceIDs: \.processedSourceIDs,
+            conversionErrorMessage: \.conversionErrorMessage,
+            compatibilityErrorMessage: \.sourceCompatibilityErrorMessage,
+            compatibilityWarningMessage: \.sourceCompatibilityWarningMessage,
+            isAnalyzing: \.isAnalyzingSource,
+            isConverting: \.isConverting,
+            progress: \.conversionProgress,
+            currentBatchIndex: \.currentVideoBatchIndex,
+            totalBatchCount: \.totalVideoBatchCount
+        )
+    }
+
+    private func imageMediaStateKeyPaths() -> MediaStateKeyPaths {
+        MediaStateKeyPaths(
+            sourceURL: \.imageSourceURL,
+            queuedSourceURLs: \.queuedImageSourceURLs,
+            convertedURL: \.convertedImageURL,
+            convertedURLs: \.convertedImageURLs,
+            convertedOutputURLsBySourceID: \.convertedImageOutputURLsBySourceID,
+            processedSourceIDs: \.processedImageSourceIDs,
+            conversionErrorMessage: \.imageConversionErrorMessage,
+            compatibilityErrorMessage: \.imageSourceCompatibilityErrorMessage,
+            compatibilityWarningMessage: \.imageSourceCompatibilityWarningMessage,
+            isAnalyzing: \.isAnalyzingImageSource,
+            isConverting: \.isImageConverting,
+            progress: \.imageConversionProgress,
+            currentBatchIndex: \.currentImageBatchIndex,
+            totalBatchCount: \.totalImageBatchCount
+        )
+    }
+
+    private func audioMediaStateKeyPaths() -> MediaStateKeyPaths {
+        MediaStateKeyPaths(
+            sourceURL: \.audioSourceURL,
+            queuedSourceURLs: \.queuedAudioSourceURLs,
+            convertedURL: \.convertedAudioURL,
+            convertedURLs: \.convertedAudioURLs,
+            convertedOutputURLsBySourceID: \.convertedAudioOutputURLsBySourceID,
+            processedSourceIDs: \.processedAudioSourceIDs,
+            conversionErrorMessage: \.audioConversionErrorMessage,
+            compatibilityErrorMessage: \.audioSourceCompatibilityErrorMessage,
+            compatibilityWarningMessage: \.audioSourceCompatibilityWarningMessage,
+            isAnalyzing: \.isAnalyzingAudioSource,
+            isConverting: \.isAudioConverting,
+            progress: \.audioConversionProgress,
+            currentBatchIndex: \.currentAudioBatchIndex,
+            totalBatchCount: \.totalAudioBatchCount
+        )
+    }
+
+    private func videoMediaTaskKeyPaths() -> MediaTaskKeyPaths {
+        MediaTaskKeyPaths(
+            analysisTask: \.taskState.sourceAnalysisTask,
+            conversionTask: \.taskState.conversionTask
+        )
+    }
+
+    private func imageMediaTaskKeyPaths() -> MediaTaskKeyPaths {
+        MediaTaskKeyPaths(
+            analysisTask: \.taskState.imageSourceAnalysisTask,
+            conversionTask: \.taskState.imageConversionTask
+        )
+    }
+
+    private func audioMediaTaskKeyPaths() -> MediaTaskKeyPaths {
+        MediaTaskKeyPaths(
+            analysisTask: \.taskState.audioSourceAnalysisTask,
+            conversionTask: \.taskState.audioConversionTask
+        )
+    }
+
+    func videoMediaDescriptorComponents() -> MediaDescriptorComponents {
+        makeMediaDescriptorComponents(
+            from: MediaDescriptorInput(
+                state: videoMediaStateKeyPaths(),
+                tasks: videoMediaTaskKeyPaths(),
                 sourceSettings: { $0.videoSourceSettingsComponents().flow },
                 capabilityBootstrap: videoCapabilityBootstrapDescriptor(),
                 validation: videoValidationDescriptor(),
                 conversionWorkflow: { $0.videoConversionWorkflowDescriptor() },
+                resetCompatibilityMetadata: { _ in },
                 sourceAnalysis: { $0.videoSourceAnalysisDescriptor() }
             )
         )
     }
 
     func imageMediaDescriptorComponents() -> MediaDescriptorComponents {
-        MediaDescriptorComponents(
-            state: MediaStateKeyPaths(
-                sourceURL: \.imageSourceURL,
-                queuedSourceURLs: \.queuedImageSourceURLs,
-                convertedURL: \.convertedImageURL,
-                convertedURLs: \.convertedImageURLs,
-                convertedOutputURLsBySourceID: \.convertedImageOutputURLsBySourceID,
-                processedSourceIDs: \.processedImageSourceIDs,
-                conversionErrorMessage: \.imageConversionErrorMessage,
-                compatibilityErrorMessage: \.imageSourceCompatibilityErrorMessage,
-                compatibilityWarningMessage: \.imageSourceCompatibilityWarningMessage,
-                isAnalyzing: \.isAnalyzingImageSource,
-                isConverting: \.isImageConverting,
-                progress: \.imageConversionProgress,
-                currentBatchIndex: \.currentImageBatchIndex,
-                totalBatchCount: \.totalImageBatchCount
-            ),
-            tasks: MediaTaskKeyPaths(
-                analysisTask: \.taskState.imageSourceAnalysisTask,
-                conversionTask: \.taskState.imageConversionTask
-            ),
-            behavior: makeMediaBehaviorDescriptor(
+        makeMediaDescriptorComponents(
+            from: MediaDescriptorInput(
+                state: imageMediaStateKeyPaths(),
+                tasks: imageMediaTaskKeyPaths(),
                 sourceSettings: { $0.imageSourceSettingsComponents().flow },
                 capabilityBootstrap: imageCapabilityBootstrapDescriptor(),
                 validation: imageValidationDescriptor(),
@@ -213,32 +296,15 @@ extension ContentViewModel {
     }
 
     func audioMediaDescriptorComponents() -> MediaDescriptorComponents {
-        MediaDescriptorComponents(
-            state: MediaStateKeyPaths(
-                sourceURL: \.audioSourceURL,
-                queuedSourceURLs: \.queuedAudioSourceURLs,
-                convertedURL: \.convertedAudioURL,
-                convertedURLs: \.convertedAudioURLs,
-                convertedOutputURLsBySourceID: \.convertedAudioOutputURLsBySourceID,
-                processedSourceIDs: \.processedAudioSourceIDs,
-                conversionErrorMessage: \.audioConversionErrorMessage,
-                compatibilityErrorMessage: \.audioSourceCompatibilityErrorMessage,
-                compatibilityWarningMessage: \.audioSourceCompatibilityWarningMessage,
-                isAnalyzing: \.isAnalyzingAudioSource,
-                isConverting: \.isAudioConverting,
-                progress: \.audioConversionProgress,
-                currentBatchIndex: \.currentAudioBatchIndex,
-                totalBatchCount: \.totalAudioBatchCount
-            ),
-            tasks: MediaTaskKeyPaths(
-                analysisTask: \.taskState.audioSourceAnalysisTask,
-                conversionTask: \.taskState.audioConversionTask
-            ),
-            behavior: makeMediaBehaviorDescriptor(
+        makeMediaDescriptorComponents(
+            from: MediaDescriptorInput(
+                state: audioMediaStateKeyPaths(),
+                tasks: audioMediaTaskKeyPaths(),
                 sourceSettings: { $0.audioSourceSettingsComponents().flow },
                 capabilityBootstrap: audioCapabilityBootstrapDescriptor(),
                 validation: audioValidationDescriptor(),
                 conversionWorkflow: { $0.audioConversionWorkflowDescriptor() },
+                resetCompatibilityMetadata: { _ in },
                 sourceAnalysis: { $0.audioSourceAnalysisDescriptor() }
             )
         )

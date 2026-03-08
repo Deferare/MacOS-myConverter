@@ -48,6 +48,19 @@ extension ContentViewModel {
         let buildSelectionHandlers: (ContentViewModel, [URL]) -> SourceAnalysisSelectionHandlers<Capability, Format>
     }
 
+    struct CapabilitySummaryInput<Capability: SourceCapabilitySummary & Sendable> {
+        let kind: MediaKind
+        let availableFormatsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [Capability.Format]>
+        let fetchCapabilities: @Sendable (URL) async -> Capability
+        let formatNormalizedID: (Capability.Format) -> String
+        let deduplicatedAndSorted: ([Capability.Format]) -> [Capability.Format]
+        let noCommonFormatsMessage: String
+        let buildSelectionHandlers: (
+            ContentViewModel,
+            [URL]
+        ) -> SourceAnalysisSelectionHandlers<Capability, Capability.Format>
+    }
+
     func makeSourceAnalysisDescriptor<Capability: Sendable, Format>(
         kind: MediaKind,
         availableFormatsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [Format]>,
@@ -77,28 +90,19 @@ extension ContentViewModel {
     }
 
     func makeCapabilitySummaryDescriptor<Capability: SourceCapabilitySummary & Sendable>(
-        kind: MediaKind,
-        availableFormatsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [Capability.Format]>,
-        fetchCapabilities: @escaping @Sendable (URL) async -> Capability,
-        formatNormalizedID: @escaping (Capability.Format) -> String,
-        deduplicatedAndSorted: @escaping ([Capability.Format]) -> [Capability.Format],
-        noCommonFormatsMessage: String,
-        buildSelectionHandlers: @escaping (
-            ContentViewModel,
-            [URL]
-        ) -> SourceAnalysisSelectionHandlers<Capability, Capability.Format>
+        _ input: CapabilitySummaryInput<Capability>
     ) -> SourceAnalysisDescriptor<Capability, Capability.Format> {
         makeSourceAnalysisDescriptor(
-            kind: kind,
-            availableFormatsKeyPath: availableFormatsKeyPath,
-            fetchCapabilities: fetchCapabilities,
+            kind: input.kind,
+            availableFormatsKeyPath: input.availableFormatsKeyPath,
+            fetchCapabilities: input.fetchCapabilities,
             availableFormats: { $0.availableOutputFormats },
             warningMessage: { $0.warningMessage },
             errorMessage: { $0.errorMessage },
-            formatNormalizedID: formatNormalizedID,
-            deduplicatedAndSorted: deduplicatedAndSorted,
-            noCommonFormatsMessage: noCommonFormatsMessage,
-            buildSelectionHandlers: buildSelectionHandlers
+            formatNormalizedID: input.formatNormalizedID,
+            deduplicatedAndSorted: input.deduplicatedAndSorted,
+            noCommonFormatsMessage: input.noCommonFormatsMessage,
+            buildSelectionHandlers: input.buildSelectionHandlers
         )
     }
 

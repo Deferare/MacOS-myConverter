@@ -1,5 +1,10 @@
 import Foundation
 
+protocol MediaRuntimeStateContainer {
+    associatedtype Format
+    var media: ContentViewModel.MediaRuntimeState<Format> { get set }
+}
+
 extension ContentViewModel {
     struct MediaRuntimeState<Format> {
         var sourceURL: URL?
@@ -82,3 +87,7 @@ extension ContentViewModel {
         var selectedOutputBitRate: AudioBitRateOption = .auto
     }
 }
+
+extension ContentViewModel.VideoRuntimeState: MediaRuntimeStateContainer {}
+extension ContentViewModel.ImageRuntimeState: MediaRuntimeStateContainer {}
+extension ContentViewModel.AudioRuntimeState: MediaRuntimeStateContainer {}
