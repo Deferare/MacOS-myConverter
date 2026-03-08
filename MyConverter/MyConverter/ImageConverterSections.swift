@@ -8,7 +8,7 @@ struct ImageConverterFormSectionView: View {
             isConverting: viewModel.isImageConverting
         ) {
             MenuPicker(
-                "Container",
+                "Output Format",
                 selection: $viewModel.selectedImageOutputFormat,
                 options: viewModel.imageOutputFormatOptions,
                 disabledWhenEmpty: true,

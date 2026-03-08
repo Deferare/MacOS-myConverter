@@ -5,9 +5,20 @@ struct OutputFilesSection: View {
     let urls: [URL]
 
     var body: some View {
-        Section("Output Files") {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(spacing: 12) {
+                Text("Recent Outputs")
+                    .font(.title3.weight(.semibold))
+
+                Text("\(urls.count)")
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .glassEffect(.regular.interactive(false), in: Capsule())
+            }
+
             if urls.isEmpty {
-                Text("Converted files will appear here")
+                Text("Converted files will appear here.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -21,10 +32,17 @@ struct OutputFilesSection: View {
                         )
                     }
                 }
-                .padding(.vertical, 4)
-                .transition(.identity)
             }
         }
+        .padding(24)
+        .background(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(.white.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .stroke(.white.opacity(0.10), lineWidth: 1)
+                )
+        )
     }
 }
 

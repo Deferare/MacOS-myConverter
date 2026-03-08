@@ -15,7 +15,7 @@ struct ContentView: View {
     @State private var draggedSelectedFileURL: URL?
 
     private var fileDropAreaHeight: CGFloat {
-        360
+        468
     }
 
     var body: some View {

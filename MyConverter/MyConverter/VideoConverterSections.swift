@@ -8,7 +8,7 @@ struct VideoConverterFormSectionView: View {
             isConverting: viewModel.isConverting
         ) {
             MenuPicker(
-                "Container",
+                "Output Format",
                 selection: $viewModel.selectedOutputFormat,
                 options: viewModel.outputFormatOptions,
                 disabledWhenEmpty: true,

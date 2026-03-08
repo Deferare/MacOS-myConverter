@@ -13,7 +13,10 @@ extension ContentViewModel {
     func applyImportedSources(_ urls: [URL], for kind: MediaKind) {
         let acceptedURLs = acceptedInputURLs(urls, accept: kind.acceptsInput(_:))
         guard !acceptedURLs.isEmpty else { return }
-        applySelectedSources(acceptedURLs, for: kind)
+
+        let existingSelection = selectedSourceURLs(for: kind)
+        let mergedSelection = uniqueStandardizedURLs(existingSelection + acceptedURLs)
+        applySelectedSources(mergedSelection, for: kind)
     }
 
     func handleFileImportResult(_ result: Result<[URL], Error>, for selectedTab: ConverterTab) {

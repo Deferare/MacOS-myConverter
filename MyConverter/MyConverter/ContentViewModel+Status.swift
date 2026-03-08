@@ -10,6 +10,22 @@ extension ContentViewModel {
         let canConvert: Bool
     }
 
+    struct ConverterScreenState {
+        let statusMessage: String
+        let statusLevel: ConversionStatusLevel
+        let progress: Double
+        let progressText: String
+        let isConverting: Bool
+        let canConvert: Bool
+        let selectedFileCount: Int
+        let selectedFormatLabel: String
+        let convertedCount: Int
+        let showsSettings: Bool
+        let showsResults: Bool
+        let destinationHint: String
+        let primaryActionTitle: String
+    }
+
     func conversionStatus(
         using snapshot: MediaStateSnapshot,
         validationMessage: String?,
@@ -38,6 +54,19 @@ extension ContentViewModel {
     }
 
     func conversionControlState(for kind: MediaKind) -> ConversionControlState {
+        let screenState = converterScreenState(for: kind)
+
+        return ConversionControlState(
+            statusMessage: screenState.statusMessage,
+            statusLevel: screenState.statusLevel,
+            progress: screenState.progress,
+            progressText: screenState.progressText,
+            isConverting: screenState.isConverting,
+            canConvert: screenState.canConvert
+        )
+    }
+
+    func converterScreenState(for kind: MediaKind) -> ConverterScreenState {
         let snapshot = mediaStateSnapshot(for: kind)
         let validationMessage = validationMessage(for: kind)
         let hintMessage = hintMessage(for: kind)
@@ -46,15 +75,40 @@ extension ContentViewModel {
             validationMessage: validationMessage,
             hintMessage: hintMessage
         )
+        let selectedFileCount = selectedFileCount(for: kind)
+        let convertedCount = snapshot.convertedURLs.count
         let progress = displayedProgress(for: snapshot)
+        let statusMessage: String
 
-        return ConversionControlState(
-            statusMessage: status.message,
+        if selectedFileCount == 0 {
+            statusMessage = "Import files to begin."
+        } else if convertedCount > 0 && !snapshot.isConverting && status.level != .error {
+            statusMessage = convertedCount == 1 ? "Conversion complete." : "\(convertedCount) files converted."
+        } else {
+            statusMessage = status.message
+        }
+
+        let primaryActionTitle: String
+        if snapshot.isConverting {
+            primaryActionTitle = "Cancel"
+        } else {
+            primaryActionTitle = "Start"
+        }
+
+        return ConverterScreenState(
+            statusMessage: statusMessage,
             statusLevel: status.level,
             progress: progress,
             progressText: progressPercentageText(for: progress),
             isConverting: snapshot.isConverting,
-            canConvert: canStartConversion(using: snapshot, validationMessage: validationMessage)
+            canConvert: canStartConversion(using: snapshot, validationMessage: validationMessage),
+            selectedFileCount: selectedFileCount,
+            selectedFormatLabel: selectedOutputFormatLabel(for: kind),
+            convertedCount: convertedCount,
+            showsSettings: selectedFileCount > 0,
+            showsResults: convertedCount > 0,
+            destinationHint: "Output folder is chosen after you press Start.",
+            primaryActionTitle: primaryActionTitle
         )
     }
 
@@ -131,5 +185,16 @@ extension ContentViewModel {
             !isConverting &&
             !isAnalyzingSource &&
             validationMessage == nil
+    }
+
+    func selectedOutputFormatLabel(for kind: MediaKind) -> String {
+        switch kind {
+        case .video:
+            return "\(selectedOutputFormat.displayName) (.\(selectedOutputFormat.fileExtension))"
+        case .image:
+            return "\(selectedImageOutputFormat.displayName) (.\(selectedImageOutputFormat.fileExtension))"
+        case .audio:
+            return "\(selectedAudioOutputFormat.displayName) (.\(selectedAudioOutputFormat.fileExtension))"
+        }
     }
 }

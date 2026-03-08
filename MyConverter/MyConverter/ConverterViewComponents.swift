@@ -50,56 +50,95 @@ struct LiquidGlassBackdrop: View {
     }
 }
 
-struct ConverterDetailContainer<InputArea: View, FormSections: View, Controls: View>: View {
-    let title: String
-    let tint: Color
+private struct ConverterPanelCard<Content: View>: View {
+    let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        content
+            .padding(24)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(.white.opacity(0.05))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 28, style: .continuous)
+                            .stroke(.white.opacity(0.10), lineWidth: 1)
+                    )
+            )
+    }
+}
+
+struct ConverterSettingsPlaceholder: View {
+    var body: some View {
+        ConverterPanelCard {
+            HStack(spacing: 16) {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 42, height: 42)
+                    .glassEffect(.regular.interactive(false), in: Circle())
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Conversion Settings")
+                        .font(.title3.weight(.semibold))
+
+                    Text("Import files to unlock compatible conversion settings.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+}
+
+struct ConverterDetailContainer<InputArea: View, FormSections: View>: View {
+    let screenState: ContentViewModel.ConverterScreenState
     @Binding var isDropTargeted: Bool
     let onDrop: ([NSItemProvider]) -> Bool
     let inputArea: InputArea
     let formSections: FormSections
-    let controls: Controls
 
     init(
-        title: String,
-        tint: Color,
+        screenState: ContentViewModel.ConverterScreenState,
         isDropTargeted: Binding<Bool>,
         onDrop: @escaping ([NSItemProvider]) -> Bool,
         @ViewBuilder inputArea: () -> InputArea,
-        @ViewBuilder formSections: () -> FormSections,
-        @ViewBuilder controls: () -> Controls
+        @ViewBuilder formSections: () -> FormSections
     ) {
-        self.title = title
-        self.tint = tint
+        self.screenState = screenState
         _isDropTargeted = isDropTargeted
         self.onDrop = onDrop
         self.inputArea = inputArea()
         self.formSections = formSections()
-        self.controls = controls()
     }
 
     var body: some View {
-        ZStack {
-            LiquidGlassBackdrop(tint: tint)
-                .ignoresSafeArea()
-
+        ScrollView(.vertical, showsIndicators: true) {
             VStack(spacing: 20) {
                 inputArea
-                    .padding(.horizontal, 24)
-                    .padding(.top, 24)
 
-                Form {
-                    formSections
+                if screenState.showsSettings {
+                    ConverterPanelCard {
+                        Form {
+                            formSections
+                        }
+                        .formStyle(.grouped)
+                        .scrollContentBackground(.hidden)
+                        .scrollDisabled(true)
+                    }
+                } else {
+                    ConverterSettingsPlaceholder()
                 }
-                .formStyle(.grouped)
-                .scrollContentBackground(.hidden)
             }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 24)
+            .frame(maxWidth: 960)
+            .frame(maxWidth: .infinity)
         }
-        .toolbar {
-            ToolbarItem(placement: .automatic) {
-                controls
-            }
-        }
-        .navigationTitle(title)
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted, perform: onDrop)
     }
 }
@@ -114,9 +153,11 @@ struct ConverterInputArea: View {
     let currentItemProgress: Double
     let dropPlaceholder: String
     let fileDropAreaHeight: CGFloat
+    let screenState: ContentViewModel.ConverterScreenState
     @Binding var draggedSelectedFileURL: URL?
     let onImport: () -> Void
     let onClear: () -> Void
+    let onPrimaryAction: () -> Void
     let onReorder: (_ draggedURL: URL, _ targetURL: URL) -> Void
 
     var body: some View {
@@ -130,9 +171,11 @@ struct ConverterInputArea: View {
             currentItemProgress: currentItemProgress,
             fileDropAreaHeight: fileDropAreaHeight,
             isDropTargeted: isDropTargeted,
+            screenState: screenState,
             draggedSelectedFileURL: $draggedSelectedFileURL,
             onImport: onImport,
             onClear: onClear,
+            onPrimaryAction: onPrimaryAction,
             onReorder: onReorder
         )
     }
@@ -151,7 +194,7 @@ struct ConverterFormSections<SettingsContent: View>: View {
     }
 
     var body: some View {
-        Section("Output Settings") {
+        Section("Conversion Settings") {
             settingsContent
         }
         .disabled(isConverting)
@@ -169,6 +212,7 @@ struct MediaConverterInputSectionView: View {
 
     var body: some View {
         let state = viewModel.selectedFileListState(for: kind)
+        let screenState = viewModel.converterScreenState(for: kind)
 
         ConverterInputArea(
             isDropTargeted: isDropTargeted,
@@ -180,6 +224,7 @@ struct MediaConverterInputSectionView: View {
             currentItemProgress: state.currentItemProgress,
             dropPlaceholder: "Drop Files Here",
             fileDropAreaHeight: fileDropAreaHeight,
+            screenState: screenState,
             draggedSelectedFileURL: $draggedSelectedFileURL,
             onImport: {
                 viewModel.requestFileImport()
@@ -189,28 +234,19 @@ struct MediaConverterInputSectionView: View {
                     viewModel.clearSelectedSource(for: kind)
                 }
             },
+            onPrimaryAction: {
+                if screenState.isConverting {
+                    viewModel.cancelConversion(for: kind)
+                } else {
+                    viewModel.startConversion(for: kind)
+                }
+            },
             onReorder: { draggedURL, targetURL in
                 viewModel.moveSelectedSource(from: draggedURL, to: targetURL, for: kind)
             }
         )
         .animation(fileSelectionAnimation, value: state.selectedURLs.count)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isDropTargeted)
-    }
-}
-
-struct MediaConversionControlsView: View {
-    @ObservedObject var viewModel: ContentViewModel
-    let kind: ContentViewModel.MediaKind
-
-    var body: some View {
-        let state = viewModel.conversionControlState(for: kind)
-
-        ConversionToolbarButton(
-            isConverting: state.isConverting,
-            canConvert: state.canConvert,
-            onStart: { viewModel.startConversion(for: kind) },
-            onCancel: { viewModel.cancelConversion(for: kind) }
-        )
     }
 }
 
@@ -239,29 +275,33 @@ struct MediaConverterDetailView<FormSections: View>: View {
     }
 
     var body: some View {
-        ConverterDetailContainer(
-            title: kind.converterTitle,
-            tint: kind.liquidGlassTint,
-            isDropTargeted: $isDropTargeted,
-            onDrop: { providers in
-                viewModel.handleDrop(providers: providers, for: kind)
-            },
-            inputArea: {
-                MediaConverterInputSectionView(
-                    viewModel: viewModel,
-                    kind: kind,
-                    isDropTargeted: isDropTargeted,
-                    draggedSelectedFileURL: $draggedSelectedFileURL,
-                    fileDropAreaHeight: fileDropAreaHeight
-                )
-            },
-            formSections: {
-                formSections
-            },
-            controls: {
-                MediaConversionControlsView(viewModel: viewModel, kind: kind)
-            }
-        )
+        let screenState = viewModel.converterScreenState(for: kind)
+
+        ZStack {
+            LiquidGlassBackdrop(tint: kind.liquidGlassTint)
+                .ignoresSafeArea()
+
+            ConverterDetailContainer(
+                screenState: screenState,
+                isDropTargeted: $isDropTargeted,
+                onDrop: { providers in
+                    viewModel.handleDrop(providers: providers, for: kind)
+                },
+                inputArea: {
+                    MediaConverterInputSectionView(
+                        viewModel: viewModel,
+                        kind: kind,
+                        isDropTargeted: isDropTargeted,
+                        draggedSelectedFileURL: $draggedSelectedFileURL,
+                        fileDropAreaHeight: fileDropAreaHeight
+                    )
+                },
+                formSections: {
+                    formSections
+                }
+            )
+        }
+        .navigationTitle(kind.converterTitle)
         .tint(kind.liquidGlassTint)
     }
 }

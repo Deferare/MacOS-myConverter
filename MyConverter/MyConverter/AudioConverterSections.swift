@@ -8,7 +8,7 @@ struct AudioConverterFormSectionView: View {
             isConverting: viewModel.isAudioConverting
         ) {
             MenuPicker(
-                "Container",
+                "Output Format",
                 selection: $viewModel.selectedAudioOutputFormat,
                 options: viewModel.audioOutputFormatOptions,
                 disabledWhenEmpty: true,

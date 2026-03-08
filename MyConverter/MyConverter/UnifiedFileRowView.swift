@@ -126,6 +126,7 @@ struct UnifiedFileRowView: View, Equatable {
         }
         .padding(.horizontal, Metrics.rowHorizontalPadding)
         .padding(.vertical, Metrics.rowVerticalPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(rowBackground)
         .animation(visibilityTransitionAnimation, value: rowState.showsProgressBar)
         .animation(visibilityTransitionAnimation, value: showsCompletedActions)

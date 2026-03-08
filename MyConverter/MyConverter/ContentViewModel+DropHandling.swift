@@ -16,7 +16,7 @@ extension ContentViewModel {
             providers: providers,
             accept: kind.acceptsInput(_:),
             applySelection: { [weak self] urls in
-                self?.applySelectedSources(urls, for: kind)
+                self?.applyImportedSources(urls, for: kind)
             }
         )
     }

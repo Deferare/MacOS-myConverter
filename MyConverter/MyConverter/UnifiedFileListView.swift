@@ -3,6 +3,11 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct UnifiedFileListView: View {
+    private enum Metrics {
+        static let accessoryRevealOffset: CGFloat = 12
+        static let visibilityTransitionAnimation = Animation.spring(response: 0.24, dampingFraction: 0.86)
+    }
+
     private struct RowDescriptor: Identifiable {
         let url: URL
         let order: Int
@@ -22,19 +27,18 @@ struct UnifiedFileListView: View {
     let currentItemProgress: Double
     let fileDropAreaHeight: CGFloat
     let isDropTargeted: Bool
+    let screenState: ContentViewModel.ConverterScreenState
     @Binding var draggedSelectedFileURL: URL?
     let onImport: () -> Void
     let onClear: () -> Void
+    let onPrimaryAction: () -> Void
     let onReorder: (_ draggedURL: URL, _ targetURL: URL) -> Void
 
     private let contentTransition: AnyTransition = .identity
 
     var body: some View {
         Group {
-            if !isDropTargeted, !sourceURLs.isEmpty {
-                populatedListView
-                    .transition(contentTransition)
-            } else {
+            if sourceURLs.isEmpty {
                 DropFileView(
                     isDropTargeted: isDropTargeted,
                     placeholder: dropPlaceholder,
@@ -42,6 +46,9 @@ struct UnifiedFileListView: View {
                     action: onImport
                 )
                 .transition(contentTransition)
+            } else {
+                populatedListView
+                    .transition(contentTransition)
             }
         }
     }
@@ -88,12 +95,12 @@ struct UnifiedFileListView: View {
                         )
                     }
                 }
-                .padding(4)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .padding(20)
         .frame(maxWidth: .infinity, minHeight: fileDropAreaHeight, maxHeight: fileDropAreaHeight)
-        .background(ConverterInputAreaBackground(isDropTargeted: false, usesDashedBorder: false))
+        .background(ConverterInputAreaBackground(isDropTargeted: isDropTargeted, usesDashedBorder: false))
         .clipShape(RoundedRectangle(cornerRadius: 24))
     }
 
@@ -113,31 +120,117 @@ struct UnifiedFileListView: View {
     // MARK: - Header
 
     private var headerBar: some View {
-        HStack(spacing: 12) {
-            Text("Files")
-                .font(.headline)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                Text("Files")
+                    .font(.headline)
 
-            Text("\(sourceURLs.count)")
-                .font(.caption.weight(.semibold))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .glassEffect(.regular.interactive(false), in: Capsule())
+                Text("\(sourceURLs.count)")
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .glassEffect(.regular.interactive(false), in: Capsule())
 
-            Spacer()
+                Spacer()
 
-            if !isConverting {
                 GlassEffectContainer(spacing: 8) {
                     HStack(spacing: 8) {
-                        Button(action: onClear) {
-                            Label("Clear Files", systemImage: "xmark")
-                                .labelStyle(.iconOnly)
+                        if !screenState.isConverting {
+                            headerSecondaryActions
+                                .transition(secondaryActionsTransition)
                         }
-                        .buttonStyle(.glass)
+
+                        Button(action: onPrimaryAction) {
+                            Text(screenState.primaryActionTitle)
+                                .frame(minWidth: 56)
+                                .contentTransition(.opacity)
+                        }
+                        .buttonStyle(.glassProminent)
                         .controlSize(.small)
-                        .tint(.secondary)
+                        .disabled(!screenState.isConverting && !screenState.canConvert)
+                        .animation(.easeInOut(duration: 0.18), value: screenState.primaryActionTitle)
                     }
                 }
             }
+            .animation(visibilityTransitionAnimation, value: screenState.isConverting)
+
+            headerDetailRow
+        }
+    }
+
+    private var headerSecondaryActions: some View {
+        HStack(spacing: 8) {
+            Button(action: onClear) {
+                Label("Clear Files", systemImage: "xmark")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(.glass)
+            .controlSize(.small)
+            .tint(.secondary)
+
+            Button(action: onImport) {
+                Label("Add Files", systemImage: "plus")
+            }
+            .buttonStyle(.glass)
+            .controlSize(.small)
+        }
+    }
+
+    private var secondaryActionsTransition: AnyTransition {
+        .offset(x: Metrics.accessoryRevealOffset)
+    }
+
+    private var visibilityTransitionAnimation: Animation {
+        Metrics.visibilityTransitionAnimation
+    }
+
+    @ViewBuilder
+    private var headerDetailRow: some View {
+        if screenState.isConverting {
+            HStack(spacing: 12) {
+                statusMessageView
+
+                Spacer()
+
+                Text(screenState.progressText)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+        } else {
+            HStack(spacing: 12) {
+                statusMessageView
+
+                Spacer()
+
+                Text(isDropTargeted ? "Release to add files" : "Drag to reorder or drop more files here.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var statusMessageView: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(statusColor)
+                .frame(width: 8, height: 8)
+
+            Text(screenState.statusMessage)
+                .font(.subheadline)
+                .foregroundStyle(statusColor)
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+    }
+
+    private var statusColor: Color {
+        switch screenState.statusLevel {
+        case .normal:
+            return .secondary
+        case .warning:
+            return .orange
+        case .error:
+            return .red
         }
     }
 
