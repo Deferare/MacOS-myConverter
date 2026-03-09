@@ -3,10 +3,17 @@ import SwiftUI
 struct SidebarView: View {
     @Binding var selectedTab: ConverterTab
 
+    private let mediaTabs: [ConverterTab] = [.video, .audio, .image]
+    private let appTabs: [ConverterTab] = [.about]
+
     var body: some View {
         List(selection: $selectedTab) {
-            Section("Converter") {
-                sidebarTabItems
+            Section("Media") {
+                sidebarTabItems(for: mediaTabs)
+            }
+
+            Section("App") {
+                sidebarTabItems(for: appTabs)
             }
         }
         .listStyle(.sidebar)
@@ -15,8 +22,8 @@ struct SidebarView: View {
     }
 
     @ViewBuilder
-    private var sidebarTabItems: some View {
-        ForEach(ConverterTab.allCases) { tab in
+    private func sidebarTabItems(for tabs: [ConverterTab]) -> some View {
+        ForEach(tabs) { tab in
             Label(tab.title, systemImage: tab.systemImage)
                 .font(.body.weight(.medium))
                 .padding(.vertical, 2)
