@@ -10,90 +10,133 @@ extension ContentViewModel {
         )
     }
 
-    func updateSelectedOptionIfNeeded<Option: Equatable>(
+    private func preferredOptionIfNeeded<Option: Equatable>(
+        current selection: Option,
         options: [Option],
-        selectedOptionKeyPath: ReferenceWritableKeyPath<ContentViewModel, Option>,
         preferredOption: ([Option]) -> Option?
-    ) {
-        let selected = self[keyPath: selectedOptionKeyPath]
-        guard !options.contains(selected),
-              let preferred = preferredOption(options) else {
-            return
-        }
-        self[keyPath: selectedOptionKeyPath] = preferred
-    }
-
-    func resetSelectedOptionIfNeeded<Option: Equatable>(
-        _ keyPath: ReferenceWritableKeyPath<ContentViewModel, Option>,
-        to fallback: Option
-    ) {
-        guard self[keyPath: keyPath] != fallback else { return }
-        self[keyPath: keyPath] = fallback
+    ) -> Option? {
+        guard !options.contains(selection) else { return selection }
+        return preferredOption(options)
     }
 
     func refreshVideoCodecOptions() {
         let format = selectedOutputFormat
-        availableVideoEncoders = VideoConversionEngine.availableVideoEncoders(for: format)
-        availableAudioEncoders = format.supportsAudioTrack
+        let resolvedVideoEncoders = VideoConversionEngine.availableVideoEncoders(for: format)
+        let resolvedAudioEncoders = format.supportsAudioTrack
             ? VideoConversionEngine.availableAudioEncoders(for: format)
             : []
+        let resolvedVideoEncoderOptions = resolvedOptions(resolvedVideoEncoders) {
+            format.avFileType == nil ? [] : [.auto]
+        }
+        let resolvedAudioEncoderOptions = format.supportsAudioTrack
+            ? resolvedOptions(resolvedAudioEncoders) {
+                format.avFileType == nil ? [] : [.auto]
+            }
+            : []
 
-        updateSelectedOptionIfNeeded(
-            options: videoEncoderOptions,
-            selectedOptionKeyPath: \.selectedVideoEncoder,
-            preferredOption: ContentViewModelSupport.preferredVideoEncoder(from:)
-        )
-
-        if format.supportsAudioTrack {
-            updateSelectedOptionIfNeeded(
-                options: audioEncoderOptions,
-                selectedOptionKeyPath: \.selectedAudioEncoder,
-                preferredOption: ContentViewModelSupport.preferredAudioEncoder(from:)
-            )
+        updateState(\.videoRuntimeState) { state in
+            state.availableVideoEncoders = resolvedVideoEncoders
+            state.availableAudioEncoders = resolvedAudioEncoders
         }
 
-        normalizeVideoOptionDependencies()
+        updateState(\.videoOptionsState) { state in
+            if let preferredVideoEncoder = preferredOptionIfNeeded(
+                current: state.selectedVideoEncoder,
+                options: resolvedVideoEncoderOptions,
+                preferredOption: ContentViewModelSupport.preferredVideoEncoder(from:)
+            ) {
+                state.selectedVideoEncoder = preferredVideoEncoder
+            }
+
+            if format.supportsAudioTrack,
+               let preferredAudioEncoder = preferredOptionIfNeeded(
+                   current: state.selectedAudioEncoder,
+                   options: resolvedAudioEncoderOptions,
+                   preferredOption: ContentViewModelSupport.preferredAudioEncoder(from:)
+               ) {
+                state.selectedAudioEncoder = preferredAudioEncoder
+            }
+
+            if !state.selectedVideoEncoder.supportsVideoBitRate {
+                state.selectedVideoBitRate = .auto
+            }
+
+            guard format.supportsAudioTrack else {
+                state.selectedAudioEncoder = .auto
+                state.selectedAudioMode = .auto
+                state.selectedAudioBitRate = .auto
+                return
+            }
+
+            if !state.selectedAudioEncoder.supportsAudioBitRate {
+                state.selectedAudioBitRate = .auto
+            }
+        }
     }
 
     func refreshAudioCodecOptions() {
         let format = selectedAudioOutputFormat
-        availableAudioOutputEncoders = VideoConversionEngine.availableAudioEncoders(for: format)
+        let resolvedEncoders = VideoConversionEngine.availableAudioEncoders(for: format)
+        let resolvedEncoderOptions = resolvedOptions(resolvedEncoders) {
+            if audioSourceURL == nil && format.allowsFFmpegAutomaticAudioCodec {
+                return [.auto]
+            }
+            return []
+        }
 
-        updateSelectedOptionIfNeeded(
-            options: audioOutputEncoderOptions,
-            selectedOptionKeyPath: \.selectedAudioOutputEncoder,
-            preferredOption: { ContentViewModelSupport.preferredAudioOutputEncoder(for: format, from: $0) }
-        )
+        updateState(\.audioRuntimeState) { state in
+            state.availableOutputEncoders = resolvedEncoders
+        }
 
-        normalizeAudioOptionDependencies()
+        updateState(\.audioOptionsState) { state in
+            if let preferredEncoder = preferredOptionIfNeeded(
+                current: state.selectedOutputEncoder,
+                options: resolvedEncoderOptions,
+                preferredOption: { ContentViewModelSupport.preferredAudioOutputEncoder(for: format, from: $0) }
+            ) {
+                state.selectedOutputEncoder = preferredEncoder
+            }
+
+            if !state.selectedOutputEncoder.supportsAudioBitRate {
+                state.selectedOutputBitRate = .auto
+            }
+        }
     }
 
     func normalizeVideoOptionDependencies() {
-        if !selectedVideoEncoder.supportsVideoBitRate {
-            resetSelectedOptionIfNeeded(\.selectedVideoBitRate, to: .auto)
-        }
+        let format = selectedOutputFormat
+        updateState(\.videoOptionsState) { state in
+            if !state.selectedVideoEncoder.supportsVideoBitRate {
+                state.selectedVideoBitRate = .auto
+            }
 
-        if !shouldShowAudioSettings {
-            resetSelectedOptionIfNeeded(\.selectedAudioEncoder, to: .auto)
-            resetSelectedOptionIfNeeded(\.selectedAudioMode, to: .auto)
-            resetSelectedOptionIfNeeded(\.selectedAudioBitRate, to: .auto)
-            return
-        }
+            guard format.supportsAudioTrack else {
+                state.selectedAudioEncoder = .auto
+                state.selectedAudioMode = .auto
+                state.selectedAudioBitRate = .auto
+                return
+            }
 
-        if !selectedAudioEncoder.supportsAudioBitRate {
-            resetSelectedOptionIfNeeded(\.selectedAudioBitRate, to: .auto)
+            if !state.selectedAudioEncoder.supportsAudioBitRate {
+                state.selectedAudioBitRate = .auto
+            }
         }
     }
 
     func normalizeAudioOptionDependencies() {
-        updateSelectedOptionIfNeeded(
-            options: audioOutputEncoderOptions,
-            selectedOptionKeyPath: \.selectedAudioOutputEncoder,
-            preferredOption: preferredAudioOutputEncoderOption(from:)
-        )
+        let encoderOptions = audioOutputEncoderOptions
+        updateState(\.audioOptionsState) { state in
+            if let preferredEncoder = preferredOptionIfNeeded(
+                current: state.selectedOutputEncoder,
+                options: encoderOptions,
+                preferredOption: preferredAudioOutputEncoderOption(from:)
+            ) {
+                state.selectedOutputEncoder = preferredEncoder
+            }
 
-        if !selectedAudioOutputEncoder.supportsAudioBitRate {
-            resetSelectedOptionIfNeeded(\.selectedAudioOutputBitRate, to: .auto)
+            if !state.selectedOutputEncoder.supportsAudioBitRate {
+                state.selectedOutputBitRate = .auto
+            }
         }
     }
 }

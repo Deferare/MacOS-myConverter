@@ -21,10 +21,8 @@ extension ContentViewModel {
         let clamped = clampedProgress(rawProgress)
         let current = self[keyPath: keyPath]
         guard current != clamped else { return }
-
-        let shouldForceUpdate = clamped == 0 || clamped == 1
-        guard shouldForceUpdate || abs(current - clamped) >= 0.002 else { return }
         self[keyPath: keyPath] = clamped
+        PerformanceSignpost.event("ProgressPublish")
     }
 
     func normalizedBatchProgress(

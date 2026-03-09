@@ -13,7 +13,7 @@ struct UnifiedFileRowView: View, Equatable {
         static let completionAccessoryOffset: CGFloat = 12
         static let completionAccessoryRevealDelayNanoseconds: UInt64 = 180_000_000
         static let visibilityTransitionAnimation = Animation.spring(response: 0.24, dampingFraction: 0.86)
-        static let progressAnimationDuration: Double = 0.12
+        static let progressAnimationDuration: Double = 0.08
     }
 
     struct StatusAppearance {

@@ -1,12 +1,12 @@
 import Foundation
 
 protocol MediaRuntimeStateContainer {
-    associatedtype Format
+    associatedtype Format: Equatable
     var media: ContentViewModel.MediaRuntimeState<Format> { get set }
 }
 
 extension ContentViewModel {
-    struct MediaRuntimeState<Format> {
+    struct MediaRuntimeState<Format: Equatable>: Equatable {
         var sourceURL: URL?
         var queuedSourceURLs: [URL] = []
         var convertedURL: URL?
@@ -28,7 +28,7 @@ extension ContentViewModel {
         }
     }
 
-    struct VideoRuntimeState {
+    struct VideoRuntimeState: Equatable {
         var media = MediaRuntimeState(
             availableOutputFormats: ContentViewModelSupport.placeholderVideoFormats()
         )
@@ -40,7 +40,7 @@ extension ContentViewModel {
         )
     }
 
-    struct ImageRuntimeState {
+    struct ImageRuntimeState: Equatable {
         var media = MediaRuntimeState(
             availableOutputFormats: ContentViewModelSupport.placeholderImageFormats()
         )
@@ -48,7 +48,7 @@ extension ContentViewModel {
         var sourceHasAlpha = false
     }
 
-    struct AudioRuntimeState {
+    struct AudioRuntimeState: Equatable {
         var media = MediaRuntimeState(
             availableOutputFormats: ContentViewModelSupport.placeholderAudioFormats()
         )
@@ -57,7 +57,7 @@ extension ContentViewModel {
         )
     }
 
-    struct VideoOptionsState {
+    struct VideoOptionsState: Equatable {
         var selectedOutputFormat: VideoFormatOption = ContentViewModelSupport.defaultVideoFormat()
         var selectedVideoEncoder: VideoEncoderOption = .h264GPU
         var selectedResolution: ResolutionOption = .original
@@ -71,7 +71,7 @@ extension ContentViewModel {
         var selectedAudioBitRate: AudioBitRateOption = .auto
     }
 
-    struct ImageOptionsState {
+    struct ImageOptionsState: Equatable {
         var selectedOutputFormat = ImageFormatOption.fromImageIOTypeIdentifier("public.png")
         var selectedResolution: ResolutionOption = .original
         var selectedQuality: ImageQualityOption = .high
@@ -79,7 +79,7 @@ extension ContentViewModel {
         var preserveAnimation = true
     }
 
-    struct AudioOptionsState {
+    struct AudioOptionsState: Equatable {
         var selectedOutputFormat: AudioFormatOption = ContentViewModelSupport.defaultAudioFormat()
         var selectedOutputEncoder: AudioEncoderOption = .aac
         var selectedOutputMode: AudioModeOption = .auto

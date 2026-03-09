@@ -1,7 +1,7 @@
 import Foundation
 
 extension ContentViewModel {
-    struct ConverterScreenState {
+    struct ConverterScreenState: Equatable {
         let statusMessage: String
         let statusLevel: ConversionStatusLevel
         let progress: Double

@@ -67,12 +67,11 @@ extension ContentViewModel {
                 return formats
             },
             applyAdditionalPlaceholderState: { viewModel in
-                viewModel.availableVideoEncoders = ContentViewModelSupport.placeholderVideoEncoders(
-                    for: viewModel.selectedOutputFormat
-                )
-                viewModel.availableAudioEncoders = ContentViewModelSupport.placeholderVideoAudioEncoders(
-                    for: viewModel.selectedOutputFormat
-                )
+                let format = viewModel.selectedOutputFormat
+                viewModel.updateState(\.videoRuntimeState) { state in
+                    state.availableVideoEncoders = ContentViewModelSupport.placeholderVideoEncoders(for: format)
+                    state.availableAudioEncoders = ContentViewModelSupport.placeholderVideoAudioEncoders(for: format)
+                }
                 viewModel.normalizeVideoOptionDependencies()
             },
             postApplyWhenWarmed: { $0.refreshVideoCodecOptions() }
@@ -103,10 +102,12 @@ extension ContentViewModel {
                 return formats
             },
             applyAdditionalPlaceholderState: { viewModel in
-                viewModel.availableAudioOutputEncoders =
-                    ContentViewModelSupport.placeholderAudioOutputEncoders(
-                        for: viewModel.selectedAudioOutputFormat
+                let format = viewModel.selectedAudioOutputFormat
+                viewModel.updateState(\.audioRuntimeState) { state in
+                    state.availableOutputEncoders = ContentViewModelSupport.placeholderAudioOutputEncoders(
+                        for: format
                     )
+                }
                 viewModel.normalizeAudioOptionDependencies()
             },
             postApplyWhenWarmed: { $0.refreshAudioCodecOptions() }
@@ -119,16 +120,6 @@ extension ContentViewModel {
 
     func applyPlaceholderCapabilityState() {
         MediaKind.allCases.forEach { applyPlaceholderCapabilities(for: $0) }
-    }
-
-    func applyAvailableOutputFormats<Format>(
-        _ formats: [Format],
-        using descriptor: OutputFormatDescriptor<Format>,
-        postApply: () -> Void = {}
-    ) {
-        setOutputFormatValue(using: descriptor, \.availableFormats, to: formats)
-        ensureSelectedOutputFormatIsAvailable(using: descriptor)
-        postApply()
     }
 
     func applyWarmedOutputFormatsIfIdle<Format>(
@@ -150,6 +141,10 @@ extension ContentViewModel {
         capabilityBootstrapDescriptor(for: kind).applyPlaceholder(self)
     }
 
+    func markCapabilityBootstrapNeedsRefresh(for kinds: [MediaKind]) {
+        capabilityWarmState.markNeedsWarm(for: uniqueMediaKinds(kinds))
+    }
+
     func scheduleCapabilityBootstrap(for kind: MediaKind) {
         scheduleCapabilityBootstrap(for: [kind])
     }
@@ -157,12 +152,26 @@ extension ContentViewModel {
     func scheduleCapabilityBootstrap(for kinds: [MediaKind]) {
         let requestedKinds = uniqueMediaKinds(kinds)
         guard !requestedKinds.isEmpty else { return }
+        let resolvedFFmpegPath = FFmpegBinaryLocator.findPath()
+        capabilityWarmState.invalidateIfNeeded(for: resolvedFFmpegPath)
+        let pendingKinds = capabilityWarmState.pendingKinds(in: requestedKinds)
+        guard !pendingKinds.isEmpty else {
+            PerformanceSignpost.event(
+                "CapabilityBootstrapSkip",
+                message: pendingKindsDescription(for: requestedKinds)
+            )
+            return
+        }
 
         cancelTask(&taskState.capabilityBootstrapTask)
+        PerformanceSignpost.event(
+            "CapabilityBootstrapSchedule",
+            message: pendingKindsDescription(for: pendingKinds)
+        )
 
         taskState.capabilityBootstrapTask = Task { [weak self] in
             guard let self else { return }
-            let warmDefaultCapabilities = requestedKinds.map {
+            let warmDefaultCapabilities = pendingKinds.map {
                 self.capabilityBootstrapDescriptor(for: $0).warmDefaultCapabilities
             }
 
@@ -188,6 +197,11 @@ extension ContentViewModel {
 
             guard !Task.isCancelled else { return }
             applyWarmedDefaultCapabilitiesIfNeeded(warmed)
+            capabilityWarmState.markWarmed(pendingKinds, ffmpegPath: resolvedFFmpegPath)
+            PerformanceSignpost.event(
+                "CapabilityBootstrapApply",
+                message: pendingKindsDescription(for: pendingKinds)
+            )
             taskState.capabilityBootstrapTask = nil
         }
     }
@@ -206,5 +220,9 @@ extension ContentViewModel {
         warmedCapabilities.forEach {
             capabilityBootstrapDescriptor(for: $0.kind).applyWarmedIfIdle(self, $0)
         }
+    }
+
+    private func pendingKindsDescription(for kinds: [MediaKind]) -> String {
+        kinds.map(\.rawValue).joined(separator: ",")
     }
 }

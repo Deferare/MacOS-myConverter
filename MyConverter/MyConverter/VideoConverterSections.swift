@@ -1,25 +1,32 @@
 import SwiftUI
 
-struct VideoConverterFormSectionView: View {
-    @ObservedObject var viewModel: ContentViewModel
+struct VideoConverterFormSectionView: View, Equatable {
+    let state: ContentViewModel.VideoFormPresentationState
+    let bindings: ContentViewModel.VideoFormBindings
+
+    static func == (lhs: VideoConverterFormSectionView, rhs: VideoConverterFormSectionView) -> Bool {
+        lhs.state == rhs.state
+    }
 
     var body: some View {
+        let _ = PerformanceSignpost.event("VideoFormRender")
+
         ConverterFormSections(
-            isConverting: viewModel.isConverting
+            isConverting: state.isConverting
         ) {
             MenuPicker(
                 "Output Format",
-                selection: $viewModel.selectedOutputFormat,
-                options: viewModel.outputFormatOptions,
+                selection: bindings.selectedOutputFormat,
+                options: state.outputFormatOptions,
                 disabledWhenEmpty: true,
                 label: { "\($0.displayName) (.\($0.fileExtension))" }
             )
 
-            if viewModel.shouldShowVideoEncoderOption {
+            if state.shouldShowVideoEncoderOption {
                 MenuPicker(
                     "Video Encoder",
-                    selection: $viewModel.selectedVideoEncoder,
-                    options: viewModel.videoEncoderOptions,
+                    selection: bindings.selectedVideoEncoder,
+                    options: state.videoEncoderOptions,
                     disabledWhenEmpty: true,
                     label: { $0.rawValue }
                 )
@@ -27,59 +34,59 @@ struct VideoConverterFormSectionView: View {
 
             MenuPicker(
                 "Resolution",
-                selection: $viewModel.selectedResolution,
+                selection: bindings.selectedResolution,
                 options: Array(ResolutionOption.allCases),
                 label: { $0.rawValue }
             )
 
             MenuPicker(
                 "Frame Rate",
-                selection: $viewModel.selectedFrameRate,
+                selection: bindings.selectedFrameRate,
                 options: Array(FrameRateOption.allCases),
                 label: { $0.rawValue }
             )
 
-            if viewModel.shouldShowGIFPlaybackSpeedOption {
+            if state.shouldShowGIFPlaybackSpeedOption {
                 MenuPicker(
                     "Playback Speed",
-                    selection: $viewModel.selectedGIFPlaybackSpeed,
+                    selection: bindings.selectedGIFPlaybackSpeed,
                     options: Array(GIFPlaybackSpeedOption.allCases),
                     label: { $0.rawValue }
                 )
             }
 
-            if viewModel.shouldShowVideoBitRateOption {
+            if state.shouldShowVideoBitRateOption {
                 MenuPicker(
                     "Video Bit Rate",
-                    selection: $viewModel.selectedVideoBitRate,
+                    selection: bindings.selectedVideoBitRate,
                     options: Array(VideoBitRateOption.allCases),
                     label: { $0.rawValue }
                 )
             }
 
-            if viewModel.shouldShowVideoBitRateOption && viewModel.selectedVideoBitRate == .custom {
+            if state.shouldShowVideoBitRateOption && state.selectedVideoBitRate == .custom {
                 ConverterTextFieldRow(
                     "Custom Video Bit Rate",
                     prompt: "Custom Kbps (e.g. 5000)",
-                    text: $viewModel.customVideoBitRate
+                    text: bindings.customVideoBitRate
                 )
             }
 
-            if viewModel.shouldShowAudioSettings {
+            if state.shouldShowAudioSettings {
                 MenuPicker(
                     "Audio Encoder",
-                    selection: $viewModel.selectedAudioEncoder,
-                    options: viewModel.audioEncoderOptions,
+                    selection: bindings.selectedAudioEncoder,
+                    options: state.audioEncoderOptions,
                     disabledWhenEmpty: true,
                     label: { $0.rawValue }
                 )
 
                 AudioModeAndRatePickers(
-                    modeSelection: $viewModel.selectedAudioMode,
-                    sampleRateSelection: $viewModel.selectedSampleRate,
-                    bitRateSelection: $viewModel.selectedAudioBitRate,
-                    showSampleRate: viewModel.shouldShowAudioSampleRateOption,
-                    showBitRate: viewModel.shouldShowAudioBitRateOption
+                    modeSelection: bindings.selectedAudioMode,
+                    sampleRateSelection: bindings.selectedSampleRate,
+                    bitRateSelection: bindings.selectedAudioBitRate,
+                    showSampleRate: state.shouldShowAudioSampleRateOption,
+                    showBitRate: state.shouldShowAudioBitRateOption
                 )
             }
         }

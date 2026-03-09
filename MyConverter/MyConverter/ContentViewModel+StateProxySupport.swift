@@ -5,6 +5,19 @@ extension ContentViewModel {
         let stateKeyPath: ReferenceWritableKeyPath<ContentViewModel, State>
     }
 
+    func updateState<State: Equatable>(
+        _ stateKeyPath: ReferenceWritableKeyPath<ContentViewModel, State>,
+        mutate: (inout State) -> Void,
+        after updateAction: () -> Void = {}
+    ) {
+        var state = self[keyPath: stateKeyPath]
+        let original = state
+        mutate(&state)
+        guard state != original else { return }
+        self[keyPath: stateKeyPath] = state
+        updateAction()
+    }
+
     func updateState<State, Value: Equatable>(
         _ stateKeyPath: ReferenceWritableKeyPath<ContentViewModel, State>,
         value valueKeyPath: WritableKeyPath<State, Value>,
@@ -60,5 +73,13 @@ extension ContentViewModel {
         after updateAction: () -> Void = {}
     ) {
         updateState(descriptor.stateKeyPath, value: valueKeyPath, to: newValue, after: updateAction)
+    }
+
+    func updateState<State: Equatable>(
+        using descriptor: StateProxyDescriptor<State>,
+        mutate: (inout State) -> Void,
+        after updateAction: () -> Void = {}
+    ) {
+        updateState(descriptor.stateKeyPath, mutate: mutate, after: updateAction)
     }
 }

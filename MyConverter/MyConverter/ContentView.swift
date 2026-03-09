@@ -71,11 +71,31 @@ struct ContentView: View {
 
     private func mediaDetailView(for kind: ContentViewModel.MediaKind) -> some View {
         MediaConverterDetailView(
-            viewModel: viewModel,
             kind: kind,
+            screenState: viewModel.converterScreenState(for: kind),
+            selectedFileListState: viewModel.selectedFileListState(for: kind),
             isDropTargeted: dropTargetBinding(for: kind),
             draggedSelectedFileURL: $draggedSelectedFileURL,
-            fileDropAreaHeight: fileDropAreaHeight
+            fileDropAreaHeight: fileDropAreaHeight,
+            onDrop: { providers in
+                viewModel.handleDrop(providers: providers, for: kind)
+            },
+            onImport: {
+                viewModel.requestFileImport()
+            },
+            onReorder: { draggedURL, targetURL in
+                viewModel.moveSelectedSource(from: draggedURL, to: targetURL, for: kind)
+            },
+            onClear: {
+                viewModel.clearSelectedSource(for: kind)
+            },
+            onPrimaryAction: {
+                if viewModel.converterScreenState(for: kind).isConverting {
+                    viewModel.cancelConversion(for: kind)
+                } else {
+                    viewModel.startConversion(for: kind)
+                }
+            }
         ) {
             mediaFormSections(for: kind)
         }
@@ -85,11 +105,23 @@ struct ContentView: View {
     private func mediaFormSections(for kind: ContentViewModel.MediaKind) -> some View {
         switch kind {
         case .video:
-            VideoConverterFormSectionView(viewModel: viewModel)
+            VideoConverterFormSectionView(
+                state: viewModel.videoFormPresentationState(),
+                bindings: viewModel.videoFormBindings()
+            )
+            .equatable()
         case .image:
-            ImageConverterFormSectionView(viewModel: viewModel)
+            ImageConverterFormSectionView(
+                state: viewModel.imageFormPresentationState(),
+                bindings: viewModel.imageFormBindings()
+            )
+            .equatable()
         case .audio:
-            AudioConverterFormSectionView(viewModel: viewModel)
+            AudioConverterFormSectionView(
+                state: viewModel.audioFormPresentationState(),
+                bindings: viewModel.audioFormBindings()
+            )
+            .equatable()
         }
     }
 

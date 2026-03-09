@@ -227,17 +227,71 @@ extension ContentViewModel {
         postSelectionUpdate: () -> Void = {},
         persistSettings: () -> Void
     ) {
-        if let first = resolvedFormats.first,
-           !resolvedFormats.contains(where: {
-               formatDescriptor.formatNormalizedID($0) ==
-                   formatDescriptor.formatNormalizedID(self[keyPath: formatDescriptor.selectedFormat])
-           }) {
-            self[keyPath: formatDescriptor.selectedFormat] = first
+        let selectedFormat = outputFormatValue(using: formatDescriptor, \.selectedFormat)
+        let resolvedSelection = resolvedSelectedFormat(
+            current: selectedFormat,
+            options: resolvedFormats,
+            formatNormalizedID: formatDescriptor.formatNormalizedID,
+            preferredSelection: formatDescriptor.preferredSelection
+        )
+
+        switch formatDescriptor.kind {
+        case .video:
+            if let selected = resolvedSelection as? VideoFormatOption {
+                updateState(\.videoOptionsState) { state in
+                    state.selectedOutputFormat = selected
+                }
+            }
+        case .image:
+            if let selected = resolvedSelection as? ImageFormatOption {
+                updateState(\.imageOptionsState) { state in
+                    state.selectedOutputFormat = selected
+                }
+            }
+        case .audio:
+            if let selected = resolvedSelection as? AudioFormatOption {
+                updateState(\.audioOptionsState) { state in
+                    state.selectedOutputFormat = selected
+                }
+            }
         }
 
-        ensureSelectedOutputFormatIsAvailable(using: formatDescriptor)
         postSelectionUpdate()
         persistSettings()
+    }
+
+    func applySourceAnalysisResolution<Format>(
+        for kind: MediaKind,
+        resolvedFormats: [Format],
+        warningMessage: String?,
+        errorMessage: String?
+    ) {
+        switch kind {
+        case .video:
+            guard let typedFormats = resolvedFormats as? [VideoFormatOption] else { return }
+            updateState(\.videoRuntimeState) { state in
+                state.media.isAnalyzingSource = false
+                state.media.availableOutputFormats = typedFormats
+                state.media.sourceCompatibilityWarningMessage = warningMessage
+                state.media.sourceCompatibilityErrorMessage = errorMessage
+            }
+        case .image:
+            guard let typedFormats = resolvedFormats as? [ImageFormatOption] else { return }
+            updateState(\.imageRuntimeState) { state in
+                state.media.isAnalyzingSource = false
+                state.media.availableOutputFormats = typedFormats
+                state.media.sourceCompatibilityWarningMessage = warningMessage
+                state.media.sourceCompatibilityErrorMessage = errorMessage
+            }
+        case .audio:
+            guard let typedFormats = resolvedFormats as? [AudioFormatOption] else { return }
+            updateState(\.audioRuntimeState) { state in
+                state.media.isAnalyzingSource = false
+                state.media.availableOutputFormats = typedFormats
+                state.media.sourceCompatibilityWarningMessage = warningMessage
+                state.media.sourceCompatibilityErrorMessage = errorMessage
+            }
+        }
     }
 
     func aggregateSourceCapabilities<Capability: Sendable, Format>(
@@ -352,17 +406,22 @@ extension ContentViewModel {
             guard selectedSourceIDs() == expectedSourceIDs else { return }
 
             let resolvedFormats = deduplicatedAndSorted(aggregated.commonFormats)
-            self[keyPath: state.isAnalyzing] = false
-            self[keyPath: state.availableFormats] = resolvedFormats
-            self[keyPath: state.warningMessage] = self.joinedCapabilityMessages(aggregated.warnings)
-
-            if let joinedErrors = self.joinedCapabilityMessages(aggregated.errors) {
-                self[keyPath: state.errorMessage] = joinedErrors
+            let joinedWarnings = self.joinedCapabilityMessages(aggregated.warnings)
+            let joinedErrors: String?
+            if let resolvedErrors = self.joinedCapabilityMessages(aggregated.errors) {
+                joinedErrors = resolvedErrors
             } else if selection.count > 1 && resolvedFormats.isEmpty {
-                self[keyPath: state.errorMessage] = noCommonFormatsMessage
+                joinedErrors = noCommonFormatsMessage
             } else {
-                self[keyPath: state.errorMessage] = nil
+                joinedErrors = nil
             }
+
+            self.applySourceAnalysisResolution(
+                for: state.kind,
+                resolvedFormats: resolvedFormats,
+                warningMessage: joinedWarnings,
+                errorMessage: joinedErrors
+            )
 
             onFormatsResolved(resolvedFormats)
         }

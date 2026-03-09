@@ -2,6 +2,7 @@ import Foundation
 
 extension ContentViewModel {
     struct OutputFormatDescriptor<Format> {
+        let kind: MediaKind
         let sourceURL: ReferenceWritableKeyPath<ContentViewModel, URL?>
         let availableFormats: ReferenceWritableKeyPath<ContentViewModel, [Format]>
         let selectedFormat: ReferenceWritableKeyPath<ContentViewModel, Format>
@@ -13,6 +14,7 @@ extension ContentViewModel {
     }
 
     func makeOutputFormatDescriptor<Format>(
+        kind: MediaKind,
         sourceURL: ReferenceWritableKeyPath<ContentViewModel, URL?>,
         availableFormats: ReferenceWritableKeyPath<ContentViewModel, [Format]>,
         selectedFormat: ReferenceWritableKeyPath<ContentViewModel, Format>,
@@ -23,6 +25,7 @@ extension ContentViewModel {
         preferredSelection: @escaping ([Format]) -> Format?
     ) -> OutputFormatDescriptor<Format> {
         OutputFormatDescriptor(
+            kind: kind,
             sourceURL: sourceURL,
             availableFormats: availableFormats,
             selectedFormat: selectedFormat,
@@ -110,8 +113,22 @@ extension ContentViewModel {
         self[keyPath: selectedFormatKeyPath] = preferredFormat
     }
 
+    func resolvedSelectedFormat<Format>(
+        current: Format,
+        options: [Format],
+        formatNormalizedID: (Format) -> String,
+        preferredSelection: ([Format]) -> Format?
+    ) -> Format? {
+        guard !options.isEmpty else { return nil }
+        if options.contains(where: { formatNormalizedID($0) == formatNormalizedID(current) }) {
+            return current
+        }
+        return preferredSelection(options)
+    }
+
     func videoOutputFormatDescriptor() -> OutputFormatDescriptor<VideoFormatOption> {
         makeOutputFormatDescriptor(
+            kind: .video,
             sourceURL: \.sourceURL,
             availableFormats: \.availableOutputFormats,
             selectedFormat: \.selectedOutputFormat,
@@ -125,6 +142,7 @@ extension ContentViewModel {
 
     func imageOutputFormatDescriptor() -> OutputFormatDescriptor<ImageFormatOption> {
         makeOutputFormatDescriptor(
+            kind: .image,
             sourceURL: \.imageSourceURL,
             availableFormats: \.availableImageOutputFormats,
             selectedFormat: \.selectedImageOutputFormat,
@@ -138,6 +156,7 @@ extension ContentViewModel {
 
     func audioOutputFormatDescriptor() -> OutputFormatDescriptor<AudioFormatOption> {
         makeOutputFormatDescriptor(
+            kind: .audio,
             sourceURL: \.audioSourceURL,
             availableFormats: \.availableAudioOutputFormats,
             selectedFormat: \.selectedAudioOutputFormat,
@@ -212,6 +231,54 @@ extension ContentViewModel {
             formatNormalizedID: descriptor.formatNormalizedID,
             preferredSelection: descriptor.preferredSelection
         )
+    }
+
+    func applyAvailableOutputFormats<Format>(
+        _ formats: [Format],
+        using descriptor: OutputFormatDescriptor<Format>,
+        postApply: () -> Void = {}
+    ) {
+        let resolvedSelection = resolvedSelectedFormat(
+            current: outputFormatValue(using: descriptor, \.selectedFormat),
+            options: formats,
+            formatNormalizedID: descriptor.formatNormalizedID,
+            preferredSelection: descriptor.preferredSelection
+        )
+
+        switch descriptor.kind {
+        case .video:
+            guard let resolvedFormats = formats as? [VideoFormatOption] else { return }
+            updateState(\.videoRuntimeState) { state in
+                state.media.availableOutputFormats = resolvedFormats
+            }
+            if let selected = resolvedSelection as? VideoFormatOption {
+                updateState(\.videoOptionsState) { state in
+                    state.selectedOutputFormat = selected
+                }
+            }
+        case .image:
+            guard let resolvedFormats = formats as? [ImageFormatOption] else { return }
+            updateState(\.imageRuntimeState) { state in
+                state.media.availableOutputFormats = resolvedFormats
+            }
+            if let selected = resolvedSelection as? ImageFormatOption {
+                updateState(\.imageOptionsState) { state in
+                    state.selectedOutputFormat = selected
+                }
+            }
+        case .audio:
+            guard let resolvedFormats = formats as? [AudioFormatOption] else { return }
+            updateState(\.audioRuntimeState) { state in
+                state.media.availableOutputFormats = resolvedFormats
+            }
+            if let selected = resolvedSelection as? AudioFormatOption {
+                updateState(\.audioOptionsState) { state in
+                    state.selectedOutputFormat = selected
+                }
+            }
+        }
+
+        postApply()
     }
 
     func applyStoredSourceSettings<Format>(

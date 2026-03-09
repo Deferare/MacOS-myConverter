@@ -1,37 +1,44 @@
 import SwiftUI
 
-struct AudioConverterFormSectionView: View {
-    @ObservedObject var viewModel: ContentViewModel
+struct AudioConverterFormSectionView: View, Equatable {
+    let state: ContentViewModel.AudioFormPresentationState
+    let bindings: ContentViewModel.AudioFormBindings
+
+    static func == (lhs: AudioConverterFormSectionView, rhs: AudioConverterFormSectionView) -> Bool {
+        lhs.state == rhs.state
+    }
 
     var body: some View {
+        let _ = PerformanceSignpost.event("AudioFormRender")
+
         ConverterFormSections(
-            isConverting: viewModel.isAudioConverting
+            isConverting: state.isConverting
         ) {
             MenuPicker(
                 "Output Format",
-                selection: $viewModel.selectedAudioOutputFormat,
-                options: viewModel.audioOutputFormatOptions,
+                selection: bindings.selectedOutputFormat,
+                options: state.outputFormatOptions,
                 disabledWhenEmpty: true,
                 label: { "\($0.displayName) (.\($0.fileExtension))" }
             )
 
             MenuPicker(
                 "Audio Encoder",
-                selection: $viewModel.selectedAudioOutputEncoder,
-                options: viewModel.audioOutputEncoderOptions,
+                selection: bindings.selectedOutputEncoder,
+                options: state.audioOutputEncoderOptions,
                 disabledWhenEmpty: true,
                 label: { $0.rawValue }
             )
 
             AudioModeAndRatePickers(
-                modeSelection: $viewModel.selectedAudioOutputMode,
-                sampleRateSelection: $viewModel.selectedAudioOutputSampleRate,
-                bitRateSelection: $viewModel.selectedAudioOutputBitRate,
-                showSampleRate: viewModel.shouldShowAudioOutputSampleRateOption,
-                showBitRate: viewModel.shouldShowAudioOutputBitRateOption
+                modeSelection: bindings.selectedOutputMode,
+                sampleRateSelection: bindings.selectedOutputSampleRate,
+                bitRateSelection: bindings.selectedOutputBitRate,
+                showSampleRate: state.shouldShowAudioOutputSampleRateOption,
+                showBitRate: state.shouldShowAudioOutputBitRateOption
             )
 
-            if let hint = viewModel.hintMessage(for: .audio) {
+            if let hint = state.hintMessage {
                 ConverterSettingsHint(text: hint)
             }
         }

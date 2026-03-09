@@ -33,6 +33,7 @@ final class ContentViewModel: ObservableObject {
 
     var settingsState = PersistedSettingsState()
     var taskState = TaskState()
+    var capabilityWarmState = CapabilityWarmState()
 
     init() {
         loadPersistedSourceSettingsState()

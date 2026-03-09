@@ -25,7 +25,7 @@ extension ContentViewModel {
         }
     }
 
-    struct SelectedFileListState {
+    struct SelectedFileListState: Equatable {
         let selectedURLs: [URL]
         let outputURLsBySourceID: [String: URL]
         let processedSourceIDs: Set<String>
@@ -97,18 +97,36 @@ extension ContentViewModel {
         resetBatchState: Bool = false,
         applyDefaultSettings: Bool = false
     ) {
-        let descriptor = mediaStateDescriptor(for: kind)
-
         if resetOutputs {
             resetConversionOutputs(for: kind)
         }
 
         resetCompatibilityState(for: kind)
-        setMediaStateValue(using: descriptor, \.isAnalyzing, to: false)
-
-        if resetBatchState {
-            setMediaStateValue(using: descriptor, \.currentBatchIndex, to: 0)
-            setMediaStateValue(using: descriptor, \.totalBatchCount, to: 0)
+        switch kind {
+        case .video:
+            updateState(\.videoRuntimeState) { state in
+                state.media.isAnalyzingSource = false
+                if resetBatchState {
+                    state.media.currentBatchIndex = 0
+                    state.media.totalBatchCount = 0
+                }
+            }
+        case .image:
+            updateState(\.imageRuntimeState) { state in
+                state.media.isAnalyzingSource = false
+                if resetBatchState {
+                    state.media.currentBatchIndex = 0
+                    state.media.totalBatchCount = 0
+                }
+            }
+        case .audio:
+            updateState(\.audioRuntimeState) { state in
+                state.media.isAnalyzingSource = false
+                if resetBatchState {
+                    state.media.currentBatchIndex = 0
+                    state.media.totalBatchCount = 0
+                }
+            }
         }
 
         applyPlaceholderCapabilities(for: kind)
@@ -117,6 +135,7 @@ extension ContentViewModel {
             applyDefaultSourceSettings(for: kind)
         }
 
+        markCapabilityBootstrapNeedsRefresh(for: [kind])
         scheduleCapabilityBootstrap(for: kind)
     }
 
@@ -124,8 +143,23 @@ extension ContentViewModel {
         let descriptor = mediaStateDescriptor(for: kind)
 
         cancelTask(at: descriptor.analysisTask)
-        setMediaStateValue(using: descriptor, \.sourceURL, to: nil)
-        setMediaStateValue(using: descriptor, \.queuedSourceURLs, to: [])
+        switch kind {
+        case .video:
+            updateState(\.videoRuntimeState) { state in
+                state.media.sourceURL = nil
+                state.media.queuedSourceURLs = []
+            }
+        case .image:
+            updateState(\.imageRuntimeState) { state in
+                state.media.sourceURL = nil
+                state.media.queuedSourceURLs = []
+            }
+        case .audio:
+            updateState(\.audioRuntimeState) { state in
+                state.media.sourceURL = nil
+                state.media.queuedSourceURLs = []
+            }
+        }
         restoreIdleMediaState(
             for: kind,
             resetOutputs: true,
@@ -135,23 +169,56 @@ extension ContentViewModel {
     }
 
     func resetConversionOutputs(for kind: MediaKind) {
-        let descriptor = mediaStateDescriptor(for: kind)
-        setMediaStateValue(using: descriptor, \.convertedURL, to: nil)
-        setMediaStateValue(using: descriptor, \.convertedURLs, to: [])
-        setMediaStateValue(using: descriptor, \.convertedOutputURLsBySourceID, to: [:])
-        setMediaStateValue(using: descriptor, \.processedSourceIDs, to: [])
-        setMediaStateValue(using: descriptor, \.conversionErrorMessage, to: nil)
+        switch kind {
+        case .video:
+            updateState(\.videoRuntimeState) { state in
+                state.media.convertedURL = nil
+                state.media.convertedURLs = []
+                state.media.convertedOutputURLsBySourceID = [:]
+                state.media.processedSourceIDs = []
+                state.media.conversionErrorMessage = nil
+            }
+        case .image:
+            updateState(\.imageRuntimeState) { state in
+                state.media.convertedURL = nil
+                state.media.convertedURLs = []
+                state.media.convertedOutputURLsBySourceID = [:]
+                state.media.processedSourceIDs = []
+                state.media.conversionErrorMessage = nil
+            }
+        case .audio:
+            updateState(\.audioRuntimeState) { state in
+                state.media.convertedURL = nil
+                state.media.convertedURLs = []
+                state.media.convertedOutputURLsBySourceID = [:]
+                state.media.processedSourceIDs = []
+                state.media.conversionErrorMessage = nil
+            }
+        }
     }
 
     func resetCompatibilityState(for kind: MediaKind, resetMetadata: Bool = true) {
-        let descriptor = mediaStateDescriptor(for: kind)
-
         if resetMetadata {
-            descriptor.resetCompatibilityMetadata(self)
+            mediaStateDescriptor(for: kind).resetCompatibilityMetadata(self)
         }
 
-        setMediaStateValue(using: descriptor, \.compatibilityErrorMessage, to: nil)
-        setMediaStateValue(using: descriptor, \.compatibilityWarningMessage, to: nil)
+        switch kind {
+        case .video:
+            updateState(\.videoRuntimeState) { state in
+                state.media.sourceCompatibilityErrorMessage = nil
+                state.media.sourceCompatibilityWarningMessage = nil
+            }
+        case .image:
+            updateState(\.imageRuntimeState) { state in
+                state.media.sourceCompatibilityErrorMessage = nil
+                state.media.sourceCompatibilityWarningMessage = nil
+            }
+        case .audio:
+            updateState(\.audioRuntimeState) { state in
+                state.media.sourceCompatibilityErrorMessage = nil
+                state.media.sourceCompatibilityWarningMessage = nil
+            }
+        }
     }
 
     func resetSelectionCompatibilityState(for kind: MediaKind) {

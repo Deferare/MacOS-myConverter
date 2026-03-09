@@ -1,50 +1,57 @@
 import SwiftUI
 
-struct ImageConverterFormSectionView: View {
-    @ObservedObject var viewModel: ContentViewModel
+struct ImageConverterFormSectionView: View, Equatable {
+    let state: ContentViewModel.ImageFormPresentationState
+    let bindings: ContentViewModel.ImageFormBindings
+
+    static func == (lhs: ImageConverterFormSectionView, rhs: ImageConverterFormSectionView) -> Bool {
+        lhs.state == rhs.state
+    }
 
     var body: some View {
+        let _ = PerformanceSignpost.event("ImageFormRender")
+
         ConverterFormSections(
-            isConverting: viewModel.isImageConverting
+            isConverting: state.isConverting
         ) {
             MenuPicker(
                 "Output Format",
-                selection: $viewModel.selectedImageOutputFormat,
-                options: viewModel.imageOutputFormatOptions,
+                selection: bindings.selectedOutputFormat,
+                options: state.outputFormatOptions,
                 disabledWhenEmpty: true,
                 label: { "\($0.displayName) (.\($0.fileExtension))" }
             )
 
             MenuPicker(
                 "Resolution",
-                selection: $viewModel.selectedImageResolution,
+                selection: bindings.selectedResolution,
                 options: Array(ResolutionOption.allCases),
                 label: { $0.rawValue }
             )
 
-            if viewModel.shouldShowImageQualityOption {
+            if state.shouldShowImageQualityOption {
                 MenuPicker(
                     "Quality",
-                    selection: $viewModel.selectedImageQuality,
+                    selection: bindings.selectedQuality,
                     options: Array(ImageQualityOption.allCases),
                     label: { $0.rawValue }
                 )
             }
 
-            if viewModel.shouldShowPNGCompressionOption {
+            if state.shouldShowPNGCompressionOption {
                 MenuPicker(
                     "PNG Compression",
-                    selection: $viewModel.selectedPNGCompressionLevel,
+                    selection: bindings.selectedPNGCompressionLevel,
                     options: Array(PNGCompressionLevelOption.allCases),
                     label: { $0.rawValue }
                 )
             }
 
-            if viewModel.shouldShowPreserveAnimationOption {
-                ConverterToggleRow("Preserve Animation", isOn: $viewModel.preserveImageAnimation)
+            if state.shouldShowPreserveAnimationOption {
+                ConverterToggleRow("Preserve Animation", isOn: bindings.preserveAnimation)
             }
 
-            if let hint = viewModel.hintMessage(for: .image) {
+            if let hint = state.hintMessage {
                 ConverterSettingsHint(text: hint)
             }
         }

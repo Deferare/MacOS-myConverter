@@ -50,6 +50,18 @@ struct LiquidGlassBackdrop: View {
     }
 }
 
+struct MediaKindBackdrop: View, Equatable {
+    let kind: ContentViewModel.MediaKind
+
+    static func == (lhs: MediaKindBackdrop, rhs: MediaKindBackdrop) -> Bool {
+        lhs.kind == rhs.kind
+    }
+
+    var body: some View {
+        LiquidGlassBackdrop(tint: kind.liquidGlassTint)
+    }
+}
+
 private struct ConverterPanelCard<Content: View>: View {
     let content: Content
 
@@ -200,18 +212,26 @@ struct ConverterFormSections<SettingsContent: View>: View {
     }
 }
 
-struct MediaConverterInputSectionView: View {
-    @ObservedObject var viewModel: ContentViewModel
-    let kind: ContentViewModel.MediaKind
+struct MediaConverterInputSectionView: View, Equatable {
+    let state: ContentViewModel.SelectedFileListState
+    let screenState: ContentViewModel.ConverterScreenState
     let isDropTargeted: Bool
     @Binding var draggedSelectedFileURL: URL?
     let fileDropAreaHeight: CGFloat
+    let onImport: () -> Void
+    let onReorder: (_ draggedURL: URL, _ targetURL: URL) -> Void
 
     private let fileSelectionAnimation: Animation = .easeOut(duration: 0.22)
 
+    static func == (lhs: MediaConverterInputSectionView, rhs: MediaConverterInputSectionView) -> Bool {
+        lhs.state == rhs.state &&
+            lhs.screenState == rhs.screenState &&
+            lhs.isDropTargeted == rhs.isDropTargeted &&
+            lhs.fileDropAreaHeight == rhs.fileDropAreaHeight
+    }
+
     var body: some View {
-        let state = viewModel.selectedFileListState(for: kind)
-        let screenState = viewModel.converterScreenState(for: kind)
+        let _ = PerformanceSignpost.event("InputSectionRender")
 
         ConverterInputArea(
             isDropTargeted: isDropTargeted,
@@ -225,12 +245,8 @@ struct MediaConverterInputSectionView: View {
             fileDropAreaHeight: fileDropAreaHeight,
             screenState: screenState,
             draggedSelectedFileURL: $draggedSelectedFileURL,
-            onImport: {
-                viewModel.requestFileImport()
-            },
-            onReorder: { draggedURL, targetURL in
-                viewModel.moveSelectedSource(from: draggedURL, to: targetURL, for: kind)
-            }
+            onImport: onImport,
+            onReorder: onReorder
         )
         .animation(fileSelectionAnimation, value: state.selectedURLs.count)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isDropTargeted)
@@ -238,51 +254,69 @@ struct MediaConverterInputSectionView: View {
 }
 
 struct MediaConverterDetailView<FormSections: View>: View {
-    @ObservedObject var viewModel: ContentViewModel
     let kind: ContentViewModel.MediaKind
+    let screenState: ContentViewModel.ConverterScreenState
+    let selectedFileListState: ContentViewModel.SelectedFileListState
     @Binding var isDropTargeted: Bool
     @Binding var draggedSelectedFileURL: URL?
     let fileDropAreaHeight: CGFloat
+    let onDrop: ([NSItemProvider]) -> Bool
+    let onImport: () -> Void
+    let onReorder: (_ draggedURL: URL, _ targetURL: URL) -> Void
+    let onClear: () -> Void
+    let onPrimaryAction: () -> Void
     let formSections: FormSections
     private let fileSelectionAnimation: Animation = .easeOut(duration: 0.22)
 
     init(
-        viewModel: ContentViewModel,
         kind: ContentViewModel.MediaKind,
+        screenState: ContentViewModel.ConverterScreenState,
+        selectedFileListState: ContentViewModel.SelectedFileListState,
         isDropTargeted: Binding<Bool>,
         draggedSelectedFileURL: Binding<URL?>,
         fileDropAreaHeight: CGFloat,
+        onDrop: @escaping ([NSItemProvider]) -> Bool,
+        onImport: @escaping () -> Void,
+        onReorder: @escaping (_ draggedURL: URL, _ targetURL: URL) -> Void,
+        onClear: @escaping () -> Void,
+        onPrimaryAction: @escaping () -> Void,
         @ViewBuilder formSections: () -> FormSections
     ) {
-        self.viewModel = viewModel
         self.kind = kind
+        self.screenState = screenState
+        self.selectedFileListState = selectedFileListState
         _isDropTargeted = isDropTargeted
         _draggedSelectedFileURL = draggedSelectedFileURL
         self.fileDropAreaHeight = fileDropAreaHeight
+        self.onDrop = onDrop
+        self.onImport = onImport
+        self.onReorder = onReorder
+        self.onClear = onClear
+        self.onPrimaryAction = onPrimaryAction
         self.formSections = formSections()
     }
 
     var body: some View {
-        let screenState = viewModel.converterScreenState(for: kind)
-
         ZStack {
-            LiquidGlassBackdrop(tint: kind.liquidGlassTint)
+            MediaKindBackdrop(kind: kind)
+                .equatable()
                 .ignoresSafeArea()
 
             ConverterDetailContainer(
                 screenState: screenState,
                 isDropTargeted: $isDropTargeted,
-                onDrop: { providers in
-                    viewModel.handleDrop(providers: providers, for: kind)
-                },
+                onDrop: onDrop,
                 inputArea: {
                     MediaConverterInputSectionView(
-                        viewModel: viewModel,
-                        kind: kind,
+                        state: selectedFileListState,
+                        screenState: screenState,
                         isDropTargeted: isDropTargeted,
                         draggedSelectedFileURL: $draggedSelectedFileURL,
-                        fileDropAreaHeight: fileDropAreaHeight
+                        fileDropAreaHeight: fileDropAreaHeight,
+                        onImport: onImport,
+                        onReorder: onReorder
                     )
+                    .equatable()
                 },
                 formSections: {
                     formSections
@@ -306,7 +340,7 @@ struct MediaConverterDetailView<FormSections: View>: View {
                 if !screenState.isConverting {
                     Button {
                         withAnimation(fileSelectionAnimation) {
-                            viewModel.clearSelectedSource(for: kind)
+                            onClear()
                         }
                     } label: {
                         Label("Clear Files", systemImage: "xmark")
@@ -315,16 +349,12 @@ struct MediaConverterDetailView<FormSections: View>: View {
                     .help("Clear Files")
 
                     Button("Add Files", systemImage: "plus") {
-                        viewModel.requestFileImport()
+                        onImport()
                     }
                 }
 
                 Button(screenState.primaryActionTitle) {
-                    if screenState.isConverting {
-                        viewModel.cancelConversion(for: kind)
-                    } else {
-                        viewModel.startConversion(for: kind)
-                    }
+                    onPrimaryAction()
                 }
                 .disabled(!screenState.isConverting && !screenState.canConvert)
             }

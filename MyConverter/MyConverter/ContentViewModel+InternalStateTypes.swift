@@ -13,6 +13,30 @@ extension ContentViewModel {
         let audioStorageKey = "ContentViewModel.AudioSettingsBySource"
     }
 
+    struct CapabilityWarmState {
+        var warmedKinds: Set<MediaKind> = []
+        var ffmpegPath: String?
+
+        mutating func invalidateIfNeeded(for resolvedFFmpegPath: String?) {
+            guard ffmpegPath != resolvedFFmpegPath else { return }
+            ffmpegPath = resolvedFFmpegPath
+            warmedKinds.removeAll()
+        }
+
+        mutating func markNeedsWarm(for kinds: [MediaKind]) {
+            warmedKinds.subtract(kinds)
+        }
+
+        func pendingKinds(in requestedKinds: [MediaKind]) -> [MediaKind] {
+            requestedKinds.filter { !warmedKinds.contains($0) }
+        }
+
+        mutating func markWarmed(_ kinds: [MediaKind], ffmpegPath: String?) {
+            self.ffmpegPath = ffmpegPath
+            warmedKinds.formUnion(kinds)
+        }
+    }
+
     struct TaskState {
         var sourceAnalysisTask: Task<Void, Never>?
         var conversionTask: Task<Void, Never>?
