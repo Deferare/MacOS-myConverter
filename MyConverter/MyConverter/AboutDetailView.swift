@@ -14,13 +14,13 @@ struct AboutDetailView: View {
                 VStack(spacing: 20) {
                     aboutHeroCard
 
+                    DonationSupportSection(donationStore: donationStore)
+
                     AboutInfoSection(
                         onOpenLicenses: {
                             isShowingOpenSourceLicenses = true
                         }
                     )
-
-                    DonationSupportSection(donationStore: donationStore)
 
                     Text("Built with SwiftUI & FFmpeg")
                         .font(.caption2.weight(.medium))
@@ -52,9 +52,7 @@ struct AboutDetailView: View {
                 appIconImage
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .frame(width: 104, height: 104)
-                    .padding(18)
-                    .glassEffect(.regular.interactive(false), in: RoundedRectangle(cornerRadius: 30, style: .continuous))
+                    .frame(width: 140, height: 140)
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text("MyConverter")
