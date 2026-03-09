@@ -304,6 +304,7 @@ struct MediaConverterDetailView<FormSections: View>: View {
             )
         }
         .navigationTitle(kind.converterTitle)
+        .backgroundExtensionEffect()
         .tint(kind.liquidGlassTint)
     }
 }
