@@ -137,9 +137,9 @@ extension ContentViewModel {
         formatDescriptor: OutputFormatDescriptor<Format>,
         postApply: () -> Void = {}
     ) {
-        let mediaDescriptor = mediaStateDescriptor(for: kind)
-        guard self[keyPath: mediaDescriptor.sourceURL] == nil,
-              !self[keyPath: mediaDescriptor.isAnalyzing] else {
+        let descriptor = mediaStateDescriptor(for: kind)
+        guard mediaStateValue(using: descriptor, \.sourceURL) == nil,
+              !mediaStateValue(using: descriptor, \.isAnalyzing) else {
             return
         }
 

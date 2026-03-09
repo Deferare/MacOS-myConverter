@@ -40,8 +40,8 @@ extension ContentViewModel {
         let descriptor = mediaStateDescriptor(for: kind)
 
         return MediaSelectionWorkflowDescriptor(
-            isConversionRunning: self[keyPath: descriptor.isConverting],
-            currentPrimaryURL: self[keyPath: descriptor.sourceURL],
+            isConversionRunning: mediaStateValue(using: descriptor, \.isConverting),
+            currentPrimaryURL: mediaStateValue(using: descriptor, \.sourceURL),
             selectedSourceURLs: selectedSourceURLs(for: kind),
             assignSelection: { selection in
                 self.assignSelection(selection, for: kind)

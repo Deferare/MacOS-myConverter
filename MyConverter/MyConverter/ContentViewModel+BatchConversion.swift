@@ -173,8 +173,8 @@ extension ContentViewModel {
 
         await performMediaBatchConversion(
             canConvert: workflow.canConvert,
-            primarySourceURL: self[keyPath: descriptor.sourceURL],
-            queuedSourceURLs: self[keyPath: descriptor.queuedSourceURLs],
+            primarySourceURL: mediaStateValue(using: descriptor, \.sourceURL),
+            queuedSourceURLs: mediaStateValue(using: descriptor, \.queuedSourceURLs),
             missingSourceLog: workflow.missingSourceLog,
             fileExtension: workflow.fileExtension,
             outputLabel: workflow.outputLabel,

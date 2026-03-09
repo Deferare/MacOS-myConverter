@@ -166,13 +166,6 @@ extension ContentViewModel {
     }
 
     func selectedOutputFormatLabel(for kind: MediaKind) -> String {
-        switch kind {
-        case .video:
-            return "\(selectedOutputFormat.displayName) (.\(selectedOutputFormat.fileExtension))"
-        case .image:
-            return "\(selectedImageOutputFormat.displayName) (.\(selectedImageOutputFormat.fileExtension))"
-        case .audio:
-            return "\(selectedAudioOutputFormat.displayName) (.\(selectedAudioOutputFormat.fileExtension))"
-        }
+        kind.selectedOutputFormatLabel(using: self)
     }
 }

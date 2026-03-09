@@ -40,11 +40,6 @@ extension ContentViewModel {
         let flow: SourceSettingsFlowDescriptor<Settings, Persisted, Format>
     }
 
-    private struct SourceSettingsMessages {
-        let saveFailureContext: String
-        let loadFailureContext: String
-    }
-
     func makeSourceSettingsDescriptor<Settings: Equatable, Persisted: Codable>(
         isApplyingStoredSettings: ReferenceWritableKeyPath<ContentViewModel, Bool>,
         sourceURL: ReferenceWritableKeyPath<ContentViewModel, URL?>,
@@ -114,39 +109,19 @@ extension ContentViewModel {
         )
     }
 
-    private func makeSourceSettingsMessages(for kind: MediaKind) -> SourceSettingsMessages {
-        switch kind {
-        case .video:
-            return SourceSettingsMessages(
-                saveFailureContext: "Failed to persist video settings",
-                loadFailureContext: "Failed to load persisted video settings"
-            )
-        case .image:
-            return SourceSettingsMessages(
-                saveFailureContext: "Failed to persist image settings",
-                loadFailureContext: "Failed to load persisted image settings"
-            )
-        case .audio:
-            return SourceSettingsMessages(
-                saveFailureContext: "Failed to persist audio settings",
-                loadFailureContext: "Failed to load persisted audio settings"
-            )
-        }
-    }
-
     private func videoSourceSettingsStorage() -> SourceSettingsDescriptor<
         VideoConversionSettings,
         PersistedVideoConversionSettings
     > {
-        let messages = makeSourceSettingsMessages(for: .video)
+        let mediaDescriptor = MediaKind.video.descriptor
         return makeSourceSettingsDescriptor(
             isApplyingStoredSettings: \.settingsState.isApplyingVideoSettings,
             sourceURL: \.sourceURL,
             settingsBySourceID: \.settingsState.videoSettingsBySourceID,
             pendingSaveTask: \.taskState.pendingVideoSettingsSaveTask,
             storageKey: settingsState.videoStorageKey,
-            saveFailureContext: messages.saveFailureContext,
-            loadFailureContext: messages.loadFailureContext,
+            saveFailureContext: mediaDescriptor.saveSettingsFailureContext,
+            loadFailureContext: mediaDescriptor.loadSettingsFailureContext,
             mapToPersisted: { PersistedVideoConversionSettings(from: $0) },
             restore: { $0.restoredSettings }
         )
@@ -156,15 +131,15 @@ extension ContentViewModel {
         ImageConversionSettings,
         PersistedImageConversionSettings
     > {
-        let messages = makeSourceSettingsMessages(for: .image)
+        let mediaDescriptor = MediaKind.image.descriptor
         return makeSourceSettingsDescriptor(
             isApplyingStoredSettings: \.settingsState.isApplyingImageSettings,
             sourceURL: \.imageSourceURL,
             settingsBySourceID: \.settingsState.imageSettingsBySourceID,
             pendingSaveTask: \.taskState.pendingImageSettingsSaveTask,
             storageKey: settingsState.imageStorageKey,
-            saveFailureContext: messages.saveFailureContext,
-            loadFailureContext: messages.loadFailureContext,
+            saveFailureContext: mediaDescriptor.saveSettingsFailureContext,
+            loadFailureContext: mediaDescriptor.loadSettingsFailureContext,
             mapToPersisted: { PersistedImageConversionSettings(from: $0) },
             restore: { $0.restoredSettings }
         )
@@ -174,15 +149,15 @@ extension ContentViewModel {
         AudioConversionSettings,
         PersistedAudioConversionSettings
     > {
-        let messages = makeSourceSettingsMessages(for: .audio)
+        let mediaDescriptor = MediaKind.audio.descriptor
         return makeSourceSettingsDescriptor(
             isApplyingStoredSettings: \.settingsState.isApplyingAudioSettings,
             sourceURL: \.audioSourceURL,
             settingsBySourceID: \.settingsState.audioSettingsBySourceID,
             pendingSaveTask: \.taskState.pendingAudioSettingsSaveTask,
             storageKey: settingsState.audioStorageKey,
-            saveFailureContext: messages.saveFailureContext,
-            loadFailureContext: messages.loadFailureContext,
+            saveFailureContext: mediaDescriptor.saveSettingsFailureContext,
+            loadFailureContext: mediaDescriptor.loadSettingsFailureContext,
             mapToPersisted: { PersistedAudioConversionSettings(from: $0) },
             restore: { $0.restoredSettings }
         )

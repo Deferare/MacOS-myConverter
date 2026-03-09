@@ -143,7 +143,7 @@ extension ContentViewModel {
             warningMessage: descriptor.compatibilityWarningMessage,
             errorMessage: descriptor.compatibilityErrorMessage,
             resetForEmptySelection: { viewModel in
-                viewModel[keyPath: descriptor.isAnalyzing] = false
+                viewModel.setMediaStateValue(using: descriptor, \.isAnalyzing, to: false)
                 viewModel[keyPath: availableFormatsKeyPath] = []
                 viewModel.resetCompatibilityState(for: kind)
             }
