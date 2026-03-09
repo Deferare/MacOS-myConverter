@@ -3,11 +3,6 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct UnifiedFileListView: View {
-    private enum Metrics {
-        static let accessoryRevealOffset: CGFloat = 12
-        static let visibilityTransitionAnimation = Animation.spring(response: 0.24, dampingFraction: 0.86)
-    }
-
     private struct RowDescriptor: Identifiable {
         let url: URL
         let order: Int
@@ -30,8 +25,6 @@ struct UnifiedFileListView: View {
     let screenState: ContentViewModel.ConverterScreenState
     @Binding var draggedSelectedFileURL: URL?
     let onImport: () -> Void
-    let onClear: () -> Void
-    let onPrimaryAction: () -> Void
     let onReorder: (_ draggedURL: URL, _ targetURL: URL) -> Void
 
     private let contentTransition: AnyTransition = .identity
@@ -132,56 +125,10 @@ struct UnifiedFileListView: View {
                     .glassEffect(.regular.interactive(false), in: Capsule())
 
                 Spacer()
-
-                GlassEffectContainer(spacing: 8) {
-                    HStack(spacing: 8) {
-                        if !screenState.isConverting {
-                            headerSecondaryActions
-                                .transition(secondaryActionsTransition)
-                        }
-
-                        Button(action: onPrimaryAction) {
-                            Text(screenState.primaryActionTitle)
-                                .frame(minWidth: 56)
-                                .contentTransition(.opacity)
-                        }
-                        .buttonStyle(.glassProminent)
-                        .controlSize(.small)
-                        .disabled(!screenState.isConverting && !screenState.canConvert)
-                        .animation(.easeInOut(duration: 0.18), value: screenState.primaryActionTitle)
-                    }
-                }
             }
-            .animation(visibilityTransitionAnimation, value: screenState.isConverting)
 
             headerDetailRow
         }
-    }
-
-    private var headerSecondaryActions: some View {
-        HStack(spacing: 8) {
-            Button(action: onClear) {
-                Label("Clear Files", systemImage: "xmark")
-                    .labelStyle(.iconOnly)
-            }
-            .buttonStyle(.glass)
-            .controlSize(.small)
-            .tint(.secondary)
-
-            Button(action: onImport) {
-                Label("Add Files", systemImage: "plus")
-            }
-            .buttonStyle(.glass)
-            .controlSize(.small)
-        }
-    }
-
-    private var secondaryActionsTransition: AnyTransition {
-        .offset(x: Metrics.accessoryRevealOffset)
-    }
-
-    private var visibilityTransitionAnimation: Animation {
-        Metrics.visibilityTransitionAnimation
     }
 
     @ViewBuilder

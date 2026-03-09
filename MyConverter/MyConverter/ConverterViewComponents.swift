@@ -158,8 +158,6 @@ struct ConverterInputArea: View {
     let screenState: ContentViewModel.ConverterScreenState
     @Binding var draggedSelectedFileURL: URL?
     let onImport: () -> Void
-    let onClear: () -> Void
-    let onPrimaryAction: () -> Void
     let onReorder: (_ draggedURL: URL, _ targetURL: URL) -> Void
 
     var body: some View {
@@ -176,8 +174,6 @@ struct ConverterInputArea: View {
             screenState: screenState,
             draggedSelectedFileURL: $draggedSelectedFileURL,
             onImport: onImport,
-            onClear: onClear,
-            onPrimaryAction: onPrimaryAction,
             onReorder: onReorder
         )
     }
@@ -231,18 +227,6 @@ struct MediaConverterInputSectionView: View {
             onImport: {
                 viewModel.requestFileImport()
             },
-            onClear: {
-                withAnimation(fileSelectionAnimation) {
-                    viewModel.clearSelectedSource(for: kind)
-                }
-            },
-            onPrimaryAction: {
-                if screenState.isConverting {
-                    viewModel.cancelConversion(for: kind)
-                } else {
-                    viewModel.startConversion(for: kind)
-                }
-            },
             onReorder: { draggedURL, targetURL in
                 viewModel.moveSelectedSource(from: draggedURL, to: targetURL, for: kind)
             }
@@ -259,6 +243,7 @@ struct MediaConverterDetailView<FormSections: View>: View {
     @Binding var draggedSelectedFileURL: URL?
     let fileDropAreaHeight: CGFloat
     let formSections: FormSections
+    private let fileSelectionAnimation: Animation = .easeOut(duration: 0.22)
 
     init(
         viewModel: ContentViewModel,
@@ -304,7 +289,44 @@ struct MediaConverterDetailView<FormSections: View>: View {
             )
         }
         .navigationTitle(kind.converterTitle)
+        .toolbar {
+            converterToolbar(screenState: screenState)
+        }
         .backgroundExtensionEffect()
         .tint(kind.liquidGlassTint)
+    }
+
+    @ToolbarContentBuilder
+    private func converterToolbar(
+        screenState: ContentViewModel.ConverterScreenState
+    ) -> some ToolbarContent {
+        if screenState.selectedFileCount > 0 {
+            ToolbarItemGroup(placement: .primaryAction) {
+                if !screenState.isConverting {
+                    Button {
+                        withAnimation(fileSelectionAnimation) {
+                            viewModel.clearSelectedSource(for: kind)
+                        }
+                    } label: {
+                        Label("Clear Files", systemImage: "xmark")
+                            .labelStyle(.iconOnly)
+                    }
+                    .help("Clear Files")
+
+                    Button("Add Files", systemImage: "plus") {
+                        viewModel.requestFileImport()
+                    }
+                }
+
+                Button(screenState.primaryActionTitle) {
+                    if screenState.isConverting {
+                        viewModel.cancelConversion(for: kind)
+                    } else {
+                        viewModel.startConversion(for: kind)
+                    }
+                }
+                .disabled(!screenState.isConverting && !screenState.canConvert)
+            }
+        }
     }
 }
