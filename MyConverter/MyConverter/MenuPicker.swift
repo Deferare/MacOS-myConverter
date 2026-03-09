@@ -9,14 +9,6 @@ private enum ConverterSettingMetrics {
     static let controlVerticalPadding: CGFloat = 9
     static let minimumControlWidth: CGFloat = 180
     static let maximumControlWidth: CGFloat = 280
-    static let maximumPopoverHeight: CGFloat = 360
-    static let optionRowHeightEstimate: CGFloat = 40
-    static let optionSpacing: CGFloat = 6
-    static let optionListVerticalPadding: CGFloat = 20
-    static let overflowHintBottomPadding: CGFloat = 14
-    static let overflowHintHorizontalPadding: CGFloat = 14
-    static let overflowHintScrollDismissActivationNanoseconds: UInt64 = 250_000_000
-    static let overflowHintHideDelayNanoseconds: UInt64 = 1_800_000_000
 }
 
 struct ConverterSettingRow<Control: View>: View {
@@ -148,37 +140,12 @@ struct ConverterToggleRow: View {
     }
 }
 
-private struct MenuPickerOverflowIndicator: View {
-    var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "chevron.down")
-            Text("Scroll for more")
-            Image(systemName: "chevron.down")
-        }
-        .font(.caption2.weight(.semibold))
-        .foregroundStyle(.secondary)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
-        .background(.ultraThinMaterial, in: Capsule())
-        .overlay(
-            Capsule()
-                .stroke(.white.opacity(0.14), lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.12), radius: 10, y: 5)
-    }
-}
-
 struct MenuPicker<Option: Identifiable & Hashable>: View {
     let title: String
     @Binding var selection: Option
     let options: [Option]
     let disabledWhenEmpty: Bool
     let label: (Option) -> String
-    @State private var isPresentingOptions = false
-    @State private var showsOverflowIndicator = false
-    @State private var canDismissOverflowIndicatorFromScroll = false
-    @State private var hideOverflowIndicatorTask: Task<Void, Never>?
-    @State private var enableScrollDismissTask: Task<Void, Never>?
 
     init(
         _ title: String,
@@ -198,196 +165,29 @@ struct MenuPicker<Option: Identifiable & Hashable>: View {
         disabledWhenEmpty && options.isEmpty
     }
 
-    private var optionContentHeight: CGFloat {
-        let rowCount = CGFloat(options.count)
-        let spacingCount = CGFloat(max(options.count - 1, 0))
-        return
-            (rowCount * ConverterSettingMetrics.optionRowHeightEstimate) +
-            (spacingCount * ConverterSettingMetrics.optionSpacing) +
-            ConverterSettingMetrics.optionListVerticalPadding
-    }
-
-    private var hasScrollableOverflow: Bool {
-        optionContentHeight > ConverterSettingMetrics.maximumPopoverHeight
-    }
-
-    private var popoverHeight: CGFloat {
-        min(optionContentHeight, ConverterSettingMetrics.maximumPopoverHeight)
+    private var pickerOptions: [Option] {
+        guard !options.contains(selection) else { return options }
+        return [selection] + options.filter { $0 != selection }
     }
 
     var body: some View {
         ConverterSettingRow(title) {
-            Button {
-                guard !isDisabled else { return }
-                isPresentingOptions.toggle()
-            } label: {
-                HStack(spacing: 10) {
-                    Text(label(selection))
-                        .font(.subheadline.weight(.medium))
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-
-                    Spacer(minLength: 8)
-
-                    Image(systemName: "chevron.down")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
+            Picker(title, selection: $selection) {
+                ForEach(pickerOptions, id: \.self) { option in
+                    Text(label(option))
+                        .tag(option)
                 }
-                .foregroundStyle(.primary)
-                .padding(.horizontal, ConverterSettingMetrics.controlHorizontalPadding)
-                .padding(.vertical, ConverterSettingMetrics.controlVerticalPadding)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(controlBackground)
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .frame(maxWidth: .infinity, alignment: .trailing)
+            .frame(
+                minWidth: ConverterSettingMetrics.minimumControlWidth,
+                maxWidth: ConverterSettingMetrics.maximumControlWidth,
+                alignment: .trailing
+            )
             .disabled(isDisabled)
             .opacity(isDisabled ? 0.55 : 1)
-            .popover(isPresented: $isPresentingOptions, arrowEdge: .top) {
-                ZStack(alignment: .bottom) {
-                    ScrollView(.vertical, showsIndicators: false) {
-                        LazyVStack(alignment: .leading, spacing: ConverterSettingMetrics.optionSpacing) {
-                            ForEach(options, id: \.self) { option in
-                                Button {
-                                    dismissOverflowIndicator()
-                                    selection = option
-                                    isPresentingOptions = false
-                                } label: {
-                                    HStack(spacing: 12) {
-                                        Text(label(option))
-                                            .font(.subheadline)
-                                            .frame(maxWidth: .infinity, alignment: .leading)
-
-                                        if option == selection {
-                                            Image(systemName: "checkmark")
-                                                .font(.caption.weight(.bold))
-                                                .foregroundStyle(Color.accentColor)
-                                        }
-                                    }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 10)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(optionBackground(isSelected: option == selection))
-                                    .contentShape(Rectangle())
-                                }
-                                .buttonStyle(.plain)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                        }
-                        .padding(10)
-                    }
-                    .onScrollPhaseChange { _, newPhase in
-                        if canDismissOverflowIndicatorFromScroll && newPhase != .idle {
-                            dismissOverflowIndicator()
-                        }
-                    }
-                    .onScrollGeometryChange(for: CGFloat.self) { geometry in
-                        geometry.contentOffset.y
-                    } action: { oldOffset, newOffset in
-                        if canDismissOverflowIndicatorFromScroll && oldOffset != newOffset {
-                            dismissOverflowIndicator()
-                        }
-                    }
-
-                    if hasScrollableOverflow && showsOverflowIndicator {
-                        Button {
-                            dismissOverflowIndicator()
-                        } label: {
-                            MenuPickerOverflowIndicator()
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal, ConverterSettingMetrics.overflowHintHorizontalPadding)
-                        .padding(.bottom, ConverterSettingMetrics.overflowHintBottomPadding)
-                        .transition(
-                            .asymmetric(
-                                insertion: .move(edge: .bottom).combined(with: .opacity),
-                                removal: .opacity
-                            )
-                        )
-                        .accessibilityLabel("Scroll for more")
-                    }
-                }
-                .frame(
-                    minWidth: ConverterSettingMetrics.minimumControlWidth,
-                    maxWidth: ConverterSettingMetrics.maximumControlWidth,
-                    maxHeight: popoverHeight,
-                    alignment: .leading
-                )
-                .onAppear {
-                    presentOverflowIndicatorIfNeeded()
-                }
-                .onDisappear {
-                    resetOverflowIndicator()
-                }
-            }
         }
-    }
-
-    private var controlBackground: some View {
-        RoundedRectangle(cornerRadius: ConverterSettingMetrics.controlCornerRadius, style: .continuous)
-            .fill(.white.opacity(0.07))
-            .overlay(
-                RoundedRectangle(cornerRadius: ConverterSettingMetrics.controlCornerRadius, style: .continuous)
-                    .stroke(.white.opacity(0.10), lineWidth: 1)
-            )
-    }
-
-    private func optionBackground(isSelected: Bool) -> some View {
-        RoundedRectangle(cornerRadius: 12, style: .continuous)
-            .fill(isSelected ? .white.opacity(0.08) : .clear)
-    }
-
-    private func presentOverflowIndicatorIfNeeded() {
-        resetOverflowIndicator()
-
-        guard hasScrollableOverflow else { return }
-
-        withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) {
-            showsOverflowIndicator = true
-        }
-
-        hideOverflowIndicatorTask = Task {
-            try? await Task.sleep(
-                nanoseconds: ConverterSettingMetrics.overflowHintHideDelayNanoseconds
-            )
-
-            guard !Task.isCancelled else { return }
-
-            await MainActor.run {
-                dismissOverflowIndicator()
-            }
-        }
-
-        enableScrollDismissTask = Task {
-            try? await Task.sleep(
-                nanoseconds: ConverterSettingMetrics.overflowHintScrollDismissActivationNanoseconds
-            )
-
-            guard !Task.isCancelled else { return }
-
-            await MainActor.run {
-                canDismissOverflowIndicatorFromScroll = true
-            }
-        }
-    }
-
-    private func dismissOverflowIndicator() {
-        hideOverflowIndicatorTask?.cancel()
-        hideOverflowIndicatorTask = nil
-
-        guard showsOverflowIndicator else { return }
-
-        withAnimation(.easeOut(duration: 0.28)) {
-            showsOverflowIndicator = false
-        }
-    }
-
-    private func resetOverflowIndicator() {
-        hideOverflowIndicatorTask?.cancel()
-        hideOverflowIndicatorTask = nil
-        enableScrollDismissTask?.cancel()
-        enableScrollDismissTask = nil
-        canDismissOverflowIndicatorFromScroll = false
-        showsOverflowIndicator = false
     }
 }
