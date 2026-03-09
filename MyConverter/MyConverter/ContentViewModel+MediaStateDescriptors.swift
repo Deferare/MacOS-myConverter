@@ -321,49 +321,75 @@ extension ContentViewModel {
         }
     }
 
+    func mediaStateValue<Value>(
+        using descriptor: MediaStateDescriptor,
+        _ keyPath: KeyPath<MediaStateDescriptor, ReferenceWritableKeyPath<ContentViewModel, Value>>
+    ) -> Value {
+        self[keyPath: descriptor[keyPath: keyPath]]
+    }
+
+    func setMediaStateValue<Value>(
+        using descriptor: MediaStateDescriptor,
+        _ keyPath: KeyPath<MediaStateDescriptor, ReferenceWritableKeyPath<ContentViewModel, Value>>,
+        to newValue: Value
+    ) {
+        self[keyPath: descriptor[keyPath: keyPath]] = newValue
+    }
+
+    func updateMediaStateValue<Value>(
+        using descriptor: MediaStateDescriptor,
+        _ keyPath: KeyPath<MediaStateDescriptor, ReferenceWritableKeyPath<ContentViewModel, Value>>,
+        _ update: (inout Value) -> Void
+    ) {
+        let stateKeyPath = descriptor[keyPath: keyPath]
+        var value = self[keyPath: stateKeyPath]
+        update(&value)
+        self[keyPath: stateKeyPath] = value
+    }
+
     func currentConversionTask(for kind: MediaKind) -> Task<Void, Never>? {
         let descriptor = mediaStateDescriptor(for: kind)
-        return self[keyPath: descriptor.conversionTask]
+        return mediaStateValue(using: descriptor, \.conversionTask)
     }
 
     func setConversionTask(_ task: Task<Void, Never>?, for kind: MediaKind) {
         let descriptor = mediaStateDescriptor(for: kind)
-        self[keyPath: descriptor.conversionTask] = task
+        setMediaStateValue(using: descriptor, \.conversionTask, to: task)
     }
 
     func setConversionErrorMessage(_ message: String?, for kind: MediaKind) {
         let descriptor = mediaStateDescriptor(for: kind)
-        self[keyPath: descriptor.conversionErrorMessage] = message
+        setMediaStateValue(using: descriptor, \.conversionErrorMessage, to: message)
     }
 
     func prepareConversionStartState(for kind: MediaKind) {
         let descriptor = mediaStateDescriptor(for: kind)
-        self[keyPath: descriptor.isConverting] = true
-        self[keyPath: descriptor.convertedURL] = nil
-        self[keyPath: descriptor.convertedURLs] = []
-        self[keyPath: descriptor.convertedOutputURLsBySourceID] = [:]
-        self[keyPath: descriptor.processedSourceIDs] = []
-        self[keyPath: descriptor.conversionErrorMessage] = nil
-        self[keyPath: descriptor.progress] = 0
+        setMediaStateValue(using: descriptor, \.isConverting, to: true)
+        setMediaStateValue(using: descriptor, \.convertedURL, to: nil)
+        setMediaStateValue(using: descriptor, \.convertedURLs, to: [])
+        setMediaStateValue(using: descriptor, \.convertedOutputURLsBySourceID, to: [:])
+        setMediaStateValue(using: descriptor, \.processedSourceIDs, to: [])
+        setMediaStateValue(using: descriptor, \.conversionErrorMessage, to: nil)
+        setMediaStateValue(using: descriptor, \.progress, to: 0)
     }
 
     func appendConvertedOutput(_ outputURL: URL, from sourceURL: URL, for kind: MediaKind) {
         let descriptor = mediaStateDescriptor(for: kind)
         let sourceID = sourceIdentifier(for: sourceURL)
-        self[keyPath: descriptor.convertedURL] = outputURL
-        var outputs = self[keyPath: descriptor.convertedURLs]
-        outputs.append(outputURL)
-        self[keyPath: descriptor.convertedURLs] = outputs
-        var outputsBySourceID = self[keyPath: descriptor.convertedOutputURLsBySourceID]
-        outputsBySourceID[sourceID] = outputURL
-        self[keyPath: descriptor.convertedOutputURLsBySourceID] = outputsBySourceID
+        setMediaStateValue(using: descriptor, \.convertedURL, to: outputURL)
+        updateMediaStateValue(using: descriptor, \.convertedURLs) {
+            $0.append(outputURL)
+        }
+        updateMediaStateValue(using: descriptor, \.convertedOutputURLsBySourceID) {
+            $0[sourceID] = outputURL
+        }
     }
 
     func markProcessedSource(_ sourceURL: URL, for kind: MediaKind) {
         let descriptor = mediaStateDescriptor(for: kind)
-        var processedSourceIDs = self[keyPath: descriptor.processedSourceIDs]
-        processedSourceIDs.insert(sourceIdentifier(for: sourceURL))
-        self[keyPath: descriptor.processedSourceIDs] = processedSourceIDs
+        updateMediaStateValue(using: descriptor, \.processedSourceIDs) {
+            $0.insert(sourceIdentifier(for: sourceURL))
+        }
     }
 
     func mediaStateDescriptor(for kind: MediaKind) -> MediaStateDescriptor {
@@ -387,18 +413,18 @@ extension ContentViewModel {
         let descriptor = mediaStateDescriptor(for: kind)
 
         return MediaStateSnapshot(
-            sourceURL: self[keyPath: descriptor.sourceURL],
-            queuedSourceURLs: self[keyPath: descriptor.queuedSourceURLs],
-            convertedURLs: self[keyPath: descriptor.convertedURLs],
-            convertedOutputURLsBySourceID: self[keyPath: descriptor.convertedOutputURLsBySourceID],
-            processedSourceIDs: self[keyPath: descriptor.processedSourceIDs],
-            conversionErrorMessage: self[keyPath: descriptor.conversionErrorMessage],
-            compatibilityWarningMessage: self[keyPath: descriptor.compatibilityWarningMessage],
-            isAnalyzing: self[keyPath: descriptor.isAnalyzing],
-            isConverting: self[keyPath: descriptor.isConverting],
-            progress: self[keyPath: descriptor.progress],
-            currentBatchIndex: self[keyPath: descriptor.currentBatchIndex],
-            totalBatchCount: self[keyPath: descriptor.totalBatchCount]
+            sourceURL: mediaStateValue(using: descriptor, \.sourceURL),
+            queuedSourceURLs: mediaStateValue(using: descriptor, \.queuedSourceURLs),
+            convertedURLs: mediaStateValue(using: descriptor, \.convertedURLs),
+            convertedOutputURLsBySourceID: mediaStateValue(using: descriptor, \.convertedOutputURLsBySourceID),
+            processedSourceIDs: mediaStateValue(using: descriptor, \.processedSourceIDs),
+            conversionErrorMessage: mediaStateValue(using: descriptor, \.conversionErrorMessage),
+            compatibilityWarningMessage: mediaStateValue(using: descriptor, \.compatibilityWarningMessage),
+            isAnalyzing: mediaStateValue(using: descriptor, \.isAnalyzing),
+            isConverting: mediaStateValue(using: descriptor, \.isConverting),
+            progress: mediaStateValue(using: descriptor, \.progress),
+            currentBatchIndex: mediaStateValue(using: descriptor, \.currentBatchIndex),
+            totalBatchCount: mediaStateValue(using: descriptor, \.totalBatchCount)
         )
     }
 }

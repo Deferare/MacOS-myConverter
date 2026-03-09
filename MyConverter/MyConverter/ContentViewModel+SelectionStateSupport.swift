@@ -104,11 +104,11 @@ extension ContentViewModel {
         }
 
         resetCompatibilityState(for: kind)
-        self[keyPath: descriptor.isAnalyzing] = false
+        setMediaStateValue(using: descriptor, \.isAnalyzing, to: false)
 
         if resetBatchState {
-            self[keyPath: descriptor.currentBatchIndex] = 0
-            self[keyPath: descriptor.totalBatchCount] = 0
+            setMediaStateValue(using: descriptor, \.currentBatchIndex, to: 0)
+            setMediaStateValue(using: descriptor, \.totalBatchCount, to: 0)
         }
 
         applyPlaceholderCapabilities(for: kind)
@@ -124,8 +124,8 @@ extension ContentViewModel {
         let descriptor = mediaStateDescriptor(for: kind)
 
         cancelTask(at: descriptor.analysisTask)
-        self[keyPath: descriptor.sourceURL] = nil
-        self[keyPath: descriptor.queuedSourceURLs] = []
+        setMediaStateValue(using: descriptor, \.sourceURL, to: nil)
+        setMediaStateValue(using: descriptor, \.queuedSourceURLs, to: [])
         restoreIdleMediaState(
             for: kind,
             resetOutputs: true,
@@ -136,11 +136,11 @@ extension ContentViewModel {
 
     func resetConversionOutputs(for kind: MediaKind) {
         let descriptor = mediaStateDescriptor(for: kind)
-        self[keyPath: descriptor.convertedURL] = nil
-        self[keyPath: descriptor.convertedURLs] = []
-        self[keyPath: descriptor.convertedOutputURLsBySourceID] = [:]
-        self[keyPath: descriptor.processedSourceIDs] = []
-        self[keyPath: descriptor.conversionErrorMessage] = nil
+        setMediaStateValue(using: descriptor, \.convertedURL, to: nil)
+        setMediaStateValue(using: descriptor, \.convertedURLs, to: [])
+        setMediaStateValue(using: descriptor, \.convertedOutputURLsBySourceID, to: [:])
+        setMediaStateValue(using: descriptor, \.processedSourceIDs, to: [])
+        setMediaStateValue(using: descriptor, \.conversionErrorMessage, to: nil)
     }
 
     func resetCompatibilityState(for kind: MediaKind, resetMetadata: Bool = true) {
@@ -150,8 +150,8 @@ extension ContentViewModel {
             descriptor.resetCompatibilityMetadata(self)
         }
 
-        self[keyPath: descriptor.compatibilityErrorMessage] = nil
-        self[keyPath: descriptor.compatibilityWarningMessage] = nil
+        setMediaStateValue(using: descriptor, \.compatibilityErrorMessage, to: nil)
+        setMediaStateValue(using: descriptor, \.compatibilityWarningMessage, to: nil)
     }
 
     func resetSelectionCompatibilityState(for kind: MediaKind) {
