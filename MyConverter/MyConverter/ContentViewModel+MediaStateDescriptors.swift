@@ -228,84 +228,6 @@ extension ContentViewModel {
         )
     }
 
-    private func videoMediaStateKeyPaths() -> MediaStateKeyPaths {
-        makeMediaStateKeyPaths(
-            sourceURL: \.sourceURL,
-            queuedSourceURLs: \.queuedSourceURLs,
-            convertedURL: \.convertedURL,
-            convertedURLs: \.convertedURLs,
-            convertedOutputURLsBySourceID: \.convertedOutputURLsBySourceID,
-            processedSourceIDs: \.processedSourceIDs,
-            conversionErrorMessage: \.conversionErrorMessage,
-            compatibilityErrorMessage: \.sourceCompatibilityErrorMessage,
-            compatibilityWarningMessage: \.sourceCompatibilityWarningMessage,
-            isAnalyzing: \.isAnalyzingSource,
-            isConverting: \.isConverting,
-            progress: \.conversionProgress,
-            currentBatchIndex: \.currentVideoBatchIndex,
-            totalBatchCount: \.totalVideoBatchCount
-        )
-    }
-
-    private func imageMediaStateKeyPaths() -> MediaStateKeyPaths {
-        makeMediaStateKeyPaths(
-            sourceURL: \.imageSourceURL,
-            queuedSourceURLs: \.queuedImageSourceURLs,
-            convertedURL: \.convertedImageURL,
-            convertedURLs: \.convertedImageURLs,
-            convertedOutputURLsBySourceID: \.convertedImageOutputURLsBySourceID,
-            processedSourceIDs: \.processedImageSourceIDs,
-            conversionErrorMessage: \.imageConversionErrorMessage,
-            compatibilityErrorMessage: \.imageSourceCompatibilityErrorMessage,
-            compatibilityWarningMessage: \.imageSourceCompatibilityWarningMessage,
-            isAnalyzing: \.isAnalyzingImageSource,
-            isConverting: \.isImageConverting,
-            progress: \.imageConversionProgress,
-            currentBatchIndex: \.currentImageBatchIndex,
-            totalBatchCount: \.totalImageBatchCount
-        )
-    }
-
-    private func audioMediaStateKeyPaths() -> MediaStateKeyPaths {
-        makeMediaStateKeyPaths(
-            sourceURL: \.audioSourceURL,
-            queuedSourceURLs: \.queuedAudioSourceURLs,
-            convertedURL: \.convertedAudioURL,
-            convertedURLs: \.convertedAudioURLs,
-            convertedOutputURLsBySourceID: \.convertedAudioOutputURLsBySourceID,
-            processedSourceIDs: \.processedAudioSourceIDs,
-            conversionErrorMessage: \.audioConversionErrorMessage,
-            compatibilityErrorMessage: \.audioSourceCompatibilityErrorMessage,
-            compatibilityWarningMessage: \.audioSourceCompatibilityWarningMessage,
-            isAnalyzing: \.isAnalyzingAudioSource,
-            isConverting: \.isAudioConverting,
-            progress: \.audioConversionProgress,
-            currentBatchIndex: \.currentAudioBatchIndex,
-            totalBatchCount: \.totalAudioBatchCount
-        )
-    }
-
-    private func videoMediaTaskKeyPaths() -> MediaTaskKeyPaths {
-        makeMediaTaskKeyPaths(
-            analysisTask: \.taskState.sourceAnalysisTask,
-            conversionTask: \.taskState.conversionTask
-        )
-    }
-
-    private func imageMediaTaskKeyPaths() -> MediaTaskKeyPaths {
-        makeMediaTaskKeyPaths(
-            analysisTask: \.taskState.imageSourceAnalysisTask,
-            conversionTask: \.taskState.imageConversionTask
-        )
-    }
-
-    private func audioMediaTaskKeyPaths() -> MediaTaskKeyPaths {
-        makeMediaTaskKeyPaths(
-            analysisTask: \.taskState.audioSourceAnalysisTask,
-            conversionTask: \.taskState.audioConversionTask
-        )
-    }
-
     func resetImageCompatibilityMetadata(_ viewModel: ContentViewModel) {
         viewModel.imageSourceFrameCount = 0
         viewModel.imageSourceHasAlpha = false
@@ -319,8 +241,26 @@ extension ContentViewModel {
         case .video:
             return makeMediaDescriptorComponents(
                 from: MediaDescriptorInput(
-                    state: videoMediaStateKeyPaths(),
-                    tasks: videoMediaTaskKeyPaths(),
+                    state: makeMediaStateKeyPaths(
+                        sourceURL: \.sourceURL,
+                        queuedSourceURLs: \.queuedSourceURLs,
+                        convertedURL: \.convertedURL,
+                        convertedURLs: \.convertedURLs,
+                        convertedOutputURLsBySourceID: \.convertedOutputURLsBySourceID,
+                        processedSourceIDs: \.processedSourceIDs,
+                        conversionErrorMessage: \.conversionErrorMessage,
+                        compatibilityErrorMessage: \.sourceCompatibilityErrorMessage,
+                        compatibilityWarningMessage: \.sourceCompatibilityWarningMessage,
+                        isAnalyzing: \.isAnalyzingSource,
+                        isConverting: \.isConverting,
+                        progress: \.conversionProgress,
+                        currentBatchIndex: \.currentVideoBatchIndex,
+                        totalBatchCount: \.totalVideoBatchCount
+                    ),
+                    tasks: makeMediaTaskKeyPaths(
+                        analysisTask: \.taskState.sourceAnalysisTask,
+                        conversionTask: \.taskState.conversionTask
+                    ),
                     sourceSettings: { $0.videoSourceSettingsComponents().flow },
                     capabilityBootstrap: videoCapabilityBootstrapDescriptor(),
                     validation: videoValidationDescriptor(),
@@ -332,8 +272,26 @@ extension ContentViewModel {
         case .image:
             return makeMediaDescriptorComponents(
                 from: MediaDescriptorInput(
-                    state: imageMediaStateKeyPaths(),
-                    tasks: imageMediaTaskKeyPaths(),
+                    state: makeMediaStateKeyPaths(
+                        sourceURL: \.imageSourceURL,
+                        queuedSourceURLs: \.queuedImageSourceURLs,
+                        convertedURL: \.convertedImageURL,
+                        convertedURLs: \.convertedImageURLs,
+                        convertedOutputURLsBySourceID: \.convertedImageOutputURLsBySourceID,
+                        processedSourceIDs: \.processedImageSourceIDs,
+                        conversionErrorMessage: \.imageConversionErrorMessage,
+                        compatibilityErrorMessage: \.imageSourceCompatibilityErrorMessage,
+                        compatibilityWarningMessage: \.imageSourceCompatibilityWarningMessage,
+                        isAnalyzing: \.isAnalyzingImageSource,
+                        isConverting: \.isImageConverting,
+                        progress: \.imageConversionProgress,
+                        currentBatchIndex: \.currentImageBatchIndex,
+                        totalBatchCount: \.totalImageBatchCount
+                    ),
+                    tasks: makeMediaTaskKeyPaths(
+                        analysisTask: \.taskState.imageSourceAnalysisTask,
+                        conversionTask: \.taskState.imageConversionTask
+                    ),
                     sourceSettings: { $0.imageSourceSettingsComponents().flow },
                     capabilityBootstrap: imageCapabilityBootstrapDescriptor(),
                     validation: imageValidationDescriptor(),
@@ -345,8 +303,26 @@ extension ContentViewModel {
         case .audio:
             return makeMediaDescriptorComponents(
                 from: MediaDescriptorInput(
-                    state: audioMediaStateKeyPaths(),
-                    tasks: audioMediaTaskKeyPaths(),
+                    state: makeMediaStateKeyPaths(
+                        sourceURL: \.audioSourceURL,
+                        queuedSourceURLs: \.queuedAudioSourceURLs,
+                        convertedURL: \.convertedAudioURL,
+                        convertedURLs: \.convertedAudioURLs,
+                        convertedOutputURLsBySourceID: \.convertedAudioOutputURLsBySourceID,
+                        processedSourceIDs: \.processedAudioSourceIDs,
+                        conversionErrorMessage: \.audioConversionErrorMessage,
+                        compatibilityErrorMessage: \.audioSourceCompatibilityErrorMessage,
+                        compatibilityWarningMessage: \.audioSourceCompatibilityWarningMessage,
+                        isAnalyzing: \.isAnalyzingAudioSource,
+                        isConverting: \.isAudioConverting,
+                        progress: \.audioConversionProgress,
+                        currentBatchIndex: \.currentAudioBatchIndex,
+                        totalBatchCount: \.totalAudioBatchCount
+                    ),
+                    tasks: makeMediaTaskKeyPaths(
+                        analysisTask: \.taskState.audioSourceAnalysisTask,
+                        conversionTask: \.taskState.audioConversionTask
+                    ),
                     sourceSettings: { $0.audioSourceSettingsComponents().flow },
                     capabilityBootstrap: audioCapabilityBootstrapDescriptor(),
                     validation: audioValidationDescriptor(),
