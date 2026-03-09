@@ -137,7 +137,8 @@ struct ConverterDetailContainer<InputArea: View, FormSections: View>: View {
                 }
             }
             .padding(.horizontal, 24)
-            .padding(.vertical, 24)
+            .padding(.top, 12)
+            .padding(.bottom, 24)
             .frame(maxWidth: 960)
             .frame(maxWidth: .infinity)
         }
