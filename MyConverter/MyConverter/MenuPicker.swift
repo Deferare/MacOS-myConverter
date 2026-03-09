@@ -9,6 +9,10 @@ private enum ConverterSettingMetrics {
     static let controlVerticalPadding: CGFloat = 9
     static let minimumControlWidth: CGFloat = 180
     static let maximumControlWidth: CGFloat = 280
+    static let maximumPopoverHeight: CGFloat = 360
+    static let optionRowHeightEstimate: CGFloat = 40
+    static let optionSpacing: CGFloat = 6
+    static let optionListVerticalPadding: CGFloat = 20
 }
 
 struct ConverterSettingRow<Control: View>: View {
@@ -166,6 +170,17 @@ struct MenuPicker<Option: Identifiable & Hashable>: View {
         disabledWhenEmpty && options.isEmpty
     }
 
+    private var popoverHeight: CGFloat {
+        let rowCount = CGFloat(options.count)
+        let spacingCount = CGFloat(max(options.count - 1, 0))
+        let contentHeight =
+            (rowCount * ConverterSettingMetrics.optionRowHeightEstimate) +
+            (spacingCount * ConverterSettingMetrics.optionSpacing) +
+            ConverterSettingMetrics.optionListVerticalPadding
+
+        return min(contentHeight, ConverterSettingMetrics.maximumPopoverHeight)
+    }
+
     var body: some View {
         ConverterSettingRow(title) {
             Button {
@@ -195,37 +210,40 @@ struct MenuPicker<Option: Identifiable & Hashable>: View {
             .disabled(isDisabled)
             .opacity(isDisabled ? 0.55 : 1)
             .popover(isPresented: $isPresentingOptions, arrowEdge: .top) {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(options, id: \.self) { option in
-                        Button {
-                            selection = option
-                            isPresentingOptions = false
-                        } label: {
-                            HStack(spacing: 12) {
-                                Text(label(option))
-                                    .font(.subheadline)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
+                ScrollView(.vertical, showsIndicators: false) {
+                    LazyVStack(alignment: .leading, spacing: ConverterSettingMetrics.optionSpacing) {
+                        ForEach(options, id: \.self) { option in
+                            Button {
+                                selection = option
+                                isPresentingOptions = false
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Text(label(option))
+                                        .font(.subheadline)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                                if option == selection {
-                                    Image(systemName: "checkmark")
-                                        .font(.caption.weight(.bold))
-                                        .foregroundStyle(Color.accentColor)
+                                    if option == selection {
+                                        Image(systemName: "checkmark")
+                                            .font(.caption.weight(.bold))
+                                            .foregroundStyle(Color.accentColor)
+                                    }
                                 }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 10)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(optionBackground(isSelected: option == selection))
+                                .contentShape(Rectangle())
                             }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 10)
+                            .buttonStyle(.plain)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(optionBackground(isSelected: option == selection))
-                            .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
-                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                    .padding(10)
                 }
-                .padding(10)
                 .frame(
                     minWidth: ConverterSettingMetrics.minimumControlWidth,
                     maxWidth: ConverterSettingMetrics.maximumControlWidth,
+                    maxHeight: popoverHeight,
                     alignment: .leading
                 )
             }
