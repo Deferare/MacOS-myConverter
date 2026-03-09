@@ -1,6 +1,15 @@
 import Foundation
 
 extension ContentViewModel {
+    private func preferredAudioOutputEncoderOption(
+        from options: [AudioEncoderOption]
+    ) -> AudioEncoderOption? {
+        ContentViewModelSupport.preferredAudioOutputEncoder(
+            for: selectedAudioOutputFormat,
+            from: options
+        )
+    }
+
     func updateSelectedOptionIfNeeded<Option: Equatable>(
         options: [Option],
         selectedOptionKeyPath: ReferenceWritableKeyPath<ContentViewModel, Option>,
@@ -53,9 +62,7 @@ extension ContentViewModel {
         updateSelectedOptionIfNeeded(
             options: audioOutputEncoderOptions,
             selectedOptionKeyPath: \.selectedAudioOutputEncoder,
-            preferredOption: {
-                ContentViewModelSupport.preferredAudioOutputEncoder(for: format, from: $0)
-            }
+            preferredOption: { ContentViewModelSupport.preferredAudioOutputEncoder(for: format, from: $0) }
         )
 
         normalizeAudioOptionDependencies()
@@ -79,15 +86,11 @@ extension ContentViewModel {
     }
 
     func normalizeAudioOptionDependencies() {
-        let options = audioOutputEncoderOptions
-        if !options.isEmpty,
-           !options.contains(selectedAudioOutputEncoder),
-           let preferred = ContentViewModelSupport.preferredAudioOutputEncoder(
-               for: selectedAudioOutputFormat,
-               from: options
-           ) {
-            selectedAudioOutputEncoder = preferred
-        }
+        updateSelectedOptionIfNeeded(
+            options: audioOutputEncoderOptions,
+            selectedOptionKeyPath: \.selectedAudioOutputEncoder,
+            preferredOption: preferredAudioOutputEncoderOption(from:)
+        )
 
         if !selectedAudioOutputEncoder.supportsAudioBitRate {
             resetSelectedOptionIfNeeded(\.selectedAudioOutputBitRate, to: .auto)

@@ -1,5 +1,7 @@
 enum ContentViewModelSupport {
     private static let cachedFallbackVideoFormat = VideoFormatOption.fromFFmpegExtension("mp4", muxer: "mp4")
+    private static let placeholderVideoEncoderCandidates: [VideoEncoderOption] = [.auto, .h264GPU, .h264CPU, .mpeg4CPU]
+    private static let placeholderAudioEncoderCandidates: [AudioEncoderOption] = [.auto, .aac, .mp3]
     private static let cachedPlaceholderVideoFormats: [VideoFormatOption] = {
         let formats = VideoFormatOption.deduplicatedAndSorted(VideoFormatOption.avFoundationDefaultFormats)
         return formats.isEmpty ? [cachedFallbackVideoFormat] : formats
@@ -29,36 +31,35 @@ enum ContentViewModelSupport {
         cachedDefaultVideoFormat
     }
 
+    private static func placeholderEncoderOptions<Option: Equatable>(
+        candidates: [Option],
+        automaticOption: Option,
+        isCompatible: (Option) -> Bool
+    ) -> [Option] {
+        let options = candidates.filter(isCompatible)
+        return options.isEmpty ? [automaticOption] : options
+    }
+
     static func placeholderVideoEncoders(for format: VideoFormatOption) -> [VideoEncoderOption] {
         if !format.supportsVideoEncoderSelection {
             return [.auto]
         }
 
-        let options = VideoEncoderOption.allCases.filter { option in
-            switch option {
-            case .auto, .h264GPU, .h264CPU, .mpeg4CPU:
-                return option.isCompatible(with: format)
-            default:
-                return false
-            }
-        }
-
-        return options.isEmpty ? [.auto] : options
+        return placeholderEncoderOptions(
+            candidates: placeholderVideoEncoderCandidates,
+            automaticOption: .auto,
+            isCompatible: { $0.isCompatible(with: format) }
+        )
     }
 
     static func placeholderVideoAudioEncoders(for format: VideoFormatOption) -> [AudioEncoderOption] {
         guard format.supportsAudioTrack else { return [] }
 
-        let options = AudioEncoderOption.allCases.filter { option in
-            switch option {
-            case .auto, .aac, .mp3:
-                return option.isCompatible(with: format)
-            default:
-                return false
-            }
-        }
-
-        return options.isEmpty ? [.auto] : options
+        return placeholderEncoderOptions(
+            candidates: placeholderAudioEncoderCandidates,
+            automaticOption: .auto,
+            isCompatible: { $0.isCompatible(with: format) }
+        )
     }
 
     static func placeholderImageFormats() -> [ImageFormatOption] {
@@ -74,15 +75,10 @@ enum ContentViewModelSupport {
     }
 
     static func placeholderAudioOutputEncoders(for format: AudioFormatOption) -> [AudioEncoderOption] {
-        let options = AudioEncoderOption.allCases.filter { option in
-            switch option {
-            case .auto, .aac, .mp3:
-                return option.isCompatible(with: format)
-            default:
-                return false
-            }
-        }
-
-        return options.isEmpty ? [.auto] : options
+        placeholderEncoderOptions(
+            candidates: placeholderAudioEncoderCandidates,
+            automaticOption: .auto,
+            isCompatible: { $0.isCompatible(with: format) }
+        )
     }
 }

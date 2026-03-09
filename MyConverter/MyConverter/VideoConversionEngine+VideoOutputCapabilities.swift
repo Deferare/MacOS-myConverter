@@ -50,16 +50,12 @@ extension VideoConversionEngine {
                 return format.avFileType == nil ? [VideoEncoderOption]() : [.auto]
             }
 
-            let explicitOptions = VideoEncoderOption.allCases.filter { option in
-                guard option != .auto else { return false }
-                return option.isCompatible(with: format) &&
-                    option.codecCandidates.contains(where: { introspection.videoEncoders.contains($0) })
-            }
-
-            return resolvedEncoderOptions(
-                explicitOptions: explicitOptions,
+            return availableEncoderOptions(
+                availableEncoders: introspection.videoEncoders,
                 allowsAutomatic: format.allowsFFmpegAutomaticVideoCodec,
-                automaticOption: .auto
+                automaticOption: .auto,
+                isCompatible: { $0.isCompatible(with: format) },
+                codecCandidates: { $0.codecCandidates }
             )
         }
     }
@@ -87,16 +83,12 @@ extension VideoConversionEngine {
                 return format.avFileType == nil ? [AudioEncoderOption]() : [.auto]
             }
 
-            let explicitOptions = AudioEncoderOption.allCases.filter { option in
-                guard option != .auto else { return false }
-                return option.isCompatible(with: format) &&
-                    option.codecCandidates.contains(where: { introspection.audioEncoders.contains($0) })
-            }
-
-            return resolvedEncoderOptions(
-                explicitOptions: explicitOptions,
+            return availableEncoderOptions(
+                availableEncoders: introspection.audioEncoders,
                 allowsAutomatic: format.allowsFFmpegAutomaticAudioCodec,
-                automaticOption: .auto
+                automaticOption: .auto,
+                isCompatible: { $0.isCompatible(with: format) },
+                codecCandidates: { $0.codecCandidates }
             )
         }
     }
