@@ -1,297 +1,301 @@
 import Foundation
 
 extension ContentViewModel {
-    private typealias VideoRuntimeStateKeyPath = ReferenceWritableKeyPath<ContentViewModel, VideoRuntimeState>
-    private typealias ImageRuntimeStateKeyPath = ReferenceWritableKeyPath<ContentViewModel, ImageRuntimeState>
-    private typealias AudioRuntimeStateKeyPath = ReferenceWritableKeyPath<ContentViewModel, AudioRuntimeState>
+    private var videoRuntimeStateDescriptor: StateProxyDescriptor<VideoRuntimeState> {
+        StateProxyDescriptor(stateKeyPath: \.videoRuntimeState)
+    }
 
-    private var videoRuntimeStateKeyPath: VideoRuntimeStateKeyPath { \.videoRuntimeState }
-    private var imageRuntimeStateKeyPath: ImageRuntimeStateKeyPath { \.imageRuntimeState }
-    private var audioRuntimeStateKeyPath: AudioRuntimeStateKeyPath { \.audioRuntimeState }
+    private var imageRuntimeStateDescriptor: StateProxyDescriptor<ImageRuntimeState> {
+        StateProxyDescriptor(stateKeyPath: \.imageRuntimeState)
+    }
+
+    private var audioRuntimeStateDescriptor: StateProxyDescriptor<AudioRuntimeState> {
+        StateProxyDescriptor(stateKeyPath: \.audioRuntimeState)
+    }
 
     private func runtimeValue<State, Value>(
-        in stateKeyPath: KeyPath<ContentViewModel, State>,
+        using descriptor: StateProxyDescriptor<State>,
         _ valueKeyPath: KeyPath<State, Value>
     ) -> Value {
-        stateValue(in: stateKeyPath, at: valueKeyPath)
+        stateValue(using: descriptor, at: valueKeyPath)
     }
 
     private func setRuntimeValue<State, Value: Equatable>(
-        in stateKeyPath: ReferenceWritableKeyPath<ContentViewModel, State>,
+        using descriptor: StateProxyDescriptor<State>,
         _ valueKeyPath: WritableKeyPath<State, Value>,
         to newValue: Value
     ) {
-        updateState(stateKeyPath, value: valueKeyPath, to: newValue)
+        updateState(using: descriptor, value: valueKeyPath, to: newValue)
     }
 
     private func mediaRuntimeValue<State: MediaRuntimeStateContainer, Value>(
-        in stateKeyPath: KeyPath<ContentViewModel, State>,
+        using descriptor: StateProxyDescriptor<State>,
         _ valueKeyPath: KeyPath<MediaRuntimeState<State.Format>, Value>
     ) -> Value {
-        self[keyPath: stateKeyPath].media[keyPath: valueKeyPath]
+        self[keyPath: descriptor.stateKeyPath].media[keyPath: valueKeyPath]
     }
 
     private func setMediaRuntimeValue<State: MediaRuntimeStateContainer, Value: Equatable>(
-        in stateKeyPath: ReferenceWritableKeyPath<ContentViewModel, State>,
+        using descriptor: StateProxyDescriptor<State>,
         _ valueKeyPath: WritableKeyPath<MediaRuntimeState<State.Format>, Value>,
         to newValue: Value
     ) {
-        var state = self[keyPath: stateKeyPath]
+        var state = self[keyPath: descriptor.stateKeyPath]
         guard state.media[keyPath: valueKeyPath] != newValue else { return }
         state.media[keyPath: valueKeyPath] = newValue
-        self[keyPath: stateKeyPath] = state
+        self[keyPath: descriptor.stateKeyPath] = state
     }
 
     // Video state
     var sourceURL: URL? {
-        get { mediaRuntimeValue(in: videoRuntimeStateKeyPath, \.sourceURL) }
-        set { setMediaRuntimeValue(in: videoRuntimeStateKeyPath, \.sourceURL, to: newValue) }
+        get { mediaRuntimeValue(using: videoRuntimeStateDescriptor, \.sourceURL) }
+        set { setMediaRuntimeValue(using: videoRuntimeStateDescriptor, \.sourceURL, to: newValue) }
     }
 
     var queuedSourceURLs: [URL] {
-        get { mediaRuntimeValue(in: videoRuntimeStateKeyPath, \.queuedSourceURLs) }
-        set { setMediaRuntimeValue(in: videoRuntimeStateKeyPath, \.queuedSourceURLs, to: newValue) }
+        get { mediaRuntimeValue(using: videoRuntimeStateDescriptor, \.queuedSourceURLs) }
+        set { setMediaRuntimeValue(using: videoRuntimeStateDescriptor, \.queuedSourceURLs, to: newValue) }
     }
 
     var convertedURL: URL? {
-        get { mediaRuntimeValue(in: videoRuntimeStateKeyPath, \.convertedURL) }
-        set { setMediaRuntimeValue(in: videoRuntimeStateKeyPath, \.convertedURL, to: newValue) }
+        get { mediaRuntimeValue(using: videoRuntimeStateDescriptor, \.convertedURL) }
+        set { setMediaRuntimeValue(using: videoRuntimeStateDescriptor, \.convertedURL, to: newValue) }
     }
 
     var convertedURLs: [URL] {
-        get { mediaRuntimeValue(in: videoRuntimeStateKeyPath, \.convertedURLs) }
-        set { setMediaRuntimeValue(in: videoRuntimeStateKeyPath, \.convertedURLs, to: newValue) }
+        get { mediaRuntimeValue(using: videoRuntimeStateDescriptor, \.convertedURLs) }
+        set { setMediaRuntimeValue(using: videoRuntimeStateDescriptor, \.convertedURLs, to: newValue) }
     }
 
     var convertedOutputURLsBySourceID: [String: URL] {
-        get { mediaRuntimeValue(in: videoRuntimeStateKeyPath, \.convertedOutputURLsBySourceID) }
-        set { setMediaRuntimeValue(in: videoRuntimeStateKeyPath, \.convertedOutputURLsBySourceID, to: newValue) }
+        get { mediaRuntimeValue(using: videoRuntimeStateDescriptor, \.convertedOutputURLsBySourceID) }
+        set { setMediaRuntimeValue(using: videoRuntimeStateDescriptor, \.convertedOutputURLsBySourceID, to: newValue) }
     }
 
     var processedSourceIDs: Set<String> {
-        get { mediaRuntimeValue(in: videoRuntimeStateKeyPath, \.processedSourceIDs) }
-        set { setMediaRuntimeValue(in: videoRuntimeStateKeyPath, \.processedSourceIDs, to: newValue) }
+        get { mediaRuntimeValue(using: videoRuntimeStateDescriptor, \.processedSourceIDs) }
+        set { setMediaRuntimeValue(using: videoRuntimeStateDescriptor, \.processedSourceIDs, to: newValue) }
     }
 
     var conversionErrorMessage: String? {
-        get { mediaRuntimeValue(in: videoRuntimeStateKeyPath, \.conversionErrorMessage) }
-        set { setMediaRuntimeValue(in: videoRuntimeStateKeyPath, \.conversionErrorMessage, to: newValue) }
+        get { mediaRuntimeValue(using: videoRuntimeStateDescriptor, \.conversionErrorMessage) }
+        set { setMediaRuntimeValue(using: videoRuntimeStateDescriptor, \.conversionErrorMessage, to: newValue) }
     }
 
     var sourceCompatibilityErrorMessage: String? {
-        get { mediaRuntimeValue(in: videoRuntimeStateKeyPath, \.sourceCompatibilityErrorMessage) }
-        set { setMediaRuntimeValue(in: videoRuntimeStateKeyPath, \.sourceCompatibilityErrorMessage, to: newValue) }
+        get { mediaRuntimeValue(using: videoRuntimeStateDescriptor, \.sourceCompatibilityErrorMessage) }
+        set { setMediaRuntimeValue(using: videoRuntimeStateDescriptor, \.sourceCompatibilityErrorMessage, to: newValue) }
     }
 
     var sourceCompatibilityWarningMessage: String? {
-        get { mediaRuntimeValue(in: videoRuntimeStateKeyPath, \.sourceCompatibilityWarningMessage) }
-        set { setMediaRuntimeValue(in: videoRuntimeStateKeyPath, \.sourceCompatibilityWarningMessage, to: newValue) }
+        get { mediaRuntimeValue(using: videoRuntimeStateDescriptor, \.sourceCompatibilityWarningMessage) }
+        set { setMediaRuntimeValue(using: videoRuntimeStateDescriptor, \.sourceCompatibilityWarningMessage, to: newValue) }
     }
 
     var isAnalyzingSource: Bool {
-        get { mediaRuntimeValue(in: videoRuntimeStateKeyPath, \.isAnalyzingSource) }
-        set { setMediaRuntimeValue(in: videoRuntimeStateKeyPath, \.isAnalyzingSource, to: newValue) }
+        get { mediaRuntimeValue(using: videoRuntimeStateDescriptor, \.isAnalyzingSource) }
+        set { setMediaRuntimeValue(using: videoRuntimeStateDescriptor, \.isAnalyzingSource, to: newValue) }
     }
 
     var isConverting: Bool {
-        get { mediaRuntimeValue(in: videoRuntimeStateKeyPath, \.isConverting) }
-        set { setMediaRuntimeValue(in: videoRuntimeStateKeyPath, \.isConverting, to: newValue) }
+        get { mediaRuntimeValue(using: videoRuntimeStateDescriptor, \.isConverting) }
+        set { setMediaRuntimeValue(using: videoRuntimeStateDescriptor, \.isConverting, to: newValue) }
     }
 
     var conversionProgress: Double {
-        get { mediaRuntimeValue(in: videoRuntimeStateKeyPath, \.conversionProgress) }
-        set { setMediaRuntimeValue(in: videoRuntimeStateKeyPath, \.conversionProgress, to: newValue) }
+        get { mediaRuntimeValue(using: videoRuntimeStateDescriptor, \.conversionProgress) }
+        set { setMediaRuntimeValue(using: videoRuntimeStateDescriptor, \.conversionProgress, to: newValue) }
     }
 
     var currentVideoBatchIndex: Int {
-        get { mediaRuntimeValue(in: videoRuntimeStateKeyPath, \.currentBatchIndex) }
-        set { setMediaRuntimeValue(in: videoRuntimeStateKeyPath, \.currentBatchIndex, to: newValue) }
+        get { mediaRuntimeValue(using: videoRuntimeStateDescriptor, \.currentBatchIndex) }
+        set { setMediaRuntimeValue(using: videoRuntimeStateDescriptor, \.currentBatchIndex, to: newValue) }
     }
 
     var totalVideoBatchCount: Int {
-        get { mediaRuntimeValue(in: videoRuntimeStateKeyPath, \.totalBatchCount) }
-        set { setMediaRuntimeValue(in: videoRuntimeStateKeyPath, \.totalBatchCount, to: newValue) }
+        get { mediaRuntimeValue(using: videoRuntimeStateDescriptor, \.totalBatchCount) }
+        set { setMediaRuntimeValue(using: videoRuntimeStateDescriptor, \.totalBatchCount, to: newValue) }
     }
 
     var availableOutputFormats: [VideoFormatOption] {
-        get { mediaRuntimeValue(in: videoRuntimeStateKeyPath, \.availableOutputFormats) }
-        set { setMediaRuntimeValue(in: videoRuntimeStateKeyPath, \.availableOutputFormats, to: newValue) }
+        get { mediaRuntimeValue(using: videoRuntimeStateDescriptor, \.availableOutputFormats) }
+        set { setMediaRuntimeValue(using: videoRuntimeStateDescriptor, \.availableOutputFormats, to: newValue) }
     }
 
     var availableVideoEncoders: [VideoEncoderOption] {
-        get { runtimeValue(in: \.videoRuntimeState, \.availableVideoEncoders) }
-        set { setRuntimeValue(in: \.videoRuntimeState, \.availableVideoEncoders, to: newValue) }
+        get { runtimeValue(using: videoRuntimeStateDescriptor, \.availableVideoEncoders) }
+        set { setRuntimeValue(using: videoRuntimeStateDescriptor, \.availableVideoEncoders, to: newValue) }
     }
 
     var availableAudioEncoders: [AudioEncoderOption] {
-        get { runtimeValue(in: \.videoRuntimeState, \.availableAudioEncoders) }
-        set { setRuntimeValue(in: \.videoRuntimeState, \.availableAudioEncoders, to: newValue) }
+        get { runtimeValue(using: videoRuntimeStateDescriptor, \.availableAudioEncoders) }
+        set { setRuntimeValue(using: videoRuntimeStateDescriptor, \.availableAudioEncoders, to: newValue) }
     }
 
     // Image state
     var imageSourceURL: URL? {
-        get { mediaRuntimeValue(in: imageRuntimeStateKeyPath, \.sourceURL) }
-        set { setMediaRuntimeValue(in: imageRuntimeStateKeyPath, \.sourceURL, to: newValue) }
+        get { mediaRuntimeValue(using: imageRuntimeStateDescriptor, \.sourceURL) }
+        set { setMediaRuntimeValue(using: imageRuntimeStateDescriptor, \.sourceURL, to: newValue) }
     }
 
     var queuedImageSourceURLs: [URL] {
-        get { mediaRuntimeValue(in: imageRuntimeStateKeyPath, \.queuedSourceURLs) }
-        set { setMediaRuntimeValue(in: imageRuntimeStateKeyPath, \.queuedSourceURLs, to: newValue) }
+        get { mediaRuntimeValue(using: imageRuntimeStateDescriptor, \.queuedSourceURLs) }
+        set { setMediaRuntimeValue(using: imageRuntimeStateDescriptor, \.queuedSourceURLs, to: newValue) }
     }
 
     var convertedImageURL: URL? {
-        get { mediaRuntimeValue(in: imageRuntimeStateKeyPath, \.convertedURL) }
-        set { setMediaRuntimeValue(in: imageRuntimeStateKeyPath, \.convertedURL, to: newValue) }
+        get { mediaRuntimeValue(using: imageRuntimeStateDescriptor, \.convertedURL) }
+        set { setMediaRuntimeValue(using: imageRuntimeStateDescriptor, \.convertedURL, to: newValue) }
     }
 
     var convertedImageURLs: [URL] {
-        get { mediaRuntimeValue(in: imageRuntimeStateKeyPath, \.convertedURLs) }
-        set { setMediaRuntimeValue(in: imageRuntimeStateKeyPath, \.convertedURLs, to: newValue) }
+        get { mediaRuntimeValue(using: imageRuntimeStateDescriptor, \.convertedURLs) }
+        set { setMediaRuntimeValue(using: imageRuntimeStateDescriptor, \.convertedURLs, to: newValue) }
     }
 
     var convertedImageOutputURLsBySourceID: [String: URL] {
-        get { mediaRuntimeValue(in: imageRuntimeStateKeyPath, \.convertedOutputURLsBySourceID) }
-        set { setMediaRuntimeValue(in: imageRuntimeStateKeyPath, \.convertedOutputURLsBySourceID, to: newValue) }
+        get { mediaRuntimeValue(using: imageRuntimeStateDescriptor, \.convertedOutputURLsBySourceID) }
+        set { setMediaRuntimeValue(using: imageRuntimeStateDescriptor, \.convertedOutputURLsBySourceID, to: newValue) }
     }
 
     var processedImageSourceIDs: Set<String> {
-        get { mediaRuntimeValue(in: imageRuntimeStateKeyPath, \.processedSourceIDs) }
-        set { setMediaRuntimeValue(in: imageRuntimeStateKeyPath, \.processedSourceIDs, to: newValue) }
+        get { mediaRuntimeValue(using: imageRuntimeStateDescriptor, \.processedSourceIDs) }
+        set { setMediaRuntimeValue(using: imageRuntimeStateDescriptor, \.processedSourceIDs, to: newValue) }
     }
 
     var imageConversionErrorMessage: String? {
-        get { mediaRuntimeValue(in: imageRuntimeStateKeyPath, \.conversionErrorMessage) }
-        set { setMediaRuntimeValue(in: imageRuntimeStateKeyPath, \.conversionErrorMessage, to: newValue) }
+        get { mediaRuntimeValue(using: imageRuntimeStateDescriptor, \.conversionErrorMessage) }
+        set { setMediaRuntimeValue(using: imageRuntimeStateDescriptor, \.conversionErrorMessage, to: newValue) }
     }
 
     var imageSourceCompatibilityErrorMessage: String? {
-        get { mediaRuntimeValue(in: imageRuntimeStateKeyPath, \.sourceCompatibilityErrorMessage) }
-        set { setMediaRuntimeValue(in: imageRuntimeStateKeyPath, \.sourceCompatibilityErrorMessage, to: newValue) }
+        get { mediaRuntimeValue(using: imageRuntimeStateDescriptor, \.sourceCompatibilityErrorMessage) }
+        set { setMediaRuntimeValue(using: imageRuntimeStateDescriptor, \.sourceCompatibilityErrorMessage, to: newValue) }
     }
 
     var imageSourceCompatibilityWarningMessage: String? {
-        get { mediaRuntimeValue(in: imageRuntimeStateKeyPath, \.sourceCompatibilityWarningMessage) }
-        set { setMediaRuntimeValue(in: imageRuntimeStateKeyPath, \.sourceCompatibilityWarningMessage, to: newValue) }
+        get { mediaRuntimeValue(using: imageRuntimeStateDescriptor, \.sourceCompatibilityWarningMessage) }
+        set { setMediaRuntimeValue(using: imageRuntimeStateDescriptor, \.sourceCompatibilityWarningMessage, to: newValue) }
     }
 
     var isAnalyzingImageSource: Bool {
-        get { mediaRuntimeValue(in: imageRuntimeStateKeyPath, \.isAnalyzingSource) }
-        set { setMediaRuntimeValue(in: imageRuntimeStateKeyPath, \.isAnalyzingSource, to: newValue) }
+        get { mediaRuntimeValue(using: imageRuntimeStateDescriptor, \.isAnalyzingSource) }
+        set { setMediaRuntimeValue(using: imageRuntimeStateDescriptor, \.isAnalyzingSource, to: newValue) }
     }
 
     var imageSourceFrameCount: Int {
-        get { runtimeValue(in: \.imageRuntimeState, \.sourceFrameCount) }
-        set { setRuntimeValue(in: \.imageRuntimeState, \.sourceFrameCount, to: newValue) }
+        get { runtimeValue(using: imageRuntimeStateDescriptor, \.sourceFrameCount) }
+        set { setRuntimeValue(using: imageRuntimeStateDescriptor, \.sourceFrameCount, to: newValue) }
     }
 
     var imageSourceHasAlpha: Bool {
-        get { runtimeValue(in: \.imageRuntimeState, \.sourceHasAlpha) }
-        set { setRuntimeValue(in: \.imageRuntimeState, \.sourceHasAlpha, to: newValue) }
+        get { runtimeValue(using: imageRuntimeStateDescriptor, \.sourceHasAlpha) }
+        set { setRuntimeValue(using: imageRuntimeStateDescriptor, \.sourceHasAlpha, to: newValue) }
     }
 
     var isImageConverting: Bool {
-        get { mediaRuntimeValue(in: imageRuntimeStateKeyPath, \.isConverting) }
-        set { setMediaRuntimeValue(in: imageRuntimeStateKeyPath, \.isConverting, to: newValue) }
+        get { mediaRuntimeValue(using: imageRuntimeStateDescriptor, \.isConverting) }
+        set { setMediaRuntimeValue(using: imageRuntimeStateDescriptor, \.isConverting, to: newValue) }
     }
 
     var imageConversionProgress: Double {
-        get { mediaRuntimeValue(in: imageRuntimeStateKeyPath, \.conversionProgress) }
-        set { setMediaRuntimeValue(in: imageRuntimeStateKeyPath, \.conversionProgress, to: newValue) }
+        get { mediaRuntimeValue(using: imageRuntimeStateDescriptor, \.conversionProgress) }
+        set { setMediaRuntimeValue(using: imageRuntimeStateDescriptor, \.conversionProgress, to: newValue) }
     }
 
     var currentImageBatchIndex: Int {
-        get { mediaRuntimeValue(in: imageRuntimeStateKeyPath, \.currentBatchIndex) }
-        set { setMediaRuntimeValue(in: imageRuntimeStateKeyPath, \.currentBatchIndex, to: newValue) }
+        get { mediaRuntimeValue(using: imageRuntimeStateDescriptor, \.currentBatchIndex) }
+        set { setMediaRuntimeValue(using: imageRuntimeStateDescriptor, \.currentBatchIndex, to: newValue) }
     }
 
     var totalImageBatchCount: Int {
-        get { mediaRuntimeValue(in: imageRuntimeStateKeyPath, \.totalBatchCount) }
-        set { setMediaRuntimeValue(in: imageRuntimeStateKeyPath, \.totalBatchCount, to: newValue) }
+        get { mediaRuntimeValue(using: imageRuntimeStateDescriptor, \.totalBatchCount) }
+        set { setMediaRuntimeValue(using: imageRuntimeStateDescriptor, \.totalBatchCount, to: newValue) }
     }
 
     var availableImageOutputFormats: [ImageFormatOption] {
-        get { mediaRuntimeValue(in: imageRuntimeStateKeyPath, \.availableOutputFormats) }
-        set { setMediaRuntimeValue(in: imageRuntimeStateKeyPath, \.availableOutputFormats, to: newValue) }
+        get { mediaRuntimeValue(using: imageRuntimeStateDescriptor, \.availableOutputFormats) }
+        set { setMediaRuntimeValue(using: imageRuntimeStateDescriptor, \.availableOutputFormats, to: newValue) }
     }
 
     // Audio state
     var audioSourceURL: URL? {
-        get { mediaRuntimeValue(in: audioRuntimeStateKeyPath, \.sourceURL) }
-        set { setMediaRuntimeValue(in: audioRuntimeStateKeyPath, \.sourceURL, to: newValue) }
+        get { mediaRuntimeValue(using: audioRuntimeStateDescriptor, \.sourceURL) }
+        set { setMediaRuntimeValue(using: audioRuntimeStateDescriptor, \.sourceURL, to: newValue) }
     }
 
     var queuedAudioSourceURLs: [URL] {
-        get { mediaRuntimeValue(in: audioRuntimeStateKeyPath, \.queuedSourceURLs) }
-        set { setMediaRuntimeValue(in: audioRuntimeStateKeyPath, \.queuedSourceURLs, to: newValue) }
+        get { mediaRuntimeValue(using: audioRuntimeStateDescriptor, \.queuedSourceURLs) }
+        set { setMediaRuntimeValue(using: audioRuntimeStateDescriptor, \.queuedSourceURLs, to: newValue) }
     }
 
     var convertedAudioURL: URL? {
-        get { mediaRuntimeValue(in: audioRuntimeStateKeyPath, \.convertedURL) }
-        set { setMediaRuntimeValue(in: audioRuntimeStateKeyPath, \.convertedURL, to: newValue) }
+        get { mediaRuntimeValue(using: audioRuntimeStateDescriptor, \.convertedURL) }
+        set { setMediaRuntimeValue(using: audioRuntimeStateDescriptor, \.convertedURL, to: newValue) }
     }
 
     var convertedAudioURLs: [URL] {
-        get { mediaRuntimeValue(in: audioRuntimeStateKeyPath, \.convertedURLs) }
-        set { setMediaRuntimeValue(in: audioRuntimeStateKeyPath, \.convertedURLs, to: newValue) }
+        get { mediaRuntimeValue(using: audioRuntimeStateDescriptor, \.convertedURLs) }
+        set { setMediaRuntimeValue(using: audioRuntimeStateDescriptor, \.convertedURLs, to: newValue) }
     }
 
     var convertedAudioOutputURLsBySourceID: [String: URL] {
-        get { mediaRuntimeValue(in: audioRuntimeStateKeyPath, \.convertedOutputURLsBySourceID) }
-        set { setMediaRuntimeValue(in: audioRuntimeStateKeyPath, \.convertedOutputURLsBySourceID, to: newValue) }
+        get { mediaRuntimeValue(using: audioRuntimeStateDescriptor, \.convertedOutputURLsBySourceID) }
+        set { setMediaRuntimeValue(using: audioRuntimeStateDescriptor, \.convertedOutputURLsBySourceID, to: newValue) }
     }
 
     var processedAudioSourceIDs: Set<String> {
-        get { mediaRuntimeValue(in: audioRuntimeStateKeyPath, \.processedSourceIDs) }
-        set { setMediaRuntimeValue(in: audioRuntimeStateKeyPath, \.processedSourceIDs, to: newValue) }
+        get { mediaRuntimeValue(using: audioRuntimeStateDescriptor, \.processedSourceIDs) }
+        set { setMediaRuntimeValue(using: audioRuntimeStateDescriptor, \.processedSourceIDs, to: newValue) }
     }
 
     var audioConversionErrorMessage: String? {
-        get { mediaRuntimeValue(in: audioRuntimeStateKeyPath, \.conversionErrorMessage) }
-        set { setMediaRuntimeValue(in: audioRuntimeStateKeyPath, \.conversionErrorMessage, to: newValue) }
+        get { mediaRuntimeValue(using: audioRuntimeStateDescriptor, \.conversionErrorMessage) }
+        set { setMediaRuntimeValue(using: audioRuntimeStateDescriptor, \.conversionErrorMessage, to: newValue) }
     }
 
     var audioSourceCompatibilityErrorMessage: String? {
-        get { mediaRuntimeValue(in: audioRuntimeStateKeyPath, \.sourceCompatibilityErrorMessage) }
-        set { setMediaRuntimeValue(in: audioRuntimeStateKeyPath, \.sourceCompatibilityErrorMessage, to: newValue) }
+        get { mediaRuntimeValue(using: audioRuntimeStateDescriptor, \.sourceCompatibilityErrorMessage) }
+        set { setMediaRuntimeValue(using: audioRuntimeStateDescriptor, \.sourceCompatibilityErrorMessage, to: newValue) }
     }
 
     var audioSourceCompatibilityWarningMessage: String? {
-        get { mediaRuntimeValue(in: audioRuntimeStateKeyPath, \.sourceCompatibilityWarningMessage) }
-        set { setMediaRuntimeValue(in: audioRuntimeStateKeyPath, \.sourceCompatibilityWarningMessage, to: newValue) }
+        get { mediaRuntimeValue(using: audioRuntimeStateDescriptor, \.sourceCompatibilityWarningMessage) }
+        set { setMediaRuntimeValue(using: audioRuntimeStateDescriptor, \.sourceCompatibilityWarningMessage, to: newValue) }
     }
 
     var isAnalyzingAudioSource: Bool {
-        get { mediaRuntimeValue(in: audioRuntimeStateKeyPath, \.isAnalyzingSource) }
-        set { setMediaRuntimeValue(in: audioRuntimeStateKeyPath, \.isAnalyzingSource, to: newValue) }
+        get { mediaRuntimeValue(using: audioRuntimeStateDescriptor, \.isAnalyzingSource) }
+        set { setMediaRuntimeValue(using: audioRuntimeStateDescriptor, \.isAnalyzingSource, to: newValue) }
     }
 
     var isAudioConverting: Bool {
-        get { mediaRuntimeValue(in: audioRuntimeStateKeyPath, \.isConverting) }
-        set { setMediaRuntimeValue(in: audioRuntimeStateKeyPath, \.isConverting, to: newValue) }
+        get { mediaRuntimeValue(using: audioRuntimeStateDescriptor, \.isConverting) }
+        set { setMediaRuntimeValue(using: audioRuntimeStateDescriptor, \.isConverting, to: newValue) }
     }
 
     var audioConversionProgress: Double {
-        get { mediaRuntimeValue(in: audioRuntimeStateKeyPath, \.conversionProgress) }
-        set { setMediaRuntimeValue(in: audioRuntimeStateKeyPath, \.conversionProgress, to: newValue) }
+        get { mediaRuntimeValue(using: audioRuntimeStateDescriptor, \.conversionProgress) }
+        set { setMediaRuntimeValue(using: audioRuntimeStateDescriptor, \.conversionProgress, to: newValue) }
     }
 
     var currentAudioBatchIndex: Int {
-        get { mediaRuntimeValue(in: audioRuntimeStateKeyPath, \.currentBatchIndex) }
-        set { setMediaRuntimeValue(in: audioRuntimeStateKeyPath, \.currentBatchIndex, to: newValue) }
+        get { mediaRuntimeValue(using: audioRuntimeStateDescriptor, \.currentBatchIndex) }
+        set { setMediaRuntimeValue(using: audioRuntimeStateDescriptor, \.currentBatchIndex, to: newValue) }
     }
 
     var totalAudioBatchCount: Int {
-        get { mediaRuntimeValue(in: audioRuntimeStateKeyPath, \.totalBatchCount) }
-        set { setMediaRuntimeValue(in: audioRuntimeStateKeyPath, \.totalBatchCount, to: newValue) }
+        get { mediaRuntimeValue(using: audioRuntimeStateDescriptor, \.totalBatchCount) }
+        set { setMediaRuntimeValue(using: audioRuntimeStateDescriptor, \.totalBatchCount, to: newValue) }
     }
 
     var availableAudioOutputFormats: [AudioFormatOption] {
-        get { mediaRuntimeValue(in: audioRuntimeStateKeyPath, \.availableOutputFormats) }
-        set { setMediaRuntimeValue(in: audioRuntimeStateKeyPath, \.availableOutputFormats, to: newValue) }
+        get { mediaRuntimeValue(using: audioRuntimeStateDescriptor, \.availableOutputFormats) }
+        set { setMediaRuntimeValue(using: audioRuntimeStateDescriptor, \.availableOutputFormats, to: newValue) }
     }
 
     var availableAudioOutputEncoders: [AudioEncoderOption] {
-        get { runtimeValue(in: \.audioRuntimeState, \.availableOutputEncoders) }
-        set { setRuntimeValue(in: \.audioRuntimeState, \.availableOutputEncoders, to: newValue) }
+        get { runtimeValue(using: audioRuntimeStateDescriptor, \.availableOutputEncoders) }
+        set { setRuntimeValue(using: audioRuntimeStateDescriptor, \.availableOutputEncoders, to: newValue) }
     }
 }

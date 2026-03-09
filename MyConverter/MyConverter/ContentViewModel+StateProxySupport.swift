@@ -1,6 +1,10 @@
 import Foundation
 
 extension ContentViewModel {
+    struct StateProxyDescriptor<State> {
+        let stateKeyPath: ReferenceWritableKeyPath<ContentViewModel, State>
+    }
+
     func updateState<State, Value: Equatable>(
         _ stateKeyPath: ReferenceWritableKeyPath<ContentViewModel, State>,
         value valueKeyPath: WritableKeyPath<State, Value>,
@@ -21,6 +25,13 @@ extension ContentViewModel {
         self[keyPath: stateKeyPath][keyPath: valueKeyPath]
     }
 
+    func stateValue<State, Value>(
+        using descriptor: StateProxyDescriptor<State>,
+        at valueKeyPath: KeyPath<State, Value>
+    ) -> Value {
+        stateValue(in: descriptor.stateKeyPath, at: valueKeyPath)
+    }
+
     func updateState<State, Value>(
         _ stateKeyPath: ReferenceWritableKeyPath<ContentViewModel, State>,
         value valueKeyPath: WritableKeyPath<State, Value>,
@@ -31,5 +42,23 @@ extension ContentViewModel {
         state[keyPath: valueKeyPath] = newValue
         self[keyPath: stateKeyPath] = state
         updateAction()
+    }
+
+    func updateState<State, Value: Equatable>(
+        using descriptor: StateProxyDescriptor<State>,
+        value valueKeyPath: WritableKeyPath<State, Value>,
+        to newValue: Value,
+        after updateAction: () -> Void = {}
+    ) {
+        updateState(descriptor.stateKeyPath, value: valueKeyPath, to: newValue, after: updateAction)
+    }
+
+    func updateState<State, Value>(
+        using descriptor: StateProxyDescriptor<State>,
+        value valueKeyPath: WritableKeyPath<State, Value>,
+        to newValue: Value,
+        after updateAction: () -> Void = {}
+    ) {
+        updateState(descriptor.stateKeyPath, value: valueKeyPath, to: newValue, after: updateAction)
     }
 }

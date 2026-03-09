@@ -4,14 +4,8 @@ extension ContentViewModel {
     struct ConversionWorkflowDescriptor<OutputSettings> {
         let kind: MediaKind
         let canConvert: Bool
-        let missingSourceLog: String
         let fileExtension: String
-        let outputLabel: String
-        let destinationErrorCode: Int
-        let skippedSummaryPrefix: String
-        let treatExportCancellationAsCancelled: Bool
-        let errorLogPrefix: String
-        let includeDebugInfo: Bool
+        let metadata: ConversionMetadata
         let buildOutputSettings: () throws -> OutputSettings
         let validate: (URL) async -> String?
         let makeWorkingOutputURL: (URL) -> URL
@@ -32,14 +26,8 @@ extension ContentViewModel {
 
     func makeConversionWorkflowDescriptor<OutputSettings>(
         kind: MediaKind,
-        missingSourceLog: String,
         fileExtension: String,
-        outputLabel: String,
-        destinationErrorCode: Int,
-        skippedSummaryPrefix: String,
-        treatExportCancellationAsCancelled: Bool,
-        errorLogPrefix: String,
-        includeDebugInfo: Bool,
+        metadata: ConversionMetadata,
         buildOutputSettings: @escaping () throws -> OutputSettings,
         makeWorkingOutputURL: @escaping (URL) -> URL,
         runConversion: @escaping (URL, URL, OutputSettings, Int, Int) async throws -> URL
@@ -50,14 +38,8 @@ extension ContentViewModel {
                 for: kind,
                 validationMessage: validationMessage(for: kind)
             ),
-            missingSourceLog: missingSourceLog,
             fileExtension: fileExtension,
-            outputLabel: outputLabel,
-            destinationErrorCode: destinationErrorCode,
-            skippedSummaryPrefix: skippedSummaryPrefix,
-            treatExportCancellationAsCancelled: treatExportCancellationAsCancelled,
-            errorLogPrefix: errorLogPrefix,
-            includeDebugInfo: includeDebugInfo,
+            metadata: metadata,
             buildOutputSettings: buildOutputSettings,
             validate: { await self.validateSourceOutputSettings(for: kind, sourceURL: $0) },
             makeWorkingOutputURL: makeWorkingOutputURL,
@@ -66,16 +48,11 @@ extension ContentViewModel {
     }
 
     func videoConversionWorkflowDescriptor() -> ConversionWorkflowDescriptor<VideoOutputSettings> {
-        makeConversionWorkflowDescriptor(
-            kind: .video,
-            missingSourceLog: "No file to convert.",
-            fileExtension: selectedOutputFormat.fileExtension,
-            outputLabel: "Video",
-            destinationErrorCode: -1001,
-            skippedSummaryPrefix: "Some video files were skipped:",
-            treatExportCancellationAsCancelled: true,
-            errorLogPrefix: "Conversion failed",
-            includeDebugInfo: true,
+        let kind: MediaKind = .video
+        return makeConversionWorkflowDescriptor(
+            kind: kind,
+            fileExtension: selectedOutputFormatFileExtension(using: videoOutputFormatDescriptor()),
+            metadata: kind.conversionMetadata,
             buildOutputSettings: { try self.buildVideoOutputSettings() },
             makeWorkingOutputURL: { sourceURL in
                 VideoConversionEngine.temporaryOutputURL(
@@ -90,7 +67,7 @@ extension ContentViewModel {
                     outputSettings: outputSettings,
                     inputDurationSeconds: nil,
                     onProgress: self.batchProgressHandler(
-                        for: .video,
+                        for: kind,
                         index: index,
                         totalCount: totalCount
                     )
@@ -100,16 +77,11 @@ extension ContentViewModel {
     }
 
     func imageConversionWorkflowDescriptor() -> ConversionWorkflowDescriptor<ImageOutputSettings> {
-        makeConversionWorkflowDescriptor(
-            kind: .image,
-            missingSourceLog: "No image file to convert.",
-            fileExtension: selectedImageOutputFormat.fileExtension,
-            outputLabel: "Image",
-            destinationErrorCode: -1002,
-            skippedSummaryPrefix: "Some image files were skipped:",
-            treatExportCancellationAsCancelled: false,
-            errorLogPrefix: "Image conversion failed",
-            includeDebugInfo: false,
+        let kind: MediaKind = .image
+        return makeConversionWorkflowDescriptor(
+            kind: kind,
+            fileExtension: selectedOutputFormatFileExtension(using: imageOutputFormatDescriptor()),
+            metadata: kind.conversionMetadata,
             buildOutputSettings: { self.buildImageOutputSettings() },
             makeWorkingOutputURL: { sourceURL in
                 ImageConversionEngine.temporaryOutputURL(
@@ -123,7 +95,7 @@ extension ContentViewModel {
                     outputURL: workingOutputURL,
                     outputSettings: outputSettings,
                     onProgress: self.batchProgressHandler(
-                        for: .image,
+                        for: kind,
                         index: index,
                         totalCount: totalCount
                     )
@@ -133,16 +105,11 @@ extension ContentViewModel {
     }
 
     func audioConversionWorkflowDescriptor() -> ConversionWorkflowDescriptor<AudioOutputSettings> {
-        makeConversionWorkflowDescriptor(
-            kind: .audio,
-            missingSourceLog: "No audio file to convert.",
-            fileExtension: selectedAudioOutputFormat.fileExtension,
-            outputLabel: "Audio",
-            destinationErrorCode: -1003,
-            skippedSummaryPrefix: "Some audio files were skipped:",
-            treatExportCancellationAsCancelled: true,
-            errorLogPrefix: "Audio conversion failed",
-            includeDebugInfo: false,
+        let kind: MediaKind = .audio
+        return makeConversionWorkflowDescriptor(
+            kind: kind,
+            fileExtension: selectedOutputFormatFileExtension(using: audioOutputFormatDescriptor()),
+            metadata: kind.conversionMetadata,
             buildOutputSettings: { self.buildAudioOutputSettings() },
             makeWorkingOutputURL: { sourceURL in
                 VideoConversionEngine.temporaryOutputURL(
@@ -157,7 +124,7 @@ extension ContentViewModel {
                     outputSettings: outputSettings,
                     inputDurationSeconds: nil,
                     onProgress: self.batchProgressHandler(
-                        for: .audio,
+                        for: kind,
                         index: index,
                         totalCount: totalCount
                     )
@@ -175,17 +142,17 @@ extension ContentViewModel {
             canConvert: workflow.canConvert,
             primarySourceURL: mediaStateValue(using: descriptor, \.sourceURL),
             queuedSourceURLs: mediaStateValue(using: descriptor, \.queuedSourceURLs),
-            missingSourceLog: workflow.missingSourceLog,
+            missingSourceLog: workflow.metadata.missingSourceLog,
             fileExtension: workflow.fileExtension,
-            outputLabel: workflow.outputLabel,
-            destinationErrorCode: workflow.destinationErrorCode,
+            outputLabel: workflow.metadata.outputLabel,
+            destinationErrorCode: workflow.metadata.destinationErrorCode,
             runningKeyPath: descriptor.isConverting,
             progressKeyPath: descriptor.progress,
             errorMessageKeyPath: descriptor.conversionErrorMessage,
             currentBatchIndexKeyPath: descriptor.currentBatchIndex,
             totalBatchCountKeyPath: descriptor.totalBatchCount,
-            skippedSummaryPrefix: workflow.skippedSummaryPrefix,
-            treatExportCancellationAsCancelled: workflow.treatExportCancellationAsCancelled,
+            skippedSummaryPrefix: workflow.metadata.skippedSummaryPrefix,
+            treatExportCancellationAsCancelled: workflow.metadata.treatExportCancellationAsCancelled,
             startState: { self.prepareConversionStartState(for: workflow.kind) },
             buildOutputSettings: workflow.buildOutputSettings,
             validate: workflow.validate,
@@ -201,9 +168,9 @@ extension ContentViewModel {
                 self.applyConversionError(
                     error,
                     for: workflow.kind,
-                    logPrefix: workflow.errorLogPrefix,
-                    treatExportCancellationAsCancelled: workflow.treatExportCancellationAsCancelled,
-                    includeDebugInfo: workflow.includeDebugInfo
+                    logPrefix: workflow.metadata.errorLogPrefix,
+                    treatExportCancellationAsCancelled: workflow.metadata.treatExportCancellationAsCancelled,
+                    includeDebugInfo: workflow.metadata.includeDebugInfo
                 )
             }
         )

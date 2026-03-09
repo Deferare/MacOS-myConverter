@@ -126,7 +126,7 @@ extension ContentViewModel {
         using descriptor: OutputFormatDescriptor<Format>,
         postApply: () -> Void = {}
     ) {
-        self[keyPath: descriptor.availableFormats] = formats
+        setOutputFormatValue(using: descriptor, \.availableFormats, to: formats)
         ensureSelectedOutputFormatIsAvailable(using: descriptor)
         postApply()
     }

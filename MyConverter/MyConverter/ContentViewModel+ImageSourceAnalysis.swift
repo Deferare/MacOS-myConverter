@@ -10,7 +10,11 @@ extension ContentViewModel {
                 formatNormalizedID: { $0.normalizedID },
                 deduplicatedAndSorted: { ImageFormatOption.deduplicatedAndSorted($0) },
                 noCommonFormatsMessage: "No common output format is available for the selected files.",
-                buildSelectionHandlers: makeImageSourceSelectionHandlers()
+                buildSelectionHandlers: makeResolvedOutputSelectionHandlers(
+                    persistKind: .image,
+                    formatDescriptor: { $0.imageOutputFormatDescriptor() },
+                    capabilityObserver: makeImageSourceCapabilityObserver()
+                )
             )
         )
     }

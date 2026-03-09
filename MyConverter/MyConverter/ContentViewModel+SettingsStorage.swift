@@ -64,6 +64,13 @@ extension ContentViewModel {
         )
     }
 
+    func sourceSettingsValue<Settings, Persisted, Value>(
+        using descriptor: SourceSettingsDescriptor<Settings, Persisted>,
+        _ keyPath: KeyPath<SourceSettingsDescriptor<Settings, Persisted>, ReferenceWritableKeyPath<ContentViewModel, Value>>
+    ) -> Value {
+        self[keyPath: descriptor[keyPath: keyPath]]
+    }
+
     func makeSourceSettingsFlowDescriptor<Settings: Equatable, Persisted: Codable, Format>(
         storage: SourceSettingsDescriptor<Settings, Persisted>,
         formatDescriptor: OutputFormatDescriptor<Format>,
@@ -86,6 +93,31 @@ extension ContentViewModel {
                 viewModel.ensureSelectedOutputFormatIsAvailable(using: formatDescriptor)
                 refreshDependentOptions(viewModel)
             }
+        )
+    }
+
+    func makeSourceSettingsComponents<Settings: Equatable, Persisted: Codable, Format>(
+        storage: SourceSettingsDescriptor<Settings, Persisted>,
+        formatDescriptor: OutputFormatDescriptor<Format>,
+        defaultSettings: @escaping () -> Settings,
+        outputFormatID: @escaping (Settings) -> String,
+        normalizeStoredID: @escaping (String) -> String?,
+        buildCurrentSettings: @escaping (ContentViewModel) -> Settings,
+        applyAdditionalSettings: @escaping (ContentViewModel, Settings) -> Void,
+        refreshDependentOptions: @escaping (ContentViewModel) -> Void = { _ in }
+    ) -> SourceSettingsComponents<Settings, Persisted, Format> {
+        SourceSettingsComponents(
+            storage: storage,
+            flow: makeSourceSettingsFlowDescriptor(
+                storage: storage,
+                formatDescriptor: formatDescriptor,
+                defaultSettings: defaultSettings,
+                outputFormatID: outputFormatID,
+                normalizeStoredID: normalizeStoredID,
+                buildCurrentSettings: buildCurrentSettings,
+                applyAdditionalSettings: applyAdditionalSettings,
+                refreshDependentOptions: refreshDependentOptions
+            )
         )
     }
 
@@ -201,43 +233,40 @@ extension ContentViewModel {
         VideoFormatOption
     > {
         let storage = videoSourceSettingsStorage()
-        return SourceSettingsComponents(
+        return makeSourceSettingsComponents(
             storage: storage,
-            flow: makeSourceSettingsFlowDescriptor(
-                storage: storage,
-                formatDescriptor: videoOutputFormatDescriptor(),
-                defaultSettings: { VideoConversionSettings() },
-                outputFormatID: { $0.outputFormatID },
-                normalizeStoredID: VideoFormatOption.legacyNormalizedID(from:),
-                buildCurrentSettings: { viewModel in
-                    VideoConversionSettings(
-                        outputFormatID: viewModel.selectedOutputFormat.id,
-                        videoEncoder: viewModel.selectedVideoEncoder,
-                        resolution: viewModel.selectedResolution,
-                        frameRate: viewModel.selectedFrameRate,
-                        gifPlaybackSpeed: viewModel.selectedGIFPlaybackSpeed,
-                        videoBitRate: viewModel.selectedVideoBitRate,
-                        customVideoBitRate: viewModel.customVideoBitRate,
-                        audioEncoder: viewModel.selectedAudioEncoder,
-                        audioMode: viewModel.selectedAudioMode,
-                        sampleRate: viewModel.selectedSampleRate,
-                        audioBitRate: viewModel.selectedAudioBitRate
-                    )
-                },
-                applyAdditionalSettings: { viewModel, settings in
-                    viewModel.selectedVideoEncoder = settings.videoEncoder
-                    viewModel.selectedResolution = settings.resolution
-                    viewModel.selectedFrameRate = settings.frameRate
-                    viewModel.selectedGIFPlaybackSpeed = settings.gifPlaybackSpeed
-                    viewModel.selectedVideoBitRate = settings.videoBitRate
-                    viewModel.customVideoBitRate = settings.customVideoBitRate
-                    viewModel.selectedAudioEncoder = settings.audioEncoder
-                    viewModel.selectedAudioMode = settings.audioMode
-                    viewModel.selectedSampleRate = settings.sampleRate
-                    viewModel.selectedAudioBitRate = settings.audioBitRate
-                },
-                refreshDependentOptions: { $0.refreshVideoCodecOptions() }
-            )
+            formatDescriptor: videoOutputFormatDescriptor(),
+            defaultSettings: { VideoConversionSettings() },
+            outputFormatID: { $0.outputFormatID },
+            normalizeStoredID: VideoFormatOption.legacyNormalizedID(from:),
+            buildCurrentSettings: { viewModel in
+                VideoConversionSettings(
+                    outputFormatID: viewModel.selectedOutputFormat.id,
+                    videoEncoder: viewModel.selectedVideoEncoder,
+                    resolution: viewModel.selectedResolution,
+                    frameRate: viewModel.selectedFrameRate,
+                    gifPlaybackSpeed: viewModel.selectedGIFPlaybackSpeed,
+                    videoBitRate: viewModel.selectedVideoBitRate,
+                    customVideoBitRate: viewModel.customVideoBitRate,
+                    audioEncoder: viewModel.selectedAudioEncoder,
+                    audioMode: viewModel.selectedAudioMode,
+                    sampleRate: viewModel.selectedSampleRate,
+                    audioBitRate: viewModel.selectedAudioBitRate
+                )
+            },
+            applyAdditionalSettings: { viewModel, settings in
+                viewModel.selectedVideoEncoder = settings.videoEncoder
+                viewModel.selectedResolution = settings.resolution
+                viewModel.selectedFrameRate = settings.frameRate
+                viewModel.selectedGIFPlaybackSpeed = settings.gifPlaybackSpeed
+                viewModel.selectedVideoBitRate = settings.videoBitRate
+                viewModel.customVideoBitRate = settings.customVideoBitRate
+                viewModel.selectedAudioEncoder = settings.audioEncoder
+                viewModel.selectedAudioMode = settings.audioMode
+                viewModel.selectedSampleRate = settings.sampleRate
+                viewModel.selectedAudioBitRate = settings.audioBitRate
+            },
+            refreshDependentOptions: { $0.refreshVideoCodecOptions() }
         )
     }
 
@@ -247,30 +276,27 @@ extension ContentViewModel {
         ImageFormatOption
     > {
         let storage = imageSourceSettingsStorage()
-        return SourceSettingsComponents(
+        return makeSourceSettingsComponents(
             storage: storage,
-            flow: makeSourceSettingsFlowDescriptor(
-                storage: storage,
-                formatDescriptor: imageOutputFormatDescriptor(),
-                defaultSettings: { ImageConversionSettings() },
-                outputFormatID: { $0.outputFormatID },
-                normalizeStoredID: { $0.lowercased() },
-                buildCurrentSettings: { viewModel in
-                    ImageConversionSettings(
-                        outputFormatID: viewModel.selectedImageOutputFormat.id,
-                        resolution: viewModel.selectedImageResolution,
-                        quality: viewModel.selectedImageQuality,
-                        pngCompressionLevel: viewModel.selectedPNGCompressionLevel,
-                        preserveAnimation: viewModel.preserveImageAnimation
-                    )
-                },
-                applyAdditionalSettings: { viewModel, settings in
-                    viewModel.selectedImageResolution = settings.resolution
-                    viewModel.selectedImageQuality = settings.quality
-                    viewModel.selectedPNGCompressionLevel = settings.pngCompressionLevel
-                    viewModel.preserveImageAnimation = settings.preserveAnimation
-                }
-            )
+            formatDescriptor: imageOutputFormatDescriptor(),
+            defaultSettings: { ImageConversionSettings() },
+            outputFormatID: { $0.outputFormatID },
+            normalizeStoredID: { $0.lowercased() },
+            buildCurrentSettings: { viewModel in
+                ImageConversionSettings(
+                    outputFormatID: viewModel.selectedImageOutputFormat.id,
+                    resolution: viewModel.selectedImageResolution,
+                    quality: viewModel.selectedImageQuality,
+                    pngCompressionLevel: viewModel.selectedPNGCompressionLevel,
+                    preserveAnimation: viewModel.preserveImageAnimation
+                )
+            },
+            applyAdditionalSettings: { viewModel, settings in
+                viewModel.selectedImageResolution = settings.resolution
+                viewModel.selectedImageQuality = settings.quality
+                viewModel.selectedPNGCompressionLevel = settings.pngCompressionLevel
+                viewModel.preserveImageAnimation = settings.preserveAnimation
+            }
         )
     }
 
@@ -280,31 +306,28 @@ extension ContentViewModel {
         AudioFormatOption
     > {
         let storage = audioSourceSettingsStorage()
-        return SourceSettingsComponents(
+        return makeSourceSettingsComponents(
             storage: storage,
-            flow: makeSourceSettingsFlowDescriptor(
-                storage: storage,
-                formatDescriptor: audioOutputFormatDescriptor(),
-                defaultSettings: { AudioConversionSettings() },
-                outputFormatID: { $0.outputFormatID },
-                normalizeStoredID: { $0.lowercased() },
-                buildCurrentSettings: { viewModel in
-                    AudioConversionSettings(
-                        outputFormatID: viewModel.selectedAudioOutputFormat.id,
-                        audioEncoder: viewModel.selectedAudioOutputEncoder,
-                        audioMode: viewModel.selectedAudioOutputMode,
-                        sampleRate: viewModel.selectedAudioOutputSampleRate,
-                        audioBitRate: viewModel.selectedAudioOutputBitRate
-                    )
-                },
-                applyAdditionalSettings: { viewModel, settings in
-                    viewModel.selectedAudioOutputEncoder = settings.audioEncoder
-                    viewModel.selectedAudioOutputMode = settings.audioMode
-                    viewModel.selectedAudioOutputSampleRate = settings.sampleRate
-                    viewModel.selectedAudioOutputBitRate = settings.audioBitRate
-                },
-                refreshDependentOptions: { $0.refreshAudioCodecOptions() }
-            )
+            formatDescriptor: audioOutputFormatDescriptor(),
+            defaultSettings: { AudioConversionSettings() },
+            outputFormatID: { $0.outputFormatID },
+            normalizeStoredID: { $0.lowercased() },
+            buildCurrentSettings: { viewModel in
+                AudioConversionSettings(
+                    outputFormatID: viewModel.selectedAudioOutputFormat.id,
+                    audioEncoder: viewModel.selectedAudioOutputEncoder,
+                    audioMode: viewModel.selectedAudioOutputMode,
+                    sampleRate: viewModel.selectedAudioOutputSampleRate,
+                    audioBitRate: viewModel.selectedAudioOutputBitRate
+                )
+            },
+            applyAdditionalSettings: { viewModel, settings in
+                viewModel.selectedAudioOutputEncoder = settings.audioEncoder
+                viewModel.selectedAudioOutputMode = settings.audioMode
+                viewModel.selectedAudioOutputSampleRate = settings.sampleRate
+                viewModel.selectedAudioOutputBitRate = settings.audioBitRate
+            },
+            refreshDependentOptions: { $0.refreshAudioCodecOptions() }
         )
     }
 
@@ -345,8 +368,8 @@ extension ContentViewModel {
         buildSettings: () -> Settings
     ) {
         persistSourceSettingsIfNeeded(
-            isApplyingStoredSettings: self[keyPath: descriptor.isApplyingStoredSettings],
-            sourceURL: self[keyPath: descriptor.sourceURL],
+            isApplyingStoredSettings: sourceSettingsValue(using: descriptor, \.isApplyingStoredSettings),
+            sourceURL: sourceSettingsValue(using: descriptor, \.sourceURL),
             settingsKeyPath: descriptor.settingsBySourceID,
             buildSettings: buildSettings,
             savePersistedSettings: {
@@ -382,7 +405,7 @@ extension ContentViewModel {
     ) {
         scheduleDebouncedTask(descriptor.pendingSaveTask) { viewModel in
             viewModel.savePersistedSourceSettings(
-                settingsBySourceID: viewModel[keyPath: descriptor.settingsBySourceID],
+                settingsBySourceID: viewModel.sourceSettingsValue(using: descriptor, \.settingsBySourceID),
                 mapToPersisted: descriptor.mapToPersisted,
                 storageKey: descriptor.storageKey,
                 failureContext: descriptor.saveFailureContext
@@ -425,7 +448,7 @@ extension ContentViewModel {
     ) {
         applyStoredSettingsForSource(
             sourceID: sourceID,
-            settingsBySourceID: self[keyPath: descriptor.settingsBySourceID],
+            settingsBySourceID: sourceSettingsValue(using: descriptor, \.settingsBySourceID),
             defaultSettings: defaultSettings(),
             apply: apply
         )

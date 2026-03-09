@@ -129,8 +129,7 @@ extension ContentViewModel {
                 let descriptor = input.formatDescriptor(viewModel)
                 return await viewModel.validateOutputFormatAvailability(
                     for: sourceURL,
-                    selectedFormatNormalizedID:
-                        descriptor.formatNormalizedID(viewModel[keyPath: descriptor.selectedFormat]),
+                    selectedFormatNormalizedID: viewModel.selectedOutputFormatNormalizedID(using: descriptor),
                     unavailableMessage: input.unavailableMessage,
                     fetchCapabilities: input.fetchCapabilities,
                     availableFormats: input.availableFormats,
