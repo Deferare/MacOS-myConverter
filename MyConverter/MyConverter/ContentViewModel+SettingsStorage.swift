@@ -94,51 +94,6 @@ extension ContentViewModel {
         )
     }
 
-    func makeSourceSettingsComponents<Settings: Equatable, Persisted: Codable, Format>(
-        isApplyingStoredSettings: ReferenceWritableKeyPath<ContentViewModel, Bool>,
-        sourceURL: ReferenceWritableKeyPath<ContentViewModel, URL?>,
-        settingsBySourceID: ReferenceWritableKeyPath<ContentViewModel, [String: Settings]>,
-        pendingSaveTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>,
-        storageKey: String,
-        saveFailureContext: String,
-        loadFailureContext: String,
-        mapToPersisted: @escaping (Settings) -> Persisted,
-        restore: @escaping (Persisted) -> Settings,
-        formatDescriptor: OutputFormatDescriptor<Format>,
-        defaultSettings: @escaping () -> Settings,
-        outputFormatID: @escaping (Settings) -> String,
-        normalizeStoredID: @escaping (String) -> String?,
-        buildCurrentSettings: @escaping (ContentViewModel) -> Settings,
-        applyAdditionalSettings: @escaping (ContentViewModel, Settings) -> Void,
-        refreshDependentOptions: @escaping (ContentViewModel) -> Void = { _ in }
-    ) -> SourceSettingsComponents<Settings, Persisted, Format> {
-        let storage = makeSourceSettingsDescriptor(
-            isApplyingStoredSettings: isApplyingStoredSettings,
-            sourceURL: sourceURL,
-            settingsBySourceID: settingsBySourceID,
-            pendingSaveTask: pendingSaveTask,
-            storageKey: storageKey,
-            saveFailureContext: saveFailureContext,
-            loadFailureContext: loadFailureContext,
-            mapToPersisted: mapToPersisted,
-            restore: restore
-        )
-
-        return SourceSettingsComponents(
-            storage: storage,
-            flow: makeSourceSettingsFlowDescriptor(
-                storage: storage,
-                formatDescriptor: formatDescriptor,
-                defaultSettings: defaultSettings,
-                outputFormatID: outputFormatID,
-                normalizeStoredID: normalizeStoredID,
-                buildCurrentSettings: buildCurrentSettings,
-                applyAdditionalSettings: applyAdditionalSettings,
-                refreshDependentOptions: refreshDependentOptions
-            )
-        )
-    }
-
     func makeSourceSettingsActions<Settings: Equatable, Persisted: Codable, Format>(
         using descriptor: @escaping (ContentViewModel) -> SourceSettingsFlowDescriptor<Settings, Persisted, Format>
     ) -> SourceSettingsActions {

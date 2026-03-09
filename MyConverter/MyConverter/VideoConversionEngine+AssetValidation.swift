@@ -70,22 +70,6 @@ extension VideoConversionEngine {
         }
     }
 
-    static func ensureAssetHasVideoTrack(_ asset: AVURLAsset) async throws {
-        try await ensureAssetHasTrack(
-            asset,
-            mediaType: .video,
-            missingTrackError: .noVideoTrackFound
-        )
-    }
-
-    static func ensureAssetHasAudioTrack(_ asset: AVURLAsset) async throws {
-        try await ensureAssetHasTrack(
-            asset,
-            mediaType: .audio,
-            missingTrackError: .noTracksFound
-        )
-    }
-
     static func ensureAssetReadable(_ asset: AVURLAsset) async throws {
         try await validatePlayableAsset(asset)
         let videoTracks = try await asset.loadTracks(withMediaType: .video)
@@ -224,18 +208,6 @@ extension VideoConversionEngine {
         _ = try await asset.load(.duration)
         guard isPlayable else {
             throw ConversionError.unreadableAsset
-        }
-    }
-
-    private static func ensureAssetHasTrack(
-        _ asset: AVURLAsset,
-        mediaType: AVMediaType,
-        missingTrackError: ConversionError
-    ) async throws {
-        try await validatePlayableAsset(asset)
-        let tracks = try await asset.loadTracks(withMediaType: mediaType)
-        if tracks.isEmpty {
-            throw missingTrackError
         }
     }
 }

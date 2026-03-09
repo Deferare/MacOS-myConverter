@@ -21,10 +21,6 @@ enum ContentViewModelSupport {
         AudioFormatOption.defaultSelection(from: cachedPlaceholderAudioFormats) ?? cachedFallbackAudioFormat
     }()
 
-    static func fallbackVideoFormat() -> VideoFormatOption {
-        cachedFallbackVideoFormat
-    }
-
     static func placeholderVideoFormats() -> [VideoFormatOption] {
         cachedPlaceholderVideoFormats
     }
@@ -67,10 +63,6 @@ enum ContentViewModelSupport {
 
     static func placeholderImageFormats() -> [ImageFormatOption] {
         cachedPlaceholderImageFormats
-    }
-
-    static func fallbackAudioFormat() -> AudioFormatOption {
-        cachedFallbackAudioFormat
     }
 
     static func placeholderAudioFormats() -> [AudioFormatOption] {

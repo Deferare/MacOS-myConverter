@@ -35,26 +35,6 @@ enum OutputPathUtilities {
         }
 
         nonisolated
-        mutating func reserve(_ url: URL) -> Bool {
-            let standardizedPath = url.standardizedFileURL.path
-            guard !reservedPaths.contains(standardizedPath) else {
-                return false
-            }
-
-            if checksDirectoryContents && FileManager.default.fileExists(atPath: url.path) {
-                return false
-            }
-
-            reservedPaths.insert(standardizedPath)
-            registerReservedBaseName(
-                url.deletingPathExtension().lastPathComponent,
-                fileExtension: url.pathExtension,
-                nextSuffix: 1
-            )
-            return true
-        }
-
-        nonisolated
         mutating func reserveUniqueOutputURL(
             forBaseName baseName: String,
             fileExtension: String
@@ -100,20 +80,6 @@ enum OutputPathUtilities {
             reservedPaths.insert(standardizedPath)
             nextSuffixByBaseKey[baseKey] = max(nextSuffixByBaseKey[baseKey] ?? 0, nextSuffix)
             return true
-        }
-
-        nonisolated
-        private mutating func registerReservedBaseName(
-            _ baseName: String,
-            fileExtension: String,
-            nextSuffix: Int
-        ) {
-            let (effectiveBaseName, ext) = OutputPathUtilities.normalizedOutputComponents(
-                baseName: baseName,
-                fileExtension: fileExtension
-            )
-            let baseKey = Self.baseKey(forBaseName: effectiveBaseName, fileExtension: ext)
-            nextSuffixByBaseKey[baseKey] = max(nextSuffixByBaseKey[baseKey] ?? 0, nextSuffix)
         }
 
         nonisolated

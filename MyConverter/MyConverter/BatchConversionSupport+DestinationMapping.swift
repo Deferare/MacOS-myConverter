@@ -32,17 +32,6 @@ extension BatchConversionSupport {
         )
     }
 
-    static func preferredBatchDestinationURL(
-        from originalDestinationURL: URL,
-        outputDirectory: URL,
-        fileExtension: String
-    ) -> URL {
-        normalizedDestinationURL(
-            outputDirectory.appendingPathComponent(originalDestinationURL.lastPathComponent),
-            fileExtension: fileExtension
-        )
-    }
-
     static func assignAutoBatchDestinations(
         for sourceURLs: ArraySlice<URL>,
         fileExtension: String,
@@ -59,48 +48,4 @@ extension BatchConversionSupport {
         }
     }
 
-    static func remappedBatchDestinationURLs(
-        sourceURLs: [URL],
-        originalDestinationsBySourceID: [String: URL],
-        outputDirectory: URL,
-        fileExtension: String
-    ) -> [String: URL] {
-        guard let firstSourceURL = sourceURLs.first else {
-            return originalDestinationsBySourceID
-        }
-
-        var remapped: [String: URL] = [:]
-        var allocator = OutputPathUtilities.ReservedOutputAllocator.preloaded(for: outputDirectory)
-        let firstSourceID = ContentViewModelSupport.sourceIdentifier(for: firstSourceURL)
-
-        if let originalFirstDestinationURL = originalDestinationsBySourceID[firstSourceID] {
-            let preferredFirstDestinationURL = preferredBatchDestinationURL(
-                from: originalFirstDestinationURL,
-                outputDirectory: outputDirectory,
-                fileExtension: fileExtension
-            )
-
-            let firstDestinationURL: URL
-            if allocator.reserve(preferredFirstDestinationURL) {
-                firstDestinationURL = preferredFirstDestinationURL
-            } else {
-                firstDestinationURL = uniqueBatchDestinationURL(
-                    for: firstSourceURL,
-                    fileExtension: fileExtension,
-                    using: &allocator
-                )
-            }
-
-            remapped[firstSourceID] = firstDestinationURL
-        }
-
-        assignAutoBatchDestinations(
-            for: sourceURLs.dropFirst(),
-            fileExtension: fileExtension,
-            allocator: &allocator,
-            destinationsBySourceID: &remapped
-        )
-
-        return remapped
-    }
 }

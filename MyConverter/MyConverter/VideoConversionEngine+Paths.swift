@@ -1,27 +1,6 @@
 import Foundation
 
 extension VideoConversionEngine {
-    static func sandboxOutputDirectory(bundleIdentifier: String?) throws -> URL {
-        let appSupportDirectory = try FileManager.default.url(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        )
-
-        let identifier = bundleIdentifier ?? "MyConverter"
-        let outputDirectory = appSupportDirectory
-            .appendingPathComponent(identifier, isDirectory: true)
-            .appendingPathComponent("Converted", isDirectory: true)
-
-        try FileManager.default.createDirectory(
-            at: outputDirectory,
-            withIntermediateDirectories: true,
-            attributes: nil
-        )
-        return outputDirectory
-    }
-
     static func uniqueOutputURL(
         for sourceURL: URL,
         format: VideoFormatOption,

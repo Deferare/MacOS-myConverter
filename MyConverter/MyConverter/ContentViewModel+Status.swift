@@ -1,15 +1,6 @@
 import Foundation
 
 extension ContentViewModel {
-    struct ConversionControlState {
-        let statusMessage: String
-        let statusLevel: ConversionStatusLevel
-        let progress: Double
-        let progressText: String
-        let isConverting: Bool
-        let canConvert: Bool
-    }
-
     struct ConverterScreenState {
         let statusMessage: String
         let statusLevel: ConversionStatusLevel
@@ -50,19 +41,6 @@ extension ContentViewModel {
         canStartConversion(
             using: mediaStateSnapshot(for: kind),
             validationMessage: validationMessage
-        )
-    }
-
-    func conversionControlState(for kind: MediaKind) -> ConversionControlState {
-        let screenState = converterScreenState(for: kind)
-
-        return ConversionControlState(
-            statusMessage: screenState.statusMessage,
-            statusLevel: screenState.statusLevel,
-            progress: screenState.progress,
-            progressText: screenState.progressText,
-            isConverting: screenState.isConverting,
-            canConvert: screenState.canConvert
         )
     }
 
