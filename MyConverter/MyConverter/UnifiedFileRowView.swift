@@ -286,7 +286,7 @@ struct UnifiedFileRowView: View, Equatable {
                     .frame(width: 38, height: 30)
                     .background(actionButtonBackground)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HoverScaleButtonStyle())
             .help("Show in Finder")
 
             Button {
@@ -299,7 +299,7 @@ struct UnifiedFileRowView: View, Equatable {
                     .frame(height: 30)
                     .background(actionButtonBackground)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HoverScaleButtonStyle())
         }
         .fixedSize(horizontal: true, vertical: false)
     }
@@ -340,5 +340,21 @@ struct UnifiedFileRowView: View, Equatable {
 
     private var rowBorderColor: Color {
         .white.opacity(0.10)
+    }
+}
+
+private struct HoverScaleButtonStyle: ButtonStyle {
+    @State private var isHovered = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.94 : (isHovered ? 1.04 : 1.0))
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
+            .animation(.spring(response: 0.2, dampingFraction: 0.8), value: configuration.isPressed)
+            .onHover { hovering in
+                withAnimation {
+                    isHovered = hovering
+                }
+            }
     }
 }

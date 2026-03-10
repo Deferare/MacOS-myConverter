@@ -31,6 +31,7 @@ struct UnifiedFileListView: View {
     let fileDropAreaHeight: CGFloat
     let isDropTargeted: Bool
     let screenState: ContentViewModel.ConverterScreenState
+    let themeTint: Color
     @Binding var draggedSelectedFileURL: URL?
     let onImport: () -> Void
     let onReorder: (_ draggedURL: URL, _ targetURL: URL) -> Void
@@ -138,12 +139,6 @@ struct UnifiedFileListView: View {
             HStack(spacing: 12) {
                 Text("Files")
                     .font(.headline)
-
-                Text("\(sourceURLs.count)")
-                    .font(.caption.weight(.semibold))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .glassEffect(.regular.interactive(false), in: Capsule())
 
                 Spacer()
             }
