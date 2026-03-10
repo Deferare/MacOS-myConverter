@@ -1,26 +1,6 @@
 import Foundation
 
 extension BatchConversionSupport {
-    static func normalizedDestinationURL(_ url: URL, fileExtension: String) -> URL {
-        let normalizedExtension = fileExtension
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-
-        guard !normalizedExtension.isEmpty else {
-            return url
-        }
-
-        if url.pathExtension.lowercased() == normalizedExtension {
-            return url
-        }
-
-        if url.pathExtension.isEmpty {
-            return url.appendingPathExtension(normalizedExtension)
-        }
-
-        return url.deletingPathExtension().appendingPathExtension(normalizedExtension)
-    }
-
     static func uniqueBatchDestinationURL(
         for sourceURL: URL,
         fileExtension: String,
@@ -47,5 +27,4 @@ extension BatchConversionSupport {
             destinationsBySourceID[ContentViewModelSupport.sourceIdentifier(for: sourceURL)] = destinationURL
         }
     }
-
 }

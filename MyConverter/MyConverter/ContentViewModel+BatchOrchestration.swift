@@ -60,28 +60,6 @@ extension ContentViewModel {
         return true
     }
 
-    func clearSelectedOutputDirectory(for kind: MediaKind) {
-        setSelectedOutputDirectoryURL(nil, for: kind)
-    }
-
-    func outputDirectoryDisplayName(for kind: MediaKind) -> String {
-        guard let outputDirectory = selectedOutputDirectoryURL(for: kind) else {
-            return "Ask on Start"
-        }
-
-        let abbreviatedPath = abbreviatedOutputDirectoryPath(outputDirectory)
-        let displayName = outputDirectory.lastPathComponent
-        return displayName.isEmpty ? abbreviatedPath : displayName
-    }
-
-    func outputDirectoryDetailText(for kind: MediaKind) -> String {
-        guard let outputDirectory = selectedOutputDirectoryURL(for: kind) else {
-            return "No folder selected yet. If you leave this empty, Start will ask where to save."
-        }
-
-        return abbreviatedOutputDirectoryPath(outputDirectory)
-    }
-
     func abbreviatedOutputDirectoryPath(_ url: URL) -> String {
         (url.path as NSString).abbreviatingWithTildeInPath
     }

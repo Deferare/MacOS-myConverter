@@ -44,14 +44,6 @@ extension ContentViewModel {
         self[keyPath: descriptor[keyPath: keyPath]]
     }
 
-    func setOutputFormatValue<Format, Value>(
-        using descriptor: OutputFormatDescriptor<Format>,
-        _ keyPath: KeyPath<OutputFormatDescriptor<Format>, ReferenceWritableKeyPath<ContentViewModel, Value>>,
-        to newValue: Value
-    ) {
-        self[keyPath: descriptor[keyPath: keyPath]] = newValue
-    }
-
     func withSettingsApplicationFlag(
         _ keyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
         operation: () -> Void
