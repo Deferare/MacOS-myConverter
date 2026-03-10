@@ -22,12 +22,14 @@ enum BatchConversionSupport {
     static func prepareContext(
         sourceURLs: [URL],
         fileExtension: String,
-        outputLabel: String
+        outputLabel: String,
+        preferredOutputDirectory: URL? = nil
     ) -> PreparedBatchConversionContext? {
         guard var destinationURLsBySourceID = selectDestinationURLs(
             for: sourceURLs,
             fileExtension: fileExtension,
-            outputLabel: outputLabel
+            outputLabel: outputLabel,
+            preferredOutputDirectory: preferredOutputDirectory
         ) else {
             return nil
         }

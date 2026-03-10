@@ -85,7 +85,9 @@ extension ContentViewModel {
             convertedCount: convertedCount,
             showsSettings: selectedFileCount > 0,
             showsResults: convertedCount > 0,
-            destinationHint: "Output folder is chosen after you press Start.",
+            destinationHint: selectedOutputDirectoryURL(for: kind).map {
+                "Selected output folder: \(abbreviatedOutputDirectoryPath($0))"
+            } ?? "Select an output folder in Conversion Settings, or choose one after you press Start.",
             primaryActionTitle: primaryActionTitle
         )
     }

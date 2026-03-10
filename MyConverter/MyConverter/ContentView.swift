@@ -103,6 +103,18 @@ struct ContentView: View {
 
     @ViewBuilder
     private func mediaFormSections(for kind: ContentViewModel.MediaKind) -> some View {
+        OutputFolderSelectionRow(
+            pathText: viewModel.selectedOutputDirectoryURL(for: kind).map {
+                viewModel.abbreviatedOutputDirectoryPath($0)
+            } ?? "No folder selected",
+            hasSelection: viewModel.hasSelectedOutputDirectory(for: kind),
+            tint: kind.liquidGlassTint,
+            isDisabled: viewModel.converterScreenState(for: kind).isConverting,
+            onChoose: {
+                viewModel.chooseOutputDirectory(for: kind)
+            }
+        )
+
         switch kind {
         case .video:
             VideoConverterFormSectionView(

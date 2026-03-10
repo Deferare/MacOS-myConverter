@@ -145,6 +145,7 @@ extension ContentViewModel {
             missingSourceLog: workflow.metadata.missingSourceLog,
             fileExtension: workflow.fileExtension,
             outputLabel: workflow.metadata.outputLabel,
+            preferredOutputDirectory: selectedOutputDirectoryURL(for: workflow.kind),
             destinationErrorCode: workflow.metadata.destinationErrorCode,
             runningKeyPath: descriptor.isConverting,
             progressKeyPath: descriptor.progress,
@@ -183,6 +184,7 @@ extension ContentViewModel {
         missingSourceLog: String,
         fileExtension: String,
         outputLabel: String,
+        preferredOutputDirectory: URL?,
         destinationErrorCode: Int,
         runningKeyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
         progressKeyPath: ReferenceWritableKeyPath<ContentViewModel, Double>,
@@ -219,7 +221,8 @@ extension ContentViewModel {
             primarySourceURL: primarySourceURL,
             queuedSourceURLs: queuedSourceURLs,
             fileExtension: fileExtension,
-            outputLabel: outputLabel
+            outputLabel: outputLabel,
+            preferredOutputDirectory: preferredOutputDirectory
         ) else {
             return
         }

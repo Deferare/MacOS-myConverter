@@ -69,6 +69,7 @@ extension ContentViewModel {
         var selectedAudioMode: AudioModeOption = .auto
         var selectedSampleRate: SampleRateOption = .hz48000
         var selectedAudioBitRate: AudioBitRateOption = .auto
+        var selectedOutputDirectoryURL: URL?
     }
 
     struct ImageOptionsState: Equatable {
@@ -77,6 +78,7 @@ extension ContentViewModel {
         var selectedQuality: ImageQualityOption = .high
         var selectedPNGCompressionLevel: PNGCompressionLevelOption = .balanced
         var preserveAnimation = true
+        var selectedOutputDirectoryURL: URL?
     }
 
     struct AudioOptionsState: Equatable {
@@ -85,6 +87,7 @@ extension ContentViewModel {
         var selectedOutputMode: AudioModeOption = .auto
         var selectedOutputSampleRate: SampleRateOption = .hz48000
         var selectedOutputBitRate: AudioBitRateOption = .auto
+        var selectedOutputDirectoryURL: URL?
     }
 }
 

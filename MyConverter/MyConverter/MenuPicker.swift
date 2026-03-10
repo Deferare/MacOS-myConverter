@@ -118,6 +118,74 @@ struct ConverterTextFieldRow: View {
     }
 }
 
+struct OutputFolderSelectionRow: View {
+    let pathText: String
+    let hasSelection: Bool
+    let tint: Color
+    let isDisabled: Bool
+    let onChoose: () -> Void
+
+    var body: some View {
+        HStack(spacing: 14) {
+            HStack(spacing: 10) {
+                Image(systemName: "folder")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.white.opacity(0.72))
+                    .frame(width: 28, height: 28)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(.black.opacity(0.18))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .stroke(.white.opacity(0.06), lineWidth: 1)
+                            )
+                    )
+
+                Text(pathText)
+                    .font(.subheadline.weight(hasSelection ? .semibold : .medium))
+                    .foregroundStyle(hasSelection ? Color.primary : Color.secondary.opacity(0.82))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button(action: onChoose) {
+                Text(hasSelection ? "Change" : "Choose")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(tint)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(.white.opacity(0.04))
+                            .overlay(
+                                Capsule(style: .continuous)
+                                    .stroke(.white.opacity(0.085), lineWidth: 1)
+                            )
+                    )
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, ConverterSettingMetrics.rowHorizontalPadding)
+        .padding(.vertical, ConverterSettingMetrics.rowVerticalPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(rowBackground)
+        .shadow(color: tint.opacity(0.04), radius: 14, x: 0, y: 6)
+        .disabled(isDisabled)
+        .opacity(isDisabled ? 0.7 : 1)
+    }
+
+    private var rowBackground: some View {
+        RoundedRectangle(cornerRadius: ConverterSettingMetrics.rowCornerRadius, style: .continuous)
+            .fill(.white.opacity(0.06))
+            .overlay(
+                RoundedRectangle(cornerRadius: ConverterSettingMetrics.rowCornerRadius, style: .continuous)
+                    .stroke(.white.opacity(0.10), lineWidth: 1)
+            )
+    }
+}
+
 struct ConverterToggleRow: View {
     let title: String
     @Binding var isOn: Bool

@@ -141,6 +141,11 @@ extension ContentViewModel {
         set { persistOption(in: videoOptionsDescriptor, \.selectedAudioBitRate, to: newValue) }
     }
 
+    var selectedVideoOutputDirectoryURL: URL? {
+        get { optionValue(in: videoOptionsDescriptor, \.selectedOutputDirectoryURL) }
+        set { setOptionValue(in: videoOptionsDescriptor, \.selectedOutputDirectoryURL, to: newValue) }
+    }
+
     // Image options
     var selectedImageOutputFormat: ImageFormatOption {
         get { optionValue(in: imageOptionsDescriptor, \.selectedOutputFormat) }
@@ -167,6 +172,11 @@ extension ContentViewModel {
         set { persistOption(in: imageOptionsDescriptor, \.preserveAnimation, to: newValue) }
     }
 
+    var selectedImageOutputDirectoryURL: URL? {
+        get { optionValue(in: imageOptionsDescriptor, \.selectedOutputDirectoryURL) }
+        set { setOptionValue(in: imageOptionsDescriptor, \.selectedOutputDirectoryURL, to: newValue) }
+    }
+
     // Audio options
     var selectedAudioOutputFormat: AudioFormatOption {
         get { optionValue(in: audioOptionsDescriptor, \.selectedOutputFormat) }
@@ -191,5 +201,10 @@ extension ContentViewModel {
     var selectedAudioOutputBitRate: AudioBitRateOption {
         get { optionValue(in: audioOptionsDescriptor, \.selectedOutputBitRate) }
         set { persistOption(in: audioOptionsDescriptor, \.selectedOutputBitRate, to: newValue) }
+    }
+
+    var selectedAudioOutputDirectoryURL: URL? {
+        get { optionValue(in: audioOptionsDescriptor, \.selectedOutputDirectoryURL) }
+        set { setOptionValue(in: audioOptionsDescriptor, \.selectedOutputDirectoryURL, to: newValue) }
     }
 }
