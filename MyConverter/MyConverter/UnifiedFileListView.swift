@@ -13,6 +13,14 @@ struct UnifiedFileListView: View {
         }
     }
 
+    private enum Metrics {
+        static let containerSpacing: CGFloat = 14
+        static let rowSpacing: CGFloat = 8
+        static let contentPadding: CGFloat = 20
+        static let fallbackHeaderHeight: CGFloat = 44
+        static let fallbackRowHeight: CGFloat = 50
+    }
+
     let sourceURLs: [URL]
     let outputURLsBySourceID: [String: URL]
     let processedSourceIDs: Set<String>
@@ -26,6 +34,8 @@ struct UnifiedFileListView: View {
     @Binding var draggedSelectedFileURL: URL?
     let onImport: () -> Void
     let onReorder: (_ draggedURL: URL, _ targetURL: URL) -> Void
+    @State private var measuredHeaderHeight: CGFloat = 0
+    @State private var measuredRowHeights: [String: CGFloat] = [:]
 
     private let contentTransition: AnyTransition = .identity
 
@@ -51,12 +61,16 @@ struct UnifiedFileListView: View {
     private var populatedListView: some View {
         let rowDescriptors = makeRowDescriptors()
         let availableURLPaths = Set(rowDescriptors.map(\.url.path))
+        let maxScrollHeight = maximumScrollHeight
+        let visibleRowsHeight = min(totalRowsHeight(for: rowDescriptors), maxScrollHeight)
+        let populatedListHeight = totalPopulatedHeight(for: rowDescriptors)
 
         return VStack(alignment: .leading, spacing: 14) {
             headerBar
+                .background(HeightMeasurementView(kind: .header))
 
             ScrollView(.vertical, showsIndicators: true) {
-                LazyVStack(spacing: 8) {
+                LazyVStack(spacing: Metrics.rowSpacing) {
                     ForEach(rowDescriptors) { row in
                         UnifiedFileRowView(
                             sourceURL: row.url,
@@ -64,6 +78,7 @@ struct UnifiedFileListView: View {
                             rowState: row.rowState
                         )
                         .equatable()
+                        .background(HeightMeasurementView(id: row.id))
                         .transition(.identity)
                         .onDrag {
                             guard !isConverting else {
@@ -90,11 +105,17 @@ struct UnifiedFileListView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .frame(height: visibleRowsHeight)
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, minHeight: fileDropAreaHeight, maxHeight: fileDropAreaHeight)
+        .padding(Metrics.contentPadding)
+        .frame(maxWidth: .infinity)
+        .frame(height: populatedListHeight)
         .background(ConverterInputAreaBackground(isDropTargeted: isDropTargeted, usesDashedBorder: false))
         .clipShape(RoundedRectangle(cornerRadius: 24))
+        .onPreferenceChange(HeightMeasurementPreferenceKey.self) { measurements in
+            measuredHeaderHeight = measurements.headerHeight
+            measuredRowHeights = measurements.rowHeights.filter { availableURLPaths.contains($0.key) }
+        }
     }
 
     private func makeRowDescriptors() -> [RowDescriptor] {
@@ -195,5 +216,84 @@ struct UnifiedFileListView: View {
         }
 
         return .pending
+    }
+
+    private var resolvedHeaderHeight: CGFloat {
+        measuredHeaderHeight > 0 ? measuredHeaderHeight : Metrics.fallbackHeaderHeight
+    }
+
+    private var maximumScrollHeight: CGFloat {
+        max(
+            0,
+            fileDropAreaHeight - (Metrics.contentPadding * 2) - resolvedHeaderHeight - Metrics.containerSpacing
+        )
+    }
+
+    private func totalRowsHeight(for rowDescriptors: [RowDescriptor]) -> CGFloat {
+        guard !rowDescriptors.isEmpty else {
+            return 0
+        }
+
+        let rowHeights = rowDescriptors.map { descriptor in
+            measuredRowHeights[descriptor.id] ?? Metrics.fallbackRowHeight
+        }
+
+        return rowHeights.reduce(0, +) + (CGFloat(rowDescriptors.count - 1) * Metrics.rowSpacing)
+    }
+
+    private func totalPopulatedHeight(for rowDescriptors: [RowDescriptor]) -> CGFloat {
+        let contentHeight = resolvedHeaderHeight + Metrics.containerSpacing + min(totalRowsHeight(for: rowDescriptors), maximumScrollHeight)
+        return min(fileDropAreaHeight, (Metrics.contentPadding * 2) + contentHeight)
+    }
+}
+
+private struct HeightMeasurement: Equatable {
+    var headerHeight: CGFloat = 0
+    var rowHeights: [String: CGFloat] = [:]
+}
+
+private struct HeightMeasurementPreferenceKey: PreferenceKey {
+    static var defaultValue = HeightMeasurement()
+
+    static func reduce(value: inout HeightMeasurement, nextValue: () -> HeightMeasurement) {
+        let next = nextValue()
+        value.headerHeight = max(value.headerHeight, next.headerHeight)
+        value.rowHeights.merge(next.rowHeights) { _, new in new }
+    }
+}
+
+private struct HeightMeasurementView: View {
+    enum Kind {
+        case header
+        case row(String)
+    }
+
+    let kind: Kind
+
+    init(kind: Kind) {
+        self.kind = kind
+    }
+
+    init(id: String) {
+        self.kind = .row(id)
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            Color.clear
+                .preference(
+                    key: HeightMeasurementPreferenceKey.self,
+                    value: measuredValue(for: geometry.size.height)
+                )
+        }
+    }
+
+    private func measuredValue(for height: CGFloat) -> HeightMeasurement {
+        switch kind {
+        case .header:
+            return HeightMeasurement(headerHeight: height)
+        case .row(let id):
+            return HeightMeasurement(rowHeights: [id: height])
+        }
     }
 }
