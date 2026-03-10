@@ -6,6 +6,10 @@ struct SidebarView: View {
     private let mediaTabs: [ConverterTab] = [.video, .audio, .image]
     private let appTabs: [ConverterTab] = [.about]
 
+    private var sidebarSelectionTint: Color {
+        selectedTab.mediaKind?.liquidGlassTint ?? .accentColor
+    }
+
     var body: some View {
         List(selection: $selectedTab) {
             Section("Media") {
@@ -17,6 +21,7 @@ struct SidebarView: View {
             }
         }
         .listStyle(.sidebar)
+        .tint(sidebarSelectionTint)
         .navigationTitle("MyConverter")
         .navigationSplitViewColumnWidth(min: 220, ideal: 240)
     }

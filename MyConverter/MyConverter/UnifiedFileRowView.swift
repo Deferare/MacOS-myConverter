@@ -170,24 +170,16 @@ struct UnifiedFileRowView: View, Equatable {
         Glass.regular.interactive(false)
     }
 
-    private var neutralControlTint: Color {
-        .white.opacity(0.14)
-    }
-
     private var actionLabelColor: Color {
         .white.opacity(0.82)
     }
 
-    private var extensionBadgeFillColor: Color {
-        .white.opacity(0.07)
+    private var actionButtonFillColor: Color {
+        .white.opacity(0.08)
     }
 
-    private var extensionBadgeBorderColor: Color {
-        .white.opacity(0.13)
-    }
-
-    private var extensionBadgeTextColor: Color {
-        .white.opacity(0.70)
+    private var actionButtonBorderColor: Color {
+        .white.opacity(0.06)
     }
 
     private func statusGlass(_ color: Color) -> Glass {
@@ -272,8 +264,6 @@ struct UnifiedFileRowView: View, Equatable {
 
     private var outputSection: some View {
         HStack(spacing: Metrics.outputSectionSpacing) {
-            extensionBadgeView
-
             if let outputURL = displayedCompletedOutputURL {
                 completedActionsView(outputURL)
                     .transition(completedActionsTransition)
@@ -285,23 +275,6 @@ struct UnifiedFileRowView: View, Equatable {
         .layoutPriority(1)
     }
 
-    private var extensionBadgeView: some View {
-        Text(sourceURL.pathExtension.uppercased())
-            .font(.caption2.weight(.semibold))
-            .foregroundStyle(extensionBadgeTextColor)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(
-                Capsule()
-                    .fill(extensionBadgeFillColor)
-            )
-            .overlay(
-                Capsule()
-                    .stroke(extensionBadgeBorderColor, lineWidth: 1)
-            )
-            .fixedSize(horizontal: true, vertical: false)
-    }
-
     private func completedActionsView(_ url: URL) -> some View {
         HStack(spacing: Metrics.outputSectionSpacing) {
             Button {
@@ -310,23 +283,34 @@ struct UnifiedFileRowView: View, Equatable {
                 Label("Show in Finder", systemImage: "folder")
                     .labelStyle(.iconOnly)
                     .foregroundStyle(actionLabelColor)
+                    .frame(width: 38, height: 30)
+                    .background(actionButtonBackground)
             }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            .tint(neutralControlTint)
+            .buttonStyle(.plain)
             .help("Show in Finder")
 
             Button {
                 NSWorkspace.shared.open(url)
             } label: {
                 Text("Open")
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(actionLabelColor)
+                    .padding(.horizontal, 18)
+                    .frame(height: 30)
+                    .background(actionButtonBackground)
             }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            .tint(neutralControlTint)
+            .buttonStyle(.plain)
         }
         .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private var actionButtonBackground: some View {
+        RoundedRectangle(cornerRadius: 10, style: .continuous)
+            .fill(actionButtonFillColor)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(actionButtonBorderColor, lineWidth: 1)
+            )
     }
 
     private func statusPlaceholderView(_ title: String, color: Color) -> some View {

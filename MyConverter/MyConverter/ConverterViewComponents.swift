@@ -268,6 +268,10 @@ struct MediaConverterDetailView<FormSections: View>: View {
     let formSections: FormSections
     private let fileSelectionAnimation: Animation = .easeOut(duration: 0.22)
 
+    private var toolbarUtilityTint: Color {
+        .white.opacity(0.14)
+    }
+
     init(
         kind: ContentViewModel.MediaKind,
         screenState: ContentViewModel.ConverterScreenState,
@@ -346,16 +350,19 @@ struct MediaConverterDetailView<FormSections: View>: View {
                         Label("Clear Files", systemImage: "xmark")
                             .labelStyle(.iconOnly)
                     }
+                    .tint(toolbarUtilityTint)
                     .help("Clear Files")
 
                     Button("Add Files", systemImage: "plus") {
                         onImport()
                     }
+                    .tint(toolbarUtilityTint)
                 }
 
                 Button(screenState.primaryActionTitle) {
                     onPrimaryAction()
                 }
+                .tint(kind.liquidGlassTint)
                 .disabled(!screenState.isConverting && !screenState.canConvert)
             }
         }
