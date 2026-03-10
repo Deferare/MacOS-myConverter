@@ -1,6 +1,16 @@
 import Foundation
 
 extension ContentViewModel {
+    struct PreparedSingleVideoSelection {
+        let sourceID: String
+        let sourceURL: URL
+        let preparedSourceContext: VideoConversionEngine.PreparedSourceContext
+    }
+
+    struct SelectionPreparationState {
+        var preparedSingleVideoSelection: PreparedSingleVideoSelection?
+    }
+
     struct PersistedSettingsState {
         var videoSettingsBySourceID: [String: VideoConversionSettings] = [:]
         var imageSettingsBySourceID: [String: ImageConversionSettings] = [:]

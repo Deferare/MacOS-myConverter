@@ -8,6 +8,7 @@ extension ContentViewModel {
         let metadata: ConversionMetadata
         let buildOutputSettings: () throws -> OutputSettings
         let prepareBatchEnvironment: @Sendable ([PreparedSourceConversion], OutputSettings, URL) async -> BatchExecutionEnvironment
+        let prepareSingleSourceEnvironment: (@MainActor (PreparedSourceConversion, OutputSettings, URL) async -> BatchExecutionEnvironment)?
         let validate: (PreparedSourceConversion, BatchExecutionEnvironment) async -> String?
         let runConversion: (PreparedSourceConversion, BatchExecutionEnvironment, OutputSettings, Int, Int) async throws -> URL
     }
@@ -30,6 +31,7 @@ extension ContentViewModel {
         metadata: ConversionMetadata,
         buildOutputSettings: @escaping () throws -> OutputSettings,
         prepareBatchEnvironment: @escaping @Sendable ([PreparedSourceConversion], OutputSettings, URL) async -> BatchExecutionEnvironment,
+        prepareSingleSourceEnvironment: (@MainActor (PreparedSourceConversion, OutputSettings, URL) async -> BatchExecutionEnvironment)? = nil,
         runConversion: @escaping (PreparedSourceConversion, BatchExecutionEnvironment, OutputSettings, Int, Int) async throws -> URL
     ) -> ConversionWorkflowDescriptor<OutputSettings> {
         ConversionWorkflowDescriptor(
@@ -42,6 +44,7 @@ extension ContentViewModel {
             metadata: metadata,
             buildOutputSettings: buildOutputSettings,
             prepareBatchEnvironment: prepareBatchEnvironment,
+            prepareSingleSourceEnvironment: prepareSingleSourceEnvironment,
             validate: { preparedSource, environment in
                 await self.validatePreparedSourceOutputSettings(
                     for: kind,
@@ -63,6 +66,13 @@ extension ContentViewModel {
             prepareBatchEnvironment: { preparedSources, outputSettings, outputDirectoryURL in
                 await ContentViewModel.prepareVideoBatchExecutionEnvironment(
                     preparedSources: preparedSources,
+                    outputSettings: outputSettings,
+                    outputDirectoryURL: outputDirectoryURL
+                )
+            },
+            prepareSingleSourceEnvironment: { preparedSource, outputSettings, outputDirectoryURL in
+                await self.prepareSingleVideoBatchExecutionEnvironment(
+                    preparedSource: preparedSource,
                     outputSettings: outputSettings,
                     outputDirectoryURL: outputDirectoryURL
                 )
@@ -170,6 +180,7 @@ extension ContentViewModel {
             },
             buildOutputSettings: workflow.buildOutputSettings,
             prepareBatchEnvironment: workflow.prepareBatchEnvironment,
+            prepareSingleSourceEnvironment: workflow.prepareSingleSourceEnvironment,
             validate: workflow.validate,
             runConversion: workflow.runConversion,
             onSavedOutput: { sourceURL, savedURL in
@@ -186,6 +197,9 @@ extension ContentViewModel {
                     treatExportCancellationAsCancelled: workflow.metadata.treatExportCancellationAsCancelled,
                     includeDebugInfo: workflow.metadata.includeDebugInfo
                 )
+            },
+            onSingleSourceCompletion: {
+                self.clearPreparedSingleVideoSelection(for: workflow.kind)
             }
         )
     }
@@ -208,11 +222,13 @@ extension ContentViewModel {
         startState: (URL) -> Void,
         buildOutputSettings: () throws -> OutputSettings,
         prepareBatchEnvironment: @escaping @Sendable ([PreparedSourceConversion], OutputSettings, URL) async -> BatchExecutionEnvironment,
+        prepareSingleSourceEnvironment: (@MainActor (PreparedSourceConversion, OutputSettings, URL) async -> BatchExecutionEnvironment)? = nil,
         validate: @escaping (PreparedSourceConversion, BatchExecutionEnvironment) async -> String?,
         runConversion: @escaping (PreparedSourceConversion, BatchExecutionEnvironment, OutputSettings, Int, Int) async throws -> URL,
         onSavedOutput: @escaping (URL, URL) -> Void,
         onSourceProcessed: @escaping (URL) -> Void,
-        onError: (Error) -> Void
+        onError: (Error) -> Void,
+        onSingleSourceCompletion: (() -> Void)? = nil
     ) async {
         guard canConvert, let primarySourceURL else {
             if primarySourceURL == nil {
@@ -272,6 +288,31 @@ extension ContentViewModel {
         }
 
         startState(batchContext.outputDirectoryURL)
+        if batchContext.preparedSources.count == 1,
+           let preparedSource = batchContext.preparedSources.first,
+           let prepareSingleSourceEnvironment {
+            defer { onSingleSourceCompletion?() }
+            await executeSingleSourceConversion(
+                preparedSource: preparedSource,
+                outputSettings: outputSettings,
+                outputDirectoryURL: batchContext.outputDirectoryURL,
+                prepareSingleSourceEnvironment: prepareSingleSourceEnvironment,
+                runningKeyPath: runningKeyPath,
+                progressKeyPath: progressKeyPath,
+                errorMessageKeyPath: errorMessageKeyPath,
+                currentBatchIndexKeyPath: currentBatchIndexKeyPath,
+                totalBatchCountKeyPath: totalBatchCountKeyPath,
+                skippedSummaryPrefix: skippedSummaryPrefix,
+                treatExportCancellationAsCancelled: treatExportCancellationAsCancelled,
+                validate: validate,
+                runConversion: runConversion,
+                onSavedOutput: onSavedOutput,
+                onSourceProcessed: onSourceProcessed,
+                onError: onError
+            )
+            return
+        }
+
         let batchEnvironmentTask = Task.detached(priority: .userInitiated) {
             await prepareBatchEnvironment(
                 batchContext.preparedSources,
@@ -305,5 +346,101 @@ extension ContentViewModel {
             onSourceProcessed: onSourceProcessed,
             onError: onError
         )
+    }
+
+    func executeSingleSourceConversion<OutputSettings: Sendable>(
+        preparedSource: PreparedSourceConversion,
+        outputSettings: OutputSettings,
+        outputDirectoryURL: URL,
+        prepareSingleSourceEnvironment: @escaping @MainActor (
+            PreparedSourceConversion,
+            OutputSettings,
+            URL
+        ) async -> BatchExecutionEnvironment,
+        runningKeyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
+        progressKeyPath: ReferenceWritableKeyPath<ContentViewModel, Double>,
+        errorMessageKeyPath: ReferenceWritableKeyPath<ContentViewModel, String?>,
+        currentBatchIndexKeyPath: ReferenceWritableKeyPath<ContentViewModel, Int>,
+        totalBatchCountKeyPath: ReferenceWritableKeyPath<ContentViewModel, Int>,
+        skippedSummaryPrefix: String,
+        treatExportCancellationAsCancelled: Bool = false,
+        validate: @escaping (PreparedSourceConversion, BatchExecutionEnvironment) async -> String?,
+        runConversion: @escaping (PreparedSourceConversion, BatchExecutionEnvironment, OutputSettings, Int, Int) async throws -> URL,
+        onSavedOutput: @escaping (URL, URL) -> Void,
+        onSourceProcessed: @escaping (URL) -> Void,
+        onError: (Error) -> Void
+    ) async {
+        self[keyPath: totalBatchCountKeyPath] = 1
+        self[keyPath: currentBatchIndexKeyPath] = 1
+
+        do {
+            defer {
+                self[keyPath: runningKeyPath] = false
+                self[keyPath: currentBatchIndexKeyPath] = 0
+                self[keyPath: totalBatchCountKeyPath] = 0
+            }
+            try Task.checkCancellation()
+
+            let batchEnvironment = await prepareSingleSourceEnvironment(
+                preparedSource,
+                outputSettings,
+                outputDirectoryURL
+            )
+
+            let result = try await withSourceSecurityScope(for: preparedSource.sourceURL) {
+                if let validationMessage = await validate(preparedSource, batchEnvironment) {
+                    onSourceProcessed(preparedSource.sourceURL)
+                    return (
+                        savedURL: Optional<URL>.none,
+                        skippedEntry: Optional(
+                            "\(preparedSource.sourceURL.lastPathComponent): \(validationMessage)"
+                        )
+                    )
+                }
+
+                defer {
+                    BatchConversionSupport.cleanupWorkingOutputIfNeeded(
+                        preparedSource.workingOutputURL
+                    )
+                }
+
+                let output = try await runConversion(
+                    preparedSource,
+                    batchEnvironment,
+                    outputSettings,
+                    0,
+                    1
+                )
+                try Task.checkCancellation()
+
+                let savedURL = try BatchConversionSupport.savePreparedConvertedOutput(
+                    from: output,
+                    preparedSource: preparedSource
+                )
+                return (
+                    savedURL: Optional(savedURL),
+                    skippedEntry: Optional<String>.none
+                )
+            }
+
+            setProgress(1, at: progressKeyPath)
+            if let entry = result.skippedEntry {
+                self[keyPath: errorMessageKeyPath] = BatchConversionSupport.skippedFilesSummary(
+                    prefix: skippedSummaryPrefix,
+                    entries: [entry]
+                )
+            } else if let savedURL = result.savedURL {
+                onSavedOutput(preparedSource.sourceURL, savedURL)
+                onSourceProcessed(preparedSource.sourceURL)
+            }
+        } catch is CancellationError {
+            setProgress(0, at: progressKeyPath)
+            self[keyPath: errorMessageKeyPath] = nil
+        } catch ConversionError.exportCancelled where treatExportCancellationAsCancelled {
+            setProgress(0, at: progressKeyPath)
+            self[keyPath: errorMessageKeyPath] = nil
+        } catch {
+            onError(error)
+        }
     }
 }

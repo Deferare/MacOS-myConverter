@@ -88,7 +88,8 @@ extension ContentViewModel {
                     let context = VideoConversionEngine.PreparedSourceContext(
                         sourceCapabilities: sourceCapabilities,
                         assetTrackProbe: assetTrackProbe,
-                        candidatePresets: candidatePresets
+                        candidatePresets: candidatePresets,
+                        stagedInputLease: nil
                     )
                     return (preparedSource.sourceID, context)
                 }
@@ -108,6 +109,38 @@ extension ContentViewModel {
             videoFFmpegContext: ffmpegContext,
             imageFFmpegContext: nil,
             preparedVideoSources: preparedVideoSources,
+            preparedAudioCapabilities: [:],
+            preparedImageCapabilities: [:]
+        )
+    }
+
+    func prepareSingleVideoBatchExecutionEnvironment(
+        preparedSource: PreparedSourceConversion,
+        outputSettings _: VideoOutputSettings,
+        outputDirectoryURL: URL
+    ) async -> BatchExecutionEnvironment {
+        let preparedContext: VideoConversionEngine.PreparedSourceContext
+        if let preparedSelection = await prepareSelectedSingleVideoSelectionIfNeeded(
+            for: preparedSource.sourceURL
+        ) {
+            preparedContext = preparedSelection.preparedSourceContext
+        } else {
+            let assetTrackProbe = await VideoConversionEngine.assetTrackProbe(for: preparedSource.sourceURL)
+            let sourceCapabilities = await VideoConversionEngine.sourceCapabilities(for: preparedSource.sourceURL)
+            preparedContext = VideoConversionEngine.PreparedSourceContext(
+                sourceCapabilities: sourceCapabilities,
+                assetTrackProbe: assetTrackProbe,
+                candidatePresets: nil,
+                stagedInputLease: nil
+            )
+        }
+
+        return BatchExecutionEnvironment(
+            kind: .video,
+            outputDirectoryURL: outputDirectoryURL,
+            videoFFmpegContext: Self.makeVideoFFmpegExecutionContext(),
+            imageFFmpegContext: nil,
+            preparedVideoSources: [preparedSource.sourceID: preparedContext],
             preparedAudioCapabilities: [:],
             preparedImageCapabilities: [:]
         )

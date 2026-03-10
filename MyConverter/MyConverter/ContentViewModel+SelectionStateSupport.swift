@@ -99,6 +99,7 @@ extension ContentViewModel {
         resetBatchState: Bool = false,
         applyDefaultSettings: Bool = false
     ) {
+        clearPreparedSingleVideoSelection(for: kind)
         cancelSelectionAnalysis(for: kind)
 
         if resetOutputs {
@@ -144,6 +145,7 @@ extension ContentViewModel {
     }
 
     func clearSelectedSource(for kind: MediaKind) {
+        clearPreparedSingleVideoSelection(for: kind)
         cancelSelectionAnalysis(for: kind)
         switch kind {
         case .video:

@@ -117,7 +117,10 @@ extension VideoConversionEngine {
         )
     }
 
-    static func sourceCapabilities(for inputURL: URL) async -> VideoSourceCapabilities {
+    static func sourceCapabilities(
+        for inputURL: URL,
+        stagedInputLease: FFmpegStagingSupport.StagedInputLease? = nil
+    ) async -> VideoSourceCapabilities {
         let ffmpegPath = FFmpegBinaryLocator.findPath()
         let cacheKey = makeSourceCapabilityCacheKey(for: inputURL, ffmpegPath: ffmpegPath)
         if let cached = sourceCapabilityCacheQueue.sync(execute: { videoSourceCapabilitiesCache[cacheKey] }) {
@@ -139,7 +142,11 @@ extension VideoConversionEngine {
         }
 
         let resolved = await Task.detached(priority: .userInitiated) {
-            await resolveVideoSourceCapabilities(for: inputURL, ffmpegPath: ffmpegPath)
+            await resolveVideoSourceCapabilities(
+                for: inputURL,
+                ffmpegPath: ffmpegPath,
+                stagedInputLease: stagedInputLease
+            )
         }.value
 
         var continuations: [CheckedContinuation<VideoSourceCapabilities, Never>] = []
@@ -198,7 +205,8 @@ extension VideoConversionEngine {
 
     private static func resolveVideoSourceCapabilities(
         for inputURL: URL,
-        ffmpegPath: String?
+        ffmpegPath: String?,
+        stagedInputLease: FFmpegStagingSupport.StagedInputLease?
     ) async -> VideoSourceCapabilities {
         let ffmpegAvailable = ffmpegPath != nil
         let defaultFormats = defaultOutputFormats()
@@ -234,6 +242,7 @@ extension VideoConversionEngine {
             let hasVideoTrack = await ffmpegCanReadMappedStream(
                 ffmpegPath: ffmpegPath,
                 inputURL: inputURL,
+                stagedInputLease: stagedInputLease,
                 mapSpecifier: "0:v:0",
                 frameArguments: ["-frames:v", "1"]
             )

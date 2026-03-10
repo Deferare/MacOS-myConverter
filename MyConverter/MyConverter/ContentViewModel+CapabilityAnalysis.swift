@@ -411,6 +411,40 @@ extension ContentViewModel {
         self[keyPath: state.isAnalyzing] = true
         self[keyPath: state.analysisTask] = Task { [weak self] in
             guard let self else { return }
+            if state.kind == .video,
+               selection.count == 1,
+               let sourceURL = selection.first,
+               let prepared = await prepareSelectedSingleVideoSelectionIfNeeded(for: sourceURL),
+               let capability = prepared.preparedSourceContext.sourceCapabilities as? Capability {
+                guard !Task.isCancelled else { return }
+                guard selectedSourceIDs() == expectedSourceIDs else { return }
+
+                onCapability?(sourceURL, capability)
+                let resolvedFormats = deduplicatedAndSorted(availableFormats(capability))
+                let joinedWarnings = joinedCapabilityMessages([
+                    warningMessage(capability)
+                ].compactMap { $0 })
+
+                let joinedErrors: String?
+                if let capabilityError = errorMessage(capability) {
+                    joinedErrors = capabilityError
+                } else if selection.count > 1 && resolvedFormats.isEmpty {
+                    joinedErrors = noCommonFormatsMessage
+                } else {
+                    joinedErrors = nil
+                }
+
+                applySourceAnalysisResolution(
+                    for: state.kind,
+                    resolvedFormats: resolvedFormats,
+                    warningMessage: joinedWarnings,
+                    errorMessage: joinedErrors
+                )
+
+                onFormatsResolved(resolvedFormats)
+                return
+            }
+
             let aggregationTask = Task.detached(priority: .userInitiated) {
                 await Self.aggregateSourceCapabilities(
                     for: selection,

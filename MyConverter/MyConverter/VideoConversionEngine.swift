@@ -48,6 +48,7 @@ enum VideoConversionEngine {
         let sourceCapabilities: VideoSourceCapabilities
         let assetTrackProbe: AssetTrackProbe
         let candidatePresets: [String]?
+        let stagedInputLease: FFmpegStagingSupport.StagedInputLease?
     }
 
     final class InFlightFFmpegIntrospection: @unchecked Sendable {

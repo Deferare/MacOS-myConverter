@@ -40,6 +40,7 @@ extension VideoConversionEngine {
         outputSettings: VideoOutputSettings,
         inputDurationSeconds: Double?,
         ffmpegContext: FFmpegExecutionContext? = nil,
+        stagedInputLease: FFmpegStagingSupport.StagedInputLease? = nil,
         onProgress: @escaping ProgressHandler
     ) async throws -> URL {
         if let converted = try await attemptFFmpegConversion(
@@ -48,6 +49,7 @@ extension VideoConversionEngine {
             outputSettings: outputSettings,
             inputDurationSeconds: inputDurationSeconds,
             ffmpegContext: ffmpegContext,
+            stagedInputLease: stagedInputLease,
             onProgress: onProgress
         ) {
             return converted
@@ -61,6 +63,7 @@ extension VideoConversionEngine {
         outputSettings: VideoOutputSettings,
         inputDurationSeconds: Double?,
         ffmpegContext: FFmpegExecutionContext? = nil,
+        stagedInputLease: FFmpegStagingSupport.StagedInputLease? = nil,
         onProgress: @escaping ProgressHandler
     ) async throws -> URL? {
         let didConvert = try await convertWithFFmpegIfAvailable(
@@ -69,6 +72,7 @@ extension VideoConversionEngine {
             outputSettings: outputSettings,
             inputDurationSeconds: inputDurationSeconds,
             ffmpegContext: ffmpegContext,
+            stagedInputLease: stagedInputLease,
             onProgress: onProgress
         )
         return didConvert ? outputURL : nil
@@ -89,33 +93,42 @@ extension VideoConversionEngine {
     static func ffmpegCanReadMappedStream(
         ffmpegPath: String,
         inputURL: URL,
+        stagedInputLease: FFmpegStagingSupport.StagedInputLease? = nil,
         mapSpecifier: String,
         frameArguments: [String]
     ) async -> Bool {
-        let stagedInputURL: URL
-        do {
-            stagedInputURL = try stageInputForFFmpeg(inputURL)
-        } catch {
-            return false
-        }
-        defer {
-            try? OutputPathUtilities.removeFileIfExists(at: stagedInputURL)
-        }
-
-        let arguments = [
-            "-hide_banner",
-            "-loglevel", "error",
-            "-i", stagedInputURL.path,
+        let probeArguments = [
             "-map", mapSpecifier
         ] + frameArguments + [
             "-f", "null",
             "-"
         ]
 
-        guard let result = try? await ProcessCommandRunner.runCommand(path: ffmpegPath, arguments: arguments) else {
-            return false
+        let runProbe: (URL) async -> Bool = { stagedInputURL in
+            guard let result = try? await ProcessCommandRunner.runCommand(
+                path: ffmpegPath,
+                arguments: [
+                    "-hide_banner",
+                    "-loglevel", "error",
+                    "-i", stagedInputURL.path
+                ] + probeArguments
+            ) else {
+                return false
+            }
+
+            return result.terminationStatus == 0
         }
 
-        return result.terminationStatus == 0
+        if let stagedInputLease {
+            return await runProbe(stagedInputLease.stagedURL)
+        }
+
+        return (try? await FFmpegStagingSupport.withStagedInput(
+            for: inputURL,
+            makeError: { code, message in
+                ConversionError.ffmpegFailed(code, message)
+            },
+            operation: runProbe
+        )) ?? false
     }
 }

@@ -7,6 +7,7 @@ extension VideoConversionEngine {
         outputSettings: VideoOutputSettings,
         inputDurationSeconds: Double?,
         ffmpegContext: FFmpegExecutionContext? = nil,
+        stagedInputLease: FFmpegStagingSupport.StagedInputLease? = nil,
         onProgress: @escaping ProgressHandler
     ) async throws -> Bool {
         guard let ffmpegContext = ffmpegContext ?? makeFFmpegExecutionContext() else {
@@ -27,6 +28,7 @@ extension VideoConversionEngine {
             outputURL: outputURL,
             outputSettings: outputSettings,
             inputDurationSeconds: inputDurationSeconds,
+            stagedInputLease: stagedInputLease,
             onProgress: onProgress
         )
         return true
@@ -39,10 +41,11 @@ extension VideoConversionEngine {
         outputURL: URL,
         outputSettings: VideoOutputSettings,
         inputDurationSeconds: Double?,
+        stagedInputLease: FFmpegStagingSupport.StagedInputLease? = nil,
         onProgress: @escaping ProgressHandler
     ) async throws {
         try OutputPathUtilities.removeFileIfExists(at: outputURL)
-        try await withStagedFFmpegInput(for: inputURL) { stagedInputURL in
+        try await withStagedFFmpegInput(for: inputURL, stagedInputLease: stagedInputLease) { stagedInputURL in
             let availableVideoCodecs = outputSettings.videoCodecCandidates.filter { introspection.videoEncoders.contains($0) }
             let videoCodecs = codecCandidates(
                 availableCodecs: availableVideoCodecs,
@@ -139,9 +142,14 @@ extension VideoConversionEngine {
 
     private static func withStagedFFmpegInput<T>(
         for inputURL: URL,
+        stagedInputLease: FFmpegStagingSupport.StagedInputLease? = nil,
         operation: (URL) async throws -> T
     ) async throws -> T {
-        try await FFmpegStagingSupport.withStagedInput(
+        if let stagedInputLease {
+            return try await operation(stagedInputLease.stagedURL)
+        }
+
+        return try await FFmpegStagingSupport.withStagedInput(
             for: inputURL,
             makeError: { code, message in
                 ConversionError.ffmpegFailed(code, message)
@@ -193,13 +201,6 @@ extension VideoConversionEngine {
 
         throw lastError ?? ConversionError.ffmpegFailed(-1, fallbackErrorMessage)
     }
-
-    static func stageInputForFFmpeg(_ inputURL: URL) throws -> URL {
-        try FFmpegStagingSupport.stageInputURL(for: inputURL) { code, message in
-            ConversionError.ffmpegFailed(code, message)
-        }
-    }
-
     private static func attemptFFmpegOperation(
         outputURL: URL,
         operation: () async throws -> Void

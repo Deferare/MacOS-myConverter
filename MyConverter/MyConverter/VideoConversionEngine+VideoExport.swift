@@ -21,6 +21,7 @@ extension VideoConversionEngine {
                 outputSettings: outputSettings,
                 inputDurationSeconds: inputDurationSeconds,
                 ffmpegContext: ffmpegContext,
+                stagedInputLease: preparedSourceContext?.stagedInputLease,
                 onProgress: onProgress
             )
         }
@@ -31,6 +32,7 @@ extension VideoConversionEngine {
             outputSettings: outputSettings,
             inputDurationSeconds: inputDurationSeconds,
             ffmpegContext: ffmpegContext,
+            stagedInputLease: preparedSourceContext?.stagedInputLease,
             onProgress: onProgress
         ) {
             return converted
@@ -45,6 +47,7 @@ extension VideoConversionEngine {
                     outputSettings: outputSettings,
                     inputDurationSeconds: inputDurationSeconds,
                     ffmpegContext: ffmpegContext,
+                    stagedInputLease: preparedSourceContext.stagedInputLease,
                     onProgress: onProgress
                 )
             }
@@ -140,6 +143,7 @@ extension VideoConversionEngine {
                 outputSettings: outputSettings,
                 inputDurationSeconds: inputDurationSeconds,
                 ffmpegContext: ffmpegContext,
+                stagedInputLease: preparedSourceContext?.stagedInputLease,
                 onProgress: onProgress
             ) {
                 return converted

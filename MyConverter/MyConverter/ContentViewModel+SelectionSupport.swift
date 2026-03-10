@@ -14,6 +14,7 @@ extension ContentViewModel {
         let currentPrimaryURL: URL?
         let selectedSourceURLs: [URL]
         let assignSelection: ([URL]) -> Void
+        let invalidatePreparedState: () -> Void
         let cancelAnalysisTask: () -> Void
         let resetSelectionState: () -> Void
         let resetCompatibilityState: () -> Void
@@ -89,6 +90,9 @@ extension ContentViewModel {
             assignSelection: { selection in
                 self.assignSelection(selection, for: kind)
             },
+            invalidatePreparedState: {
+                self.clearPreparedSingleVideoSelection(for: kind)
+            },
             cancelAnalysisTask: {
                 self.cancelSelectionAnalysis(for: kind)
             },
@@ -127,6 +131,7 @@ extension ContentViewModel {
         let uniqueURLs = uniqueStandardizedURLs(urls)
         guard let primaryURL = uniqueURLs.first else { return }
 
+        workflow.invalidatePreparedState()
         workflow.cancelAnalysisTask()
         workflow.assignSelection(uniqueURLs)
         workflow.resetSelectionState()
@@ -160,6 +165,7 @@ extension ContentViewModel {
             return
         }
 
+        workflow.invalidatePreparedState()
         workflow.cancelAnalysisTask()
         workflow.resetCompatibilityState()
         workflow.applyStoredSettingsForSourceID(primarySourceID)
