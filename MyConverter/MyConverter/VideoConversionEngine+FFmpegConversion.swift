@@ -6,20 +6,23 @@ extension VideoConversionEngine {
         outputURL: URL,
         outputSettings: VideoOutputSettings,
         inputDurationSeconds: Double?,
+        ffmpegContext: FFmpegExecutionContext? = nil,
         onProgress: @escaping ProgressHandler
     ) async throws -> Bool {
-        guard let ffmpegPath = FFmpegBinaryLocator.findPath() else {
+        guard let ffmpegContext = ffmpegContext ?? makeFFmpegExecutionContext() else {
             return false
         }
 
-        guard let introspection = try? inspectFFmpeg(at: ffmpegPath),
-              isFFmpegFormatSupported(outputSettings.containerFormat, introspection: introspection) else {
+        guard isFFmpegFormatSupported(
+            outputSettings.containerFormat,
+            introspection: ffmpegContext.introspection
+        ) else {
             return false
         }
 
         try await convertWithFFmpeg(
-            introspection: introspection,
-            ffmpegPath: ffmpegPath,
+            introspection: ffmpegContext.introspection,
+            ffmpegPath: ffmpegContext.ffmpegPath,
             inputURL: inputURL,
             outputURL: outputURL,
             outputSettings: outputSettings,

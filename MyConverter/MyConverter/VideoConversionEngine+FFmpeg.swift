@@ -6,22 +6,25 @@ extension VideoConversionEngine {
         outputURL: URL,
         outputSettings: AudioOutputSettings,
         inputDurationSeconds: Double?,
+        ffmpegContext: FFmpegExecutionContext? = nil,
         onProgress: @escaping ProgressHandler
     ) async throws -> URL {
         try OutputPathUtilities.removeFileIfExists(at: outputURL)
 
-        guard let ffmpegPath = FFmpegBinaryLocator.findPath() else {
+        guard let ffmpegContext = ffmpegContext ?? makeFFmpegExecutionContext() else {
             throw ConversionError.ffmpegUnavailable
         }
 
-        let introspection = try inspectFFmpeg(at: ffmpegPath)
-        guard isFFmpegAudioFormatSupported(outputSettings.containerFormat, introspection: introspection) else {
+        guard isFFmpegAudioFormatSupported(
+            outputSettings.containerFormat,
+            introspection: ffmpegContext.introspection
+        ) else {
             throw ConversionError.ffmpegFailed(-1, "Selected audio container is not supported by this ffmpeg build.")
         }
 
         try await convertAudioWithFFmpeg(
-            introspection: introspection,
-            ffmpegPath: ffmpegPath,
+            introspection: ffmpegContext.introspection,
+            ffmpegPath: ffmpegContext.ffmpegPath,
             inputURL: inputURL,
             outputURL: outputURL,
             outputSettings: outputSettings,
@@ -36,6 +39,7 @@ extension VideoConversionEngine {
         outputURL: URL,
         outputSettings: VideoOutputSettings,
         inputDurationSeconds: Double?,
+        ffmpegContext: FFmpegExecutionContext? = nil,
         onProgress: @escaping ProgressHandler
     ) async throws -> URL {
         if let converted = try await attemptFFmpegConversion(
@@ -43,6 +47,7 @@ extension VideoConversionEngine {
             outputURL: outputURL,
             outputSettings: outputSettings,
             inputDurationSeconds: inputDurationSeconds,
+            ffmpegContext: ffmpegContext,
             onProgress: onProgress
         ) {
             return converted
@@ -55,6 +60,7 @@ extension VideoConversionEngine {
         outputURL: URL,
         outputSettings: VideoOutputSettings,
         inputDurationSeconds: Double?,
+        ffmpegContext: FFmpegExecutionContext? = nil,
         onProgress: @escaping ProgressHandler
     ) async throws -> URL? {
         let didConvert = try await convertWithFFmpegIfAvailable(
@@ -62,9 +68,22 @@ extension VideoConversionEngine {
             outputURL: outputURL,
             outputSettings: outputSettings,
             inputDurationSeconds: inputDurationSeconds,
+            ffmpegContext: ffmpegContext,
             onProgress: onProgress
         )
         return didConvert ? outputURL : nil
+    }
+
+    static func makeFFmpegExecutionContext() -> FFmpegExecutionContext? {
+        guard let ffmpegPath = FFmpegBinaryLocator.findPath(),
+              let introspection = try? inspectFFmpeg(at: ffmpegPath) else {
+            return nil
+        }
+
+        return FFmpegExecutionContext(
+            ffmpegPath: ffmpegPath,
+            introspection: introspection
+        )
     }
 
     static func ffmpegCanReadMappedStream(

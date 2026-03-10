@@ -1,13 +1,6 @@
 import AppKit
 import Foundation
 
-struct PreparedBatchConversionContext {
-    let sourceURLs: [URL]
-    let destinationURLsBySourceID: [String: URL]
-    let outputDirectoryURL: URL
-    let stopAccessingBatchDirectory: () -> Void
-}
-
 enum BatchConversionSupport {
     struct SelectedBatchDestinations {
         let destinationURLsBySourceID: [String: URL]
@@ -39,7 +32,7 @@ enum BatchConversionSupport {
         ) else {
             return nil
         }
-        var destinationURLsBySourceID = selectedDestinations.destinationURLsBySourceID
+        let destinationURLsBySourceID = selectedDestinations.destinationURLsBySourceID
 
         guard let batchAccess = prepareBatchDirectoryAccess(
             sourceURLs: sourceURLs,
@@ -48,35 +41,43 @@ enum BatchConversionSupport {
             return nil
         }
 
-        destinationURLsBySourceID = batchAccess.destinationURLsBySourceID
         let stopAccessingBatchDirectory = {
             if batchAccess.shouldStopAccessing, let batchDirectoryURL = batchAccess.batchDirectoryURL {
                 batchDirectoryURL.stopAccessingSecurityScopedResource()
             }
         }
 
+        let preparedSources = sourceURLs.compactMap { sourceURL -> PreparedSourceConversion? in
+            let sourceID = ContentViewModelSupport.sourceIdentifier(for: sourceURL)
+            guard let destinationURL = batchAccess.destinationURLsBySourceID[sourceID] else {
+                return nil
+            }
+
+            let preparedWorkingOutput = OutputPathUtilities.prepareWorkingOutput(
+                for: sourceURL,
+                destinationURL: destinationURL
+            )
+
+            return PreparedSourceConversion(
+                sourceURL: sourceURL,
+                sourceID: sourceID,
+                destinationURL: destinationURL,
+                workingOutputURL: preparedWorkingOutput.url,
+                sourceFingerprint: OutputPathUtilities.fileFingerprint(for: sourceURL),
+                workingOutputStrategy: preparedWorkingOutput.strategy
+            )
+        }
+
+        guard preparedSources.count == sourceURLs.count else {
+            stopAccessingBatchDirectory()
+            return nil
+        }
+
         return PreparedBatchConversionContext(
-            sourceURLs: sourceURLs,
-            destinationURLsBySourceID: destinationURLsBySourceID,
+            preparedSources: preparedSources,
             outputDirectoryURL: batchAccess.batchDirectoryURL ?? selectedDestinations.outputDirectoryURL,
             stopAccessingBatchDirectory: stopAccessingBatchDirectory
         )
-    }
-
-    static func destinationURL(
-        for sourceURL: URL,
-        in destinationURLsBySourceID: [String: URL],
-        errorCode: Int
-    ) throws -> URL {
-        let sourceID = ContentViewModelSupport.sourceIdentifier(for: sourceURL)
-        guard let destinationURL = destinationURLsBySourceID[sourceID] else {
-            throw NSError(
-                domain: "ContentViewModel",
-                code: errorCode,
-                userInfo: [NSLocalizedDescriptionKey: "Failed to resolve the selected output path."]
-            )
-        }
-        return destinationURL
     }
 
     static func cleanupWorkingOutputIfNeeded(_ workingOutputURL: URL) {
@@ -85,12 +86,19 @@ enum BatchConversionSupport {
         }
     }
 
-    static func saveConvertedOutput(from sourceURL: URL, to destinationURL: URL) throws -> URL {
-        let destinationDirectoryURL = destinationURL.deletingLastPathComponent()
+    static func savePreparedConvertedOutput(
+        from sourceURL: URL,
+        preparedSource: PreparedSourceConversion
+    ) throws -> URL {
+        let destinationDirectoryURL = preparedSource.destinationURL.deletingLastPathComponent()
 
-        return try SecurityScopedResourceAccess.withAccess(to: destinationURL) {
+        return try SecurityScopedResourceAccess.withAccess(to: preparedSource.destinationURL) {
             try SecurityScopedResourceAccess.withAccess(to: destinationDirectoryURL) {
-                try VideoConversionEngine.saveConvertedOutput(from: sourceURL, to: destinationURL)
+                try OutputPathUtilities.commitPreparedOutput(
+                    from: sourceURL,
+                    to: preparedSource.destinationURL,
+                    strategy: preparedSource.workingOutputStrategy
+                )
             }
         }
     }

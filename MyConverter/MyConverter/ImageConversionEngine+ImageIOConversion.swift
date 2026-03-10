@@ -9,6 +9,11 @@ extension ImageConversionEngine {
         outputSettings: ImageOutputSettings,
         onProgress: @escaping ProgressHandler
     ) throws -> URL {
+        let token = PerformanceSignpost.begin("ImageEncode", message: inputURL.lastPathComponent)
+        defer {
+            PerformanceSignpost.end("ImageEncode", token: token, message: inputURL.lastPathComponent)
+        }
+
         guard let outputUTTypeIdentifier = outputSettings.containerFormat.imageIOUTTypeIdentifier,
               imageIODestinationTypeIdentifiers().contains(outputUTTypeIdentifier.lowercased()) else {
             throw ImageConversionError.unsupportedOutputFormat(outputSettings.containerFormat)

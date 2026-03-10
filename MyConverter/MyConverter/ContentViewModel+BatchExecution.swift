@@ -2,9 +2,8 @@ import Foundation
 
 extension ContentViewModel {
     func executeBatchConversion(
-        sourceURLs: [URL],
-        destinationURLsBySourceID: [String: URL],
-        destinationErrorCode: Int,
+        preparedSources: [PreparedSourceConversion],
+        batchEnvironment: BatchExecutionEnvironment,
         runningKeyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
         progressKeyPath: ReferenceWritableKeyPath<ContentViewModel, Double>,
         errorMessageKeyPath: ReferenceWritableKeyPath<ContentViewModel, String?>,
@@ -12,14 +11,13 @@ extension ContentViewModel {
         totalBatchCountKeyPath: ReferenceWritableKeyPath<ContentViewModel, Int>,
         skippedSummaryPrefix: String,
         treatExportCancellationAsCancelled: Bool = false,
-        validate: @escaping (URL) async -> String?,
-        makeWorkingOutputURL: @escaping (URL) -> URL,
-        runConversion: @escaping (URL, URL, Int, Int) async throws -> URL,
+        validate: @escaping (PreparedSourceConversion, BatchExecutionEnvironment) async -> String?,
+        runConversion: @escaping (PreparedSourceConversion, BatchExecutionEnvironment, Int, Int) async throws -> URL,
         onSavedOutput: @escaping (URL, URL) -> Void,
         onSourceProcessed: @escaping (URL) -> Void,
         onError: (Error) -> Void
     ) async {
-        self[keyPath: totalBatchCountKeyPath] = sourceURLs.count
+        self[keyPath: totalBatchCountKeyPath] = preparedSources.count
         self[keyPath: currentBatchIndexKeyPath] = 0
 
         do {
@@ -31,11 +29,9 @@ extension ContentViewModel {
             try Task.checkCancellation()
 
             let skippedEntries = try await runBatchConversionLoop(
-                sourceURLs: sourceURLs,
-                destinationURLsBySourceID: destinationURLsBySourceID,
-                destinationErrorCode: destinationErrorCode,
+                preparedSources: preparedSources,
+                batchEnvironment: batchEnvironment,
                 validate: validate,
-                makeWorkingOutputURL: makeWorkingOutputURL,
                 runConversion: runConversion,
                 onSavedOutput: onSavedOutput,
                 onSourceProcessed: onSourceProcessed,

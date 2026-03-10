@@ -260,6 +260,65 @@ extension ContentViewModel {
         await mediaValidationDescriptor(for: kind).validateSourceOutputSettings(self, sourceURL)
     }
 
+    func validatePreparedSourceOutputSettings(
+        for kind: MediaKind,
+        source: PreparedSourceConversion,
+        environment: BatchExecutionEnvironment
+    ) async -> String? {
+        switch kind {
+        case .video:
+            if let cached = environment.preparedVideoSources[source.sourceID] {
+                if let message = videoFFmpegRequirementMessage() {
+                    return message
+                }
+
+                return validateCachedOutputFormatAvailability(
+                    capabilities: cached.sourceCapabilities,
+                    selectedFormatNormalizedID: selectedOutputFormatNormalizedID(
+                        using: videoOutputFormatDescriptor()
+                    ),
+                    unavailableMessage: "Selected container is not available for this source.",
+                    availableFormats: { $0.availableOutputFormats },
+                    errorMessage: { $0.errorMessage },
+                    formatNormalizedID: { $0.normalizedID }
+                )
+            }
+        case .image:
+            if let cached = environment.preparedImageCapabilities[source.sourceID] {
+                return validateCachedOutputFormatAvailability(
+                    capabilities: cached,
+                    selectedFormatNormalizedID: selectedOutputFormatNormalizedID(
+                        using: imageOutputFormatDescriptor()
+                    ),
+                    unavailableMessage: "Selected output format is not available for this source.",
+                    availableFormats: { $0.availableOutputFormats },
+                    errorMessage: { $0.errorMessage },
+                    formatNormalizedID: { $0.normalizedID },
+                    additionalValidation: { capabilities in
+                        imageAnimationExportValidationMessage(
+                            isAnimated: capabilities.frameCount > 1
+                        )
+                    }
+                )
+            }
+        case .audio:
+            if let cached = environment.preparedAudioCapabilities[source.sourceID] {
+                return validateCachedOutputFormatAvailability(
+                    capabilities: cached,
+                    selectedFormatNormalizedID: selectedOutputFormatNormalizedID(
+                        using: audioOutputFormatDescriptor()
+                    ),
+                    unavailableMessage: "Selected output format is not available for this source.",
+                    availableFormats: { $0.availableOutputFormats },
+                    errorMessage: { $0.errorMessage },
+                    formatNormalizedID: { $0.normalizedID }
+                )
+            }
+        }
+
+        return await validateSourceOutputSettings(for: kind, sourceURL: source.sourceURL)
+    }
+
     func outputSettingsValidationMessage<Format>(
         for kind: MediaKind,
         formatDescriptor: OutputFormatDescriptor<Format>,
@@ -293,6 +352,33 @@ extension ContentViewModel {
         additionalValidation: (Capability) -> String? = { _ in nil }
     ) async -> String? {
         let capabilities = await fetchCapabilities(sourceURL)
+        if let error = errorMessage(capabilities) {
+            return error
+        }
+
+        let isFormatAvailable = availableFormats(capabilities).contains {
+            formatNormalizedID($0) == selectedFormatNormalizedID
+        }
+        if !isFormatAvailable {
+            return unavailableMessage
+        }
+
+        if let extraValidationMessage = additionalValidation(capabilities) {
+            return extraValidationMessage
+        }
+
+        return nil
+    }
+
+    func validateCachedOutputFormatAvailability<Capability, Format>(
+        capabilities: Capability,
+        selectedFormatNormalizedID: String,
+        unavailableMessage: String,
+        availableFormats: (Capability) -> [Format],
+        errorMessage: (Capability) -> String?,
+        formatNormalizedID: (Format) -> String,
+        additionalValidation: (Capability) -> String? = { _ in nil }
+    ) -> String? {
         if let error = errorMessage(capabilities) {
             return error
         }

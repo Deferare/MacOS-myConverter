@@ -37,6 +37,11 @@ enum ImageConversionEngine {
         let muxerExtensions: [String: [String]]
     }
 
+    struct FFmpegExecutionContext: Sendable {
+        let ffmpegPath: String
+        let introspection: FFmpegIntrospection
+    }
+
     final class InFlightFFmpegIntrospection: @unchecked Sendable {
         nonisolated let group: DispatchGroup
         nonisolated(unsafe) var result: Result<FFmpegIntrospection, Error>?

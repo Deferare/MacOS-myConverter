@@ -6,19 +6,23 @@ extension ImageConversionEngine {
         outputURL: URL,
         outputSettings: ImageOutputSettings,
         allowFallbackOnFailure: Bool,
+        ffmpegContext: FFmpegExecutionContext? = nil,
         onProgress: @escaping ProgressHandler
     ) async throws -> URL? {
-        guard let ffmpegPath = FFmpegBinaryLocator.findPath() else {
+        guard let ffmpegContext = ffmpegContext ?? makeFFmpegExecutionContext() else {
             return nil
         }
 
-        guard isFFmpegFormatSupported(outputSettings.containerFormat, ffmpegPath: ffmpegPath) else {
+        guard isFFmpegFormatSupported(
+            outputSettings.containerFormat,
+            introspection: ffmpegContext.introspection
+        ) else {
             return nil
         }
 
         do {
             try await runFFmpegConversion(
-                ffmpegPath: ffmpegPath,
+                ffmpegContext: ffmpegContext,
                 inputURL: inputURL,
                 outputURL: outputURL,
                 outputSettings: outputSettings,
@@ -49,15 +53,16 @@ extension ImageConversionEngine {
     }
 
     nonisolated private static func runFFmpegConversion(
-        ffmpegPath: String,
+        ffmpegContext: FFmpegExecutionContext,
         inputURL: URL,
         outputURL: URL,
         outputSettings: ImageOutputSettings,
         onProgress: @escaping ProgressHandler
     ) async throws {
-        let introspection = try inspectFFmpeg(at: ffmpegPath)
         try await withStagedFFmpegInput(inputURL) { stagedInputURL in
-            let selectedCodec = outputSettings.containerFormat.ffmpegEncoderCandidates.first(where: { introspection.encoders.contains($0) })
+            let selectedCodec = outputSettings.containerFormat.ffmpegEncoderCandidates.first(where: {
+                ffmpegContext.introspection.encoders.contains($0)
+            })
 
             if !outputSettings.containerFormat.ffmpegEncoderCandidates.isEmpty &&
                 selectedCodec == nil &&
@@ -66,7 +71,9 @@ extension ImageConversionEngine {
             }
 
             if !outputSettings.containerFormat.ffmpegRequiredMuxers.isEmpty &&
-                !outputSettings.containerFormat.ffmpegRequiredMuxers.contains(where: { introspection.muxers.contains($0) }) {
+                !outputSettings.containerFormat.ffmpegRequiredMuxers.contains(where: {
+                    ffmpegContext.introspection.muxers.contains($0)
+                }) {
                 throw ImageConversionError.ffmpegUnsupportedFormat(outputSettings.containerFormat)
             }
 
@@ -97,7 +104,7 @@ extension ImageConversionEngine {
             appendFFmpegFormatArguments(&args, outputSettings: outputSettings)
 
             if let preferredMuxer = outputSettings.containerFormat.preferredFFmpegMuxer,
-               introspection.muxers.contains(preferredMuxer) {
+               ffmpegContext.introspection.muxers.contains(preferredMuxer) {
                 args.append(contentsOf: ["-f", preferredMuxer])
             }
 
@@ -105,7 +112,18 @@ extension ImageConversionEngine {
 
             try Task.checkCancellation()
             reportProgress(0.05, onProgress: onProgress)
-            let result = try await ProcessCommandRunner.runCommand(path: ffmpegPath, arguments: args)
+            let token = PerformanceSignpost.begin("ImageEncode", message: inputURL.lastPathComponent)
+            let result: (terminationStatus: Int32, output: String)
+            do {
+                result = try await ProcessCommandRunner.runCommand(
+                    path: ffmpegContext.ffmpegPath,
+                    arguments: args
+                )
+                PerformanceSignpost.end("ImageEncode", token: token, message: inputURL.lastPathComponent)
+            } catch {
+                PerformanceSignpost.end("ImageEncode", token: token, message: "failed")
+                throw error
+            }
             try Task.checkCancellation()
 
             guard result.terminationStatus == 0 else {
@@ -160,5 +178,17 @@ extension ImageConversionEngine {
         Task {
             await onProgress(clamped)
         }
+    }
+
+    nonisolated static func makeFFmpegExecutionContext() -> FFmpegExecutionContext? {
+        guard let ffmpegPath = FFmpegBinaryLocator.findPath(),
+              let introspection = try? inspectFFmpeg(at: ffmpegPath) else {
+            return nil
+        }
+
+        return FFmpegExecutionContext(
+            ffmpegPath: ffmpegPath,
+            introspection: introspection
+        )
     }
 }

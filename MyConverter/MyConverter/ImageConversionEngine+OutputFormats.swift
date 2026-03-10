@@ -85,7 +85,7 @@ extension ImageConversionEngine {
         }
     }
 
-    nonisolated private static func isFFmpegFormatSupported(
+    nonisolated static func isFFmpegFormatSupported(
         _ format: ImageFormatOption,
         introspection: FFmpegIntrospection
     ) -> Bool {

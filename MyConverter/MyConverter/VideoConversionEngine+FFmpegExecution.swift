@@ -81,39 +81,47 @@ extension VideoConversionEngine {
         try Task.checkCancellation()
         await onProgress(0)
 
+        let token = PerformanceSignpost.begin("VideoEncode", message: URL(fileURLWithPath: ffmpegPath).lastPathComponent)
         var effectiveDuration = inputDurationSeconds
         var lastReportedProgress = 0.0
         var lastReportTime: UInt64 = DispatchTime.now().uptimeNanoseconds
-        let result = try await ProcessCommandRunner.runCommand(path: ffmpegPath, arguments: arguments) { line in
-            if effectiveDuration == nil {
-                effectiveDuration = parseFFmpegDurationSeconds(from: line)
-            }
+        let result: (terminationStatus: Int32, output: String)
+        do {
+            result = try await ProcessCommandRunner.runCommand(path: ffmpegPath, arguments: arguments) { line in
+                if effectiveDuration == nil {
+                    effectiveDuration = parseFFmpegDurationSeconds(from: line)
+                }
 
-            if line == "progress=end" {
+                if line == "progress=end" {
+                    enqueueProgressUpdate(
+                        progress: 1,
+                        lastReportedProgress: &lastReportedProgress,
+                        lastReportTime: &lastReportTime,
+                        onProgress: onProgress
+                    )
+                    return
+                }
+
+                guard
+                    let outTimeSeconds = parseFFmpegOutTimeSeconds(from: line),
+                    let duration = effectiveDuration,
+                    duration > 0
+                else {
+                    return
+                }
+
+                let ratio = outTimeSeconds / duration
                 enqueueProgressUpdate(
-                    progress: 1,
+                    progress: ratio,
                     lastReportedProgress: &lastReportedProgress,
                     lastReportTime: &lastReportTime,
                     onProgress: onProgress
                 )
-                return
             }
-
-            guard
-                let outTimeSeconds = parseFFmpegOutTimeSeconds(from: line),
-                let duration = effectiveDuration,
-                duration > 0
-            else {
-                return
-            }
-
-            let ratio = outTimeSeconds / duration
-            enqueueProgressUpdate(
-                progress: ratio,
-                lastReportedProgress: &lastReportedProgress,
-                lastReportTime: &lastReportTime,
-                onProgress: onProgress
-            )
+            PerformanceSignpost.end("VideoEncode", token: token, message: "ffmpeg")
+        } catch {
+            PerformanceSignpost.end("VideoEncode", token: token, message: "failed")
+            throw error
         }
         try Task.checkCancellation()
         return result

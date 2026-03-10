@@ -5,6 +5,7 @@ extension ImageConversionEngine {
         inputURL: URL,
         outputURL: URL,
         outputSettings: ImageOutputSettings,
+        ffmpegContext: FFmpegExecutionContext? = nil,
         onProgress: @escaping ProgressHandler
     ) async throws -> URL {
         try OutputPathUtilities.removeFileIfExists(at: outputURL)
@@ -20,6 +21,7 @@ extension ImageConversionEngine {
             outputURL: outputURL,
             outputSettings: outputSettings,
             allowFallbackOnFailure: imageIOCanEncode,
+            ffmpegContext: ffmpegContext,
             onProgress: onProgress
         ) {
             return ffmpegOutput

@@ -7,9 +7,9 @@ extension ContentViewModel {
         let fileExtension: String
         let metadata: ConversionMetadata
         let buildOutputSettings: () throws -> OutputSettings
-        let validate: (URL) async -> String?
-        let makeWorkingOutputURL: (URL) -> URL
-        let runConversion: (URL, URL, OutputSettings, Int, Int) async throws -> URL
+        let prepareBatchEnvironment: ([PreparedSourceConversion], OutputSettings, URL) async -> BatchExecutionEnvironment
+        let validate: (PreparedSourceConversion, BatchExecutionEnvironment) async -> String?
+        let runConversion: (PreparedSourceConversion, BatchExecutionEnvironment, OutputSettings, Int, Int) async throws -> URL
     }
 
     struct ConversionExecutionDescriptor {
@@ -29,8 +29,8 @@ extension ContentViewModel {
         fileExtension: String,
         metadata: ConversionMetadata,
         buildOutputSettings: @escaping () throws -> OutputSettings,
-        makeWorkingOutputURL: @escaping (URL) -> URL,
-        runConversion: @escaping (URL, URL, OutputSettings, Int, Int) async throws -> URL
+        prepareBatchEnvironment: @escaping ([PreparedSourceConversion], OutputSettings, URL) async -> BatchExecutionEnvironment,
+        runConversion: @escaping (PreparedSourceConversion, BatchExecutionEnvironment, OutputSettings, Int, Int) async throws -> URL
     ) -> ConversionWorkflowDescriptor<OutputSettings> {
         ConversionWorkflowDescriptor(
             kind: kind,
@@ -41,8 +41,14 @@ extension ContentViewModel {
             fileExtension: fileExtension,
             metadata: metadata,
             buildOutputSettings: buildOutputSettings,
-            validate: { await self.validateSourceOutputSettings(for: kind, sourceURL: $0) },
-            makeWorkingOutputURL: makeWorkingOutputURL,
+            prepareBatchEnvironment: prepareBatchEnvironment,
+            validate: { preparedSource, environment in
+                await self.validatePreparedSourceOutputSettings(
+                    for: kind,
+                    source: preparedSource,
+                    environment: environment
+                )
+            },
             runConversion: runConversion
         )
     }
@@ -54,18 +60,21 @@ extension ContentViewModel {
             fileExtension: selectedOutputFormatFileExtension(using: videoOutputFormatDescriptor()),
             metadata: kind.conversionMetadata,
             buildOutputSettings: { try self.buildVideoOutputSettings() },
-            makeWorkingOutputURL: { sourceURL in
-                VideoConversionEngine.temporaryOutputURL(
-                    for: sourceURL,
-                    format: self.selectedOutputFormat
+            prepareBatchEnvironment: { preparedSources, outputSettings, outputDirectoryURL in
+                await self.prepareVideoBatchExecutionEnvironment(
+                    preparedSources: preparedSources,
+                    outputSettings: outputSettings,
+                    outputDirectoryURL: outputDirectoryURL
                 )
             },
-            runConversion: { sourceURL, workingOutputURL, outputSettings, index, totalCount in
+            runConversion: { preparedSource, environment, outputSettings, index, totalCount in
                 try await VideoConversionEngine.convert(
-                    inputURL: sourceURL,
-                    outputURL: workingOutputURL,
+                    inputURL: preparedSource.sourceURL,
+                    outputURL: preparedSource.workingOutputURL,
                     outputSettings: outputSettings,
                     inputDurationSeconds: nil,
+                    ffmpegContext: environment.videoFFmpegContext,
+                    preparedSourceContext: environment.preparedVideoSources[preparedSource.sourceID],
                     onProgress: self.batchProgressHandler(
                         for: kind,
                         index: index,
@@ -83,17 +92,18 @@ extension ContentViewModel {
             fileExtension: selectedOutputFormatFileExtension(using: imageOutputFormatDescriptor()),
             metadata: kind.conversionMetadata,
             buildOutputSettings: { self.buildImageOutputSettings() },
-            makeWorkingOutputURL: { sourceURL in
-                ImageConversionEngine.temporaryOutputURL(
-                    for: sourceURL,
-                    format: self.selectedImageOutputFormat
+            prepareBatchEnvironment: { preparedSources, _, outputDirectoryURL in
+                await self.prepareImageBatchExecutionEnvironment(
+                    preparedSources: preparedSources,
+                    outputDirectoryURL: outputDirectoryURL
                 )
             },
-            runConversion: { sourceURL, workingOutputURL, outputSettings, index, totalCount in
+            runConversion: { preparedSource, environment, outputSettings, index, totalCount in
                 try await ImageConversionEngine.convert(
-                    inputURL: sourceURL,
-                    outputURL: workingOutputURL,
+                    inputURL: preparedSource.sourceURL,
+                    outputURL: preparedSource.workingOutputURL,
                     outputSettings: outputSettings,
+                    ffmpegContext: environment.imageFFmpegContext,
                     onProgress: self.batchProgressHandler(
                         for: kind,
                         index: index,
@@ -111,18 +121,19 @@ extension ContentViewModel {
             fileExtension: selectedOutputFormatFileExtension(using: audioOutputFormatDescriptor()),
             metadata: kind.conversionMetadata,
             buildOutputSettings: { self.buildAudioOutputSettings() },
-            makeWorkingOutputURL: { sourceURL in
-                VideoConversionEngine.temporaryOutputURL(
-                    for: sourceURL,
-                    format: self.selectedAudioOutputFormat
+            prepareBatchEnvironment: { preparedSources, _, outputDirectoryURL in
+                await self.prepareAudioBatchExecutionEnvironment(
+                    preparedSources: preparedSources,
+                    outputDirectoryURL: outputDirectoryURL
                 )
             },
-            runConversion: { sourceURL, workingOutputURL, outputSettings, index, totalCount in
+            runConversion: { preparedSource, environment, outputSettings, index, totalCount in
                 try await VideoConversionEngine.convertAudio(
-                    inputURL: sourceURL,
-                    outputURL: workingOutputURL,
+                    inputURL: preparedSource.sourceURL,
+                    outputURL: preparedSource.workingOutputURL,
                     outputSettings: outputSettings,
                     inputDurationSeconds: nil,
+                    ffmpegContext: environment.videoFFmpegContext,
                     onProgress: self.batchProgressHandler(
                         for: kind,
                         index: index,
@@ -146,7 +157,6 @@ extension ContentViewModel {
             fileExtension: workflow.fileExtension,
             outputLabel: workflow.metadata.outputLabel,
             preferredOutputDirectory: selectedOutputDirectoryURL(for: workflow.kind),
-            destinationErrorCode: workflow.metadata.destinationErrorCode,
             runningKeyPath: descriptor.isConverting,
             progressKeyPath: descriptor.progress,
             errorMessageKeyPath: descriptor.conversionErrorMessage,
@@ -159,8 +169,8 @@ extension ContentViewModel {
                 self.prepareConversionStartState(for: workflow.kind)
             },
             buildOutputSettings: workflow.buildOutputSettings,
+            prepareBatchEnvironment: workflow.prepareBatchEnvironment,
             validate: workflow.validate,
-            makeWorkingOutputURL: workflow.makeWorkingOutputURL,
             runConversion: workflow.runConversion,
             onSavedOutput: { sourceURL, savedURL in
                 self.appendConvertedOutput(savedURL, from: sourceURL, for: workflow.kind)
@@ -188,7 +198,6 @@ extension ContentViewModel {
         fileExtension: String,
         outputLabel: String,
         preferredOutputDirectory: URL?,
-        destinationErrorCode: Int,
         runningKeyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
         progressKeyPath: ReferenceWritableKeyPath<ContentViewModel, Double>,
         errorMessageKeyPath: ReferenceWritableKeyPath<ContentViewModel, String?>,
@@ -198,9 +207,9 @@ extension ContentViewModel {
         treatExportCancellationAsCancelled: Bool = false,
         startState: (URL) -> Void,
         buildOutputSettings: () throws -> OutputSettings,
-        validate: @escaping (URL) async -> String?,
-        makeWorkingOutputURL: @escaping (URL) -> URL,
-        runConversion: @escaping (URL, URL, OutputSettings, Int, Int) async throws -> URL,
+        prepareBatchEnvironment: @escaping ([PreparedSourceConversion], OutputSettings, URL) async -> BatchExecutionEnvironment,
+        validate: @escaping (PreparedSourceConversion, BatchExecutionEnvironment) async -> String?,
+        runConversion: @escaping (PreparedSourceConversion, BatchExecutionEnvironment, OutputSettings, Int, Int) async throws -> URL,
         onSavedOutput: @escaping (URL, URL) -> Void,
         onSourceProcessed: @escaping (URL) -> Void,
         onError: (Error) -> Void
@@ -230,8 +239,6 @@ extension ContentViewModel {
             return
         }
 
-        let sourceURLs = batchContext.sourceURLs
-        let destinationURLsBySourceID = batchContext.destinationURLsBySourceID
         defer { batchContext.stopAccessingBatchDirectory() }
 
         do {
@@ -241,10 +248,14 @@ extension ContentViewModel {
         }
 
         startState(batchContext.outputDirectoryURL)
+        let batchEnvironment = await prepareBatchEnvironment(
+            batchContext.preparedSources,
+            outputSettings,
+            batchContext.outputDirectoryURL
+        )
         await executeBatchConversion(
-            sourceURLs: sourceURLs,
-            destinationURLsBySourceID: destinationURLsBySourceID,
-            destinationErrorCode: destinationErrorCode,
+            preparedSources: batchContext.preparedSources,
+            batchEnvironment: batchEnvironment,
             runningKeyPath: runningKeyPath,
             progressKeyPath: progressKeyPath,
             errorMessageKeyPath: errorMessageKeyPath,
@@ -253,9 +264,8 @@ extension ContentViewModel {
             skippedSummaryPrefix: skippedSummaryPrefix,
             treatExportCancellationAsCancelled: treatExportCancellationAsCancelled,
             validate: validate,
-            makeWorkingOutputURL: makeWorkingOutputURL,
-            runConversion: { sourceURL, workingOutputURL, index, totalCount in
-                try await runConversion(sourceURL, workingOutputURL, outputSettings, index, totalCount)
+            runConversion: { preparedSource, environment, index, totalCount in
+                try await runConversion(preparedSource, environment, outputSettings, index, totalCount)
             },
             onSavedOutput: onSavedOutput,
             onSourceProcessed: onSourceProcessed,

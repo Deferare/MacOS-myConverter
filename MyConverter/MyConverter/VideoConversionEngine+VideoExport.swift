@@ -7,6 +7,8 @@ extension VideoConversionEngine {
         outputURL: URL,
         outputSettings: VideoOutputSettings,
         inputDurationSeconds: Double?,
+        ffmpegContext: FFmpegExecutionContext? = nil,
+        preparedSourceContext: PreparedSourceContext? = nil,
         onProgress: @escaping ProgressHandler
     ) async throws -> URL {
         try OutputPathUtilities.removeFileIfExists(at: outputURL)
@@ -18,6 +20,7 @@ extension VideoConversionEngine {
                 outputURL: outputURL,
                 outputSettings: outputSettings,
                 inputDurationSeconds: inputDurationSeconds,
+                ffmpegContext: ffmpegContext,
                 onProgress: onProgress
             )
         }
@@ -27,36 +30,56 @@ extension VideoConversionEngine {
             outputURL: outputURL,
             outputSettings: outputSettings,
             inputDurationSeconds: inputDurationSeconds,
+            ffmpegContext: ffmpegContext,
             onProgress: onProgress
         ) {
             return converted
         }
 
         let asset = AVURLAsset(url: inputURL)
-        do {
-            try await ensureAssetReadable(asset)
-        } catch {
-            if isUnsupportedMediaFormatError(error) {
+        if let preparedSourceContext {
+            guard preparedSourceContext.assetTrackProbe.isReadable else {
                 return try await attemptFFmpegConversionOrThrowUnavailable(
                     inputURL: inputURL,
                     outputURL: outputURL,
                     outputSettings: outputSettings,
                     inputDurationSeconds: inputDurationSeconds,
+                    ffmpegContext: ffmpegContext,
                     onProgress: onProgress
                 )
             }
-            throw error
+        } else {
+            do {
+                try await ensureAssetReadable(asset)
+            } catch {
+                if isUnsupportedMediaFormatError(error) {
+                    return try await attemptFFmpegConversionOrThrowUnavailable(
+                        inputURL: inputURL,
+                        outputURL: outputURL,
+                        outputSettings: outputSettings,
+                        inputDurationSeconds: inputDurationSeconds,
+                        ffmpegContext: ffmpegContext,
+                        onProgress: onProgress
+                    )
+                }
+                throw error
+            }
         }
 
         guard let outputFileType else {
             throw ConversionError.unsupportedOutputType(outputSettings.containerFormat)
         }
 
-        let candidatePresets = await compatibleExportPresets(
-            for: asset,
-            preferredPresets: preferredExportPresets,
-            outputFileType: outputFileType
-        )
+        let candidatePresets: [String]
+        if let preparedCandidatePresets = preparedSourceContext?.candidatePresets {
+            candidatePresets = preparedCandidatePresets
+        } else {
+            candidatePresets = await compatibleExportPresets(
+                for: asset,
+                preferredPresets: preferredExportPresets,
+                outputFileType: outputFileType
+            )
+        }
 
         guard !candidatePresets.isEmpty else {
             return try await attemptFFmpegConversionOrThrowUnavailable(
@@ -64,6 +87,7 @@ extension VideoConversionEngine {
                 outputURL: outputURL,
                 outputSettings: outputSettings,
                 inputDurationSeconds: inputDurationSeconds,
+                ffmpegContext: ffmpegContext,
                 onProgress: onProgress
             )
         }
@@ -115,6 +139,7 @@ extension VideoConversionEngine {
                 outputURL: outputURL,
                 outputSettings: outputSettings,
                 inputDurationSeconds: inputDurationSeconds,
+                ffmpegContext: ffmpegContext,
                 onProgress: onProgress
             ) {
                 return converted
@@ -318,6 +343,7 @@ extension VideoConversionEngine {
         onProgress: @escaping ProgressHandler
     ) async throws {
         await onProgress(0)
+        let token = PerformanceSignpost.begin("VideoEncode", message: preset)
 
         let progressTask = Task {
             for await state in session.states(updateInterval: 0.15) {
@@ -342,10 +368,13 @@ extension VideoConversionEngine {
 
         do {
             try await session.export(to: outputURL, as: outputFileType)
+            PerformanceSignpost.end("VideoEncode", token: token, message: preset)
             await onProgress(1)
         } catch is CancellationError {
+            PerformanceSignpost.end("VideoEncode", token: token, message: "cancelled")
             throw ConversionError.exportCancelled
         } catch {
+            PerformanceSignpost.end("VideoEncode", token: token, message: "failed")
             throw ConversionError.exportFailed(underlying: error, preset: preset)
         }
     }

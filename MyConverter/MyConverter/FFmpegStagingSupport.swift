@@ -33,7 +33,15 @@ enum FFmpegStagingSupport {
         makeError: (Int32, String) -> Error,
         operation: (URL) async throws -> T
     ) async throws -> T {
-        let stagedInputURL = try stageInputURL(for: inputURL, makeError: makeError)
+        let token = PerformanceSignpost.begin("FFmpegStageInput", message: inputURL.lastPathComponent)
+        let stagedInputURL: URL
+        do {
+            stagedInputURL = try stageInputURL(for: inputURL, makeError: makeError)
+            PerformanceSignpost.end("FFmpegStageInput", token: token, message: inputURL.lastPathComponent)
+        } catch {
+            PerformanceSignpost.end("FFmpegStageInput", token: token, message: "failed")
+            throw error
+        }
         defer {
             try? OutputPathUtilities.removeFileIfExists(at: stagedInputURL)
         }

@@ -39,6 +39,17 @@ enum VideoConversionEngine {
         let muxerExtensions: [String: [String]]
     }
 
+    struct FFmpegExecutionContext: Sendable {
+        let ffmpegPath: String
+        let introspection: FFmpegIntrospection
+    }
+
+    struct PreparedSourceContext: Sendable {
+        let sourceCapabilities: VideoSourceCapabilities
+        let assetTrackProbe: AssetTrackProbe
+        let candidatePresets: [String]?
+    }
+
     final class InFlightFFmpegIntrospection: @unchecked Sendable {
         nonisolated let group: DispatchGroup
         nonisolated(unsafe) var result: Result<FFmpegIntrospection, Error>?
