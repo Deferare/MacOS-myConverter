@@ -7,8 +7,29 @@ private enum ConverterSettingMetrics {
     static let rowVerticalPadding: CGFloat = 14
     static let controlHorizontalPadding: CGFloat = 12
     static let controlVerticalPadding: CGFloat = 9
-    static let minimumControlWidth: CGFloat = 180
-    static let maximumControlWidth: CGFloat = 280
+    static let controlColumnWidth: CGFloat = 248
+}
+
+private struct ConverterControlBackground: View {
+    let isDisabled: Bool
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: ConverterSettingMetrics.controlCornerRadius, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: [
+                        .white.opacity(isDisabled ? 0.03 : 0.09),
+                        .white.opacity(isDisabled ? 0.02 : 0.05)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: ConverterSettingMetrics.controlCornerRadius, style: .continuous)
+                    .stroke(.white.opacity(isDisabled ? 0.05 : 0.12), lineWidth: 1)
+            )
+    }
 }
 
 struct ConverterSettingRow<Control: View>: View {
@@ -28,14 +49,11 @@ struct ConverterSettingRow<Control: View>: View {
             Text(title)
                 .font(.body.weight(.medium))
                 .foregroundStyle(.primary)
+                .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             control
-                .frame(
-                    minWidth: ConverterSettingMetrics.minimumControlWidth,
-                    maxWidth: ConverterSettingMetrics.maximumControlWidth,
-                    alignment: .trailing
-                )
+                .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .padding(.horizontal, ConverterSettingMetrics.rowHorizontalPadding)
         .padding(.vertical, ConverterSettingMetrics.rowVerticalPadding)
@@ -105,16 +123,12 @@ struct ConverterTextFieldRow: View {
                 .padding(.vertical, ConverterSettingMetrics.controlVerticalPadding)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(controlBackground)
+                .frame(width: ConverterSettingMetrics.controlColumnWidth, alignment: .leading)
         }
     }
 
     private var controlBackground: some View {
-        RoundedRectangle(cornerRadius: ConverterSettingMetrics.controlCornerRadius, style: .continuous)
-            .fill(.white.opacity(0.07))
-            .overlay(
-                RoundedRectangle(cornerRadius: ConverterSettingMetrics.controlCornerRadius, style: .continuous)
-                    .stroke(.white.opacity(0.10), lineWidth: 1)
-            )
+        ConverterControlBackground(isDisabled: false)
     }
 }
 
@@ -240,22 +254,45 @@ struct MenuPicker<Option: Identifiable & Hashable>: View {
 
     var body: some View {
         ConverterSettingRow(title) {
-            Picker(title, selection: $selection) {
+            Menu {
                 ForEach(pickerOptions, id: \.self) { option in
-                    Text(label(option))
-                        .tag(option)
+                    Button {
+                        selection = option
+                    } label: {
+                        HStack(spacing: 8) {
+                            if option == selection {
+                                Image(systemName: "checkmark")
+                                    .font(.caption.weight(.bold))
+                            }
+
+                            Text(label(option))
+                                .lineLimit(1)
+                        }
+                    }
                 }
+            } label: {
+                HStack(spacing: 10) {
+                    Text(label(selection))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(isDisabled ? Color.secondary.opacity(0.82) : Color.primary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(isDisabled ? 0.42 : 0.68))
+                }
+                .padding(.horizontal, ConverterSettingMetrics.controlHorizontalPadding)
+                .padding(.vertical, ConverterSettingMetrics.controlVerticalPadding)
+                .frame(width: ConverterSettingMetrics.controlColumnWidth, alignment: .leading)
+                .background(ConverterControlBackground(isDisabled: isDisabled))
             }
-            .labelsHidden()
-            .pickerStyle(.menu)
-            .frame(maxWidth: .infinity, alignment: .trailing)
-            .frame(
-                minWidth: ConverterSettingMetrics.minimumControlWidth,
-                maxWidth: ConverterSettingMetrics.maximumControlWidth,
-                alignment: .trailing
-            )
+            .buttonStyle(.plain)
             .disabled(isDisabled)
             .opacity(isDisabled ? 0.55 : 1)
+            .accessibilityLabel(Text(title))
+            .accessibilityValue(Text(label(selection)))
         }
     }
 }
