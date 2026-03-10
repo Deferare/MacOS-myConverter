@@ -170,6 +170,26 @@ struct UnifiedFileRowView: View, Equatable {
         Glass.regular.interactive(false)
     }
 
+    private var neutralControlTint: Color {
+        .white.opacity(0.14)
+    }
+
+    private var actionLabelColor: Color {
+        .white.opacity(0.82)
+    }
+
+    private var extensionBadgeFillColor: Color {
+        .white.opacity(0.07)
+    }
+
+    private var extensionBadgeBorderColor: Color {
+        .white.opacity(0.13)
+    }
+
+    private var extensionBadgeTextColor: Color {
+        .white.opacity(0.70)
+    }
+
     private func statusGlass(_ color: Color) -> Glass {
         Glass.regular.tint(color).interactive(false)
     }
@@ -268,34 +288,43 @@ struct UnifiedFileRowView: View, Equatable {
     private var extensionBadgeView: some View {
         Text(sourceURL.pathExtension.uppercased())
             .font(.caption2.weight(.semibold))
-            .foregroundStyle(.secondary)
+            .foregroundStyle(extensionBadgeTextColor)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .glassEffect(decorativeGlass, in: Capsule())
+            .background(
+                Capsule()
+                    .fill(extensionBadgeFillColor)
+            )
+            .overlay(
+                Capsule()
+                    .stroke(extensionBadgeBorderColor, lineWidth: 1)
+            )
             .fixedSize(horizontal: true, vertical: false)
     }
 
     private func completedActionsView(_ url: URL) -> some View {
-        GlassEffectContainer(spacing: Metrics.outputSectionSpacing) {
-            HStack(spacing: Metrics.outputSectionSpacing) {
-                Button {
-                    NSWorkspace.shared.activateFileViewerSelecting([url])
-                } label: {
-                    Label("Show in Finder", systemImage: "folder")
-                        .labelStyle(.iconOnly)
-                }
-                .buttonStyle(.glass)
-                .controlSize(.small)
-                .tint(.secondary)
-
-                Button {
-                    NSWorkspace.shared.open(url)
-                } label: {
-                    Text("Open")
-                }
-                .buttonStyle(.glassProminent)
-                .controlSize(.small)
+        HStack(spacing: Metrics.outputSectionSpacing) {
+            Button {
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+            } label: {
+                Label("Show in Finder", systemImage: "folder")
+                    .labelStyle(.iconOnly)
+                    .foregroundStyle(actionLabelColor)
             }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .tint(neutralControlTint)
+            .help("Show in Finder")
+
+            Button {
+                NSWorkspace.shared.open(url)
+            } label: {
+                Text("Open")
+                    .foregroundStyle(actionLabelColor)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .tint(neutralControlTint)
         }
         .fixedSize(horizontal: true, vertical: false)
     }
