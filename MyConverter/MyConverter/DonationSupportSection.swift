@@ -86,7 +86,7 @@ struct DonationSupportSection: View {
                 } else {
                     Image(systemName: "heart.fill")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.red)
                 }
             }
 
