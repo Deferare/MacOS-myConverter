@@ -245,7 +245,7 @@ struct UnifiedFileRowView: View, Equatable {
             Text(sourceURL.lastPathComponent)
                 .font(.subheadline.weight(.semibold))
                 .lineLimit(1)
-                .truncationMode(.tail)
+                .truncationMode(.middle)
                 .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
         }
         .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)

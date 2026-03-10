@@ -347,7 +347,7 @@ struct MediaConverterDetailView<FormSections: View>: View {
                             onClear()
                         }
                     } label: {
-                        Label("Clear Files", systemImage: "xmark")
+                        Label("Clear Files", systemImage: "trash")
                             .labelStyle(.iconOnly)
                     }
                     .tint(toolbarUtilityTint)
@@ -362,6 +362,7 @@ struct MediaConverterDetailView<FormSections: View>: View {
                 Button(screenState.primaryActionTitle) {
                     onPrimaryAction()
                 }
+                .buttonStyle(.borderedProminent)
                 .tint(kind.liquidGlassTint)
                 .disabled(!screenState.isConverting && !screenState.canConvert)
             }
