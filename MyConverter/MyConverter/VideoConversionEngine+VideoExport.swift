@@ -346,7 +346,7 @@ extension VideoConversionEngine {
         let token = PerformanceSignpost.begin("VideoEncode", message: preset)
 
         let progressTask = Task {
-            for await state in session.states(updateInterval: 0.15) {
+            for await state in session.states(updateInterval: 0.05) {
                 if Task.isCancelled {
                     break
                 }

@@ -70,10 +70,14 @@ struct ContentView: View {
     }
 
     private func mediaDetailView(for kind: ContentViewModel.MediaKind) -> some View {
-        MediaConverterDetailView(
+        let renderState = viewModel.converterRenderState(for: kind)
+        let screenState = renderState.screenState
+
+        return MediaConverterDetailView(
             kind: kind,
-            screenState: viewModel.converterScreenState(for: kind),
-            selectedFileListState: viewModel.selectedFileListState(for: kind),
+            screenState: screenState,
+            inputHeaderState: renderState.inputHeaderState,
+            selectedFileListState: renderState.selectedFileListState,
             isDropTargeted: dropTargetBinding(for: kind),
             draggedSelectedFileURL: $draggedSelectedFileURL,
             fileDropAreaHeight: fileDropAreaHeight,
@@ -90,26 +94,29 @@ struct ContentView: View {
                 viewModel.clearSelectedSource(for: kind)
             },
             onPrimaryAction: {
-                if viewModel.converterScreenState(for: kind).isConverting {
+                if screenState.isConverting {
                     viewModel.cancelConversion(for: kind)
                 } else {
                     viewModel.startConversion(for: kind)
                 }
             }
         ) {
-            mediaFormSections(for: kind)
+            mediaFormSections(for: kind, screenState: screenState)
         }
     }
 
     @ViewBuilder
-    private func mediaFormSections(for kind: ContentViewModel.MediaKind) -> some View {
+    private func mediaFormSections(
+        for kind: ContentViewModel.MediaKind,
+        screenState: ContentViewModel.ConverterScreenState
+    ) -> some View {
         OutputFolderSelectionRow(
             pathText: viewModel.selectedOutputDirectoryURL(for: kind).map {
                 viewModel.abbreviatedOutputDirectoryPath($0)
             } ?? "No folder selected",
             hasSelection: viewModel.hasSelectedOutputDirectory(for: kind),
             tint: kind.liquidGlassTint,
-            isDisabled: viewModel.converterScreenState(for: kind).isConverting,
+            isDisabled: screenState.isConverting,
             onChoose: {
                 viewModel.chooseOutputDirectory(for: kind)
             }

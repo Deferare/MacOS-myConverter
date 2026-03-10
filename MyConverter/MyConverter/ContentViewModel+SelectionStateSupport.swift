@@ -60,10 +60,8 @@ extension ContentViewModel {
         displayedProgress(for: mediaStateSnapshot(for: kind))
     }
 
-    func selectedFileListState(for kind: MediaKind) -> SelectedFileListState {
-        let snapshot = mediaStateSnapshot(for: kind)
-
-        return SelectedFileListState(
+    func selectedFileListState(using snapshot: MediaStateSnapshot) -> SelectedFileListState {
+        SelectedFileListState(
             selectedURLs: selectedSourceURLs(using: snapshot),
             outputURLsBySourceID: snapshot.convertedOutputURLsBySourceID,
             processedSourceIDs: snapshot.processedSourceIDs,
@@ -71,6 +69,10 @@ extension ContentViewModel {
             currentBatchIndex: snapshot.currentBatchIndex,
             currentItemProgress: currentBatchItemProgress(using: snapshot)
         )
+    }
+
+    func selectedFileListState(for kind: MediaKind) -> SelectedFileListState {
+        selectedFileListState(using: mediaStateSnapshot(for: kind))
     }
 
     func currentBatchItemProgress(using snapshot: MediaStateSnapshot) -> Double {
@@ -97,6 +99,8 @@ extension ContentViewModel {
         resetBatchState: Bool = false,
         applyDefaultSettings: Bool = false
     ) {
+        cancelSelectionAnalysis(for: kind)
+
         if resetOutputs {
             resetConversionOutputs(for: kind)
         }
@@ -140,9 +144,7 @@ extension ContentViewModel {
     }
 
     func clearSelectedSource(for kind: MediaKind) {
-        let descriptor = mediaStateDescriptor(for: kind)
-
-        cancelTask(at: descriptor.analysisTask)
+        cancelSelectionAnalysis(for: kind)
         switch kind {
         case .video:
             updateState(\.videoRuntimeState) { state in

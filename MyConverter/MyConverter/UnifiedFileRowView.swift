@@ -6,6 +6,7 @@ struct UnifiedFileRowView: View, Equatable {
         static let rowSpacing: CGFloat = 10
         static let rowHorizontalPadding: CGFloat = 16
         static let rowVerticalPadding: CGFloat = 12
+        static let progressBarHeight: CGFloat = 6
         static let titleSpacing: CGFloat = 6
         static let outputSectionSpacing: CGFloat = 8
         static let primaryContentMinHeight: CGFloat = 26
@@ -13,7 +14,7 @@ struct UnifiedFileRowView: View, Equatable {
         static let completionAccessoryOffset: CGFloat = 12
         static let completionAccessoryRevealDelayNanoseconds: UInt64 = 180_000_000
         static let visibilityTransitionAnimation = Animation.spring(response: 0.24, dampingFraction: 0.86)
-        static let progressAnimationDuration: Double = 0.08
+        static let progressAnimationDuration: Double = 0.06
     }
 
     struct StatusAppearance {
@@ -107,6 +108,15 @@ struct UnifiedFileRowView: View, Equatable {
         lhs.rowState == rhs.rowState
     }
 
+    nonisolated static func estimatedHeight(for rowState: RowState) -> CGFloat {
+        let baseHeight = Metrics.primaryContentMinHeight + (Metrics.rowVerticalPadding * 2)
+        guard rowState.showsProgressBar else {
+            return baseHeight
+        }
+
+        return baseHeight + Metrics.rowSpacing + Metrics.progressBarHeight
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.rowSpacing) {
             HStack(spacing: 0) {
@@ -120,6 +130,7 @@ struct UnifiedFileRowView: View, Equatable {
                 ProgressView(value: rowState.progressValue, total: 1.0)
                     .progressViewStyle(.linear)
                     .tint(rowState.statusAppearance.color)
+                    .frame(height: Metrics.progressBarHeight)
                     .animation(progressAnimation, value: rowState.progressValue)
                     .transition(progressTransition)
             }

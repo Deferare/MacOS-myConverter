@@ -1,11 +1,11 @@
 import Foundation
 
 extension ContentViewModelSupport {
-    static func sourceIdentifier(for url: URL) -> String {
+    nonisolated static func sourceIdentifier(for url: URL) -> String {
         url.standardizedFileURL.path
     }
 
-    static func uniqueStandardizedURLs(_ urls: [URL]) -> [URL] {
+    nonisolated static func uniqueStandardizedURLs(_ urls: [URL]) -> [URL] {
         var seen = Set<String>()
         var unique: [URL] = []
 
@@ -20,7 +20,7 @@ extension ContentViewModelSupport {
         return unique
     }
 
-    static func reorderedURLsByMoving(_ draggedURL: URL, to targetURL: URL, in urls: [URL]) -> [URL]? {
+    nonisolated static func reorderedURLsByMoving(_ draggedURL: URL, to targetURL: URL, in urls: [URL]) -> [URL]? {
         let draggedID = sourceIdentifier(for: draggedURL)
         let targetID = sourceIdentifier(for: targetURL)
         guard draggedID != targetID else { return nil }

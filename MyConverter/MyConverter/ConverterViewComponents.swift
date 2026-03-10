@@ -168,7 +168,7 @@ struct ConverterInputArea: View {
     let currentItemProgress: Double
     let dropPlaceholder: String
     let fileDropAreaHeight: CGFloat
-    let screenState: ContentViewModel.ConverterScreenState
+    let inputHeaderState: ContentViewModel.ConverterInputHeaderState
     let themeTint: Color
     @Binding var draggedSelectedFileURL: URL?
     let onImport: () -> Void
@@ -185,7 +185,7 @@ struct ConverterInputArea: View {
             currentItemProgress: currentItemProgress,
             fileDropAreaHeight: fileDropAreaHeight,
             isDropTargeted: isDropTargeted,
-            screenState: screenState,
+            inputHeaderState: inputHeaderState,
             themeTint: themeTint,
             draggedSelectedFileURL: $draggedSelectedFileURL,
             onImport: onImport,
@@ -217,7 +217,7 @@ struct ConverterFormSections<SettingsContent: View>: View {
 struct MediaConverterInputSectionView: View, Equatable {
     let kind: ContentViewModel.MediaKind
     let state: ContentViewModel.SelectedFileListState
-    let screenState: ContentViewModel.ConverterScreenState
+    let inputHeaderState: ContentViewModel.ConverterInputHeaderState
     let isDropTargeted: Bool
     @Binding var draggedSelectedFileURL: URL?
     let fileDropAreaHeight: CGFloat
@@ -229,7 +229,7 @@ struct MediaConverterInputSectionView: View, Equatable {
     static func == (lhs: MediaConverterInputSectionView, rhs: MediaConverterInputSectionView) -> Bool {
         lhs.kind == rhs.kind &&
             lhs.state == rhs.state &&
-            lhs.screenState == rhs.screenState &&
+            lhs.inputHeaderState == rhs.inputHeaderState &&
             lhs.isDropTargeted == rhs.isDropTargeted &&
             lhs.fileDropAreaHeight == rhs.fileDropAreaHeight
     }
@@ -247,7 +247,7 @@ struct MediaConverterInputSectionView: View, Equatable {
             currentItemProgress: state.currentItemProgress,
             dropPlaceholder: "Drop Files Here",
             fileDropAreaHeight: fileDropAreaHeight,
-            screenState: screenState,
+            inputHeaderState: inputHeaderState,
             themeTint: kind.liquidGlassTint,
             draggedSelectedFileURL: $draggedSelectedFileURL,
             onImport: onImport,
@@ -261,6 +261,7 @@ struct MediaConverterInputSectionView: View, Equatable {
 struct MediaConverterDetailView<FormSections: View>: View {
     let kind: ContentViewModel.MediaKind
     let screenState: ContentViewModel.ConverterScreenState
+    let inputHeaderState: ContentViewModel.ConverterInputHeaderState
     let selectedFileListState: ContentViewModel.SelectedFileListState
     @Binding var isDropTargeted: Bool
     @Binding var draggedSelectedFileURL: URL?
@@ -280,6 +281,7 @@ struct MediaConverterDetailView<FormSections: View>: View {
     init(
         kind: ContentViewModel.MediaKind,
         screenState: ContentViewModel.ConverterScreenState,
+        inputHeaderState: ContentViewModel.ConverterInputHeaderState,
         selectedFileListState: ContentViewModel.SelectedFileListState,
         isDropTargeted: Binding<Bool>,
         draggedSelectedFileURL: Binding<URL?>,
@@ -293,6 +295,7 @@ struct MediaConverterDetailView<FormSections: View>: View {
     ) {
         self.kind = kind
         self.screenState = screenState
+        self.inputHeaderState = inputHeaderState
         self.selectedFileListState = selectedFileListState
         _isDropTargeted = isDropTargeted
         _draggedSelectedFileURL = draggedSelectedFileURL
@@ -319,7 +322,7 @@ struct MediaConverterDetailView<FormSections: View>: View {
                     MediaConverterInputSectionView(
                         kind: kind,
                         state: selectedFileListState,
-                        screenState: screenState,
+                        inputHeaderState: inputHeaderState,
                         isDropTargeted: isDropTargeted,
                         draggedSelectedFileURL: $draggedSelectedFileURL,
                         fileDropAreaHeight: fileDropAreaHeight,

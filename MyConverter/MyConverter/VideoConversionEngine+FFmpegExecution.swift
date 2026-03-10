@@ -139,8 +139,8 @@ extension VideoConversionEngine {
         }
 
         let now = DispatchTime.now().uptimeNanoseconds
-        let intervalElapsed = now >= lastReportTime + 75_000_000
-        let stepAdvanced = clamped - lastReportedProgress >= 0.005
+        let intervalElapsed = now >= lastReportTime + 33_000_000
+        let stepAdvanced = clamped - lastReportedProgress >= 0.002
         let shouldEmit = clamped >= 1 || stepAdvanced || intervalElapsed
         guard shouldEmit else { return }
 

@@ -23,8 +23,8 @@ struct PreparedSourceConversion: Sendable {
     let workingOutputStrategy: WorkingOutputStrategy
 }
 
-struct PreparedBatchConversionContext {
+struct PreparedBatchConversionContext: Sendable {
     let preparedSources: [PreparedSourceConversion]
     let outputDirectoryURL: URL
-    let stopAccessingBatchDirectory: () -> Void
+    let stopAccessingBatchDirectory: @Sendable () -> Void
 }

@@ -12,7 +12,7 @@ extension ContentViewModel {
         let preparedImageCapabilities: [String: ImageSourceCapabilities]
     }
 
-    func emptyBatchExecutionEnvironment(
+    nonisolated static func emptyBatchExecutionEnvironment(
         for kind: MediaKind,
         outputDirectoryURL: URL
     ) -> BatchExecutionEnvironment {
@@ -27,7 +27,7 @@ extension ContentViewModel {
         )
     }
 
-    func makeVideoFFmpegExecutionContext() -> VideoConversionEngine.FFmpegExecutionContext? {
+    nonisolated static func makeVideoFFmpegExecutionContext() -> VideoConversionEngine.FFmpegExecutionContext? {
         guard let ffmpegPath = FFmpegBinaryLocator.findPath(),
               let introspection = try? VideoConversionEngine.inspectFFmpeg(at: ffmpegPath) else {
             return nil
@@ -39,7 +39,7 @@ extension ContentViewModel {
         )
     }
 
-    func makeImageFFmpegExecutionContext() -> ImageConversionEngine.FFmpegExecutionContext? {
+    nonisolated static func makeImageFFmpegExecutionContext() -> ImageConversionEngine.FFmpegExecutionContext? {
         guard let ffmpegPath = FFmpegBinaryLocator.findPath(),
               let introspection = try? ImageConversionEngine.inspectFFmpeg(at: ffmpegPath) else {
             return nil
@@ -51,7 +51,7 @@ extension ContentViewModel {
         )
     }
 
-    func prepareVideoBatchExecutionEnvironment(
+    nonisolated static func prepareVideoBatchExecutionEnvironment(
         preparedSources: [PreparedSourceConversion],
         outputSettings: VideoOutputSettings,
         outputDirectoryURL: URL
@@ -113,7 +113,7 @@ extension ContentViewModel {
         )
     }
 
-    func prepareAudioBatchExecutionEnvironment(
+    nonisolated static func prepareAudioBatchExecutionEnvironment(
         preparedSources: [PreparedSourceConversion],
         outputDirectoryURL: URL
     ) async -> BatchExecutionEnvironment {
@@ -150,7 +150,7 @@ extension ContentViewModel {
         )
     }
 
-    func prepareImageBatchExecutionEnvironment(
+    nonisolated static func prepareImageBatchExecutionEnvironment(
         preparedSources: [PreparedSourceConversion],
         outputDirectoryURL: URL
     ) async -> BatchExecutionEnvironment {

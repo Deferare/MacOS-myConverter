@@ -44,6 +44,9 @@ extension ContentViewModel {
         var imageConversionTask: Task<Void, Never>?
         var audioSourceAnalysisTask: Task<Void, Never>?
         var audioConversionTask: Task<Void, Never>?
+        var pendingVideoSelectionAnalysisTask: Task<Void, Never>?
+        var pendingImageSelectionAnalysisTask: Task<Void, Never>?
+        var pendingAudioSelectionAnalysisTask: Task<Void, Never>?
         var pendingVideoFormatChangeTask: Task<Void, Never>?
         var pendingVideoOptionNormalizationTask: Task<Void, Never>?
         var pendingAudioFormatChangeTask: Task<Void, Never>?

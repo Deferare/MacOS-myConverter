@@ -1,13 +1,13 @@
 import Foundation
 
 extension ContentViewModel {
-    struct ConversionWorkflowDescriptor<OutputSettings> {
+    struct ConversionWorkflowDescriptor<OutputSettings: Sendable> {
         let kind: MediaKind
         let canConvert: Bool
         let fileExtension: String
         let metadata: ConversionMetadata
         let buildOutputSettings: () throws -> OutputSettings
-        let prepareBatchEnvironment: ([PreparedSourceConversion], OutputSettings, URL) async -> BatchExecutionEnvironment
+        let prepareBatchEnvironment: @Sendable ([PreparedSourceConversion], OutputSettings, URL) async -> BatchExecutionEnvironment
         let validate: (PreparedSourceConversion, BatchExecutionEnvironment) async -> String?
         let runConversion: (PreparedSourceConversion, BatchExecutionEnvironment, OutputSettings, Int, Int) async throws -> URL
     }
@@ -16,7 +16,7 @@ extension ContentViewModel {
         let execute: @MainActor (ContentViewModel) async -> Void
     }
 
-    func makeConversionExecutionDescriptor<OutputSettings>(
+    func makeConversionExecutionDescriptor<OutputSettings: Sendable>(
         workflow: @escaping (ContentViewModel) -> ConversionWorkflowDescriptor<OutputSettings>
     ) -> ConversionExecutionDescriptor {
         ConversionExecutionDescriptor { viewModel in
@@ -24,12 +24,12 @@ extension ContentViewModel {
         }
     }
 
-    func makeConversionWorkflowDescriptor<OutputSettings>(
+    func makeConversionWorkflowDescriptor<OutputSettings: Sendable>(
         kind: MediaKind,
         fileExtension: String,
         metadata: ConversionMetadata,
         buildOutputSettings: @escaping () throws -> OutputSettings,
-        prepareBatchEnvironment: @escaping ([PreparedSourceConversion], OutputSettings, URL) async -> BatchExecutionEnvironment,
+        prepareBatchEnvironment: @escaping @Sendable ([PreparedSourceConversion], OutputSettings, URL) async -> BatchExecutionEnvironment,
         runConversion: @escaping (PreparedSourceConversion, BatchExecutionEnvironment, OutputSettings, Int, Int) async throws -> URL
     ) -> ConversionWorkflowDescriptor<OutputSettings> {
         ConversionWorkflowDescriptor(
@@ -61,7 +61,7 @@ extension ContentViewModel {
             metadata: kind.conversionMetadata,
             buildOutputSettings: { try self.buildVideoOutputSettings() },
             prepareBatchEnvironment: { preparedSources, outputSettings, outputDirectoryURL in
-                await self.prepareVideoBatchExecutionEnvironment(
+                await ContentViewModel.prepareVideoBatchExecutionEnvironment(
                     preparedSources: preparedSources,
                     outputSettings: outputSettings,
                     outputDirectoryURL: outputDirectoryURL
@@ -93,7 +93,7 @@ extension ContentViewModel {
             metadata: kind.conversionMetadata,
             buildOutputSettings: { self.buildImageOutputSettings() },
             prepareBatchEnvironment: { preparedSources, _, outputDirectoryURL in
-                await self.prepareImageBatchExecutionEnvironment(
+                await ContentViewModel.prepareImageBatchExecutionEnvironment(
                     preparedSources: preparedSources,
                     outputDirectoryURL: outputDirectoryURL
                 )
@@ -122,7 +122,7 @@ extension ContentViewModel {
             metadata: kind.conversionMetadata,
             buildOutputSettings: { self.buildAudioOutputSettings() },
             prepareBatchEnvironment: { preparedSources, _, outputDirectoryURL in
-                await self.prepareAudioBatchExecutionEnvironment(
+                await ContentViewModel.prepareAudioBatchExecutionEnvironment(
                     preparedSources: preparedSources,
                     outputDirectoryURL: outputDirectoryURL
                 )
@@ -144,7 +144,7 @@ extension ContentViewModel {
         )
     }
 
-    func performConversion<OutputSettings>(
+    func performConversion<OutputSettings: Sendable>(
         using workflow: ConversionWorkflowDescriptor<OutputSettings>
     ) async {
         let descriptor = mediaStateDescriptor(for: workflow.kind)
@@ -190,7 +190,7 @@ extension ContentViewModel {
         )
     }
 
-    func performMediaBatchConversion<OutputSettings>(
+    func performMediaBatchConversion<OutputSettings: Sendable>(
         canConvert: Bool,
         primarySourceURL: URL?,
         queuedSourceURLs: [URL],
@@ -207,7 +207,7 @@ extension ContentViewModel {
         treatExportCancellationAsCancelled: Bool = false,
         startState: (URL) -> Void,
         buildOutputSettings: () throws -> OutputSettings,
-        prepareBatchEnvironment: @escaping ([PreparedSourceConversion], OutputSettings, URL) async -> BatchExecutionEnvironment,
+        prepareBatchEnvironment: @escaping @Sendable ([PreparedSourceConversion], OutputSettings, URL) async -> BatchExecutionEnvironment,
         validate: @escaping (PreparedSourceConversion, BatchExecutionEnvironment) async -> String?,
         runConversion: @escaping (PreparedSourceConversion, BatchExecutionEnvironment, OutputSettings, Int, Int) async throws -> URL,
         onSavedOutput: @escaping (URL, URL) -> Void,
@@ -229,13 +229,37 @@ extension ContentViewModel {
             return
         }
 
-        guard let batchContext = prepareBatchContext(
-            primarySourceURL: primarySourceURL,
-            queuedSourceURLs: queuedSourceURLs,
-            fileExtension: fileExtension,
-            outputLabel: outputLabel,
-            preferredOutputDirectory: preferredOutputDirectory
-        ) else {
+        let sourceURLs = [primarySourceURL] + queuedSourceURLs
+        let resolvedOutputDirectoryURL: URL
+        if let preferredOutputDirectory {
+            resolvedOutputDirectoryURL = preferredOutputDirectory.standardizedFileURL
+        } else {
+            guard let selectedDirectory = BatchConversionSupport.presentBatchDirectoryAccessPanel(
+                suggestedDirectory: primarySourceURL.deletingLastPathComponent(),
+                outputLabel: outputLabel,
+                fileCount: sourceURLs.count
+            ) else {
+                return
+            }
+            resolvedOutputDirectoryURL = selectedDirectory.standardizedFileURL
+        }
+
+        let batchContextTask = Task.detached(priority: .userInitiated) {
+            BatchConversionSupport.prepareContext(
+                sourceURLs: sourceURLs,
+                fileExtension: fileExtension,
+                outputDirectoryURL: resolvedOutputDirectoryURL
+            )
+        }
+        let batchContext = await withTaskCancellationHandler(
+            operation: {
+                await batchContextTask.value
+            },
+            onCancel: {
+                batchContextTask.cancel()
+            }
+        )
+        guard let batchContext else {
             return
         }
 
@@ -248,10 +272,20 @@ extension ContentViewModel {
         }
 
         startState(batchContext.outputDirectoryURL)
-        let batchEnvironment = await prepareBatchEnvironment(
-            batchContext.preparedSources,
-            outputSettings,
-            batchContext.outputDirectoryURL
+        let batchEnvironmentTask = Task.detached(priority: .userInitiated) {
+            await prepareBatchEnvironment(
+                batchContext.preparedSources,
+                outputSettings,
+                batchContext.outputDirectoryURL
+            )
+        }
+        let batchEnvironment = await withTaskCancellationHandler(
+            operation: {
+                await batchEnvironmentTask.value
+            },
+            onCancel: {
+                batchEnvironmentTask.cancel()
+            }
         )
         await executeBatchConversion(
             preparedSources: batchContext.preparedSources,

@@ -1,7 +1,7 @@
 import Foundation
 
 extension BatchConversionSupport {
-    static func uniqueBatchDestinationURL(
+    nonisolated static func uniqueBatchDestinationURL(
         for sourceURL: URL,
         fileExtension: String,
         using allocator: inout OutputPathUtilities.ReservedOutputAllocator
@@ -12,7 +12,7 @@ extension BatchConversionSupport {
         )
     }
 
-    static func assignAutoBatchDestinations(
+    nonisolated static func assignAutoBatchDestinations(
         for sourceURLs: ArraySlice<URL>,
         fileExtension: String,
         allocator: inout OutputPathUtilities.ReservedOutputAllocator,

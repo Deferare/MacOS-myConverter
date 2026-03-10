@@ -25,7 +25,7 @@ extension BatchConversionSupport {
         return panel.url
     }
 
-    static func prepareBatchDirectoryAccess(
+    nonisolated static func prepareBatchDirectoryAccess(
         sourceURLs: [URL],
         destinationURLsBySourceID: [String: URL]
     ) -> PreparedBatchDirectoryAccess? {

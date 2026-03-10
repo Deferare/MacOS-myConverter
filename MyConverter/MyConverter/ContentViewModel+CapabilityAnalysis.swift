@@ -1,27 +1,32 @@
 import Foundation
 
+struct IndexedCapabilityResult<Capability: Sendable>: Sendable {
+    let index: Int
+    let source: URL
+    let capability: Capability
+}
+
+struct AggregatedSourceCapabilities<Capability: Sendable, Format: Sendable>: Sendable {
+    var orderedResults: [IndexedCapabilityResult<Capability>] = []
+    var commonFormats: [Format] = []
+    var warnings: [String] = []
+    var errors: [String] = []
+
+    nonisolated init(
+        orderedResults: [IndexedCapabilityResult<Capability>] = [],
+        commonFormats: [Format] = [],
+        warnings: [String] = [],
+        errors: [String] = []
+    ) {
+        self.orderedResults = orderedResults
+        self.commonFormats = commonFormats
+        self.warnings = warnings
+        self.errors = errors
+    }
+}
+
 extension ContentViewModel {
-    protocol SourceCapabilitySummary {
-        associatedtype Format
-
-        var availableOutputFormats: [Format] { get }
-        var warningMessage: String? { get }
-        var errorMessage: String? { get }
-    }
-
-    struct IndexedCapabilityResult<Capability: Sendable>: Sendable {
-        let index: Int
-        let source: URL
-        let capability: Capability
-    }
-
-    struct AggregatedSourceCapabilities<Format> {
-        var commonFormats: [Format] = []
-        var warnings: [String] = []
-        var errors: [String] = []
-    }
-
-    struct SourceAnalysisSelectionHandlers<Capability: Sendable, Format> {
+    struct SourceAnalysisSelectionHandlers<Capability: Sendable, Format: Sendable> {
         let onCapability: (URL, Capability) -> Void
         let onFormatsResolved: ([Format]) -> Void
     }
@@ -31,7 +36,7 @@ extension ContentViewModel {
         let prepareForResolvedFormats: (ContentViewModel) -> Void
     }
 
-    struct SourceAnalysisStateDescriptor<Format> {
+    struct SourceAnalysisStateDescriptor<Format: Sendable> {
         let kind: MediaKind
         let analysisTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>
         let isAnalyzing: ReferenceWritableKeyPath<ContentViewModel, Bool>
@@ -41,40 +46,43 @@ extension ContentViewModel {
         let resetForEmptySelection: (ContentViewModel) -> Void
     }
 
-    struct SourceAnalysisDescriptor<Capability: Sendable, Format> {
+    struct SourceAnalysisDescriptor<Capability: Sendable, Format: Sendable> {
         let state: SourceAnalysisStateDescriptor<Format>
         let fetchCapabilities: @Sendable (URL) async -> Capability
-        let availableFormats: (Capability) -> [Format]
-        let warningMessage: (Capability) -> String?
-        let errorMessage: (Capability) -> String?
-        let formatNormalizedID: (Format) -> String
-        let deduplicatedAndSorted: ([Format]) -> [Format]
+        let availableFormats: @Sendable (Capability) -> [Format]
+        let warningMessage: @Sendable (Capability) -> String?
+        let errorMessage: @Sendable (Capability) -> String?
+        let formatNormalizedID: @Sendable (Format) -> String
+        let deduplicatedAndSorted: @Sendable ([Format]) -> [Format]
         let noCommonFormatsMessage: String
         let buildSelectionHandlers: (ContentViewModel, [URL]) -> SourceAnalysisSelectionHandlers<Capability, Format>
     }
 
-    struct CapabilitySummaryInput<Capability: SourceCapabilitySummary & Sendable> {
+    struct CapabilitySummaryInput<Capability: Sendable, Format: Sendable> {
         let kind: MediaKind
-        let availableFormatsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [Capability.Format]>
+        let availableFormatsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [Format]>
         let fetchCapabilities: @Sendable (URL) async -> Capability
-        let formatNormalizedID: (Capability.Format) -> String
-        let deduplicatedAndSorted: ([Capability.Format]) -> [Capability.Format]
+        let availableFormats: @Sendable (Capability) -> [Format]
+        let warningMessage: @Sendable (Capability) -> String?
+        let errorMessage: @Sendable (Capability) -> String?
+        let formatNormalizedID: @Sendable (Format) -> String
+        let deduplicatedAndSorted: @Sendable ([Format]) -> [Format]
         let noCommonFormatsMessage: String
         let buildSelectionHandlers: (
             ContentViewModel,
             [URL]
-        ) -> SourceAnalysisSelectionHandlers<Capability, Capability.Format>
+        ) -> SourceAnalysisSelectionHandlers<Capability, Format>
     }
 
-    func makeSourceAnalysisDescriptor<Capability: Sendable, Format>(
+    func makeSourceAnalysisDescriptor<Capability: Sendable, Format: Sendable>(
         kind: MediaKind,
         availableFormatsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [Format]>,
         fetchCapabilities: @escaping @Sendable (URL) async -> Capability,
-        availableFormats: @escaping (Capability) -> [Format],
-        warningMessage: @escaping (Capability) -> String?,
-        errorMessage: @escaping (Capability) -> String?,
-        formatNormalizedID: @escaping (Format) -> String,
-        deduplicatedAndSorted: @escaping ([Format]) -> [Format],
+        availableFormats: @escaping @Sendable (Capability) -> [Format],
+        warningMessage: @escaping @Sendable (Capability) -> String?,
+        errorMessage: @escaping @Sendable (Capability) -> String?,
+        formatNormalizedID: @escaping @Sendable (Format) -> String,
+        deduplicatedAndSorted: @escaping @Sendable ([Format]) -> [Format],
         noCommonFormatsMessage: String,
         buildSelectionHandlers: @escaping (ContentViewModel, [URL]) -> SourceAnalysisSelectionHandlers<Capability, Format>
     ) -> SourceAnalysisDescriptor<Capability, Format> {
@@ -94,16 +102,16 @@ extension ContentViewModel {
         )
     }
 
-    func makeCapabilitySummaryDescriptor<Capability: SourceCapabilitySummary & Sendable>(
-        _ input: CapabilitySummaryInput<Capability>
-    ) -> SourceAnalysisDescriptor<Capability, Capability.Format> {
+    func makeCapabilitySummaryDescriptor<Capability: Sendable, Format: Sendable>(
+        _ input: CapabilitySummaryInput<Capability, Format>
+    ) -> SourceAnalysisDescriptor<Capability, Format> {
         makeSourceAnalysisDescriptor(
             kind: input.kind,
             availableFormatsKeyPath: input.availableFormatsKeyPath,
             fetchCapabilities: input.fetchCapabilities,
-            availableFormats: { $0.availableOutputFormats },
-            warningMessage: { $0.warningMessage },
-            errorMessage: { $0.errorMessage },
+            availableFormats: input.availableFormats,
+            warningMessage: input.warningMessage,
+            errorMessage: input.errorMessage,
             formatNormalizedID: input.formatNormalizedID,
             deduplicatedAndSorted: input.deduplicatedAndSorted,
             noCommonFormatsMessage: input.noCommonFormatsMessage,
@@ -111,7 +119,7 @@ extension ContentViewModel {
         )
     }
 
-    func makeResolvedOutputSelectionHandlers<Capability: Sendable, Format>(
+    func makeResolvedOutputSelectionHandlers<Capability: Sendable, Format: Sendable>(
         persistKind: MediaKind,
         formatDescriptor: @escaping (ContentViewModel) -> OutputFormatDescriptor<Format>,
         capabilityObserver: @escaping (
@@ -146,7 +154,7 @@ extension ContentViewModel {
         }
     }
 
-    func sourceAnalysisStateDescriptor<Format>(
+    func sourceAnalysisStateDescriptor<Format: Sendable>(
         for kind: MediaKind,
         availableFormatsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [Format]>
     ) -> SourceAnalysisStateDescriptor<Format> {
@@ -195,7 +203,7 @@ extension ContentViewModel {
         selectedSourceURLs(for: kind).map(sourceIdentifier(for:))
     }
 
-    func analyzeSourceCompatibility<Capability: Sendable, Format>(
+    func analyzeSourceCompatibility<Capability: Sendable, Format: Sendable>(
         for urls: [URL],
         using descriptor: SourceAnalysisDescriptor<Capability, Format>
     ) {
@@ -294,17 +302,16 @@ extension ContentViewModel {
         }
     }
 
-    func aggregateSourceCapabilities<Capability: Sendable, Format>(
+    nonisolated static func aggregateSourceCapabilities<Capability: Sendable, Format: Sendable>(
         for selection: [URL],
         fetchCapabilities: @escaping @Sendable (URL) async -> Capability,
-        availableFormats: (Capability) -> [Format],
-        warningMessage: (Capability) -> String?,
-        errorMessage: (Capability) -> String?,
-        intersect: ([Format], [Format]) -> [Format],
-        onCapability: ((URL, Capability) -> Void)? = nil
-    ) async -> AggregatedSourceCapabilities<Format>? {
+        availableFormats: @escaping @Sendable (Capability) -> [Format],
+        warningMessage: @escaping @Sendable (Capability) -> String?,
+        errorMessage: @escaping @Sendable (Capability) -> String?,
+        intersect: @escaping @Sendable ([Format], [Format]) -> [Format]
+    ) async -> AggregatedSourceCapabilities<Capability, Format>? {
         var isInitialized = false
-        var aggregated = AggregatedSourceCapabilities<Format>()
+        var aggregated = AggregatedSourceCapabilities<Capability, Format>()
         let maxConcurrentAnalyses = max(1, min(4, ProcessInfo.processInfo.activeProcessorCount))
 
         for batchStart in stride(from: 0, to: selection.count, by: maxConcurrentAnalyses) {
@@ -342,9 +349,9 @@ extension ContentViewModel {
             }
 
             for result in results {
+                aggregated.orderedResults.append(result)
                 let source = result.source
                 let capabilities = result.capability
-                onCapability?(source, capabilities)
 
                 let formats = availableFormats(capabilities)
                 if isInitialized {
@@ -355,10 +362,22 @@ extension ContentViewModel {
                 }
 
                 if let warning = warningMessage(capabilities) {
-                    aggregated.warnings.append(labeledCapabilityMessage(warning, for: source, totalCount: selection.count))
+                    aggregated.warnings.append(
+                        ContentViewModelSupport.labeledCapabilityMessage(
+                            warning,
+                            for: source,
+                            totalCount: selection.count
+                        )
+                    )
                 }
                 if let error = errorMessage(capabilities) {
-                    aggregated.errors.append(labeledCapabilityMessage(error, for: source, totalCount: selection.count))
+                    aggregated.errors.append(
+                        ContentViewModelSupport.labeledCapabilityMessage(
+                            error,
+                            for: source,
+                            totalCount: selection.count
+                        )
+                    )
                 }
             }
         }
@@ -367,16 +386,16 @@ extension ContentViewModel {
         return aggregated
     }
 
-    func analyzeSourceSelection<Capability: Sendable, Format>(
+    func analyzeSourceSelection<Capability: Sendable, Format: Sendable>(
         state: SourceAnalysisStateDescriptor<Format>,
         urls: [URL],
         selectedSourceIDs: @escaping () -> [String],
         fetchCapabilities: @escaping @Sendable (URL) async -> Capability,
-        availableFormats: @escaping (Capability) -> [Format],
-        warningMessage: @escaping (Capability) -> String?,
-        errorMessage: @escaping (Capability) -> String?,
-        intersect: @escaping ([Format], [Format]) -> [Format],
-        deduplicatedAndSorted: @escaping ([Format]) -> [Format],
+        availableFormats: @escaping @Sendable (Capability) -> [Format],
+        warningMessage: @escaping @Sendable (Capability) -> String?,
+        errorMessage: @escaping @Sendable (Capability) -> String?,
+        intersect: @escaping @Sendable ([Format], [Format]) -> [Format],
+        deduplicatedAndSorted: @escaping @Sendable ([Format]) -> [Format],
         noCommonFormatsMessage: String,
         onCapability: ((URL, Capability) -> Void)? = nil,
         onFormatsResolved: @escaping ([Format]) -> Void
@@ -392,18 +411,31 @@ extension ContentViewModel {
         self[keyPath: state.isAnalyzing] = true
         self[keyPath: state.analysisTask] = Task { [weak self] in
             guard let self else { return }
-            guard let aggregated = await self.aggregateSourceCapabilities(
-                for: selection,
-                fetchCapabilities: fetchCapabilities,
-                availableFormats: availableFormats,
-                warningMessage: warningMessage,
-                errorMessage: errorMessage,
-                intersect: intersect,
-                onCapability: onCapability
-            ) else {
+            let aggregationTask = Task.detached(priority: .userInitiated) {
+                await Self.aggregateSourceCapabilities(
+                    for: selection,
+                    fetchCapabilities: fetchCapabilities,
+                    availableFormats: availableFormats,
+                    warningMessage: warningMessage,
+                    errorMessage: errorMessage,
+                    intersect: intersect
+                )
+            }
+            let aggregated = await withTaskCancellationHandler {
+                await aggregationTask.value
+            } onCancel: {
+                aggregationTask.cancel()
+            }
+
+            guard let aggregated else {
                 return
             }
+            guard !Task.isCancelled else { return }
             guard selectedSourceIDs() == expectedSourceIDs else { return }
+
+            aggregated.orderedResults.forEach { result in
+                onCapability?(result.source, result.capability)
+            }
 
             let resolvedFormats = deduplicatedAndSorted(aggregated.commonFormats)
             let joinedWarnings = self.joinedCapabilityMessages(aggregated.warnings)
@@ -427,7 +459,3 @@ extension ContentViewModel {
         }
     }
 }
-
-extension VideoSourceCapabilities: ContentViewModel.SourceCapabilitySummary {}
-extension ImageSourceCapabilities: ContentViewModel.SourceCapabilitySummary {}
-extension AudioSourceCapabilities: ContentViewModel.SourceCapabilitySummary {}

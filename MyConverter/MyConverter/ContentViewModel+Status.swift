@@ -2,10 +2,6 @@ import Foundation
 
 extension ContentViewModel {
     struct ConverterScreenState: Equatable {
-        let statusMessage: String
-        let statusLevel: ConversionStatusLevel
-        let progress: Double
-        let progressText: String
         let isConverting: Bool
         let canConvert: Bool
         let selectedFileCount: Int
@@ -15,6 +11,19 @@ extension ContentViewModel {
         let showsResults: Bool
         let destinationHint: String
         let primaryActionTitle: String
+    }
+
+    struct ConverterInputHeaderState: Equatable {
+        let statusMessage: String
+        let statusLevel: ConversionStatusLevel
+        let progressText: String
+        let isConverting: Bool
+    }
+
+    struct ConverterRenderState: Equatable {
+        let screenState: ConverterScreenState
+        let inputHeaderState: ConverterInputHeaderState
+        let selectedFileListState: SelectedFileListState
     }
 
     func conversionStatus(
@@ -45,6 +54,14 @@ extension ContentViewModel {
     }
 
     func converterScreenState(for kind: MediaKind) -> ConverterScreenState {
+        converterRenderState(for: kind).screenState
+    }
+
+    func converterInputHeaderState(for kind: MediaKind) -> ConverterInputHeaderState {
+        converterRenderState(for: kind).inputHeaderState
+    }
+
+    func converterRenderState(for kind: MediaKind) -> ConverterRenderState {
         let snapshot = mediaStateSnapshot(for: kind)
         let validationMessage = validationMessage(for: kind)
         let hintMessage = hintMessage(for: kind)
@@ -53,7 +70,7 @@ extension ContentViewModel {
             validationMessage: validationMessage,
             hintMessage: hintMessage
         )
-        let selectedFileCount = selectedFileCount(for: kind)
+        let selectedFileCount = snapshot.sourceURL == nil ? 0 : snapshot.queuedSourceURLs.count + 1
         let convertedCount = snapshot.convertedURLs.count
         let progress = displayedProgress(for: snapshot)
         let statusMessage: String
@@ -73,22 +90,27 @@ extension ContentViewModel {
             primaryActionTitle = "Start"
         }
 
-        return ConverterScreenState(
-            statusMessage: statusMessage,
-            statusLevel: status.level,
-            progress: progress,
-            progressText: progressPercentageText(for: progress),
-            isConverting: snapshot.isConverting,
-            canConvert: canStartConversion(using: snapshot, validationMessage: validationMessage),
-            selectedFileCount: selectedFileCount,
-            selectedFormatLabel: selectedOutputFormatLabel(for: kind),
-            convertedCount: convertedCount,
-            showsSettings: selectedFileCount > 0,
-            showsResults: convertedCount > 0,
-            destinationHint: selectedOutputDirectoryURL(for: kind).map {
-                "Selected output folder: \(abbreviatedOutputDirectoryPath($0))"
-            } ?? "Select an output folder in Conversion Settings, or choose one after you press Start.",
-            primaryActionTitle: primaryActionTitle
+        return ConverterRenderState(
+            screenState: ConverterScreenState(
+                isConverting: snapshot.isConverting,
+                canConvert: canStartConversion(using: snapshot, validationMessage: validationMessage),
+                selectedFileCount: selectedFileCount,
+                selectedFormatLabel: selectedOutputFormatLabel(for: kind),
+                convertedCount: convertedCount,
+                showsSettings: selectedFileCount > 0,
+                showsResults: convertedCount > 0,
+                destinationHint: selectedOutputDirectoryURL(for: kind).map {
+                    "Selected output folder: \(abbreviatedOutputDirectoryPath($0))"
+                } ?? "Select an output folder in Conversion Settings, or choose one after you press Start.",
+                primaryActionTitle: primaryActionTitle
+            ),
+            inputHeaderState: ConverterInputHeaderState(
+                statusMessage: statusMessage,
+                statusLevel: status.level,
+                progressText: progressPercentageText(for: progress),
+                isConverting: snapshot.isConverting
+            ),
+            selectedFileListState: selectedFileListState(using: snapshot)
         )
     }
 

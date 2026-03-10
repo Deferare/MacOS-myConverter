@@ -7,6 +7,8 @@ extension ConverterTab {
 }
 
 extension ContentViewModel {
+    private static let selectionAnalysisDebounceNanoseconds: UInt64 = 200_000_000
+
     struct MediaSelectionWorkflowDescriptor {
         let isConversionRunning: Bool
         let currentPrimaryURL: URL?
@@ -36,6 +38,47 @@ extension ContentViewModel {
         task = nil
     }
 
+    func pendingSelectionAnalysisTaskKeyPath(
+        for kind: MediaKind
+    ) -> ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?> {
+        switch kind {
+        case .video:
+            return \.taskState.pendingVideoSelectionAnalysisTask
+        case .image:
+            return \.taskState.pendingImageSelectionAnalysisTask
+        case .audio:
+            return \.taskState.pendingAudioSelectionAnalysisTask
+        }
+    }
+
+    func cancelPendingSelectionAnalysis(for kind: MediaKind) {
+        cancelTask(at: pendingSelectionAnalysisTaskKeyPath(for: kind))
+    }
+
+    func cancelSelectionAnalysis(for kind: MediaKind) {
+        let descriptor = mediaStateDescriptor(for: kind)
+        cancelTask(at: descriptor.analysisTask)
+        cancelPendingSelectionAnalysis(for: kind)
+    }
+
+    func scheduleSelectedSourceAnalysis(_ urls: [URL], for kind: MediaKind) {
+        let selection = uniqueStandardizedURLs(urls)
+        guard !selection.isEmpty else {
+            analyzeSelectedSources(selection, for: kind)
+            return
+        }
+
+        let descriptor = mediaStateDescriptor(for: kind)
+        setMediaStateValue(using: descriptor, \.isAnalyzing, to: true)
+        applyPlaceholderCapabilities(for: kind)
+        scheduleDebouncedTask(
+            pendingSelectionAnalysisTaskKeyPath(for: kind),
+            delayNanoseconds: Self.selectionAnalysisDebounceNanoseconds
+        ) { viewModel in
+            viewModel.analyzeSelectedSources(selection, for: kind)
+        }
+    }
+
     func selectionWorkflowDescriptor(for kind: MediaKind) -> MediaSelectionWorkflowDescriptor {
         let descriptor = mediaStateDescriptor(for: kind)
 
@@ -47,7 +90,7 @@ extension ContentViewModel {
                 self.assignSelection(selection, for: kind)
             },
             cancelAnalysisTask: {
-                self.cancelTask(at: descriptor.analysisTask)
+                self.cancelSelectionAnalysis(for: kind)
             },
             resetSelectionState: {
                 self.resetConversionOutputs(for: kind)
@@ -60,7 +103,7 @@ extension ContentViewModel {
                 self.applyStoredSourceSettings(for: sourceID, for: kind)
             },
             analyzeSelection: { selection in
-                self.analyzeSelectedSources(selection, for: kind)
+                self.scheduleSelectedSourceAnalysis(selection, for: kind)
             },
             onSelectionEmptied: {
                 self.restoreIdleMediaState(for: kind)

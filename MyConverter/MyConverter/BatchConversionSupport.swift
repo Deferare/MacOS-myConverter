@@ -18,21 +18,19 @@ enum BatchConversionSupport {
         return ([prefix] + entries).joined(separator: "\n")
     }
 
-    static func prepareContext(
+    nonisolated static func prepareContext(
         sourceURLs: [URL],
         fileExtension: String,
-        outputLabel: String,
-        preferredOutputDirectory: URL? = nil
+        outputDirectoryURL: URL
     ) -> PreparedBatchConversionContext? {
-        guard let selectedDestinations = selectDestinationURLs(
-            for: sourceURLs,
+        var destinationURLsBySourceID: [String: URL] = [:]
+        var allocator = OutputPathUtilities.ReservedOutputAllocator.preloaded(for: outputDirectoryURL)
+        assignAutoBatchDestinations(
+            for: sourceURLs[...],
             fileExtension: fileExtension,
-            outputLabel: outputLabel,
-            preferredOutputDirectory: preferredOutputDirectory
-        ) else {
-            return nil
-        }
-        let destinationURLsBySourceID = selectedDestinations.destinationURLsBySourceID
+            allocator: &allocator,
+            destinationsBySourceID: &destinationURLsBySourceID
+        )
 
         guard let batchAccess = prepareBatchDirectoryAccess(
             sourceURLs: sourceURLs,
@@ -41,7 +39,7 @@ enum BatchConversionSupport {
             return nil
         }
 
-        let stopAccessingBatchDirectory = {
+        let stopAccessingBatchDirectory: @Sendable () -> Void = {
             if batchAccess.shouldStopAccessing, let batchDirectoryURL = batchAccess.batchDirectoryURL {
                 batchDirectoryURL.stopAccessingSecurityScopedResource()
             }
@@ -75,8 +73,29 @@ enum BatchConversionSupport {
 
         return PreparedBatchConversionContext(
             preparedSources: preparedSources,
-            outputDirectoryURL: batchAccess.batchDirectoryURL ?? selectedDestinations.outputDirectoryURL,
+            outputDirectoryURL: batchAccess.batchDirectoryURL ?? outputDirectoryURL,
             stopAccessingBatchDirectory: stopAccessingBatchDirectory
+        )
+    }
+
+    static func prepareContext(
+        sourceURLs: [URL],
+        fileExtension: String,
+        outputLabel: String,
+        preferredOutputDirectory: URL? = nil
+    ) -> PreparedBatchConversionContext? {
+        guard let selectedDestinations = selectDestinationURLs(
+            for: sourceURLs,
+            fileExtension: fileExtension,
+            outputLabel: outputLabel,
+            preferredOutputDirectory: preferredOutputDirectory
+        ) else {
+            return nil
+        }
+        return prepareContext(
+            sourceURLs: sourceURLs,
+            fileExtension: fileExtension,
+            outputDirectoryURL: selectedDestinations.outputDirectoryURL
         )
     }
 
