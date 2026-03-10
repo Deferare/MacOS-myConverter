@@ -154,7 +154,10 @@ extension ContentViewModel {
             totalBatchCountKeyPath: descriptor.totalBatchCount,
             skippedSummaryPrefix: workflow.metadata.skippedSummaryPrefix,
             treatExportCancellationAsCancelled: workflow.metadata.treatExportCancellationAsCancelled,
-            startState: { self.prepareConversionStartState(for: workflow.kind) },
+            startState: { outputDirectoryURL in
+                self.setSelectedOutputDirectoryURL(outputDirectoryURL, for: workflow.kind)
+                self.prepareConversionStartState(for: workflow.kind)
+            },
             buildOutputSettings: workflow.buildOutputSettings,
             validate: workflow.validate,
             makeWorkingOutputURL: workflow.makeWorkingOutputURL,
@@ -193,7 +196,7 @@ extension ContentViewModel {
         totalBatchCountKeyPath: ReferenceWritableKeyPath<ContentViewModel, Int>,
         skippedSummaryPrefix: String,
         treatExportCancellationAsCancelled: Bool = false,
-        startState: () -> Void,
+        startState: (URL) -> Void,
         buildOutputSettings: () throws -> OutputSettings,
         validate: @escaping (URL) async -> String?,
         makeWorkingOutputURL: @escaping (URL) -> URL,
@@ -237,7 +240,7 @@ extension ContentViewModel {
             return
         }
 
-        startState()
+        startState(batchContext.outputDirectoryURL)
         await executeBatchConversion(
             sourceURLs: sourceURLs,
             destinationURLsBySourceID: destinationURLsBySourceID,

@@ -4,10 +4,16 @@ import Foundation
 struct PreparedBatchConversionContext {
     let sourceURLs: [URL]
     let destinationURLsBySourceID: [String: URL]
+    let outputDirectoryURL: URL
     let stopAccessingBatchDirectory: () -> Void
 }
 
 enum BatchConversionSupport {
+    struct SelectedBatchDestinations {
+        let destinationURLsBySourceID: [String: URL]
+        let outputDirectoryURL: URL
+    }
+
     struct PreparedBatchDirectoryAccess {
         let destinationURLsBySourceID: [String: URL]
         let batchDirectoryURL: URL?
@@ -25,7 +31,7 @@ enum BatchConversionSupport {
         outputLabel: String,
         preferredOutputDirectory: URL? = nil
     ) -> PreparedBatchConversionContext? {
-        guard var destinationURLsBySourceID = selectDestinationURLs(
+        guard let selectedDestinations = selectDestinationURLs(
             for: sourceURLs,
             fileExtension: fileExtension,
             outputLabel: outputLabel,
@@ -33,6 +39,7 @@ enum BatchConversionSupport {
         ) else {
             return nil
         }
+        var destinationURLsBySourceID = selectedDestinations.destinationURLsBySourceID
 
         guard let batchAccess = prepareBatchDirectoryAccess(
             sourceURLs: sourceURLs,
@@ -51,6 +58,7 @@ enum BatchConversionSupport {
         return PreparedBatchConversionContext(
             sourceURLs: sourceURLs,
             destinationURLsBySourceID: destinationURLsBySourceID,
+            outputDirectoryURL: batchAccess.batchDirectoryURL ?? selectedDestinations.outputDirectoryURL,
             stopAccessingBatchDirectory: stopAccessingBatchDirectory
         )
     }

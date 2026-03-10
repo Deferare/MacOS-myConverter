@@ -6,9 +6,12 @@ extension BatchConversionSupport {
         fileExtension: String,
         outputLabel: String,
         preferredOutputDirectory: URL? = nil
-    ) -> [String: URL]? {
+    ) -> SelectedBatchDestinations? {
         guard let firstSourceURL = sourceURLs.first else {
-            return [:]
+            return SelectedBatchDestinations(
+                destinationURLsBySourceID: [:],
+                outputDirectoryURL: FileManager.default.homeDirectoryForCurrentUser
+            )
         }
 
         let outputDirectory: URL
@@ -34,6 +37,9 @@ extension BatchConversionSupport {
             destinationsBySourceID: &selected
         )
 
-        return selected
+        return SelectedBatchDestinations(
+            destinationURLsBySourceID: selected,
+            outputDirectoryURL: outputDirectory
+        )
     }
 }
