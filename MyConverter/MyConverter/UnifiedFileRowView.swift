@@ -296,8 +296,18 @@ struct UnifiedFileRowView: View, Equatable {
                 statusPlaceholderView("Skipped", color: .orange)
             }
         }
+        .padding(.leading, outputSectionLeadingPadding)
         .fixedSize(horizontal: true, vertical: false)
         .layoutPriority(1)
+    }
+
+    private var outputSectionLeadingPadding: CGFloat {
+        switch rowState {
+        case .completed, .skipped:
+            return Metrics.outputSectionSpacing
+        case .pending, .converting:
+            return 0
+        }
     }
 
     private func completedActionsView(_ url: URL) -> some View {
