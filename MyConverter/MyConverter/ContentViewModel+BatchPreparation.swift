@@ -3,28 +3,11 @@ import Foundation
 
 extension ContentViewModel {
     struct BatchExecutionEnvironment: Sendable {
-        let kind: MediaKind
-        let outputDirectoryURL: URL
         let videoFFmpegContext: VideoConversionEngine.FFmpegExecutionContext?
         let imageFFmpegContext: ImageConversionEngine.FFmpegExecutionContext?
         let preparedVideoSources: [String: VideoConversionEngine.PreparedSourceContext]
         let preparedAudioCapabilities: [String: AudioSourceCapabilities]
         let preparedImageCapabilities: [String: ImageSourceCapabilities]
-    }
-
-    nonisolated static func emptyBatchExecutionEnvironment(
-        for kind: MediaKind,
-        outputDirectoryURL: URL
-    ) -> BatchExecutionEnvironment {
-        BatchExecutionEnvironment(
-            kind: kind,
-            outputDirectoryURL: outputDirectoryURL,
-            videoFFmpegContext: nil,
-            imageFFmpegContext: nil,
-            preparedVideoSources: [:],
-            preparedAudioCapabilities: [:],
-            preparedImageCapabilities: [:]
-        )
     }
 
     nonisolated static func makeVideoFFmpegExecutionContext() -> VideoConversionEngine.FFmpegExecutionContext? {
@@ -104,8 +87,6 @@ extension ContentViewModel {
         }
 
         return BatchExecutionEnvironment(
-            kind: .video,
-            outputDirectoryURL: outputDirectoryURL,
             videoFFmpegContext: ffmpegContext,
             imageFFmpegContext: nil,
             preparedVideoSources: preparedVideoSources,
@@ -136,8 +117,6 @@ extension ContentViewModel {
         }
 
         return BatchExecutionEnvironment(
-            kind: .video,
-            outputDirectoryURL: outputDirectoryURL,
             videoFFmpegContext: Self.makeVideoFFmpegExecutionContext(),
             imageFFmpegContext: nil,
             preparedVideoSources: [preparedSource.sourceID: preparedContext],
@@ -173,8 +152,6 @@ extension ContentViewModel {
         }
 
         return BatchExecutionEnvironment(
-            kind: .audio,
-            outputDirectoryURL: outputDirectoryURL,
             videoFFmpegContext: ffmpegContext,
             imageFFmpegContext: nil,
             preparedVideoSources: [:],
@@ -210,8 +187,6 @@ extension ContentViewModel {
         }
 
         return BatchExecutionEnvironment(
-            kind: .image,
-            outputDirectoryURL: outputDirectoryURL,
             videoFFmpegContext: nil,
             imageFFmpegContext: ffmpegContext,
             preparedVideoSources: [:],

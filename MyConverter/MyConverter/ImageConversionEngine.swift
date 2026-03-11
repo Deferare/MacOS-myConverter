@@ -67,25 +67,6 @@ enum ImageConversionEngine {
     nonisolated static func isFFmpegAvailable() -> Bool {
         FFmpegBinaryLocator.findPath() != nil
     }
-
-    nonisolated static func uniqueOutputURL(
-        for sourceURL: URL,
-        format: ImageFormatOption,
-        in outputDirectory: URL
-    ) -> URL {
-        OutputPathUtilities.uniqueOutputURL(
-            for: sourceURL,
-            fileExtension: format.fileExtension,
-            in: outputDirectory
-        )
-    }
-
-    nonisolated static func temporaryOutputURL(for sourceURL: URL, format: ImageFormatOption) -> URL {
-        OutputPathUtilities.temporaryOutputURL(
-            for: sourceURL,
-            fileExtension: format.fileExtension
-        )
-    }
 }
 
 enum ImageConversionError: LocalizedError {

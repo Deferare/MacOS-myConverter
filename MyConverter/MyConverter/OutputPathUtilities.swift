@@ -154,33 +154,6 @@ enum OutputPathUtilities {
         return fingerprint
     }
 
-    nonisolated static func uniqueOutputURL(
-        for sourceURL: URL,
-        fileExtension: String,
-        in outputDirectory: URL
-    ) -> URL {
-        uniqueOutputURL(
-            forBaseName: sourceBaseName(for: sourceURL, fallback: "output"),
-            fileExtension: fileExtension,
-            in: outputDirectory
-        )
-    }
-
-    nonisolated static func uniqueOutputURL(
-        forBaseName baseName: String,
-        fileExtension: String,
-        in outputDirectory: URL,
-        reservedPaths: Set<String> = [],
-        checksDirectoryContents: Bool = true
-    ) -> URL {
-        var allocator = ReservedOutputAllocator(
-            outputDirectory: outputDirectory,
-            reservedPaths: reservedPaths,
-            checksDirectoryContents: checksDirectoryContents
-        )
-        return allocator.reserveUniqueOutputURL(forBaseName: baseName, fileExtension: fileExtension)
-    }
-
     nonisolated static func existingDirectoryEntryPaths(in directoryURL: URL) -> Set<String>? {
         guard let existingURLs = try? FileManager.default.contentsOfDirectory(
             at: directoryURL,

@@ -1,21 +1,6 @@
 import Foundation
 
 extension ContentViewModel {
-    func prepareBatchContext(
-        primarySourceURL: URL,
-        queuedSourceURLs: [URL],
-        fileExtension: String,
-        outputLabel: String,
-        preferredOutputDirectory: URL? = nil
-    ) -> PreparedBatchConversionContext? {
-        BatchConversionSupport.prepareContext(
-            sourceURLs: [primarySourceURL] + queuedSourceURLs,
-            fileExtension: fileExtension,
-            outputLabel: outputLabel,
-            preferredOutputDirectory: preferredOutputDirectory
-        )
-    }
-
     func selectedOutputDirectoryURL(for kind: MediaKind) -> URL? {
         switch kind {
         case .video:

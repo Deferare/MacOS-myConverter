@@ -2,11 +2,6 @@ import AppKit
 import Foundation
 
 enum BatchConversionSupport {
-    struct SelectedBatchDestinations {
-        let destinationURLsBySourceID: [String: URL]
-        let outputDirectoryURL: URL
-    }
-
     struct PreparedBatchDirectoryAccess {
         let destinationURLsBySourceID: [String: URL]
         let batchDirectoryURL: URL?
@@ -61,7 +56,6 @@ enum BatchConversionSupport {
                 sourceID: sourceID,
                 destinationURL: destinationURL,
                 workingOutputURL: preparedWorkingOutput.url,
-                sourceFingerprint: OutputPathUtilities.fileFingerprint(for: sourceURL),
                 workingOutputStrategy: preparedWorkingOutput.strategy
             )
         }
@@ -75,27 +69,6 @@ enum BatchConversionSupport {
             preparedSources: preparedSources,
             outputDirectoryURL: batchAccess.batchDirectoryURL ?? outputDirectoryURL,
             stopAccessingBatchDirectory: stopAccessingBatchDirectory
-        )
-    }
-
-    static func prepareContext(
-        sourceURLs: [URL],
-        fileExtension: String,
-        outputLabel: String,
-        preferredOutputDirectory: URL? = nil
-    ) -> PreparedBatchConversionContext? {
-        guard let selectedDestinations = selectDestinationURLs(
-            for: sourceURLs,
-            fileExtension: fileExtension,
-            outputLabel: outputLabel,
-            preferredOutputDirectory: preferredOutputDirectory
-        ) else {
-            return nil
-        }
-        return prepareContext(
-            sourceURLs: sourceURLs,
-            fileExtension: fileExtension,
-            outputDirectoryURL: selectedDestinations.outputDirectoryURL
         )
     }
 

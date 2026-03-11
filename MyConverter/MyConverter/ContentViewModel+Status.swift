@@ -53,14 +53,6 @@ extension ContentViewModel {
         )
     }
 
-    func converterScreenState(for kind: MediaKind) -> ConverterScreenState {
-        converterRenderState(for: kind).screenState
-    }
-
-    func converterInputHeaderState(for kind: MediaKind) -> ConverterInputHeaderState {
-        converterRenderState(for: kind).inputHeaderState
-    }
-
     func converterRenderState(for kind: MediaKind) -> ConverterRenderState {
         let snapshot = mediaStateSnapshot(for: kind)
         let validationMessage = validationMessage(for: kind)

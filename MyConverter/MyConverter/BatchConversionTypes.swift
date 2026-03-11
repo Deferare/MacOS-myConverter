@@ -19,7 +19,6 @@ struct PreparedSourceConversion: Sendable {
     let sourceID: String
     let destinationURL: URL
     let workingOutputURL: URL
-    let sourceFingerprint: String
     let workingOutputStrategy: WorkingOutputStrategy
 }
 
