@@ -1,13 +1,18 @@
 import AppKit
+import QuickLookThumbnailing
 import SwiftUI
 
 struct UnifiedFileRowView: View, Equatable {
-    private enum Metrics {
+    fileprivate enum Metrics {
         static let rowSpacing: CGFloat = 10
         static let rowHorizontalPadding: CGFloat = 16
         static let rowVerticalPadding: CGFloat = 12
         static let progressBarHeight: CGFloat = 6
         static let titleSpacing: CGFloat = 6
+        static let thumbnailWidth: CGFloat = 40
+        static let thumbnailHeight: CGFloat = 28
+        static let thumbnailCornerRadius: CGFloat = 8
+        static let thumbnailBorderOpacity: CGFloat = 0.12
         static let outputSectionSpacing: CGFloat = 8
         static let primaryContentMinHeight: CGFloat = 26
         static let completedActionHeight: CGFloat = 30
@@ -119,11 +124,13 @@ struct UnifiedFileRowView: View, Equatable {
     }
 
     private static func primaryContentMinHeight(for rowState: RowState) -> CGFloat {
+        let sourceContentHeight = max(Metrics.primaryContentMinHeight, Metrics.thumbnailHeight)
+
         switch rowState {
         case .completed:
-            return max(Metrics.primaryContentMinHeight, Metrics.completedActionHeight)
+            return max(sourceContentHeight, Metrics.completedActionHeight)
         case .pending, .converting, .skipped:
-            return Metrics.primaryContentMinHeight
+            return sourceContentHeight
         }
     }
 
@@ -267,6 +274,12 @@ struct UnifiedFileRowView: View, Equatable {
                 .fixedSize(horizontal: true, vertical: false)
                 .layoutPriority(1)
 
+            FileThumbnailView(
+                sourceURL: sourceURL,
+                size: CGSize(width: Metrics.thumbnailWidth, height: Metrics.thumbnailHeight)
+            )
+            .fixedSize()
+
             Text(sourceURL.lastPathComponent)
                 .font(.subheadline.weight(.semibold))
                 .lineLimit(1)
@@ -391,5 +404,134 @@ private struct HoverScaleButtonStyle: ButtonStyle {
                     isHovered = hovering
                 }
             }
+    }
+}
+
+private struct FileThumbnailView: View {
+    let sourceURL: URL
+    let size: CGSize
+
+    @State private var thumbnailImage: NSImage?
+
+    init(sourceURL: URL, size: CGSize) {
+        self.sourceURL = sourceURL
+        self.size = size
+        _thumbnailImage = State(
+            initialValue: FileThumbnailGenerator.fallbackIcon(for: sourceURL, size: size)
+        )
+    }
+
+    var body: some View {
+        Group {
+            if let thumbnailImage {
+                Image(nsImage: thumbnailImage)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                placeholderThumbnail
+            }
+        }
+        .frame(width: size.width, height: size.height)
+        .clipShape(
+            RoundedRectangle(
+                cornerRadius: UnifiedFileRowView.Metrics.thumbnailCornerRadius,
+                style: .continuous
+            )
+        )
+        .overlay(
+            RoundedRectangle(
+                cornerRadius: UnifiedFileRowView.Metrics.thumbnailCornerRadius,
+                style: .continuous
+            )
+            .stroke(.white.opacity(UnifiedFileRowView.Metrics.thumbnailBorderOpacity), lineWidth: 1)
+        )
+        .task(id: sourceURL.path) {
+            loadThumbnail()
+        }
+    }
+
+    private var placeholderThumbnail: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: UnifiedFileRowView.Metrics.thumbnailCornerRadius, style: .continuous)
+                .fill(.white.opacity(0.05))
+
+            Image(systemName: "doc")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func loadThumbnail() {
+        if let cachedThumbnail = FileThumbnailGenerator.cachedThumbnail(for: sourceURL) {
+            thumbnailImage = cachedThumbnail
+            return
+        }
+
+        let sourcePath = sourceURL.path
+        FileThumbnailGenerator.generateThumbnail(for: sourceURL, size: size) { image in
+            guard sourceURL.path == sourcePath else { return }
+            thumbnailImage = image
+        }
+    }
+}
+
+private enum FileThumbnailGenerator {
+    private static let cache = NSCache<NSString, NSImage>()
+
+    static func cachedThumbnail(for url: URL) -> NSImage? {
+        cache.object(forKey: cacheKey(for: url))
+    }
+
+    static func generateThumbnail(
+        for url: URL,
+        size: CGSize,
+        completion: @escaping (NSImage) -> Void
+    ) {
+        let cacheKey = cacheKey(for: url)
+        if let cachedImage = cache.object(forKey: cacheKey) {
+            completion(cachedImage)
+            return
+        }
+
+        let pointSize = NSSize(width: size.width, height: size.height)
+        let scale = NSScreen.main?.backingScaleFactor ?? 2
+        let request = QLThumbnailGenerator.Request(
+            fileAt: url,
+            size: size,
+            scale: scale,
+            representationTypes: .thumbnail
+        )
+        let shouldStopAccessing = url.startAccessingSecurityScopedResource()
+
+        QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { representation, _ in
+            defer {
+                if shouldStopAccessing {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+
+            let image: NSImage
+            if let cgImage = representation?.cgImage {
+                image = NSImage(cgImage: cgImage, size: pointSize)
+            } else {
+                image = fallbackIcon(for: url, size: size)
+            }
+
+            cache.setObject(image, forKey: cacheKey)
+
+            DispatchQueue.main.async {
+                completion(image)
+            }
+        }
+    }
+
+    static func fallbackIcon(for url: URL, size: CGSize) -> NSImage {
+        let image = NSWorkspace.shared.icon(forFile: url.path)
+        image.size = NSSize(width: size.width, height: size.height)
+        return image
+    }
+
+    private static func cacheKey(for url: URL) -> NSString {
+        url.path as NSString
     }
 }
