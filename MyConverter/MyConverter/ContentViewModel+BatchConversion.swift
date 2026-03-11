@@ -163,6 +163,10 @@ extension ContentViewModel {
             canConvert: workflow.canConvert,
             primarySourceURL: mediaStateValue(using: descriptor, \.sourceURL),
             queuedSourceURLs: mediaStateValue(using: descriptor, \.queuedSourceURLs),
+            existingOutputURLsBySourceID: mediaStateValue(
+                using: descriptor,
+                \.convertedOutputURLsBySourceID
+            ),
             missingSourceLog: workflow.metadata.missingSourceLog,
             fileExtension: workflow.fileExtension,
             outputLabel: workflow.metadata.outputLabel,
@@ -174,9 +178,12 @@ extension ContentViewModel {
             totalBatchCountKeyPath: descriptor.totalBatchCount,
             skippedSummaryPrefix: workflow.metadata.skippedSummaryPrefix,
             treatExportCancellationAsCancelled: workflow.metadata.treatExportCancellationAsCancelled,
-            startState: { outputDirectoryURL in
+            startState: { outputDirectoryURL, preserveCompletedOutputs in
                 self.setSelectedOutputDirectoryURL(outputDirectoryURL, for: workflow.kind)
-                self.prepareConversionStartState(for: workflow.kind)
+                self.prepareConversionStartState(
+                    for: workflow.kind,
+                    preserveCompletedOutputs: preserveCompletedOutputs
+                )
             },
             buildOutputSettings: workflow.buildOutputSettings,
             prepareBatchEnvironment: workflow.prepareBatchEnvironment,
@@ -208,6 +215,7 @@ extension ContentViewModel {
         canConvert: Bool,
         primarySourceURL: URL?,
         queuedSourceURLs: [URL],
+        existingOutputURLsBySourceID: [String: URL],
         missingSourceLog: String,
         fileExtension: String,
         outputLabel: String,
@@ -219,7 +227,7 @@ extension ContentViewModel {
         totalBatchCountKeyPath: ReferenceWritableKeyPath<ContentViewModel, Int>,
         skippedSummaryPrefix: String,
         treatExportCancellationAsCancelled: Bool = false,
-        startState: (URL) -> Void,
+        startState: (URL, Bool) -> Void,
         buildOutputSettings: () throws -> OutputSettings,
         prepareBatchEnvironment: @escaping @Sendable ([PreparedSourceConversion], OutputSettings, URL) async -> BatchExecutionEnvironment,
         prepareSingleSourceEnvironment: (@MainActor (PreparedSourceConversion, OutputSettings, URL) async -> BatchExecutionEnvironment)? = nil,
@@ -245,7 +253,17 @@ extension ContentViewModel {
             return
         }
 
-        let sourceURLs = [primarySourceURL] + queuedSourceURLs
+        let allSourceURLs = [primarySourceURL] + queuedSourceURLs
+        let completedSourceIDs = Set(existingOutputURLsBySourceID.keys)
+        let remainingSourceURLs = allSourceURLs.filter { sourceURL in
+            !completedSourceIDs.contains(sourceIdentifier(for: sourceURL))
+        }
+        let shouldResumePartialBatch =
+            !completedSourceIDs.isEmpty &&
+            !remainingSourceURLs.isEmpty &&
+            remainingSourceURLs.count < allSourceURLs.count
+        let sourceURLs = shouldResumePartialBatch ? remainingSourceURLs : allSourceURLs
+
         let resolvedOutputDirectoryURL: URL
         if let preferredOutputDirectory {
             resolvedOutputDirectoryURL = preferredOutputDirectory.standardizedFileURL
@@ -287,7 +305,7 @@ extension ContentViewModel {
             return
         }
 
-        startState(batchContext.outputDirectoryURL)
+        startState(batchContext.outputDirectoryURL, shouldResumePartialBatch)
         if batchContext.preparedSources.count == 1,
            let preparedSource = batchContext.preparedSources.first,
            let prepareSingleSourceEnvironment {

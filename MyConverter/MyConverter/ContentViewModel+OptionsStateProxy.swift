@@ -68,6 +68,39 @@ extension ContentViewModel {
         }
     }
 
+    private func setOutputAffectingOption<State, Value: Equatable>(
+        in descriptor: OptionStateDescriptor<State>,
+        _ valueKeyPath: WritableKeyPath<State, Value>,
+        to newValue: Value
+    ) {
+        setOptionValue(in: descriptor, valueKeyPath, to: newValue) {
+            self.resetConversionOutputs(for: descriptor.persistKind)
+        }
+    }
+
+    private func persistOutputAffectingOption<State, Value: Equatable>(
+        in descriptor: OptionStateDescriptor<State>,
+        _ valueKeyPath: WritableKeyPath<State, Value>,
+        to newValue: Value
+    ) {
+        setOptionValue(in: descriptor, valueKeyPath, to: newValue) {
+            self.resetConversionOutputs(for: descriptor.persistKind)
+            self.persistCurrentSourceSettingsIfNeeded(for: descriptor.persistKind)
+        }
+    }
+
+    private func deferOutputAffectingOption<State, Value: Equatable>(
+        in descriptor: OptionStateDescriptor<State>,
+        _ valueKeyPath: WritableKeyPath<State, Value>,
+        to newValue: Value,
+        action: DeferredPersistenceAction
+    ) {
+        setOptionValue(in: descriptor, valueKeyPath, to: newValue) {
+            self.resetConversionOutputs(for: descriptor.persistKind)
+            self.scheduleDeferredPersistenceAction(action)
+        }
+    }
+
     private func persistOption<State, Value: Equatable>(
         in descriptor: OptionStateDescriptor<State>,
         _ valueKeyPath: WritableKeyPath<State, Value>,
@@ -88,123 +121,158 @@ extension ContentViewModel {
     // Video options
     var selectedOutputFormat: VideoFormatOption {
         get { optionValue(in: videoOptionsDescriptor, \.selectedOutputFormat) }
-        set { deferOption(in: videoOptionsDescriptor, \.selectedOutputFormat, to: newValue, action: .videoFormatChange) }
+        set {
+            deferOutputAffectingOption(
+                in: videoOptionsDescriptor,
+                \.selectedOutputFormat,
+                to: newValue,
+                action: .videoFormatChange
+            )
+        }
     }
 
     var selectedVideoEncoder: VideoEncoderOption {
         get { optionValue(in: videoOptionsDescriptor, \.selectedVideoEncoder) }
-        set { deferOption(in: videoOptionsDescriptor, \.selectedVideoEncoder, to: newValue, action: .videoOptionNormalization) }
+        set {
+            deferOutputAffectingOption(
+                in: videoOptionsDescriptor,
+                \.selectedVideoEncoder,
+                to: newValue,
+                action: .videoOptionNormalization
+            )
+        }
     }
 
     var selectedResolution: ResolutionOption {
         get { optionValue(in: videoOptionsDescriptor, \.selectedResolution) }
-        set { persistOption(in: videoOptionsDescriptor, \.selectedResolution, to: newValue) }
+        set { persistOutputAffectingOption(in: videoOptionsDescriptor, \.selectedResolution, to: newValue) }
     }
 
     var selectedFrameRate: FrameRateOption {
         get { optionValue(in: videoOptionsDescriptor, \.selectedFrameRate) }
-        set { persistOption(in: videoOptionsDescriptor, \.selectedFrameRate, to: newValue) }
+        set { persistOutputAffectingOption(in: videoOptionsDescriptor, \.selectedFrameRate, to: newValue) }
     }
 
     var selectedGIFPlaybackSpeed: GIFPlaybackSpeedOption {
         get { optionValue(in: videoOptionsDescriptor, \.selectedGIFPlaybackSpeed) }
-        set { persistOption(in: videoOptionsDescriptor, \.selectedGIFPlaybackSpeed, to: newValue) }
+        set { persistOutputAffectingOption(in: videoOptionsDescriptor, \.selectedGIFPlaybackSpeed, to: newValue) }
     }
 
     var selectedVideoBitRate: VideoBitRateOption {
         get { optionValue(in: videoOptionsDescriptor, \.selectedVideoBitRate) }
-        set { persistOption(in: videoOptionsDescriptor, \.selectedVideoBitRate, to: newValue) }
+        set { persistOutputAffectingOption(in: videoOptionsDescriptor, \.selectedVideoBitRate, to: newValue) }
     }
 
     var customVideoBitRate: String {
         get { optionValue(in: videoOptionsDescriptor, \.customVideoBitRate) }
-        set { persistOption(in: videoOptionsDescriptor, \.customVideoBitRate, to: newValue) }
+        set { persistOutputAffectingOption(in: videoOptionsDescriptor, \.customVideoBitRate, to: newValue) }
     }
 
     var selectedAudioEncoder: AudioEncoderOption {
         get { optionValue(in: videoOptionsDescriptor, \.selectedAudioEncoder) }
-        set { deferOption(in: videoOptionsDescriptor, \.selectedAudioEncoder, to: newValue, action: .videoOptionNormalization) }
+        set {
+            deferOutputAffectingOption(
+                in: videoOptionsDescriptor,
+                \.selectedAudioEncoder,
+                to: newValue,
+                action: .videoOptionNormalization
+            )
+        }
     }
 
     var selectedAudioMode: AudioModeOption {
         get { optionValue(in: videoOptionsDescriptor, \.selectedAudioMode) }
-        set { persistOption(in: videoOptionsDescriptor, \.selectedAudioMode, to: newValue) }
+        set { persistOutputAffectingOption(in: videoOptionsDescriptor, \.selectedAudioMode, to: newValue) }
     }
 
     var selectedSampleRate: SampleRateOption {
         get { optionValue(in: videoOptionsDescriptor, \.selectedSampleRate) }
-        set { persistOption(in: videoOptionsDescriptor, \.selectedSampleRate, to: newValue) }
+        set { persistOutputAffectingOption(in: videoOptionsDescriptor, \.selectedSampleRate, to: newValue) }
     }
 
     var selectedAudioBitRate: AudioBitRateOption {
         get { optionValue(in: videoOptionsDescriptor, \.selectedAudioBitRate) }
-        set { persistOption(in: videoOptionsDescriptor, \.selectedAudioBitRate, to: newValue) }
+        set { persistOutputAffectingOption(in: videoOptionsDescriptor, \.selectedAudioBitRate, to: newValue) }
     }
 
     var selectedVideoOutputDirectoryURL: URL? {
         get { optionValue(in: videoOptionsDescriptor, \.selectedOutputDirectoryURL) }
-        set { setOptionValue(in: videoOptionsDescriptor, \.selectedOutputDirectoryURL, to: newValue) }
+        set { setOutputAffectingOption(in: videoOptionsDescriptor, \.selectedOutputDirectoryURL, to: newValue) }
     }
 
     // Image options
     var selectedImageOutputFormat: ImageFormatOption {
         get { optionValue(in: imageOptionsDescriptor, \.selectedOutputFormat) }
-        set { persistOption(in: imageOptionsDescriptor, \.selectedOutputFormat, to: newValue) }
+        set { persistOutputAffectingOption(in: imageOptionsDescriptor, \.selectedOutputFormat, to: newValue) }
     }
 
     var selectedImageResolution: ResolutionOption {
         get { optionValue(in: imageOptionsDescriptor, \.selectedResolution) }
-        set { persistOption(in: imageOptionsDescriptor, \.selectedResolution, to: newValue) }
+        set { persistOutputAffectingOption(in: imageOptionsDescriptor, \.selectedResolution, to: newValue) }
     }
 
     var selectedImageQuality: ImageQualityOption {
         get { optionValue(in: imageOptionsDescriptor, \.selectedQuality) }
-        set { persistOption(in: imageOptionsDescriptor, \.selectedQuality, to: newValue) }
+        set { persistOutputAffectingOption(in: imageOptionsDescriptor, \.selectedQuality, to: newValue) }
     }
 
     var selectedPNGCompressionLevel: PNGCompressionLevelOption {
         get { optionValue(in: imageOptionsDescriptor, \.selectedPNGCompressionLevel) }
-        set { persistOption(in: imageOptionsDescriptor, \.selectedPNGCompressionLevel, to: newValue) }
+        set { persistOutputAffectingOption(in: imageOptionsDescriptor, \.selectedPNGCompressionLevel, to: newValue) }
     }
 
     var preserveImageAnimation: Bool {
         get { optionValue(in: imageOptionsDescriptor, \.preserveAnimation) }
-        set { persistOption(in: imageOptionsDescriptor, \.preserveAnimation, to: newValue) }
+        set { persistOutputAffectingOption(in: imageOptionsDescriptor, \.preserveAnimation, to: newValue) }
     }
 
     var selectedImageOutputDirectoryURL: URL? {
         get { optionValue(in: imageOptionsDescriptor, \.selectedOutputDirectoryURL) }
-        set { setOptionValue(in: imageOptionsDescriptor, \.selectedOutputDirectoryURL, to: newValue) }
+        set { setOutputAffectingOption(in: imageOptionsDescriptor, \.selectedOutputDirectoryURL, to: newValue) }
     }
 
     // Audio options
     var selectedAudioOutputFormat: AudioFormatOption {
         get { optionValue(in: audioOptionsDescriptor, \.selectedOutputFormat) }
-        set { deferOption(in: audioOptionsDescriptor, \.selectedOutputFormat, to: newValue, action: .audioFormatChange) }
+        set {
+            deferOutputAffectingOption(
+                in: audioOptionsDescriptor,
+                \.selectedOutputFormat,
+                to: newValue,
+                action: .audioFormatChange
+            )
+        }
     }
 
     var selectedAudioOutputEncoder: AudioEncoderOption {
         get { optionValue(in: audioOptionsDescriptor, \.selectedOutputEncoder) }
-        set { deferOption(in: audioOptionsDescriptor, \.selectedOutputEncoder, to: newValue, action: .audioOptionNormalization) }
+        set {
+            deferOutputAffectingOption(
+                in: audioOptionsDescriptor,
+                \.selectedOutputEncoder,
+                to: newValue,
+                action: .audioOptionNormalization
+            )
+        }
     }
 
     var selectedAudioOutputMode: AudioModeOption {
         get { optionValue(in: audioOptionsDescriptor, \.selectedOutputMode) }
-        set { persistOption(in: audioOptionsDescriptor, \.selectedOutputMode, to: newValue) }
+        set { persistOutputAffectingOption(in: audioOptionsDescriptor, \.selectedOutputMode, to: newValue) }
     }
 
     var selectedAudioOutputSampleRate: SampleRateOption {
         get { optionValue(in: audioOptionsDescriptor, \.selectedOutputSampleRate) }
-        set { persistOption(in: audioOptionsDescriptor, \.selectedOutputSampleRate, to: newValue) }
+        set { persistOutputAffectingOption(in: audioOptionsDescriptor, \.selectedOutputSampleRate, to: newValue) }
     }
 
     var selectedAudioOutputBitRate: AudioBitRateOption {
         get { optionValue(in: audioOptionsDescriptor, \.selectedOutputBitRate) }
-        set { persistOption(in: audioOptionsDescriptor, \.selectedOutputBitRate, to: newValue) }
+        set { persistOutputAffectingOption(in: audioOptionsDescriptor, \.selectedOutputBitRate, to: newValue) }
     }
 
     var selectedAudioOutputDirectoryURL: URL? {
         get { optionValue(in: audioOptionsDescriptor, \.selectedOutputDirectoryURL) }
-        set { setOptionValue(in: audioOptionsDescriptor, \.selectedOutputDirectoryURL, to: newValue) }
+        set { setOutputAffectingOption(in: audioOptionsDescriptor, \.selectedOutputDirectoryURL, to: newValue) }
     }
 }

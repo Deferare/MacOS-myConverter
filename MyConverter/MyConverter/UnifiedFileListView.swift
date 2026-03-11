@@ -193,7 +193,7 @@ struct UnifiedFileListView: View {
             return .completed(outputURL)
         }
 
-        if isConverting && order == currentBatchIndex {
+        if isConverting && sourceID == currentConvertingSourceID {
             return .converting(progress: currentItemProgress)
         }
 
@@ -202,6 +202,28 @@ struct UnifiedFileListView: View {
         }
 
         return .pending
+    }
+
+    private var currentConvertingSourceID: String? {
+        guard isConverting, currentBatchIndex > 0 else {
+            return nil
+        }
+
+        let completedBeforeCurrentRunSourceIDs = Set(outputURLsBySourceID.keys).subtracting(
+            processedSourceIDs
+        )
+        let activeBatchSourceURLs = sourceURLs.filter { sourceURL in
+            !completedBeforeCurrentRunSourceIDs.contains(
+                ContentViewModelSupport.sourceIdentifier(for: sourceURL)
+            )
+        }
+
+        let remainingIndex = currentBatchIndex - 1
+        guard activeBatchSourceURLs.indices.contains(remainingIndex) else {
+            return nil
+        }
+
+        return ContentViewModelSupport.sourceIdentifier(for: activeBatchSourceURLs[remainingIndex])
     }
 
     private var maximumScrollHeight: CGFloat {

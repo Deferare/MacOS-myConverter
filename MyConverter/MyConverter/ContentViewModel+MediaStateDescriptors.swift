@@ -375,12 +375,17 @@ extension ContentViewModel {
         setMediaStateValue(using: descriptor, \.conversionErrorMessage, to: message)
     }
 
-    func prepareConversionStartState(for kind: MediaKind) {
+    func prepareConversionStartState(
+        for kind: MediaKind,
+        preserveCompletedOutputs: Bool = false
+    ) {
         let descriptor = mediaStateDescriptor(for: kind)
         setMediaStateValue(using: descriptor, \.isConverting, to: true)
-        setMediaStateValue(using: descriptor, \.convertedURL, to: nil)
-        setMediaStateValue(using: descriptor, \.convertedURLs, to: [])
-        setMediaStateValue(using: descriptor, \.convertedOutputURLsBySourceID, to: [:])
+        if !preserveCompletedOutputs {
+            setMediaStateValue(using: descriptor, \.convertedURL, to: nil)
+            setMediaStateValue(using: descriptor, \.convertedURLs, to: [])
+            setMediaStateValue(using: descriptor, \.convertedOutputURLsBySourceID, to: [:])
+        }
         setMediaStateValue(using: descriptor, \.processedSourceIDs, to: [])
         setMediaStateValue(using: descriptor, \.conversionErrorMessage, to: nil)
         setMediaStateValue(using: descriptor, \.progress, to: 0)
