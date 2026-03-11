@@ -10,6 +10,7 @@ struct UnifiedFileRowView: View, Equatable {
         static let titleSpacing: CGFloat = 6
         static let outputSectionSpacing: CGFloat = 8
         static let primaryContentMinHeight: CGFloat = 26
+        static let completedActionHeight: CGFloat = 30
         static let statusIndicatorWidth: CGFloat = 36
         static let completionAccessoryOffset: CGFloat = 12
         static let completionAccessoryRevealDelayNanoseconds: UInt64 = 180_000_000
@@ -108,13 +109,26 @@ struct UnifiedFileRowView: View, Equatable {
         lhs.rowState == rhs.rowState
     }
 
-    nonisolated static func estimatedHeight(for rowState: RowState) -> CGFloat {
-        let baseHeight = Metrics.primaryContentMinHeight + (Metrics.rowVerticalPadding * 2)
+    static func estimatedHeight(for rowState: RowState) -> CGFloat {
+        let baseHeight = primaryContentMinHeight(for: rowState) + (Metrics.rowVerticalPadding * 2)
         guard rowState.showsProgressBar else {
             return baseHeight
         }
 
         return baseHeight + Metrics.rowSpacing + Metrics.progressBarHeight
+    }
+
+    private static func primaryContentMinHeight(for rowState: RowState) -> CGFloat {
+        switch rowState {
+        case .completed:
+            return max(Metrics.primaryContentMinHeight, Metrics.completedActionHeight)
+        case .pending, .converting, .skipped:
+            return Metrics.primaryContentMinHeight
+        }
+    }
+
+    private var primaryContentMinHeight: CGFloat {
+        Self.primaryContentMinHeight(for: rowState)
     }
 
     var body: some View {
@@ -124,7 +138,7 @@ struct UnifiedFileRowView: View, Equatable {
                 outputSection
                 statusIndicator
             }
-            .frame(minHeight: Metrics.primaryContentMinHeight)
+            .frame(minHeight: primaryContentMinHeight)
 
             if rowState.showsProgressBar {
                 ProgressView(value: rowState.progressValue, total: 1.0)
@@ -294,7 +308,7 @@ struct UnifiedFileRowView: View, Equatable {
                 Label("Show in Finder", systemImage: "folder")
                     .labelStyle(.iconOnly)
                     .foregroundStyle(actionLabelColor)
-                    .frame(width: 38, height: 30)
+                    .frame(width: 38, height: Metrics.completedActionHeight)
                     .background(actionButtonBackground)
             }
             .buttonStyle(HoverScaleButtonStyle())
@@ -307,7 +321,7 @@ struct UnifiedFileRowView: View, Equatable {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(actionLabelColor)
                     .padding(.horizontal, 18)
-                    .frame(height: 30)
+                    .frame(height: Metrics.completedActionHeight)
                     .background(actionButtonBackground)
             }
             .buttonStyle(HoverScaleButtonStyle())
