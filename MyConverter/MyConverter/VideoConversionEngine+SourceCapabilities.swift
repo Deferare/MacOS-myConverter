@@ -40,10 +40,9 @@ extension VideoConversionEngine {
             existingInFlight: { audioSourceCapabilitiesInFlight[cacheKey] },
             storeInFlight: { audioSourceCapabilitiesInFlight[cacheKey] = $0 },
             build: {
-                let resolvedTask = Task.detached(priority: .userInitiated) {
+                await detachedTaskValue(priority: .userInitiated) {
                     await resolveAudioSourceCapabilities(for: inputURL, runtime: runtime)
                 }
-                return await awaitDetachedTaskValue(resolvedTask)
             },
             storeCachedValue: { audioSourceCapabilitiesCache[cacheKey] = $0 }
         )
@@ -110,14 +109,13 @@ extension VideoConversionEngine {
             existingInFlight: { videoSourceCapabilitiesInFlight[cacheKey] },
             storeInFlight: { videoSourceCapabilitiesInFlight[cacheKey] = $0 },
             build: {
-                let resolvedTask = Task.detached(priority: .userInitiated) {
+                await detachedTaskValue(priority: .userInitiated) {
                     await resolveVideoSourceCapabilities(
                         for: inputURL,
                         runtime: runtime,
                         stagedInputLease: stagedInputLease
                     )
                 }
-                return await awaitDetachedTaskValue(resolvedTask)
             },
             storeCachedValue: { videoSourceCapabilitiesCache[cacheKey] = $0 }
         )

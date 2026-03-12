@@ -283,7 +283,7 @@ extension ContentViewModel {
             resolvedOutputDirectoryAccessURL = selectedDestination.url
         }
 
-        let batchContextTask = Task.detached(priority: .userInitiated) {
+        let batchContext = await detachedTaskValue(priority: .userInitiated) {
             BatchConversionSupport.prepareContext(
                 sourceURLs: sourceURLs,
                 fileExtension: fileExtension,
@@ -291,7 +291,6 @@ extension ContentViewModel {
                 outputDirectoryAccessURL: resolvedOutputDirectoryAccessURL
             )
         }
-        let batchContext = await awaitDetachedTaskValue(batchContextTask)
         guard let batchContext else {
             return
         }
@@ -329,13 +328,12 @@ extension ContentViewModel {
             return
         }
 
-        let batchEnvironmentTask = Task.detached(priority: .userInitiated) {
+        let batchEnvironment = await detachedTaskValue(priority: .userInitiated) {
             await prepareBatchEnvironment(
                 batchContext.preparedSources,
                 outputSettings
             )
         }
-        let batchEnvironment = await awaitDetachedTaskValue(batchEnvironmentTask)
         await executeBatchConversion(
             preparedSources: batchContext.preparedSources,
             batchEnvironment: batchEnvironment,

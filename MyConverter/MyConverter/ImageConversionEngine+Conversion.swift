@@ -35,7 +35,7 @@ extension ImageConversionEngine {
             throw ImageConversionError.unsupportedOutputFormat(outputSettings.containerFormat)
         }
 
-        let conversionTask = Task.detached(priority: .userInitiated) {
+        return try await throwingDetachedTaskValue(priority: .userInitiated) {
             try convertSyncUsingImageIO(
                 inputURL: inputURL,
                 outputURL: outputURL,
@@ -43,6 +43,5 @@ extension ImageConversionEngine {
                 onProgress: onProgress
             )
         }
-        return try await awaitThrowingDetachedTaskValue(conversionTask)
     }
 }

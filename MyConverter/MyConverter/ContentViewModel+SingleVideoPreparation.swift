@@ -103,10 +103,9 @@ extension ContentViewModel {
             return prepared
         }
 
-        let preparationTask = Task.detached(priority: .userInitiated) {
+        let prepared = await detachedTaskValue(priority: .userInitiated) {
             await Self.buildPreparedSingleVideoSelection(for: sourceURL)
         }
-        let prepared = await awaitDetachedTaskValue(preparationTask)
 
         guard let prepared else { return nil }
         guard canRetainPreparedSingleVideoSelection(prepared) else {

@@ -11,10 +11,9 @@ extension VideoConversionEngine {
             existingInFlight: { assetTrackProbeInFlight[cacheKey] },
             storeInFlight: { assetTrackProbeInFlight[cacheKey] = $0 },
             build: {
-                let resolvedTask = Task.detached(priority: .userInitiated) {
+                await detachedTaskValue(priority: .userInitiated) {
                     await loadAssetTrackProbe(for: inputURL)
                 }
-                return await awaitDetachedTaskValue(resolvedTask)
             },
             storeCachedValue: { assetTrackProbeCache[cacheKey] = $0 }
         )

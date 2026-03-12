@@ -406,7 +406,7 @@ extension ContentViewModel {
                 return
             }
 
-            let aggregationTask = Task.detached(priority: .userInitiated) {
+            let aggregated = await detachedTaskValue(priority: .userInitiated) {
                 await Self.aggregateSourceCapabilities(
                     for: selection,
                     fetchCapabilities: fetchCapabilities,
@@ -416,7 +416,6 @@ extension ContentViewModel {
                     intersect: intersect
                 )
             }
-            let aggregated = await awaitDetachedTaskValue(aggregationTask)
 
             guard let aggregated else {
                 return

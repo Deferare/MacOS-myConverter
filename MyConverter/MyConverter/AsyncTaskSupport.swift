@@ -15,3 +15,23 @@ func awaitThrowingDetachedTaskValue<T: Sendable>(_ task: Task<T, Error>) async t
         task.cancel()
     }
 }
+
+func detachedTaskValue<T: Sendable>(
+    priority: TaskPriority? = nil,
+    operation: @escaping @Sendable () async -> T
+) async -> T {
+    let task = Task.detached(priority: priority) {
+        await operation()
+    }
+    return await awaitDetachedTaskValue(task)
+}
+
+func throwingDetachedTaskValue<T: Sendable>(
+    priority: TaskPriority? = nil,
+    operation: @escaping @Sendable () async throws -> T
+) async throws -> T {
+    let task = Task.detached(priority: priority) {
+        try await operation()
+    }
+    return try await awaitThrowingDetachedTaskValue(task)
+}

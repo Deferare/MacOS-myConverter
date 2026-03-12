@@ -13,10 +13,9 @@ extension ImageConversionEngine {
             existingInFlight: { sourceCapabilitiesInFlight[cacheKey] },
             storeInFlight: { sourceCapabilitiesInFlight[cacheKey] = $0 },
             build: {
-                let resolvedTask = Task.detached(priority: .userInitiated) {
+                await detachedTaskValue(priority: .userInitiated) {
                     sourceCapabilitiesSync(for: inputURL, ffmpegPath: ffmpegPath)
                 }
-                return await awaitDetachedTaskValue(resolvedTask)
             },
             storeCachedValue: { sourceCapabilitiesCache[cacheKey] = $0 }
         )
