@@ -1,7 +1,7 @@
 #if os(iOS)
 import SwiftUI
 
-private struct IPadFileRowStatusAppearance {
+struct IPadFileRowStatusAppearance {
     let symbolName: String
     let color: Color
 }
@@ -12,7 +12,7 @@ enum IPadFileRowState: Equatable {
     case completed(URL)
     case skipped
 
-    fileprivate var showsProgressBar: Bool {
+    var showsProgressBar: Bool {
         if case .converting = self {
             return true
         }
@@ -20,7 +20,7 @@ enum IPadFileRowState: Equatable {
         return false
     }
 
-    fileprivate var progressValue: Double {
+    var progressValue: Double {
         switch self {
         case .pending:
             return 0
@@ -31,7 +31,7 @@ enum IPadFileRowState: Equatable {
         }
     }
 
-    fileprivate var statusAppearance: IPadFileRowStatusAppearance {
+    var statusAppearance: IPadFileRowStatusAppearance {
         switch self {
         case .pending:
             return IPadFileRowStatusAppearance(

@@ -12,6 +12,7 @@ struct IPadMediaConverterView: View {
 
     let kind: ContentViewModel.MediaKind
     @ObservedObject var viewModel: ContentViewModel
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var isDropTargeted = false
     @State private var draggedSelectedFileURL: URL?
 
@@ -25,6 +26,14 @@ struct IPadMediaConverterView: View {
 
     private var shouldShowImportSourceMenu: Bool {
         viewModel.availableImportSources(for: kind).count > 1
+    }
+
+    private var settingMetrics: ConverterSettingMetrics {
+        if horizontalSizeClass == .compact {
+            return .phone
+        }
+
+        return .compact
     }
 
     var body: some View {
@@ -250,7 +259,7 @@ struct IPadMediaConverterView: View {
                 .stroke(.white.opacity(0.10), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: Metrics.panelCornerRadius, style: .continuous))
-        .converterSettingMetrics(.compact)
+        .converterSettingMetrics(settingMetrics)
     }
 
     private var settingsSection: some View {
@@ -297,7 +306,7 @@ struct IPadMediaConverterView: View {
                 .stroke(.white.opacity(0.10), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: Metrics.panelCornerRadius, style: .continuous))
-        .converterSettingMetrics(.compact)
+        .converterSettingMetrics(settingMetrics)
     }
 
     @ToolbarContentBuilder

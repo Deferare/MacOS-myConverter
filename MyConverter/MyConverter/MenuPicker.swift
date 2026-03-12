@@ -14,6 +14,8 @@ struct ConverterSettingMetrics {
     let folderIconCornerRadius: CGFloat
     let chooseButtonHorizontalPadding: CGFloat
     let chooseButtonVerticalPadding: CGFloat
+    let rowSpacing: CGFloat
+    let stacksControlsVertically: Bool
 
     static let regular = ConverterSettingMetrics(
         rowCornerRadius: 18,
@@ -28,7 +30,9 @@ struct ConverterSettingMetrics {
         folderIconSize: 28,
         folderIconCornerRadius: 10,
         chooseButtonHorizontalPadding: 16,
-        chooseButtonVerticalPadding: 8
+        chooseButtonVerticalPadding: 8,
+        rowSpacing: 16,
+        stacksControlsVertically: false
     )
 
     static let compact = ConverterSettingMetrics(
@@ -44,7 +48,27 @@ struct ConverterSettingMetrics {
         folderIconSize: 26,
         folderIconCornerRadius: 9,
         chooseButtonHorizontalPadding: 14,
-        chooseButtonVerticalPadding: 7
+        chooseButtonVerticalPadding: 7,
+        rowSpacing: 14,
+        stacksControlsVertically: false
+    )
+
+    static let phone = ConverterSettingMetrics(
+        rowCornerRadius: 16,
+        controlCornerRadius: 11,
+        rowHorizontalPadding: 14,
+        rowVerticalPadding: 12,
+        controlHorizontalPadding: 12,
+        controlVerticalPadding: 10,
+        controlColumnWidth: 236,
+        sectionSpacing: 12,
+        hintVerticalPadding: 11,
+        folderIconSize: 24,
+        folderIconCornerRadius: 8,
+        chooseButtonHorizontalPadding: 14,
+        chooseButtonVerticalPadding: 8,
+        rowSpacing: 10,
+        stacksControlsVertically: true
     )
 }
 
@@ -88,6 +112,17 @@ private struct ConverterControlBackground: View {
     }
 }
 
+private extension View {
+    @ViewBuilder
+    func converterControlFrame(using metrics: ConverterSettingMetrics) -> some View {
+        if metrics.stacksControlsVertically {
+            self.frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            self.frame(width: metrics.controlColumnWidth, alignment: .leading)
+        }
+    }
+}
+
 struct ConverterSettingRow<Control: View>: View {
     let title: String
     let control: Control
@@ -102,15 +137,20 @@ struct ConverterSettingRow<Control: View>: View {
     }
 
     var body: some View {
-        HStack(spacing: 16) {
-            Text(title)
-                .font(.body.weight(.medium))
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            control
-                .frame(maxWidth: .infinity, alignment: .trailing)
+        Group {
+            if metrics.stacksControlsVertically {
+                VStack(alignment: .leading, spacing: metrics.rowSpacing) {
+                    titleLabel
+                    control
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            } else {
+                HStack(spacing: metrics.rowSpacing) {
+                    titleLabel
+                    control
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+            }
         }
         .padding(.horizontal, metrics.rowHorizontalPadding)
         .padding(.vertical, metrics.rowVerticalPadding)
@@ -125,6 +165,14 @@ struct ConverterSettingRow<Control: View>: View {
                 RoundedRectangle(cornerRadius: metrics.rowCornerRadius, style: .continuous)
                     .stroke(.white.opacity(0.10), lineWidth: 1)
             )
+    }
+
+    private var titleLabel: some View {
+        Text(title)
+            .font(.body.weight(.medium))
+            .foregroundStyle(.primary)
+            .lineLimit(metrics.stacksControlsVertically ? nil : 1)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -182,7 +230,7 @@ struct ConverterTextFieldRow: View {
                 .padding(.vertical, metrics.controlVerticalPadding)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(controlBackground)
-                .frame(width: metrics.controlColumnWidth, alignment: .leading)
+                .converterControlFrame(using: metrics)
         }
     }
 
@@ -200,46 +248,18 @@ struct OutputFolderSelectionRow: View {
     @Environment(\.converterSettingMetrics) private var metrics
 
     var body: some View {
-        HStack(spacing: 14) {
-            HStack(spacing: 10) {
-                Image(systemName: "folder")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.white.opacity(0.72))
-                    .frame(width: metrics.folderIconSize, height: metrics.folderIconSize)
-                    .background(
-                        RoundedRectangle(cornerRadius: metrics.folderIconCornerRadius, style: .continuous)
-                            .fill(.black.opacity(0.18))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: metrics.folderIconCornerRadius, style: .continuous)
-                                    .stroke(.white.opacity(0.06), lineWidth: 1)
-                            )
-                    )
-
-                Text(pathText)
-                    .font(.subheadline.weight(hasSelection ? .semibold : .medium))
-                    .foregroundStyle(hasSelection ? Color.primary : Color.secondary.opacity(0.82))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+        Group {
+            if metrics.stacksControlsVertically {
+                VStack(alignment: .leading, spacing: metrics.rowSpacing) {
+                    pathSummary
+                    chooseButton
+                }
+            } else {
+                HStack(spacing: metrics.rowSpacing) {
+                    pathSummary
+                    chooseButton
+                }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            Button(action: onChoose) {
-                Text(hasSelection ? "Change" : "Choose")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(tint)
-                    .padding(.horizontal, metrics.chooseButtonHorizontalPadding)
-                    .padding(.vertical, metrics.chooseButtonVerticalPadding)
-                    .background(
-                        Capsule(style: .continuous)
-                            .fill(.white.opacity(0.04))
-                            .overlay(
-                                Capsule(style: .continuous)
-                                    .stroke(.white.opacity(0.085), lineWidth: 1)
-                            )
-                    )
-            }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, metrics.rowHorizontalPadding)
         .padding(.vertical, metrics.rowVerticalPadding)
@@ -257,6 +277,51 @@ struct OutputFolderSelectionRow: View {
                 RoundedRectangle(cornerRadius: metrics.rowCornerRadius, style: .continuous)
                     .stroke(.white.opacity(0.10), lineWidth: 1)
             )
+    }
+
+    private var pathSummary: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "folder")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.white.opacity(0.72))
+                .frame(width: metrics.folderIconSize, height: metrics.folderIconSize)
+                .background(
+                    RoundedRectangle(cornerRadius: metrics.folderIconCornerRadius, style: .continuous)
+                        .fill(.black.opacity(0.18))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: metrics.folderIconCornerRadius, style: .continuous)
+                                .stroke(.white.opacity(0.06), lineWidth: 1)
+                        )
+                )
+
+            Text(pathText)
+                .font(.subheadline.weight(hasSelection ? .semibold : .medium))
+                .foregroundStyle(hasSelection ? Color.primary : Color.secondary.opacity(0.82))
+                .lineLimit(metrics.stacksControlsVertically ? 3 : 1)
+                .truncationMode(.middle)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var chooseButton: some View {
+        Button(action: onChoose) {
+            Text(hasSelection ? "Change" : "Choose")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(tint)
+                .padding(.horizontal, metrics.chooseButtonHorizontalPadding)
+                .padding(.vertical, metrics.chooseButtonVerticalPadding)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(.white.opacity(0.04))
+                        .overlay(
+                            Capsule(style: .continuous)
+                                .stroke(.white.opacity(0.085), lineWidth: 1)
+                        )
+                )
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: metrics.stacksControlsVertically ? .infinity : nil, alignment: .leading)
     }
 }
 
@@ -346,7 +411,7 @@ struct MenuPicker<Option: Identifiable & Hashable>: View {
                 }
                 .padding(.horizontal, metrics.controlHorizontalPadding)
                 .padding(.vertical, metrics.controlVerticalPadding)
-                .frame(width: metrics.controlColumnWidth, alignment: .leading)
+                .converterControlFrame(using: metrics)
                 .background(ConverterControlBackground(isDisabled: isDisabled))
             }
             .buttonStyle(.plain)

@@ -5,7 +5,7 @@ import SwiftUI
 struct MyConverteriPadApp: App {
     var body: some Scene {
         WindowGroup {
-            IPadRootView()
+            IOSRootView()
         }
     }
 }
