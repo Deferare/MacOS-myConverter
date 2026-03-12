@@ -2,7 +2,6 @@ import Foundation
 
 extension ContentViewModel {
     struct OutputFormatDescriptor<Format> {
-        let kind: MediaKind
         let sourceURL: ReferenceWritableKeyPath<ContentViewModel, URL?>
         let availableFormats: ReferenceWritableKeyPath<ContentViewModel, [Format]>
         let selectedFormat: ReferenceWritableKeyPath<ContentViewModel, Format>
@@ -14,7 +13,6 @@ extension ContentViewModel {
     }
 
     func makeOutputFormatDescriptor<Format>(
-        kind: MediaKind,
         sourceURL: ReferenceWritableKeyPath<ContentViewModel, URL?>,
         availableFormats: ReferenceWritableKeyPath<ContentViewModel, [Format]>,
         selectedFormat: ReferenceWritableKeyPath<ContentViewModel, Format>,
@@ -25,7 +23,6 @@ extension ContentViewModel {
         preferredSelection: @escaping ([Format]) -> Format?
     ) -> OutputFormatDescriptor<Format> {
         OutputFormatDescriptor(
-            kind: kind,
             sourceURL: sourceURL,
             availableFormats: availableFormats,
             selectedFormat: selectedFormat,
@@ -120,7 +117,6 @@ extension ContentViewModel {
 
     func videoOutputFormatDescriptor() -> OutputFormatDescriptor<VideoFormatOption> {
         makeOutputFormatDescriptor(
-            kind: .video,
             sourceURL: \.sourceURL,
             availableFormats: \.availableOutputFormats,
             selectedFormat: \.selectedOutputFormat,
@@ -134,7 +130,6 @@ extension ContentViewModel {
 
     func imageOutputFormatDescriptor() -> OutputFormatDescriptor<ImageFormatOption> {
         makeOutputFormatDescriptor(
-            kind: .image,
             sourceURL: \.imageSourceURL,
             availableFormats: \.availableImageOutputFormats,
             selectedFormat: \.selectedImageOutputFormat,
@@ -148,7 +143,6 @@ extension ContentViewModel {
 
     func audioOutputFormatDescriptor() -> OutputFormatDescriptor<AudioFormatOption> {
         makeOutputFormatDescriptor(
-            kind: .audio,
             sourceURL: \.audioSourceURL,
             availableFormats: \.availableAudioOutputFormats,
             selectedFormat: \.selectedAudioOutputFormat,

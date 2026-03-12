@@ -412,6 +412,26 @@ extension ContentViewModel {
         let capabilities = await SecurityScopedResourceAccess.withAccess(to: sourceURL) {
             await fetchCapabilities(sourceURL)
         }
+        return validateResolvedOutputFormatAvailability(
+            capabilities: capabilities,
+            selectedFormatNormalizedID: selectedFormatNormalizedID,
+            unavailableMessage: unavailableMessage,
+            availableFormats: availableFormats,
+            errorMessage: errorMessage,
+            formatNormalizedID: formatNormalizedID,
+            additionalValidation: additionalValidation
+        )
+    }
+
+    func validateResolvedOutputFormatAvailability<Capability, Format>(
+        capabilities: Capability,
+        selectedFormatNormalizedID: String,
+        unavailableMessage: String,
+        availableFormats: (Capability) -> [Format],
+        errorMessage: (Capability) -> String?,
+        formatNormalizedID: (Format) -> String,
+        additionalValidation: (Capability) -> String? = { _ in nil }
+    ) -> String? {
         if let error = errorMessage(capabilities) {
             return error
         }
@@ -439,21 +459,14 @@ extension ContentViewModel {
         formatNormalizedID: (Format) -> String,
         additionalValidation: (Capability) -> String? = { _ in nil }
     ) -> String? {
-        if let error = errorMessage(capabilities) {
-            return error
-        }
-
-        let isFormatAvailable = availableFormats(capabilities).contains {
-            formatNormalizedID($0) == selectedFormatNormalizedID
-        }
-        if !isFormatAvailable {
-            return unavailableMessage
-        }
-
-        if let extraValidationMessage = additionalValidation(capabilities) {
-            return extraValidationMessage
-        }
-
-        return nil
+        validateResolvedOutputFormatAvailability(
+            capabilities: capabilities,
+            selectedFormatNormalizedID: selectedFormatNormalizedID,
+            unavailableMessage: unavailableMessage,
+            availableFormats: availableFormats,
+            errorMessage: errorMessage,
+            formatNormalizedID: formatNormalizedID,
+            additionalValidation: additionalValidation
+        )
     }
 }

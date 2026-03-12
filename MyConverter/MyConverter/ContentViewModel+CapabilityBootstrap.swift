@@ -66,14 +66,7 @@ extension ContentViewModel {
                 guard case let .video(formats) = $0 else { return nil }
                 return formats
             },
-            applyAdditionalPlaceholderState: { viewModel in
-                let format = viewModel.selectedOutputFormat
-                viewModel.updateState(\.videoRuntimeState) { state in
-                    state.availableVideoEncoders = ContentViewModelSupport.placeholderVideoEncoders(for: format)
-                    state.availableAudioEncoders = ContentViewModelSupport.placeholderVideoAudioEncoders(for: format)
-                }
-                viewModel.normalizeVideoOptionDependencies()
-            },
+            applyAdditionalPlaceholderState: { $0.applyPlaceholderVideoCodecOptions() },
             postApplyWhenWarmed: { $0.refreshVideoCodecOptions() }
         )
     }
@@ -101,15 +94,7 @@ extension ContentViewModel {
                 guard case let .audio(formats) = $0 else { return nil }
                 return formats
             },
-            applyAdditionalPlaceholderState: { viewModel in
-                let format = viewModel.selectedAudioOutputFormat
-                viewModel.updateState(\.audioRuntimeState) { state in
-                    state.availableOutputEncoders = ContentViewModelSupport.placeholderAudioOutputEncoders(
-                        for: format
-                    )
-                }
-                viewModel.normalizeAudioOptionDependencies()
-            },
+            applyAdditionalPlaceholderState: { $0.applyPlaceholderAudioCodecOptions() },
             postApplyWhenWarmed: { $0.refreshAudioCodecOptions() }
         )
     }
