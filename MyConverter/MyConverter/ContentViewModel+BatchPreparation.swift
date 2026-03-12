@@ -8,6 +8,45 @@ extension ContentViewModel {
         let preparedVideoSources: [String: VideoConversionEngine.PreparedSourceContext]
         let preparedAudioCapabilities: [String: AudioSourceCapabilities]
         let preparedImageCapabilities: [String: ImageSourceCapabilities]
+
+        nonisolated static func video(
+            ffmpegContext: FFmpegExecutionContext?,
+            preparedVideoSources: [String: VideoConversionEngine.PreparedSourceContext]
+        ) -> Self {
+            BatchExecutionEnvironment(
+                videoFFmpegContext: ffmpegContext,
+                imageFFmpegContext: nil,
+                preparedVideoSources: preparedVideoSources,
+                preparedAudioCapabilities: [:],
+                preparedImageCapabilities: [:]
+            )
+        }
+
+        nonisolated static func audio(
+            ffmpegContext: FFmpegExecutionContext?,
+            preparedAudioCapabilities: [String: AudioSourceCapabilities]
+        ) -> Self {
+            BatchExecutionEnvironment(
+                videoFFmpegContext: ffmpegContext,
+                imageFFmpegContext: nil,
+                preparedVideoSources: [:],
+                preparedAudioCapabilities: preparedAudioCapabilities,
+                preparedImageCapabilities: [:]
+            )
+        }
+
+        nonisolated static func image(
+            ffmpegContext: FFmpegExecutionContext?,
+            preparedImageCapabilities: [String: ImageSourceCapabilities]
+        ) -> Self {
+            BatchExecutionEnvironment(
+                videoFFmpegContext: nil,
+                imageFFmpegContext: ffmpegContext,
+                preparedVideoSources: [:],
+                preparedAudioCapabilities: [:],
+                preparedImageCapabilities: preparedImageCapabilities
+            )
+        }
     }
 
     nonisolated static func collectPreparedSourceValues<Value: Sendable>(
@@ -36,6 +75,39 @@ extension ContentViewModel {
         }
     }
 
+    nonisolated static func prepareVideoSourceContext(
+        for sourceURL: URL,
+        outputFileType: AVFileType?
+    ) async -> VideoConversionEngine.PreparedSourceContext {
+        let sourceCapabilities = await VideoConversionEngine.sourceCapabilities(
+            for: sourceURL
+        )
+        let assetTrackProbe = await VideoConversionEngine.assetTrackProbe(
+            for: sourceURL
+        )
+
+        let candidatePresets: [String]?
+        if let outputFileType,
+           assetTrackProbe.isReadable,
+           assetTrackProbe.hasVideoTrack {
+            let asset = AVURLAsset(url: sourceURL)
+            candidatePresets = await VideoConversionEngine.compatibleExportPresets(
+                for: asset,
+                preferredPresets: VideoConversionEngine.preferredExportPresets,
+                outputFileType: outputFileType
+            )
+        } else {
+            candidatePresets = nil
+        }
+
+        return VideoConversionEngine.PreparedSourceContext(
+            sourceCapabilities: sourceCapabilities,
+            assetTrackProbe: assetTrackProbe,
+            candidatePresets: candidatePresets,
+            stagedInputLease: nil
+        )
+    }
+
     nonisolated static func prepareVideoBatchExecutionEnvironment(
         preparedSources: [PreparedSourceConversion],
         outputSettings: VideoOutputSettings,
@@ -44,41 +116,15 @@ extension ContentViewModel {
         let ffmpegContext = VideoConversionEngine.makeFFmpegExecutionContext(using: runtimeProvider)
         let outputFileType = outputSettings.containerFormat.avFileType
         let preparedVideoSources = await collectPreparedSourceValues(from: preparedSources) { preparedSource in
-            let sourceCapabilities = await VideoConversionEngine.sourceCapabilities(
-                for: preparedSource.sourceURL
-            )
-            let assetTrackProbe = await VideoConversionEngine.assetTrackProbe(
-                for: preparedSource.sourceURL
-            )
-
-            let candidatePresets: [String]?
-            if let outputFileType,
-               assetTrackProbe.isReadable,
-               assetTrackProbe.hasVideoTrack {
-                let asset = AVURLAsset(url: preparedSource.sourceURL)
-                candidatePresets = await VideoConversionEngine.compatibleExportPresets(
-                    for: asset,
-                    preferredPresets: VideoConversionEngine.preferredExportPresets,
-                    outputFileType: outputFileType
-                )
-            } else {
-                candidatePresets = nil
-            }
-
-            return VideoConversionEngine.PreparedSourceContext(
-                sourceCapabilities: sourceCapabilities,
-                assetTrackProbe: assetTrackProbe,
-                candidatePresets: candidatePresets,
-                stagedInputLease: nil
+            await prepareVideoSourceContext(
+                for: preparedSource.sourceURL,
+                outputFileType: outputFileType
             )
         }
 
-        return BatchExecutionEnvironment(
-            videoFFmpegContext: ffmpegContext,
-            imageFFmpegContext: nil,
-            preparedVideoSources: preparedVideoSources,
-            preparedAudioCapabilities: [:],
-            preparedImageCapabilities: [:]
+        return BatchExecutionEnvironment.video(
+            ffmpegContext: ffmpegContext,
+            preparedVideoSources: preparedVideoSources
         )
     }
 
@@ -92,24 +138,17 @@ extension ContentViewModel {
         ) {
             preparedContext = preparedSelection.preparedSourceContext
         } else {
-            let assetTrackProbe = await VideoConversionEngine.assetTrackProbe(for: preparedSource.sourceURL)
-            let sourceCapabilities = await VideoConversionEngine.sourceCapabilities(for: preparedSource.sourceURL)
-            preparedContext = VideoConversionEngine.PreparedSourceContext(
-                sourceCapabilities: sourceCapabilities,
-                assetTrackProbe: assetTrackProbe,
-                candidatePresets: nil,
-                stagedInputLease: nil
+            preparedContext = await Self.prepareVideoSourceContext(
+                for: preparedSource.sourceURL,
+                outputFileType: nil
             )
         }
 
-        return BatchExecutionEnvironment(
-            videoFFmpegContext: VideoConversionEngine.makeFFmpegExecutionContext(
+        return BatchExecutionEnvironment.video(
+            ffmpegContext: VideoConversionEngine.makeFFmpegExecutionContext(
                 using: services.ffmpegRuntimeProvider
             ),
-            imageFFmpegContext: nil,
-            preparedVideoSources: [preparedSource.sourceID: preparedContext],
-            preparedAudioCapabilities: [:],
-            preparedImageCapabilities: [:]
+            preparedVideoSources: [preparedSource.sourceID: preparedContext]
         )
     }
 
@@ -125,12 +164,9 @@ extension ContentViewModel {
             )
         }
 
-        return BatchExecutionEnvironment(
-            videoFFmpegContext: ffmpegContext,
-            imageFFmpegContext: nil,
-            preparedVideoSources: [:],
-            preparedAudioCapabilities: preparedAudioCapabilities,
-            preparedImageCapabilities: [:]
+        return BatchExecutionEnvironment.audio(
+            ffmpegContext: ffmpegContext,
+            preparedAudioCapabilities: preparedAudioCapabilities
         )
     }
 
@@ -146,11 +182,8 @@ extension ContentViewModel {
             )
         }
 
-        return BatchExecutionEnvironment(
-            videoFFmpegContext: nil,
-            imageFFmpegContext: ffmpegContext,
-            preparedVideoSources: [:],
-            preparedAudioCapabilities: [:],
+        return BatchExecutionEnvironment.image(
+            ffmpegContext: ffmpegContext,
             preparedImageCapabilities: preparedImageCapabilities
         )
     }
