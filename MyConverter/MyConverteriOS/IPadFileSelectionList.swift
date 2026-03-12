@@ -17,8 +17,34 @@ struct IPadFileRow: View {
         return selectedFileListState.processedSourceIDs.contains(sourceID)
     }
 
+    private var fileIndexLabel: String {
+        guard let index = selectedFileListState.selectedURLs.firstIndex(of: url) else {
+            return "-"
+        }
+        return String(index + 1)
+    }
+
+    private var detailText: String {
+        if let outputURL {
+            return outputURL.lastPathComponent
+        }
+        if isProcessed {
+            return "Ready"
+        }
+        if selectedFileListState.isConverting {
+            return "Converting..."
+        }
+        return url.pathExtension.isEmpty ? "Source file" : url.pathExtension.uppercased()
+    }
+
     var body: some View {
         HStack(spacing: 14) {
+            Text(fileIndexLabel)
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.9))
+                .frame(width: 32, height: 32)
+                .background(.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+
             IPadThumbnailView(
                 url: url,
                 provider: thumbnailProvider,
@@ -30,22 +56,10 @@ struct IPadFileRow: View {
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
 
-                HStack(spacing: 8) {
-                    tag(url.pathExtension.isEmpty ? "Source" : url.pathExtension.uppercased())
-
-                    if isProcessed {
-                        tag("Done", tone: .green)
-                    } else if selectedFileListState.isConverting {
-                        tag("Active", tone: .orange)
-                    }
-                }
-
-                if let outputURL {
-                    Text("Output: \(outputURL.lastPathComponent)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
+                Text(detailText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
 
             Spacer()
@@ -79,62 +93,6 @@ struct IPadFileRow: View {
             return "photo"
         case .audio:
             return "waveform"
-        }
-    }
-
-    private func tag(_ text: String, tone: Color = .secondary) -> some View {
-        Text(text)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(tone)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .background(tone.opacity(0.12), in: Capsule())
-    }
-}
-
-struct IPadResultRow: View {
-    let url: URL
-    let kind: ContentViewModel.MediaKind
-    let thumbnailProvider: any ThumbnailProvider
-
-    var body: some View {
-        HStack(spacing: 14) {
-            IPadThumbnailView(
-                url: url,
-                provider: thumbnailProvider,
-                fallbackSystemImage: fallbackSystemImage
-            )
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text(url.lastPathComponent)
-                    .font(.subheadline.weight(.semibold))
-                    .lineLimit(1)
-
-                Text("Saved output")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            ShareLink(item: url) {
-                Label("Share", systemImage: "square.and.arrow.up")
-                    .font(.caption.weight(.semibold))
-            }
-            .buttonStyle(.bordered)
-        }
-        .padding(14)
-        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-    }
-
-    private var fallbackSystemImage: String {
-        switch kind {
-        case .video:
-            return "play.rectangle"
-        case .image:
-            return "photo.on.rectangle"
-        case .audio:
-            return "waveform.circle"
         }
     }
 }
