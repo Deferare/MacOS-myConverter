@@ -28,7 +28,6 @@ struct IPadMediaConverterView: View {
                 .frame(maxWidth: .infinity)
             }
             .background(background.ignoresSafeArea())
-            .navigationTitle(kind.converterTitle)
             .toolbar {
                 converterToolbar
             }
