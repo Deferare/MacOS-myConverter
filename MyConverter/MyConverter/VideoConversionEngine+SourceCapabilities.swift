@@ -33,40 +33,20 @@ extension VideoConversionEngine {
     static func sourceCapabilitiesForAudio(for inputURL: URL) async -> AudioSourceCapabilities {
         let runtime = DefaultFFmpegRuntimeProvider().makeRuntime()
         let cacheKey = makeSourceCapabilityCacheKey(for: inputURL, runtimeIdentity: runtime?.cacheIdentity)
-        if let cached = sourceCapabilityCacheQueue.sync(execute: { audioSourceCapabilitiesCache[cacheKey] }) {
-            return cached
-        }
-
-        let (inFlight, shouldBuild) = sourceCapabilityCacheQueue.sync {
-            if let existing = audioSourceCapabilitiesInFlight[cacheKey] {
-                return (existing, false)
-            }
-
-            let created = InFlightContinuation<AudioSourceCapabilities>()
-            audioSourceCapabilitiesInFlight[cacheKey] = created
-            return (created, true)
-        }
-
-        if !shouldBuild {
-            return await InFlightOperationSupport.awaitContinuation(
-                inFlight,
-                on: sourceCapabilityCacheQueue
-            )
-        }
-
-        let resolvedTask = Task.detached(priority: .userInitiated) {
-            await resolveAudioSourceCapabilities(for: inputURL, runtime: runtime)
-        }
-        let resolved = await awaitDetachedTaskValue(resolvedTask)
-
-        return InFlightOperationSupport.finishContinuation(
-            resolved,
-            in: inFlight,
-            on: sourceCapabilityCacheQueue
-        ) {
-            audioSourceCapabilitiesCache[cacheKey] = resolved
-            audioSourceCapabilitiesInFlight[cacheKey] = nil
-        }
+        return await InFlightOperationSupport.loadCachedAsyncValue(
+            cacheKey: cacheKey,
+            on: sourceCapabilityCacheQueue,
+            cachedValue: { audioSourceCapabilitiesCache[cacheKey] },
+            existingInFlight: { audioSourceCapabilitiesInFlight[cacheKey] },
+            storeInFlight: { audioSourceCapabilitiesInFlight[cacheKey] = $0 },
+            build: {
+                let resolvedTask = Task.detached(priority: .userInitiated) {
+                    await resolveAudioSourceCapabilities(for: inputURL, runtime: runtime)
+                }
+                return await awaitDetachedTaskValue(resolvedTask)
+            },
+            storeCachedValue: { audioSourceCapabilitiesCache[cacheKey] = $0 }
+        )
     }
 
     private static func resolveAudioSourceCapabilities(
@@ -123,44 +103,24 @@ extension VideoConversionEngine {
     ) async -> VideoSourceCapabilities {
         let runtime = DefaultFFmpegRuntimeProvider().makeRuntime()
         let cacheKey = makeSourceCapabilityCacheKey(for: inputURL, runtimeIdentity: runtime?.cacheIdentity)
-        if let cached = sourceCapabilityCacheQueue.sync(execute: { videoSourceCapabilitiesCache[cacheKey] }) {
-            return cached
-        }
-
-        let (inFlight, shouldBuild) = sourceCapabilityCacheQueue.sync {
-            if let existing = videoSourceCapabilitiesInFlight[cacheKey] {
-                return (existing, false)
-            }
-
-            let created = InFlightContinuation<VideoSourceCapabilities>()
-            videoSourceCapabilitiesInFlight[cacheKey] = created
-            return (created, true)
-        }
-
-        if !shouldBuild {
-            return await InFlightOperationSupport.awaitContinuation(
-                inFlight,
-                on: sourceCapabilityCacheQueue
-            )
-        }
-
-        let resolvedTask = Task.detached(priority: .userInitiated) {
-            await resolveVideoSourceCapabilities(
-                for: inputURL,
-                runtime: runtime,
-                stagedInputLease: stagedInputLease
-            )
-        }
-        let resolved = await awaitDetachedTaskValue(resolvedTask)
-
-        return InFlightOperationSupport.finishContinuation(
-            resolved,
-            in: inFlight,
-            on: sourceCapabilityCacheQueue
-        ) {
-            videoSourceCapabilitiesCache[cacheKey] = resolved
-            videoSourceCapabilitiesInFlight[cacheKey] = nil
-        }
+        return await InFlightOperationSupport.loadCachedAsyncValue(
+            cacheKey: cacheKey,
+            on: sourceCapabilityCacheQueue,
+            cachedValue: { videoSourceCapabilitiesCache[cacheKey] },
+            existingInFlight: { videoSourceCapabilitiesInFlight[cacheKey] },
+            storeInFlight: { videoSourceCapabilitiesInFlight[cacheKey] = $0 },
+            build: {
+                let resolvedTask = Task.detached(priority: .userInitiated) {
+                    await resolveVideoSourceCapabilities(
+                        for: inputURL,
+                        runtime: runtime,
+                        stagedInputLease: stagedInputLease
+                    )
+                }
+                return await awaitDetachedTaskValue(resolvedTask)
+            },
+            storeCachedValue: { videoSourceCapabilitiesCache[cacheKey] = $0 }
+        )
     }
 
     private static func resolveVideoSourceCapabilities(

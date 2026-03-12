@@ -127,6 +127,40 @@ enum InFlightOperationSupport {
         }
     }
 
+    nonisolated static func loadCachedAsyncValue<Value>(
+        cacheKey: String,
+        on queue: DispatchQueue,
+        cachedValue: () -> Value?,
+        existingInFlight: () -> InFlightContinuation<Value>?,
+        storeInFlight: (InFlightContinuation<Value>?) -> Void,
+        build: () async -> Value,
+        storeCachedValue: (Value) -> Void
+    ) async -> Value {
+        if let cached = queue.sync(execute: cachedValue) {
+            return cached
+        }
+
+        let (inFlight, shouldBuild) = queue.sync { () -> (InFlightContinuation<Value>, Bool) in
+            if let existing = existingInFlight() {
+                return (existing, false)
+            }
+
+            let created = InFlightContinuation<Value>()
+            storeInFlight(created)
+            return (created, true)
+        }
+
+        if !shouldBuild {
+            return await awaitContinuation(inFlight, on: queue)
+        }
+
+        let resolved = await build()
+        return finishContinuation(resolved, in: inFlight, on: queue) {
+            storeCachedValue(resolved)
+            storeInFlight(nil)
+        }
+    }
+
     nonisolated static func finishGroupedResult<Value>(
         _ result: Result<Value, Error>,
         in inFlight: InFlightGroupedResult<Value>,

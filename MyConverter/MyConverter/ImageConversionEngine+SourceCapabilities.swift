@@ -6,40 +6,20 @@ extension ImageConversionEngine {
     nonisolated static func sourceCapabilities(for inputURL: URL) async -> ImageSourceCapabilities {
         let ffmpegPath = FFmpegBinaryLocator.findPath()
         let cacheKey = makeSourceCapabilityCacheKey(for: inputURL, ffmpegPath: ffmpegPath)
-        if let cached = sourceCapabilityCacheQueue.sync(execute: { sourceCapabilitiesCache[cacheKey] }) {
-            return cached
-        }
-
-        let (inFlight, shouldBuild) = sourceCapabilityCacheQueue.sync {
-            if let existing = sourceCapabilitiesInFlight[cacheKey] {
-                return (existing, false)
-            }
-
-            let created = InFlightContinuation<ImageSourceCapabilities>()
-            sourceCapabilitiesInFlight[cacheKey] = created
-            return (created, true)
-        }
-
-        if !shouldBuild {
-            return await InFlightOperationSupport.awaitContinuation(
-                inFlight,
-                on: sourceCapabilityCacheQueue
-            )
-        }
-
-        let resolvedTask = Task.detached(priority: .userInitiated) {
-            sourceCapabilitiesSync(for: inputURL, ffmpegPath: ffmpegPath)
-        }
-        let resolved = await awaitDetachedTaskValue(resolvedTask)
-
-        return InFlightOperationSupport.finishContinuation(
-            resolved,
-            in: inFlight,
-            on: sourceCapabilityCacheQueue
-        ) {
-            sourceCapabilitiesCache[cacheKey] = resolved
-            sourceCapabilitiesInFlight[cacheKey] = nil
-        }
+        return await InFlightOperationSupport.loadCachedAsyncValue(
+            cacheKey: cacheKey,
+            on: sourceCapabilityCacheQueue,
+            cachedValue: { sourceCapabilitiesCache[cacheKey] },
+            existingInFlight: { sourceCapabilitiesInFlight[cacheKey] },
+            storeInFlight: { sourceCapabilitiesInFlight[cacheKey] = $0 },
+            build: {
+                let resolvedTask = Task.detached(priority: .userInitiated) {
+                    sourceCapabilitiesSync(for: inputURL, ffmpegPath: ffmpegPath)
+                }
+                return await awaitDetachedTaskValue(resolvedTask)
+            },
+            storeCachedValue: { sourceCapabilitiesCache[cacheKey] = $0 }
+        )
     }
 
     nonisolated private static func makeSourceCapabilityCacheKey(for inputURL: URL, ffmpegPath: String?) -> String {

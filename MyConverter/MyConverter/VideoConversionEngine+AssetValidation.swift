@@ -4,40 +4,20 @@ import Foundation
 extension VideoConversionEngine {
     static func assetTrackProbe(for inputURL: URL) async -> AssetTrackProbe {
         let cacheKey = assetTrackProbeCacheKey(for: inputURL)
-        if let cached = sourceCapabilityCacheQueue.sync(execute: { assetTrackProbeCache[cacheKey] }) {
-            return cached
-        }
-
-        let (inFlight, shouldBuild) = sourceCapabilityCacheQueue.sync {
-            if let existing = assetTrackProbeInFlight[cacheKey] {
-                return (existing, false)
-            }
-
-            let created = InFlightContinuation<AssetTrackProbe>()
-            assetTrackProbeInFlight[cacheKey] = created
-            return (created, true)
-        }
-
-        if !shouldBuild {
-            return await InFlightOperationSupport.awaitContinuation(
-                inFlight,
-                on: sourceCapabilityCacheQueue
-            )
-        }
-
-        let resolvedTask = Task.detached(priority: .userInitiated) {
-            await loadAssetTrackProbe(for: inputURL)
-        }
-        let resolved = await awaitDetachedTaskValue(resolvedTask)
-
-        return InFlightOperationSupport.finishContinuation(
-            resolved,
-            in: inFlight,
-            on: sourceCapabilityCacheQueue
-        ) {
-            assetTrackProbeCache[cacheKey] = resolved
-            assetTrackProbeInFlight[cacheKey] = nil
-        }
+        return await InFlightOperationSupport.loadCachedAsyncValue(
+            cacheKey: cacheKey,
+            on: sourceCapabilityCacheQueue,
+            cachedValue: { assetTrackProbeCache[cacheKey] },
+            existingInFlight: { assetTrackProbeInFlight[cacheKey] },
+            storeInFlight: { assetTrackProbeInFlight[cacheKey] = $0 },
+            build: {
+                let resolvedTask = Task.detached(priority: .userInitiated) {
+                    await loadAssetTrackProbe(for: inputURL)
+                }
+                return await awaitDetachedTaskValue(resolvedTask)
+            },
+            storeCachedValue: { assetTrackProbeCache[cacheKey] = $0 }
+        )
     }
 
     static func supportedOutputFormatsWithAVFoundation(for asset: AVURLAsset) async -> [VideoFormatOption] {
