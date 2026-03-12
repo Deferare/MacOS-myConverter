@@ -20,26 +20,26 @@ struct IPadMediaConverterView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    if renderState.selectedFileListState.selectedURLs.isEmpty {
-                        emptyInputSection
-                        emptySettingsSection
-                    } else {
-                        filesSection
-                        settingsSection
-                    }
+        ScrollView {
+            VStack(spacing: 20) {
+                if renderState.selectedFileListState.selectedURLs.isEmpty {
+                    emptyInputSection
+                    emptySettingsSection
+                } else {
+                    filesSection
+                    settingsSection
                 }
-                .padding(20)
-                .frame(maxWidth: 1100)
-                .frame(maxWidth: .infinity)
             }
-            .background(background.ignoresSafeArea())
-            .toolbar {
-                converterToolbar
-            }
+            .padding(20)
+            .frame(maxWidth: 1100)
+            .frame(maxWidth: .infinity)
         }
+        .background(background.ignoresSafeArea())
+        .navigationTitle(kind.converterTitle)
+        .toolbar {
+            converterToolbar
+        }
+        .tint(kind.liquidGlassTint)
     }
 
     private var emptyInputSection: some View {

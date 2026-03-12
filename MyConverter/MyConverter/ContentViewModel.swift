@@ -1,7 +1,7 @@
 import Combine
 import Foundation
 
-enum ConverterTab: String, CaseIterable, Identifiable {
+enum ConverterTab: String, CaseIterable, Identifiable, Hashable {
     case video
     case audio
     case image

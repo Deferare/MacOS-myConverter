@@ -8,23 +8,44 @@ struct IPadRootView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            ForEach(ConverterTab.allCases) { tab in
-                Group {
-                    if let kind = tab.mediaKind {
+            TabSection("Media") {
+                Tab(ConverterTab.video.title, systemImage: ConverterTab.video.systemImage, value: ConverterTab.video) {
+                    NavigationStack {
                         IPadMediaConverterView(
-                            kind: kind,
+                            kind: .video,
                             viewModel: viewModel
                         )
-                    } else {
+                    }
+                }
+
+                Tab(ConverterTab.audio.title, systemImage: ConverterTab.audio.systemImage, value: ConverterTab.audio) {
+                    NavigationStack {
+                        IPadMediaConverterView(
+                            kind: .audio,
+                            viewModel: viewModel
+                        )
+                    }
+                }
+
+                Tab(ConverterTab.image.title, systemImage: ConverterTab.image.systemImage, value: ConverterTab.image) {
+                    NavigationStack {
+                        IPadMediaConverterView(
+                            kind: .image,
+                            viewModel: viewModel
+                        )
+                    }
+                }
+            }
+
+            TabSection("App") {
+                Tab(ConverterTab.about.title, systemImage: ConverterTab.about.systemImage, value: ConverterTab.about) {
+                    NavigationStack {
                         IPadAboutView(donationStore: donationStore)
                     }
                 }
-                .tag(tab)
-                .tabItem {
-                    Label(tab.title, systemImage: tab.systemImage)
-                }
             }
         }
+        .tabViewStyle(.sidebarAdaptable)
         .task(id: selectedTab) {
             guard let kind = selectedTab.mediaKind else { return }
             viewModel.scheduleCapabilityBootstrap(for: kind)
