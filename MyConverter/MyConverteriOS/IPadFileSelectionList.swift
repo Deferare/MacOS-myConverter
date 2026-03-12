@@ -6,13 +6,15 @@ struct IPadFileRow: View {
         static let rowSpacing: CGFloat = 12
         static let rowPadding: CGFloat = 12
         static let rowCornerRadius: CGFloat = 18
-        static let badgeSize: CGFloat = 28
-        static let badgeCornerRadius: CGFloat = 10
+        static let badgeSize: CGFloat = 24
+        static let badgeCornerRadius: CGFloat = 9
         static let thumbnailSize: CGFloat = 48
         static let thumbnailCornerRadius: CGFloat = 14
         static let detailSpacing: CGFloat = 4
         static let progressWidth: CGFloat = 82
-        static let badgeFont = Font.subheadline.weight(.semibold)
+        static let badgeBackgroundOpacity: CGFloat = 0.18
+        static let badgeBorderOpacity: CGFloat = 0.08
+        static let badgeFont = Font.caption.weight(.semibold)
         static let titleFont = Font.subheadline.weight(.semibold)
     }
 
@@ -58,8 +60,12 @@ struct IPadFileRow: View {
                 .foregroundStyle(.white.opacity(0.9))
                 .frame(width: Metrics.badgeSize, height: Metrics.badgeSize)
                 .background(
-                    .white.opacity(0.10),
-                    in: RoundedRectangle(cornerRadius: Metrics.badgeCornerRadius, style: .continuous)
+                    RoundedRectangle(cornerRadius: Metrics.badgeCornerRadius, style: .continuous)
+                        .fill(.black.opacity(Metrics.badgeBackgroundOpacity))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Metrics.badgeCornerRadius, style: .continuous)
+                                .stroke(.white.opacity(Metrics.badgeBorderOpacity), lineWidth: 1)
+                        )
                 )
 
             IPadThumbnailView(

@@ -100,11 +100,11 @@ struct IPadMediaConverterView: View {
 
     private var filesSection: some View {
         VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Files")
-                        .font(Metrics.sectionTitleFont)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Files")
+                    .font(Metrics.sectionTitleFont)
 
+                HStack(alignment: .center, spacing: 12) {
                     HStack(spacing: 8) {
                         Circle()
                             .fill(statusTone)
@@ -113,18 +113,18 @@ struct IPadMediaConverterView: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
-                }
 
-                Spacer()
+                    Spacer()
 
-                if renderState.screenState.isConverting {
-                    Text(renderState.inputHeaderState.progressText)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                } else {
-                    Text("Drop more files here.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    if renderState.screenState.isConverting {
+                        Text(renderState.inputHeaderState.progressText)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Drop more files here.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
 
