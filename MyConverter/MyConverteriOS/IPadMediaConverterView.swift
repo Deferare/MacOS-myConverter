@@ -41,21 +41,37 @@ struct IPadMediaConverterView: View {
             VStack(spacing: 18) {
                 ZStack {
                     Circle()
-                        .fill(.white.opacity(0.08))
+                        .fill(.black.opacity(isDropTargeted ? 0.20 : 0.14))
+                        .overlay(
+                            Circle()
+                                .stroke(
+                                    isDropTargeted ? kind.liquidGlassTint.opacity(0.34) : .white.opacity(0.10),
+                                    lineWidth: isDropTargeted ? 1.6 : 1
+                                )
+                        )
+                        .shadow(color: .black.opacity(0.18), radius: 22, y: 12)
+
                     Circle()
-                        .stroke(.white.opacity(0.08), lineWidth: 1)
-                    Image(systemName: "plus")
-                        .font(.system(size: 26, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.9))
+                        .fill(.white.opacity(isDropTargeted ? 0.24 : 0.20))
+                        .frame(width: 56, height: 56)
+
+                    Image(systemName: isDropTargeted ? "arrow.down" : "plus")
+                        .font(.system(size: 25, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.96))
                 }
                 .frame(width: 140, height: 140)
+                .scaleEffect(isDropTargeted ? 1.03 : 1.0)
 
                 VStack(spacing: 8) {
-                    Text("Drop Files Here")
-                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                    Text(isDropTargeted ? "Drop to Import" : "Drop Files Here")
+                        .font(.system(size: 23, weight: .bold, design: .rounded))
 
-                    Text("Drop files here or tap anywhere in this area to browse.")
-                        .font(.body)
+                    Text(
+                        isDropTargeted
+                            ? "Release to add the files to this queue."
+                            : "Drop files here or tap anywhere in this area to browse."
+                    )
+                        .font(.system(size: 18, weight: .medium))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                 }
@@ -74,6 +90,7 @@ struct IPadMediaConverterView: View {
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
             viewModel.handleDrop(providers: providers, for: kind)
         }
+        .animation(.spring(response: 0.35, dampingFraction: 0.78), value: isDropTargeted)
     }
 
     private var filesSection: some View {
