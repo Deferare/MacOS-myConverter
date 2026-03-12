@@ -3,6 +3,9 @@ import SwiftUI
 
 struct DonationSupportSection: View {
     @ObservedObject var donationStore: DonationStore
+    private let columns = [
+        GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 12)
+    ]
 
     var body: some View {
         AboutPanelCard {
@@ -55,35 +58,27 @@ struct DonationSupportSection: View {
             }
         } else {
             VStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(donationStore.products.enumerated()), id: \.element.id) { index, product in
-                    Button {
-                        Task {
-                            await donationStore.purchase(product)
+                LazyVGrid(columns: columns, spacing: 12) {
+                    ForEach(donationStore.products, id: \.id) { product in
+                        Button {
+                            Task {
+                                await donationStore.purchase(product)
+                            }
+                        } label: {
+                            donationButtonContent(for: product)
                         }
-                    } label: {
-                        donationButtonContent(for: product)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(
-                        donationStore.isLoadingProducts ||
-                        (donationStore.purchasingProductID != nil && donationStore.purchasingProductID != product.id)
-                    )
-
-                    if index < donationStore.products.count - 1 {
-                        AboutSectionDivider()
+                        .buttonStyle(.plain)
+                        .disabled(
+                            donationStore.isLoadingProducts ||
+                            (donationStore.purchasingProductID != nil && donationStore.purchasingProductID != product.id)
+                        )
                     }
                 }
 
-                AboutSectionDivider()
-
-                Text("Your support helps keep the app free and actively maintained.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 14)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                if let statusMessage = donationStore.statusMessage {
+                if donationStore.statusIsError,
+                   let statusMessage = donationStore.statusMessage {
                     AboutSectionDivider()
+                        .padding(.top, 18)
 
                     AboutInlineStatusRow(
                         title: donationStore.statusIsError ? "Support issue" : "App Store status",
@@ -96,41 +91,47 @@ struct DonationSupportSection: View {
     }
 
     private func donationButtonContent(for product: Product) -> some View {
-        HStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center) {
                 Text(donationStore.suggestedAmountText(for: product.id))
                     .font(.system(size: 30, weight: .black))
 
-                Text("One-time tip")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                Spacer()
+
+                if donationStore.purchasingProductID == product.id {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Image(systemName: "heart.fill")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.red)
+                }
             }
 
             VStack(alignment: .leading, spacing: 3) {
-                Text("Support the project")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
-
-                Text("One tap, one-time contribution")
-                    .font(.caption)
+                Text("One-time tip")
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
-            }
 
-            Spacer()
-
-            if donationStore.purchasingProductID == product.id {
-                ProgressView()
-                    .controlSize(.small)
-            } else {
-                Image(systemName: "heart.fill")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(.red)
+                Text("Support the project")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.primary)
             }
         }
-        .padding(.vertical, 14)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .frame(maxWidth: .infinity, minHeight: 98, alignment: .leading)
+        .background(donationButtonBackground)
         .opacity(buttonOpacity(for: product))
-        .contentShape(Rectangle())
+        .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    private var donationButtonBackground: some View {
+        RoundedRectangle(cornerRadius: 20, style: .continuous)
+            .fill(.white.opacity(0.06))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(.white.opacity(0.10), lineWidth: 1)
+            )
     }
 
     private func buttonOpacity(for product: Product) -> Double {
