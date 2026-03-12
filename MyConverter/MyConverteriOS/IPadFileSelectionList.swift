@@ -2,6 +2,20 @@
 import SwiftUI
 
 struct IPadFileRow: View {
+    private enum Metrics {
+        static let rowSpacing: CGFloat = 12
+        static let rowPadding: CGFloat = 12
+        static let rowCornerRadius: CGFloat = 18
+        static let badgeSize: CGFloat = 28
+        static let badgeCornerRadius: CGFloat = 10
+        static let thumbnailSize: CGFloat = 48
+        static let thumbnailCornerRadius: CGFloat = 14
+        static let detailSpacing: CGFloat = 4
+        static let progressWidth: CGFloat = 82
+        static let badgeFont = Font.subheadline.weight(.semibold)
+        static let titleFont = Font.subheadline.weight(.semibold)
+    }
+
     let kind: ContentViewModel.MediaKind
     let url: URL
     let selectedFileListState: ContentViewModel.SelectedFileListState
@@ -38,12 +52,15 @@ struct IPadFileRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: Metrics.rowSpacing) {
             Text(fileIndexLabel)
-                .font(.headline.weight(.semibold))
+                .font(Metrics.badgeFont)
                 .foregroundStyle(.white.opacity(0.9))
-                .frame(width: 32, height: 32)
-                .background(.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .frame(width: Metrics.badgeSize, height: Metrics.badgeSize)
+                .background(
+                    .white.opacity(0.10),
+                    in: RoundedRectangle(cornerRadius: Metrics.badgeCornerRadius, style: .continuous)
+                )
 
             IPadThumbnailView(
                 url: url,
@@ -51,9 +68,9 @@ struct IPadFileRow: View {
                 fallbackSystemImage: fallbackSystemImage
             )
 
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: Metrics.detailSpacing) {
                 Text(url.lastPathComponent)
-                    .font(.subheadline.weight(.semibold))
+                    .font(Metrics.titleFont)
                     .lineLimit(1)
 
                 Text(detailText)
@@ -67,15 +84,18 @@ struct IPadFileRow: View {
             if selectedFileListState.isConverting {
                 VStack(alignment: .trailing, spacing: 6) {
                     ProgressView(value: progressValue)
-                        .frame(width: 90)
+                        .frame(width: Metrics.progressWidth)
                     Text("\(Int((progressValue * 100).rounded()))%")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                 }
             }
         }
-        .padding(14)
-        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .padding(Metrics.rowPadding)
+        .background(
+            .white.opacity(0.08),
+            in: RoundedRectangle(cornerRadius: Metrics.rowCornerRadius, style: .continuous)
+        )
     }
 
     private var progressValue: Double {
@@ -98,6 +118,11 @@ struct IPadFileRow: View {
 }
 
 private struct IPadThumbnailView: View {
+    private enum Metrics {
+        static let size: CGFloat = 48
+        static let cornerRadius: CGFloat = 14
+    }
+
     let url: URL
     let provider: any ThumbnailProvider
     let fallbackSystemImage: String
@@ -116,11 +141,17 @@ private struct IPadThumbnailView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .frame(width: 54, height: 54)
-        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .frame(width: Metrics.size, height: Metrics.size)
+        .background(
+            .white.opacity(0.06),
+            in: RoundedRectangle(cornerRadius: Metrics.cornerRadius, style: .continuous)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: Metrics.cornerRadius, style: .continuous))
         .task(id: url) {
-            cgImage = await provider.makeThumbnail(for: url, size: CGSize(width: 108, height: 108))
+            cgImage = await provider.makeThumbnail(
+                for: url,
+                size: CGSize(width: Metrics.size * 2, height: Metrics.size * 2)
+            )
         }
     }
 }

@@ -1,20 +1,76 @@
 import SwiftUI
 
-private enum ConverterSettingMetrics {
-    static let rowCornerRadius: CGFloat = 18
-    static let controlCornerRadius: CGFloat = 12
-    static let rowHorizontalPadding: CGFloat = 16
-    static let rowVerticalPadding: CGFloat = 14
-    static let controlHorizontalPadding: CGFloat = 12
-    static let controlVerticalPadding: CGFloat = 9
-    static let controlColumnWidth: CGFloat = 248
+struct ConverterSettingMetrics {
+    let rowCornerRadius: CGFloat
+    let controlCornerRadius: CGFloat
+    let rowHorizontalPadding: CGFloat
+    let rowVerticalPadding: CGFloat
+    let controlHorizontalPadding: CGFloat
+    let controlVerticalPadding: CGFloat
+    let controlColumnWidth: CGFloat
+    let sectionSpacing: CGFloat
+    let hintVerticalPadding: CGFloat
+    let folderIconSize: CGFloat
+    let folderIconCornerRadius: CGFloat
+    let chooseButtonHorizontalPadding: CGFloat
+    let chooseButtonVerticalPadding: CGFloat
+
+    static let regular = ConverterSettingMetrics(
+        rowCornerRadius: 18,
+        controlCornerRadius: 12,
+        rowHorizontalPadding: 16,
+        rowVerticalPadding: 14,
+        controlHorizontalPadding: 12,
+        controlVerticalPadding: 9,
+        controlColumnWidth: 248,
+        sectionSpacing: 14,
+        hintVerticalPadding: 12,
+        folderIconSize: 28,
+        folderIconCornerRadius: 10,
+        chooseButtonHorizontalPadding: 16,
+        chooseButtonVerticalPadding: 8
+    )
+
+    static let compact = ConverterSettingMetrics(
+        rowCornerRadius: 17,
+        controlCornerRadius: 11,
+        rowHorizontalPadding: 15,
+        rowVerticalPadding: 12,
+        controlHorizontalPadding: 11,
+        controlVerticalPadding: 8,
+        controlColumnWidth: 236,
+        sectionSpacing: 12,
+        hintVerticalPadding: 11,
+        folderIconSize: 26,
+        folderIconCornerRadius: 9,
+        chooseButtonHorizontalPadding: 14,
+        chooseButtonVerticalPadding: 7
+    )
+}
+
+private struct ConverterSettingMetricsKey: EnvironmentKey {
+    static let defaultValue = ConverterSettingMetrics.regular
+}
+
+extension EnvironmentValues {
+    var converterSettingMetrics: ConverterSettingMetrics {
+        get { self[ConverterSettingMetricsKey.self] }
+        set { self[ConverterSettingMetricsKey.self] = newValue }
+    }
+}
+
+extension View {
+    func converterSettingMetrics(_ metrics: ConverterSettingMetrics) -> some View {
+        environment(\.converterSettingMetrics, metrics)
+    }
 }
 
 private struct ConverterControlBackground: View {
     let isDisabled: Bool
+    @Environment(\.converterSettingMetrics) private var metrics
 
     var body: some View {
-        RoundedRectangle(cornerRadius: ConverterSettingMetrics.controlCornerRadius, style: .continuous)
+        RoundedRectangle(cornerRadius: metrics.controlCornerRadius, style: .continuous)
             .fill(
                 LinearGradient(
                     colors: [
@@ -26,7 +82,7 @@ private struct ConverterControlBackground: View {
                 )
             )
             .overlay(
-                RoundedRectangle(cornerRadius: ConverterSettingMetrics.controlCornerRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: metrics.controlCornerRadius, style: .continuous)
                     .stroke(.white.opacity(isDisabled ? 0.05 : 0.12), lineWidth: 1)
             )
     }
@@ -35,6 +91,7 @@ private struct ConverterControlBackground: View {
 struct ConverterSettingRow<Control: View>: View {
     let title: String
     let control: Control
+    @Environment(\.converterSettingMetrics) private var metrics
 
     init(
         _ title: String,
@@ -55,17 +112,17 @@ struct ConverterSettingRow<Control: View>: View {
             control
                 .frame(maxWidth: .infinity, alignment: .trailing)
         }
-        .padding(.horizontal, ConverterSettingMetrics.rowHorizontalPadding)
-        .padding(.vertical, ConverterSettingMetrics.rowVerticalPadding)
+        .padding(.horizontal, metrics.rowHorizontalPadding)
+        .padding(.vertical, metrics.rowVerticalPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(rowBackground)
     }
 
     private var rowBackground: some View {
-        RoundedRectangle(cornerRadius: ConverterSettingMetrics.rowCornerRadius, style: .continuous)
+        RoundedRectangle(cornerRadius: metrics.rowCornerRadius, style: .continuous)
             .fill(.white.opacity(0.06))
             .overlay(
-                RoundedRectangle(cornerRadius: ConverterSettingMetrics.rowCornerRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: metrics.rowCornerRadius, style: .continuous)
                     .stroke(.white.opacity(0.10), lineWidth: 1)
             )
     }
@@ -73,6 +130,7 @@ struct ConverterSettingRow<Control: View>: View {
 
 struct ConverterSettingsHint: View {
     let text: String
+    @Environment(\.converterSettingMetrics) private var metrics
 
     var body: some View {
         HStack(spacing: 10) {
@@ -85,14 +143,14 @@ struct ConverterSettingsHint: View {
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, ConverterSettingMetrics.rowHorizontalPadding)
-        .padding(.vertical, 12)
+        .padding(.horizontal, metrics.rowHorizontalPadding)
+        .padding(.vertical, metrics.hintVerticalPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: ConverterSettingMetrics.rowCornerRadius, style: .continuous)
+            RoundedRectangle(cornerRadius: metrics.rowCornerRadius, style: .continuous)
                 .fill(.white.opacity(0.04))
                 .overlay(
-                    RoundedRectangle(cornerRadius: ConverterSettingMetrics.rowCornerRadius, style: .continuous)
+                    RoundedRectangle(cornerRadius: metrics.rowCornerRadius, style: .continuous)
                         .stroke(.white.opacity(0.08), lineWidth: 1)
                 )
         )
@@ -103,6 +161,7 @@ struct ConverterTextFieldRow: View {
     let title: String
     let prompt: String
     @Binding var text: String
+    @Environment(\.converterSettingMetrics) private var metrics
 
     init(
         _ title: String,
@@ -119,11 +178,11 @@ struct ConverterTextFieldRow: View {
             TextField(prompt, text: $text)
                 .textFieldStyle(.plain)
                 .font(.subheadline.weight(.medium))
-                .padding(.horizontal, ConverterSettingMetrics.controlHorizontalPadding)
-                .padding(.vertical, ConverterSettingMetrics.controlVerticalPadding)
+                .padding(.horizontal, metrics.controlHorizontalPadding)
+                .padding(.vertical, metrics.controlVerticalPadding)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(controlBackground)
-                .frame(width: ConverterSettingMetrics.controlColumnWidth, alignment: .leading)
+                .frame(width: metrics.controlColumnWidth, alignment: .leading)
         }
     }
 
@@ -138,6 +197,7 @@ struct OutputFolderSelectionRow: View {
     let tint: Color
     let isDisabled: Bool
     let onChoose: () -> Void
+    @Environment(\.converterSettingMetrics) private var metrics
 
     var body: some View {
         HStack(spacing: 14) {
@@ -145,12 +205,12 @@ struct OutputFolderSelectionRow: View {
                 Image(systemName: "folder")
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.white.opacity(0.72))
-                    .frame(width: 28, height: 28)
+                    .frame(width: metrics.folderIconSize, height: metrics.folderIconSize)
                     .background(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        RoundedRectangle(cornerRadius: metrics.folderIconCornerRadius, style: .continuous)
                             .fill(.black.opacity(0.18))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                RoundedRectangle(cornerRadius: metrics.folderIconCornerRadius, style: .continuous)
                                     .stroke(.white.opacity(0.06), lineWidth: 1)
                             )
                     )
@@ -168,8 +228,8 @@ struct OutputFolderSelectionRow: View {
                 Text(hasSelection ? "Change" : "Choose")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(tint)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, metrics.chooseButtonHorizontalPadding)
+                    .padding(.vertical, metrics.chooseButtonVerticalPadding)
                     .background(
                         Capsule(style: .continuous)
                             .fill(.white.opacity(0.04))
@@ -181,8 +241,8 @@ struct OutputFolderSelectionRow: View {
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, ConverterSettingMetrics.rowHorizontalPadding)
-        .padding(.vertical, ConverterSettingMetrics.rowVerticalPadding)
+        .padding(.horizontal, metrics.rowHorizontalPadding)
+        .padding(.vertical, metrics.rowVerticalPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(rowBackground)
         .shadow(color: tint.opacity(0.04), radius: 14, x: 0, y: 6)
@@ -191,10 +251,10 @@ struct OutputFolderSelectionRow: View {
     }
 
     private var rowBackground: some View {
-        RoundedRectangle(cornerRadius: ConverterSettingMetrics.rowCornerRadius, style: .continuous)
+        RoundedRectangle(cornerRadius: metrics.rowCornerRadius, style: .continuous)
             .fill(.white.opacity(0.06))
             .overlay(
-                RoundedRectangle(cornerRadius: ConverterSettingMetrics.rowCornerRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: metrics.rowCornerRadius, style: .continuous)
                     .stroke(.white.opacity(0.10), lineWidth: 1)
             )
     }
@@ -228,6 +288,7 @@ struct MenuPicker<Option: Identifiable & Hashable>: View {
     let options: [Option]
     let disabledWhenEmpty: Bool
     let label: (Option) -> String
+    @Environment(\.converterSettingMetrics) private var metrics
 
     init(
         _ title: String,
@@ -283,9 +344,9 @@ struct MenuPicker<Option: Identifiable & Hashable>: View {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.white.opacity(isDisabled ? 0.42 : 0.68))
                 }
-                .padding(.horizontal, ConverterSettingMetrics.controlHorizontalPadding)
-                .padding(.vertical, ConverterSettingMetrics.controlVerticalPadding)
-                .frame(width: ConverterSettingMetrics.controlColumnWidth, alignment: .leading)
+                .padding(.horizontal, metrics.controlHorizontalPadding)
+                .padding(.vertical, metrics.controlVerticalPadding)
+                .frame(width: metrics.controlColumnWidth, alignment: .leading)
                 .background(ConverterControlBackground(isDisabled: isDisabled))
             }
             .buttonStyle(.plain)

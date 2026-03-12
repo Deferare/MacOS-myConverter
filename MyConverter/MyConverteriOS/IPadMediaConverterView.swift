@@ -3,6 +3,11 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct IPadMediaConverterView: View {
+    private enum Metrics {
+        static let sectionTitleFont = Font.headline.weight(.semibold)
+        static let settingsSectionSpacing: CGFloat = 14
+    }
+
     let kind: ContentViewModel.MediaKind
     @ObservedObject var viewModel: ContentViewModel
     @State private var isDropTargeted = false
@@ -98,7 +103,7 @@ struct IPadMediaConverterView: View {
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Files")
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .font(Metrics.sectionTitleFont)
 
                     HStack(spacing: 8) {
                         Circle()
@@ -162,7 +167,7 @@ struct IPadMediaConverterView: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Conversion Settings")
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .font(Metrics.sectionTitleFont)
                     Text("Import files to unlock compatible conversion settings.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -180,9 +185,9 @@ struct IPadMediaConverterView: View {
     }
 
     private var settingsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: Metrics.settingsSectionSpacing) {
             Text("Conversion Settings")
-                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .font(Metrics.sectionTitleFont)
 
             OutputFolderSelectionRow(
                 pathText: viewModel.selectedOutputDirectoryURL(for: kind).map {
@@ -223,6 +228,7 @@ struct IPadMediaConverterView: View {
                 .stroke(.white.opacity(0.10), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
+        .converterSettingMetrics(.compact)
     }
 
     @ToolbarContentBuilder
@@ -244,12 +250,15 @@ struct IPadMediaConverterView: View {
                     }
                 }
 
-                Button(renderState.screenState.primaryActionTitle) {
+                Button {
                     if renderState.screenState.isConverting {
                         viewModel.cancelConversion(for: kind)
                     } else {
                         viewModel.startConversion(for: kind)
                     }
+                } label: {
+                    Text(renderState.screenState.primaryActionTitle)
+                        .foregroundStyle(.white)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(kind.liquidGlassTint)
