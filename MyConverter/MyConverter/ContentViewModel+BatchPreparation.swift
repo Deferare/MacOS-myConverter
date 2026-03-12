@@ -36,34 +36,36 @@ extension ContentViewModel {
         ) { group in
             for preparedSource in preparedSources {
                 group.addTask {
-                    let sourceCapabilities = await VideoConversionEngine.sourceCapabilities(
-                        for: preparedSource.sourceURL
-                    )
-                    let assetTrackProbe = await VideoConversionEngine.assetTrackProbe(
-                        for: preparedSource.sourceURL
-                    )
-
-                    let candidatePresets: [String]?
-                    if let outputFileType,
-                       assetTrackProbe.isReadable,
-                       assetTrackProbe.hasVideoTrack {
-                        let asset = AVURLAsset(url: preparedSource.sourceURL)
-                        candidatePresets = await VideoConversionEngine.compatibleExportPresets(
-                            for: asset,
-                            preferredPresets: VideoConversionEngine.preferredExportPresets,
-                            outputFileType: outputFileType
+                    await SecurityScopedResourceAccess.withAccess(to: preparedSource.sourceURL) {
+                        let sourceCapabilities = await VideoConversionEngine.sourceCapabilities(
+                            for: preparedSource.sourceURL
                         )
-                    } else {
-                        candidatePresets = nil
-                    }
+                        let assetTrackProbe = await VideoConversionEngine.assetTrackProbe(
+                            for: preparedSource.sourceURL
+                        )
 
-                    let context = VideoConversionEngine.PreparedSourceContext(
-                        sourceCapabilities: sourceCapabilities,
-                        assetTrackProbe: assetTrackProbe,
-                        candidatePresets: candidatePresets,
-                        stagedInputLease: nil
-                    )
-                    return (preparedSource.sourceID, context)
+                        let candidatePresets: [String]?
+                        if let outputFileType,
+                           assetTrackProbe.isReadable,
+                           assetTrackProbe.hasVideoTrack {
+                            let asset = AVURLAsset(url: preparedSource.sourceURL)
+                            candidatePresets = await VideoConversionEngine.compatibleExportPresets(
+                                for: asset,
+                                preferredPresets: VideoConversionEngine.preferredExportPresets,
+                                outputFileType: outputFileType
+                            )
+                        } else {
+                            candidatePresets = nil
+                        }
+
+                        let context = VideoConversionEngine.PreparedSourceContext(
+                            sourceCapabilities: sourceCapabilities,
+                            assetTrackProbe: assetTrackProbe,
+                            candidatePresets: candidatePresets,
+                            stagedInputLease: nil
+                        )
+                        return (preparedSource.sourceID, context)
+                    }
                 }
             }
 
@@ -126,10 +128,12 @@ extension ContentViewModel {
         ) { group in
             for preparedSource in preparedSources {
                 group.addTask {
-                    let capabilities = await VideoConversionEngine.sourceCapabilitiesForAudio(
-                        for: preparedSource.sourceURL
-                    )
-                    return (preparedSource.sourceID, capabilities)
+                    await SecurityScopedResourceAccess.withAccess(to: preparedSource.sourceURL) {
+                        let capabilities = await VideoConversionEngine.sourceCapabilitiesForAudio(
+                            for: preparedSource.sourceURL
+                        )
+                        return (preparedSource.sourceID, capabilities)
+                    }
                 }
             }
 
@@ -162,10 +166,12 @@ extension ContentViewModel {
         ) { group in
             for preparedSource in preparedSources {
                 group.addTask {
-                    let capabilities = await ImageConversionEngine.sourceCapabilities(
-                        for: preparedSource.sourceURL
-                    )
-                    return (preparedSource.sourceID, capabilities)
+                    await SecurityScopedResourceAccess.withAccess(to: preparedSource.sourceURL) {
+                        let capabilities = await ImageConversionEngine.sourceCapabilities(
+                            for: preparedSource.sourceURL
+                        )
+                        return (preparedSource.sourceID, capabilities)
+                    }
                 }
             }
 

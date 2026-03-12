@@ -351,7 +351,9 @@ extension ContentViewModel {
         formatNormalizedID: (Format) -> String,
         additionalValidation: (Capability) -> String? = { _ in nil }
     ) async -> String? {
-        let capabilities = await fetchCapabilities(sourceURL)
+        let capabilities = await SecurityScopedResourceAccess.withAccess(to: sourceURL) {
+            await fetchCapabilities(sourceURL)
+        }
         if let error = errorMessage(capabilities) {
             return error
         }
