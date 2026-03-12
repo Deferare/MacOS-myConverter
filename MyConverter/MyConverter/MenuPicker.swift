@@ -155,16 +155,6 @@ struct ConverterSettingRow<Control: View>: View {
         .padding(.horizontal, metrics.rowHorizontalPadding)
         .padding(.vertical, metrics.rowVerticalPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(rowBackground)
-    }
-
-    private var rowBackground: some View {
-        RoundedRectangle(cornerRadius: metrics.rowCornerRadius, style: .continuous)
-            .fill(.white.opacity(0.06))
-            .overlay(
-                RoundedRectangle(cornerRadius: metrics.rowCornerRadius, style: .continuous)
-                    .stroke(.white.opacity(0.10), lineWidth: 1)
-            )
     }
 
     private var titleLabel: some View {
@@ -194,14 +184,6 @@ struct ConverterSettingsHint: View {
         .padding(.horizontal, metrics.rowHorizontalPadding)
         .padding(.vertical, metrics.hintVerticalPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: metrics.rowCornerRadius, style: .continuous)
-                .fill(.white.opacity(0.04))
-                .overlay(
-                    RoundedRectangle(cornerRadius: metrics.rowCornerRadius, style: .continuous)
-                        .stroke(.white.opacity(0.08), lineWidth: 1)
-                )
-        )
     }
 }
 
@@ -264,19 +246,8 @@ struct OutputFolderSelectionRow: View {
         .padding(.horizontal, metrics.rowHorizontalPadding)
         .padding(.vertical, metrics.rowVerticalPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(rowBackground)
-        .shadow(color: tint.opacity(0.04), radius: 14, x: 0, y: 6)
         .disabled(isDisabled)
         .opacity(isDisabled ? 0.7 : 1)
-    }
-
-    private var rowBackground: some View {
-        RoundedRectangle(cornerRadius: metrics.rowCornerRadius, style: .continuous)
-            .fill(.white.opacity(0.06))
-            .overlay(
-                RoundedRectangle(cornerRadius: metrics.rowCornerRadius, style: .continuous)
-                    .stroke(.white.opacity(0.10), lineWidth: 1)
-            )
     }
 
     private var pathSummary: some View {
