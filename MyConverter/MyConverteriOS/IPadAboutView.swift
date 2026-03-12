@@ -1,5 +1,6 @@
 #if os(iOS)
 import SwiftUI
+import UIKit
 
 private enum IPadAboutThemeMetrics {
     static let horizontalPadding: CGFloat = 24
@@ -68,6 +69,25 @@ struct IPadAboutView: View {
     }
 
     private var heroIcon: some View {
+        Group {
+            if let appIconImage = IOSAppIconProvider.primaryIconImage() {
+                Image(uiImage: appIconImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 30, style: .continuous)
+                            .stroke(.white.opacity(0.18), lineWidth: 1)
+                    )
+            } else {
+                fallbackHeroIcon
+            }
+        }
+        .frame(width: IPadAboutThemeMetrics.heroIconSize, height: IPadAboutThemeMetrics.heroIconSize)
+        .shadow(color: .black.opacity(0.16), radius: 24, y: 12)
+    }
+
+    private var fallbackHeroIcon: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 30, style: .continuous)
                 .fill(
@@ -90,8 +110,6 @@ struct IPadAboutView: View {
                 .font(.system(size: IPadAboutThemeMetrics.heroSymbolSize, weight: .black))
                 .foregroundStyle(.white.opacity(0.96))
         }
-        .frame(width: IPadAboutThemeMetrics.heroIconSize, height: IPadAboutThemeMetrics.heroIconSize)
-        .shadow(color: .black.opacity(0.16), radius: 24, y: 12)
     }
 
     private var heroDetails: some View {
@@ -176,6 +194,35 @@ struct IPadAboutView: View {
                 .blur(radius: 120)
                 .offset(x: -100, y: -250)
         }
+    }
+}
+
+private enum IOSAppIconProvider {
+    static func primaryIconImage(bundle: Bundle = .main) -> UIImage? {
+        let infoDictionaryKeys: [String]
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            infoDictionaryKeys = ["CFBundleIcons~ipad", "CFBundleIcons"]
+        } else {
+            infoDictionaryKeys = ["CFBundleIcons", "CFBundleIcons~ipad"]
+        }
+
+        for key in infoDictionaryKeys {
+            guard
+                let icons = bundle.object(forInfoDictionaryKey: key) as? [String: Any],
+                let primaryIcon = icons["CFBundlePrimaryIcon"] as? [String: Any],
+                let iconFiles = primaryIcon["CFBundleIconFiles"] as? [String]
+            else {
+                continue
+            }
+
+            for iconFile in iconFiles.reversed() {
+                if let image = UIImage(named: iconFile) {
+                    return image
+                }
+            }
+        }
+
+        return nil
     }
 }
 
