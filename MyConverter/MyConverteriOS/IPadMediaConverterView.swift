@@ -5,12 +5,15 @@ import UniformTypeIdentifiers
 struct IPadMediaConverterView: View {
     private enum Metrics {
         static let sectionTitleFont = Font.headline.weight(.semibold)
+        static let panelCornerRadius: CGFloat = 28
+        static let panelPadding: CGFloat = 24
         static let settingsSectionSpacing: CGFloat = 14
     }
 
     let kind: ContentViewModel.MediaKind
     @ObservedObject var viewModel: ContentViewModel
     @State private var isDropTargeted = false
+    @State private var draggedSelectedFileURL: URL?
 
     private var renderState: ContentViewModel.ConverterRenderState {
         viewModel.converterRenderState(for: kind)
@@ -85,13 +88,13 @@ struct IPadMediaConverterView: View {
             .frame(minHeight: 430)
         }
         .buttonStyle(.plain)
-        .padding(28)
+        .padding(Metrics.panelPadding)
         .background(panelBackground)
         .overlay(
-            RoundedRectangle(cornerRadius: 34, style: .continuous)
+            RoundedRectangle(cornerRadius: Metrics.panelCornerRadius, style: .continuous)
                 .stroke(isDropTargeted ? kind.liquidGlassTint.opacity(0.45) : .white.opacity(0.10), lineWidth: isDropTargeted ? 2 : 1)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Metrics.panelCornerRadius, style: .continuous))
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
             viewModel.handleDrop(providers: providers, for: kind)
         }
@@ -99,7 +102,10 @@ struct IPadMediaConverterView: View {
     }
 
     private var filesSection: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        let selectedURLs = renderState.selectedFileListState.selectedURLs
+        let availableURLPaths = Set(selectedURLs.map(\.path))
+
+        return VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Files")
                     .font(Metrics.sectionTitleFont)
@@ -111,7 +117,9 @@ struct IPadMediaConverterView: View {
                             .frame(width: 10, height: 10)
                         Text(renderState.inputHeaderState.statusMessage)
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(statusTone)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
                     }
 
                     Spacer()
@@ -121,31 +129,54 @@ struct IPadMediaConverterView: View {
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.secondary)
                     } else {
-                        Text("Drop more files here.")
+                        Text(isDropTargeted ? "Release to add files" : "Drag to reorder or drop more files here.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
                 }
             }
 
-            LazyVStack(spacing: 10) {
-                ForEach(renderState.selectedFileListState.selectedURLs, id: \.self) { url in
+            LazyVStack(spacing: 8) {
+                ForEach(Array(selectedURLs.enumerated()), id: \.element) { index, url in
                     IPadFileRow(
                         kind: kind,
                         url: url,
-                        selectedFileListState: renderState.selectedFileListState,
+                        order: index + 1,
+                        rowState: renderState.selectedFileListState.rowState(for: url),
                         thumbnailProvider: viewModel.services.thumbnailProvider
+                    )
+                    .onDrag {
+                        guard !renderState.screenState.isConverting else {
+                            return NSItemProvider()
+                        }
+
+                        draggedSelectedFileURL = url
+                        return NSItemProvider(object: NSString(string: url.path))
+                    }
+                    .onDrop(
+                        of: [UTType.text],
+                        delegate: IPadSelectedFileReorderDropDelegate(
+                            targetURL: url,
+                            availableURLPaths: availableURLPaths,
+                            draggedURL: $draggedSelectedFileURL,
+                            isEnabled: !renderState.screenState.isConverting,
+                            onMove: { draggedURL, targetURL in
+                                withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                                    viewModel.moveSelectedSource(from: draggedURL, to: targetURL, for: kind)
+                                }
+                            }
+                        )
                     )
                 }
             }
         }
-        .padding(18)
+        .padding(Metrics.panelPadding)
         .background(panelBackground)
         .overlay(
-            RoundedRectangle(cornerRadius: 34, style: .continuous)
+            RoundedRectangle(cornerRadius: Metrics.panelCornerRadius, style: .continuous)
                 .stroke(isDropTargeted ? kind.liquidGlassTint.opacity(0.45) : .white.opacity(0.10), lineWidth: isDropTargeted ? 2 : 1)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Metrics.panelCornerRadius, style: .continuous))
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
             viewModel.handleDrop(providers: providers, for: kind)
         }
@@ -174,14 +205,14 @@ struct IPadMediaConverterView: View {
                 }
             }
         }
-        .padding(18)
+        .padding(Metrics.panelPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(panelBackground)
         .overlay(
-            RoundedRectangle(cornerRadius: 34, style: .continuous)
+            RoundedRectangle(cornerRadius: Metrics.panelCornerRadius, style: .continuous)
                 .stroke(.white.opacity(0.10), lineWidth: 1)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Metrics.panelCornerRadius, style: .continuous))
     }
 
     private var settingsSection: some View {
@@ -221,13 +252,13 @@ struct IPadMediaConverterView: View {
                 )
             }
         }
-        .padding(18)
+        .padding(Metrics.panelPadding)
         .background(panelBackground)
         .overlay(
-            RoundedRectangle(cornerRadius: 34, style: .continuous)
+            RoundedRectangle(cornerRadius: Metrics.panelCornerRadius, style: .continuous)
                 .stroke(.white.opacity(0.10), lineWidth: 1)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Metrics.panelCornerRadius, style: .continuous))
         .converterSettingMetrics(.compact)
     }
 
@@ -268,17 +299,21 @@ struct IPadMediaConverterView: View {
     }
 
     private var panelBackground: some View {
-        RoundedRectangle(cornerRadius: 34, style: .continuous)
-            .fill(
-                LinearGradient(
-                    colors: [
-                        .white.opacity(0.05),
-                        kind.liquidGlassTint.opacity(0.05),
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
+        RoundedRectangle(cornerRadius: Metrics.panelCornerRadius, style: .continuous)
+            .fill(.white.opacity(0.05))
+            .overlay {
+                RoundedRectangle(cornerRadius: Metrics.panelCornerRadius, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                kind.liquidGlassTint.opacity(0.08),
+                                .clear,
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            }
     }
 
     private var background: some View {
@@ -296,12 +331,44 @@ struct IPadMediaConverterView: View {
     private var statusTone: Color {
         switch renderState.inputHeaderState.statusLevel {
         case .normal:
-            return .green
+            return .secondary
         case .warning:
             return .orange
         case .error:
             return .red
         }
+    }
+}
+
+private struct IPadSelectedFileReorderDropDelegate: DropDelegate {
+    let targetURL: URL
+    let availableURLPaths: Set<String>
+    @Binding var draggedURL: URL?
+    let isEnabled: Bool
+    let onMove: (_ draggedURL: URL, _ targetURL: URL) -> Void
+
+    func validateDrop(info: DropInfo) -> Bool {
+        isEnabled && info.hasItemsConforming(to: [UTType.text.identifier])
+    }
+
+    func dropEntered(info: DropInfo) {
+        guard isEnabled else { return }
+        guard let draggedURL else { return }
+        guard draggedURL.path != targetURL.path else { return }
+        guard availableURLPaths.contains(draggedURL.path) else { return }
+        guard availableURLPaths.contains(targetURL.path) else { return }
+
+        onMove(draggedURL, targetURL)
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        guard isEnabled else { return nil }
+        return DropProposal(operation: .move)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggedURL = nil
+        return isEnabled
     }
 }
 #endif
