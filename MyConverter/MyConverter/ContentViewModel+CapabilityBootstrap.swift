@@ -160,7 +160,7 @@ extension ContentViewModel {
                 self.capabilityBootstrapDescriptor(for: $0).warmDefaultCapabilities
             }
 
-            let warmed = await Task.detached(priority: .userInitiated) {
+            let warmedTask = Task.detached(priority: .userInitiated) {
                 await withTaskGroup(
                     of: WarmedDefaultCapability.self,
                     returning: [WarmedDefaultCapability].self
@@ -178,7 +178,8 @@ extension ContentViewModel {
 
                     return warmed
                 }
-            }.value
+            }
+            let warmed = await awaitDetachedTaskValue(warmedTask)
 
             guard !Task.isCancelled else { return }
             applyWarmedDefaultCapabilitiesIfNeeded(warmed)

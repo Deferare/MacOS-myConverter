@@ -6,7 +6,7 @@ enum VideoConversionEngine {
 
     nonisolated static let ffmpegIntrospectionCacheQueue = DispatchQueue(label: "myconverter.video.ffmpeg.introspection.cache")
     nonisolated(unsafe) static var ffmpegIntrospectionCache: [String: FFmpegIntrospection] = [:]
-    nonisolated(unsafe) static var ffmpegIntrospectionInFlight: [String: InFlightFFmpegIntrospection] = [:]
+    nonisolated(unsafe) static var ffmpegIntrospectionInFlight: [String: InFlightGroupedResult<FFmpegIntrospection>] = [:]
     nonisolated static let capabilityCacheQueue = DispatchQueue(label: "myconverter.video.ffmpeg.capability.cache")
     nonisolated(unsafe) static var defaultVideoFormatsCache: [String: [VideoFormatOption]] = [:]
     nonisolated(unsafe) static var defaultAudioFormatsCache: [String: [AudioFormatOption]] = [:]
@@ -15,16 +15,16 @@ enum VideoConversionEngine {
     nonisolated(unsafe) static var audioFormatEncoderOptionsCache: [String: [AudioEncoderOption]] = [:]
     nonisolated static let exportPresetCompatibilityCacheQueue = DispatchQueue(label: "myconverter.video.exportpreset.cache")
     nonisolated(unsafe) static var exportPresetCompatibilityCache: [String: [String]] = [:]
-    nonisolated(unsafe) static var exportPresetCompatibilityInFlight: [String: InFlightCapability<[String]>] = [:]
+    nonisolated(unsafe) static var exportPresetCompatibilityInFlight: [String: InFlightContinuation<[String]>] = [:]
     nonisolated(unsafe) static var exportPresetAvailabilityCache: [String: Bool] = [:]
-    nonisolated(unsafe) static var exportPresetAvailabilityInFlight: [String: InFlightCapability<Bool>] = [:]
+    nonisolated(unsafe) static var exportPresetAvailabilityInFlight: [String: InFlightContinuation<Bool>] = [:]
     nonisolated static let sourceCapabilityCacheQueue = DispatchQueue(label: "myconverter.video.source.capability.cache")
     nonisolated(unsafe) static var videoSourceCapabilitiesCache: [String: VideoSourceCapabilities] = [:]
     nonisolated(unsafe) static var audioSourceCapabilitiesCache: [String: AudioSourceCapabilities] = [:]
     nonisolated(unsafe) static var assetTrackProbeCache: [String: AssetTrackProbe] = [:]
-    nonisolated(unsafe) static var videoSourceCapabilitiesInFlight: [String: InFlightCapability<VideoSourceCapabilities>] = [:]
-    nonisolated(unsafe) static var audioSourceCapabilitiesInFlight: [String: InFlightCapability<AudioSourceCapabilities>] = [:]
-    nonisolated(unsafe) static var assetTrackProbeInFlight: [String: InFlightCapability<AssetTrackProbe>] = [:]
+    nonisolated(unsafe) static var videoSourceCapabilitiesInFlight: [String: InFlightContinuation<VideoSourceCapabilities>] = [:]
+    nonisolated(unsafe) static var audioSourceCapabilitiesInFlight: [String: InFlightContinuation<AudioSourceCapabilities>] = [:]
+    nonisolated(unsafe) static var assetTrackProbeInFlight: [String: InFlightContinuation<AssetTrackProbe>] = [:]
     nonisolated static let preferredExportPresets = [
         AVAssetExportPresetPassthrough,
         AVAssetExportPresetHighestQuality,
@@ -39,23 +39,6 @@ enum VideoConversionEngine {
         let stagedInputLease: FFmpegStagingSupport.StagedInputLease?
     }
 
-    final class InFlightFFmpegIntrospection: @unchecked Sendable {
-        nonisolated let group: DispatchGroup
-        nonisolated(unsafe) var result: Result<FFmpegIntrospection, Error>?
-
-        nonisolated init() {
-            group = DispatchGroup()
-            group.enter()
-        }
-    }
-
-    final class InFlightCapability<Value>: @unchecked Sendable {
-        nonisolated(unsafe) var result: Value?
-        nonisolated(unsafe) var continuations: [CheckedContinuation<Value, Never>] = []
-
-        nonisolated init() {}
-    }
-
     struct FFmpegMuxerDescriptor {
         let name: String
         let description: String
@@ -65,5 +48,15 @@ enum VideoConversionEngine {
         let isReadable: Bool
         let hasVideoTrack: Bool
         let hasAudioTrack: Bool
+    }
+
+    static func rethrowIfExportCancelled(_ error: Error) throws {
+        if error is CancellationError {
+            throw ConversionError.exportCancelled
+        }
+
+        if case ConversionError.exportCancelled = error {
+            throw ConversionError.exportCancelled
+        }
     }
 }

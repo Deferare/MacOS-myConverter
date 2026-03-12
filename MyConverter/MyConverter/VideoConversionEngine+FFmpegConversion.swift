@@ -211,11 +211,8 @@ extension VideoConversionEngine {
         do {
             try await operation()
             return nil
-        } catch is CancellationError {
-            throw ConversionError.exportCancelled
-        } catch ConversionError.exportCancelled {
-            throw ConversionError.exportCancelled
         } catch {
+            try rethrowIfExportCancelled(error)
             try? OutputPathUtilities.removeFileIfExists(at: outputURL)
             return error
         }

@@ -295,14 +295,7 @@ extension ContentViewModel {
                 outputDirectoryAccessURL: resolvedOutputDirectoryAccessURL
             )
         }
-        let batchContext = await withTaskCancellationHandler(
-            operation: {
-                await batchContextTask.value
-            },
-            onCancel: {
-                batchContextTask.cancel()
-            }
-        )
+        let batchContext = await awaitDetachedTaskValue(batchContextTask)
         guard let batchContext else {
             return
         }
@@ -348,14 +341,7 @@ extension ContentViewModel {
                 batchContext.outputDirectoryURL
             )
         }
-        let batchEnvironment = await withTaskCancellationHandler(
-            operation: {
-                await batchEnvironmentTask.value
-            },
-            onCancel: {
-                batchEnvironmentTask.cancel()
-            }
-        )
+        let batchEnvironment = await awaitDetachedTaskValue(batchEnvironmentTask)
         await executeBatchConversion(
             preparedSources: batchContext.preparedSources,
             batchEnvironment: batchEnvironment,
@@ -462,11 +448,15 @@ extension ContentViewModel {
                 onSourceProcessed(preparedSource.sourceURL)
             }
         } catch is CancellationError {
-            setProgress(0, at: progressKeyPath)
-            self[keyPath: errorMessageKeyPath] = nil
+            resetCancelledConversionState(
+                progressKeyPath: progressKeyPath,
+                errorMessageKeyPath: errorMessageKeyPath
+            )
         } catch ConversionError.exportCancelled where treatExportCancellationAsCancelled {
-            setProgress(0, at: progressKeyPath)
-            self[keyPath: errorMessageKeyPath] = nil
+            resetCancelledConversionState(
+                progressKeyPath: progressKeyPath,
+                errorMessageKeyPath: errorMessageKeyPath
+            )
         } catch {
             onError(error)
         }

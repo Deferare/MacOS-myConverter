@@ -42,31 +42,31 @@ extension VideoConversionEngine {
                 return (existing, false)
             }
 
-            let created = InFlightCapability<AudioSourceCapabilities>()
+            let created = InFlightContinuation<AudioSourceCapabilities>()
             audioSourceCapabilitiesInFlight[cacheKey] = created
             return (created, true)
         }
 
         if !shouldBuild {
-            return await awaitAudioSourceCapabilities(inFlight)
+            return await InFlightOperationSupport.awaitContinuation(
+                inFlight,
+                on: sourceCapabilityCacheQueue
+            )
         }
 
-        let resolved = await Task.detached(priority: .userInitiated) {
+        let resolvedTask = Task.detached(priority: .userInitiated) {
             await resolveAudioSourceCapabilities(for: inputURL, runtime: runtime)
-        }.value
+        }
+        let resolved = await awaitDetachedTaskValue(resolvedTask)
 
-        var continuations: [CheckedContinuation<AudioSourceCapabilities, Never>] = []
-        sourceCapabilityCacheQueue.sync {
+        return InFlightOperationSupport.finishContinuation(
+            resolved,
+            in: inFlight,
+            on: sourceCapabilityCacheQueue
+        ) {
             audioSourceCapabilitiesCache[cacheKey] = resolved
-            inFlight.result = resolved
-            continuations = inFlight.continuations
-            inFlight.continuations.removeAll()
             audioSourceCapabilitiesInFlight[cacheKey] = nil
         }
-        for continuation in continuations {
-            continuation.resume(returning: resolved)
-        }
-        return resolved
     }
 
     private static func resolveAudioSourceCapabilities(
@@ -132,74 +132,34 @@ extension VideoConversionEngine {
                 return (existing, false)
             }
 
-            let created = InFlightCapability<VideoSourceCapabilities>()
+            let created = InFlightContinuation<VideoSourceCapabilities>()
             videoSourceCapabilitiesInFlight[cacheKey] = created
             return (created, true)
         }
 
         if !shouldBuild {
-            return await awaitVideoSourceCapabilities(inFlight)
+            return await InFlightOperationSupport.awaitContinuation(
+                inFlight,
+                on: sourceCapabilityCacheQueue
+            )
         }
 
-        let resolved = await Task.detached(priority: .userInitiated) {
+        let resolvedTask = Task.detached(priority: .userInitiated) {
             await resolveVideoSourceCapabilities(
                 for: inputURL,
                 runtime: runtime,
                 stagedInputLease: stagedInputLease
             )
-        }.value
+        }
+        let resolved = await awaitDetachedTaskValue(resolvedTask)
 
-        var continuations: [CheckedContinuation<VideoSourceCapabilities, Never>] = []
-        sourceCapabilityCacheQueue.sync {
+        return InFlightOperationSupport.finishContinuation(
+            resolved,
+            in: inFlight,
+            on: sourceCapabilityCacheQueue
+        ) {
             videoSourceCapabilitiesCache[cacheKey] = resolved
-            inFlight.result = resolved
-            continuations = inFlight.continuations
-            inFlight.continuations.removeAll()
             videoSourceCapabilitiesInFlight[cacheKey] = nil
-        }
-        for continuation in continuations {
-            continuation.resume(returning: resolved)
-        }
-        return resolved
-    }
-
-    private static func awaitAudioSourceCapabilities(
-        _ inFlight: InFlightCapability<AudioSourceCapabilities>
-    ) async -> AudioSourceCapabilities {
-        await withCheckedContinuation { continuation in
-            var resolved: AudioSourceCapabilities?
-
-            sourceCapabilityCacheQueue.sync {
-                if let result = inFlight.result {
-                    resolved = result
-                } else {
-                    inFlight.continuations.append(continuation)
-                }
-            }
-
-            if let resolved {
-                continuation.resume(returning: resolved)
-            }
-        }
-    }
-
-    private static func awaitVideoSourceCapabilities(
-        _ inFlight: InFlightCapability<VideoSourceCapabilities>
-    ) async -> VideoSourceCapabilities {
-        await withCheckedContinuation { continuation in
-            var resolved: VideoSourceCapabilities?
-
-            sourceCapabilityCacheQueue.sync {
-                if let result = inFlight.result {
-                    resolved = result
-                } else {
-                    inFlight.continuations.append(continuation)
-                }
-            }
-
-            if let resolved {
-                continuation.resume(returning: resolved)
-            }
         }
     }
 

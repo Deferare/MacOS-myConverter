@@ -7,12 +7,12 @@ extension VideoConversionEngine {
             return cached
         }
 
-        let (inFlight, shouldBuild) = ffmpegIntrospectionCacheQueue.sync { () -> (InFlightFFmpegIntrospection, Bool) in
+        let (inFlight, shouldBuild) = ffmpegIntrospectionCacheQueue.sync { () -> (InFlightGroupedResult<FFmpegIntrospection>, Bool) in
             if let existing = ffmpegIntrospectionInFlight[cacheKey] {
                 return (existing, false)
             }
 
-            let created = InFlightFFmpegIntrospection()
+            let created = InFlightGroupedResult<FFmpegIntrospection>()
             ffmpegIntrospectionInFlight[cacheKey] = created
             return (created, true)
         }
@@ -70,33 +70,33 @@ extension VideoConversionEngine {
     }
 
     nonisolated private static func waitForFFmpegIntrospection(
-        _ inFlight: InFlightFFmpegIntrospection,
+        _ inFlight: InFlightGroupedResult<FFmpegIntrospection>,
         cacheKey: String
     ) throws -> FFmpegIntrospection {
-        inFlight.group.wait()
-        if let result = inFlight.result {
-            return try result.get()
-        }
-
-        if let cached = ffmpegIntrospectionCacheQueue.sync(execute: { ffmpegIntrospectionCache[cacheKey] }) {
-            return cached
-        }
-
-        throw ConversionError.ffmpegFailed(-1, "FFmpeg introspection did not produce a result.")
+        try InFlightOperationSupport.waitForGroupedResult(
+            inFlight,
+            cachedValue: { ffmpegIntrospectionCacheQueue.sync(execute: { ffmpegIntrospectionCache[cacheKey] }) },
+            missingResultError: ConversionError.ffmpegFailed(
+                -1,
+                "FFmpeg introspection did not produce a result."
+            )
+        )
     }
 
     nonisolated private static func finishFFmpegIntrospection(
-        _ inFlight: InFlightFFmpegIntrospection,
+        _ inFlight: InFlightGroupedResult<FFmpegIntrospection>,
         cacheKey: String,
         result: Result<FFmpegIntrospection, Error>
     ) {
-        ffmpegIntrospectionCacheQueue.sync {
+        InFlightOperationSupport.finishGroupedResult(
+            result,
+            in: inFlight,
+            on: ffmpegIntrospectionCacheQueue
+        ) { result in
             if case .success(let introspection) = result {
                 ffmpegIntrospectionCache[cacheKey] = introspection
             }
-            inFlight.result = result
             ffmpegIntrospectionInFlight[cacheKey] = nil
-            inFlight.group.leave()
         }
     }
 

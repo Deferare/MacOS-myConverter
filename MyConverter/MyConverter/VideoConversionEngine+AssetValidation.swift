@@ -13,31 +13,31 @@ extension VideoConversionEngine {
                 return (existing, false)
             }
 
-            let created = InFlightCapability<AssetTrackProbe>()
+            let created = InFlightContinuation<AssetTrackProbe>()
             assetTrackProbeInFlight[cacheKey] = created
             return (created, true)
         }
 
         if !shouldBuild {
-            return await awaitAssetTrackProbe(inFlight)
+            return await InFlightOperationSupport.awaitContinuation(
+                inFlight,
+                on: sourceCapabilityCacheQueue
+            )
         }
 
-        let resolved = await Task.detached(priority: .userInitiated) {
+        let resolvedTask = Task.detached(priority: .userInitiated) {
             await loadAssetTrackProbe(for: inputURL)
-        }.value
+        }
+        let resolved = await awaitDetachedTaskValue(resolvedTask)
 
-        var continuations: [CheckedContinuation<AssetTrackProbe, Never>] = []
-        sourceCapabilityCacheQueue.sync {
+        return InFlightOperationSupport.finishContinuation(
+            resolved,
+            in: inFlight,
+            on: sourceCapabilityCacheQueue
+        ) {
             assetTrackProbeCache[cacheKey] = resolved
-            inFlight.result = resolved
-            continuations = inFlight.continuations
-            inFlight.continuations.removeAll()
             assetTrackProbeInFlight[cacheKey] = nil
         }
-        for continuation in continuations {
-            continuation.resume(returning: resolved)
-        }
-        return resolved
     }
 
     static func supportedOutputFormatsWithAVFoundation(for asset: AVURLAsset) async -> [VideoFormatOption] {
@@ -161,27 +161,6 @@ extension VideoConversionEngine {
     private static func assetTrackProbeCacheKey(for inputURL: URL) -> String {
         OutputPathUtilities.fileFingerprint(for: inputURL)
     }
-
-    private static func awaitAssetTrackProbe(
-        _ inFlight: InFlightCapability<AssetTrackProbe>
-    ) async -> AssetTrackProbe {
-        await withCheckedContinuation { continuation in
-            var resolved: AssetTrackProbe?
-
-            sourceCapabilityCacheQueue.sync {
-                if let result = inFlight.result {
-                    resolved = result
-                } else {
-                    inFlight.continuations.append(continuation)
-                }
-            }
-
-            if let resolved {
-                continuation.resume(returning: resolved)
-            }
-        }
-    }
-
     private static func loadAssetTrackProbe(for inputURL: URL) async -> AssetTrackProbe {
         let asset = AVURLAsset(url: inputURL)
 

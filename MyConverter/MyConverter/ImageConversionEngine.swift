@@ -22,31 +22,14 @@ enum ImageConversionEngine {
 
     nonisolated static let introspectionCacheQueue = DispatchQueue(label: "myconverter.image.ffmpeg.introspection.cache")
     nonisolated(unsafe) static var introspectionCache: [String: FFmpegIntrospection] = [:]
-    nonisolated(unsafe) static var introspectionInFlight: [String: InFlightFFmpegIntrospection] = [:]
+    nonisolated(unsafe) static var introspectionInFlight: [String: InFlightGroupedResult<FFmpegIntrospection>] = [:]
     nonisolated static let outputFormatCacheQueue = DispatchQueue(label: "myconverter.image.output.cache")
     nonisolated(unsafe) static var defaultOutputFormatsCache: [String: [ImageFormatOption]] = [:]
     nonisolated(unsafe) static var imageIODestinationTypeCache: Set<String>? = nil
     nonisolated(unsafe) static var imageIOAvailableFormatsCache: [ImageFormatOption]? = nil
     nonisolated static let sourceCapabilityCacheQueue = DispatchQueue(label: "myconverter.image.source.capability.cache")
     nonisolated(unsafe) static var sourceCapabilitiesCache: [String: ImageSourceCapabilities] = [:]
-    nonisolated(unsafe) static var sourceCapabilitiesInFlight: [String: InFlightCapability<ImageSourceCapabilities>] = [:]
-
-    final class InFlightFFmpegIntrospection: @unchecked Sendable {
-        nonisolated let group: DispatchGroup
-        nonisolated(unsafe) var result: Result<FFmpegIntrospection, Error>?
-
-        nonisolated init() {
-            group = DispatchGroup()
-            group.enter()
-        }
-    }
-
-    final class InFlightCapability<Value>: @unchecked Sendable {
-        nonisolated(unsafe) var result: Value?
-        nonisolated(unsafe) var continuations: [CheckedContinuation<Value, Never>] = []
-
-        nonisolated init() {}
-    }
+    nonisolated(unsafe) static var sourceCapabilitiesInFlight: [String: InFlightContinuation<ImageSourceCapabilities>] = [:]
 
     struct FFmpegMuxerDescriptor {
         let name: String

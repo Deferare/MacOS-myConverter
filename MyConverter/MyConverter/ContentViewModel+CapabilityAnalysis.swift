@@ -416,11 +416,7 @@ extension ContentViewModel {
                     intersect: intersect
                 )
             }
-            let aggregated = await withTaskCancellationHandler {
-                await aggregationTask.value
-            } onCancel: {
-                aggregationTask.cancel()
-            }
+            let aggregated = await awaitDetachedTaskValue(aggregationTask)
 
             guard let aggregated else {
                 return

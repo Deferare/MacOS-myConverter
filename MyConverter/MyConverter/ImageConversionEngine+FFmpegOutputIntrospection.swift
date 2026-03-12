@@ -7,12 +7,12 @@ extension ImageConversionEngine {
             return cached
         }
 
-        let (inFlight, shouldBuild) = introspectionCacheQueue.sync { () -> (InFlightFFmpegIntrospection, Bool) in
+        let (inFlight, shouldBuild) = introspectionCacheQueue.sync { () -> (InFlightGroupedResult<FFmpegIntrospection>, Bool) in
             if let existing = introspectionInFlight[cacheKey] {
                 return (existing, false)
             }
 
-            let created = InFlightFFmpegIntrospection()
+            let created = InFlightGroupedResult<FFmpegIntrospection>()
             introspectionInFlight[cacheKey] = created
             return (created, true)
         }
@@ -70,33 +70,33 @@ extension ImageConversionEngine {
     }
 
     nonisolated private static func waitForFFmpegIntrospection(
-        _ inFlight: InFlightFFmpegIntrospection,
+        _ inFlight: InFlightGroupedResult<FFmpegIntrospection>,
         cacheKey: String
     ) throws -> FFmpegIntrospection {
-        inFlight.group.wait()
-        if let result = inFlight.result {
-            return try result.get()
-        }
-
-        if let cached = introspectionCacheQueue.sync(execute: { introspectionCache[cacheKey] }) {
-            return cached
-        }
-
-        throw ImageConversionError.ffmpegFailed(-1, "FFmpeg introspection did not produce a result.")
+        try InFlightOperationSupport.waitForGroupedResult(
+            inFlight,
+            cachedValue: { introspectionCacheQueue.sync(execute: { introspectionCache[cacheKey] }) },
+            missingResultError: ImageConversionError.ffmpegFailed(
+                -1,
+                "FFmpeg introspection did not produce a result."
+            )
+        )
     }
 
     nonisolated private static func finishFFmpegIntrospection(
-        _ inFlight: InFlightFFmpegIntrospection,
+        _ inFlight: InFlightGroupedResult<FFmpegIntrospection>,
         cacheKey: String,
         result: Result<FFmpegIntrospection, Error>
     ) {
-        introspectionCacheQueue.sync {
+        InFlightOperationSupport.finishGroupedResult(
+            result,
+            in: inFlight,
+            on: introspectionCacheQueue
+        ) { result in
             if case .success(let introspection) = result {
                 introspectionCache[cacheKey] = introspection
             }
-            inFlight.result = result
             introspectionInFlight[cacheKey] = nil
-            inFlight.group.leave()
         }
     }
 

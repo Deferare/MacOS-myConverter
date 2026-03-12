@@ -72,10 +72,8 @@ extension ContentViewModel {
             }
             : []
 
-        updateState(\.videoRuntimeState) { state in
-            state.availableVideoEncoders = resolvedVideoEncoders
-            state.availableAudioEncoders = resolvedAudioEncoders
-        }
+        availableVideoEncoders = resolvedVideoEncoders
+        availableAudioEncoders = resolvedAudioEncoders
 
         updateState(\.videoOptionsState) { state in
             if let preferredVideoEncoder = preferredOptionIfNeeded(
@@ -100,10 +98,8 @@ extension ContentViewModel {
 
     func applyPlaceholderVideoCodecOptions() {
         let format = selectedOutputFormat
-        updateState(\.videoRuntimeState) { state in
-            state.availableVideoEncoders = ContentViewModelSupport.placeholderVideoEncoders(for: format)
-            state.availableAudioEncoders = ContentViewModelSupport.placeholderVideoAudioEncoders(for: format)
-        }
+        availableVideoEncoders = ContentViewModelSupport.placeholderVideoEncoders(for: format)
+        availableAudioEncoders = ContentViewModelSupport.placeholderVideoAudioEncoders(for: format)
         normalizeVideoOptionDependencies()
     }
 
@@ -117,9 +113,7 @@ extension ContentViewModel {
             return []
         }
 
-        updateState(\.audioRuntimeState) { state in
-            state.availableOutputEncoders = resolvedEncoders
-        }
+        availableAudioOutputEncoders = resolvedEncoders
 
         updateState(\.audioOptionsState) { state in
             normalizeAudioCodecDependencies(
@@ -132,11 +126,9 @@ extension ContentViewModel {
 
     func applyPlaceholderAudioCodecOptions() {
         let format = selectedAudioOutputFormat
-        updateState(\.audioRuntimeState) { state in
-            state.availableOutputEncoders = ContentViewModelSupport.placeholderAudioOutputEncoders(
-                for: format
-            )
-        }
+        availableAudioOutputEncoders = ContentViewModelSupport.placeholderAudioOutputEncoders(
+            for: format
+        )
         normalizeAudioOptionDependencies()
     }
 

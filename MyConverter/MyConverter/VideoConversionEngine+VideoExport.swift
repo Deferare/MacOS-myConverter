@@ -124,11 +124,8 @@ extension VideoConversionEngine {
                     underlying: nil,
                     preset: preset
                 )
-            } catch is CancellationError {
-                throw ConversionError.exportCancelled
-            } catch ConversionError.exportCancelled {
-                throw ConversionError.exportCancelled
             } catch {
+                try rethrowIfExportCancelled(error)
                 lastError = error
                 if isUnsupportedMediaFormatError(error) {
                     break
@@ -172,13 +169,16 @@ extension VideoConversionEngine {
                 return (existing, false)
             }
 
-            let created = InFlightCapability<[String]>()
+            let created = InFlightContinuation<[String]>()
             exportPresetCompatibilityInFlight[cacheKey] = created
             return (created, true)
         }
 
         if !shouldBuild {
-            return await awaitCompatibleExportPresets(inFlight)
+            return await InFlightOperationSupport.awaitContinuation(
+                inFlight,
+                on: exportPresetCompatibilityCacheQueue
+            )
         }
 
         let presets = await withTaskGroup(
@@ -208,29 +208,27 @@ extension VideoConversionEngine {
                 .map(\.1)
         }
 
-        var continuations: [CheckedContinuation<[String], Never>] = []
-        var availabilityContinuations: [CheckedContinuation<Bool, Never>] = []
-        exportPresetCompatibilityCacheQueue.sync {
+        var availabilityInFlight: InFlightContinuation<Bool>?
+        _ = InFlightOperationSupport.finishContinuation(
+            presets,
+            in: inFlight,
+            on: exportPresetCompatibilityCacheQueue
+        ) {
             exportPresetCompatibilityCache[cacheKey] = presets
             exportPresetAvailabilityCache[cacheKey] = !presets.isEmpty
-            inFlight.result = presets
-            continuations = inFlight.continuations
-            inFlight.continuations.removeAll()
+            availabilityInFlight = exportPresetAvailabilityInFlight[cacheKey]
             exportPresetCompatibilityInFlight[cacheKey] = nil
+            exportPresetAvailabilityInFlight[cacheKey] = nil
+        }
 
-            if let availabilityInFlight = exportPresetAvailabilityInFlight[cacheKey] {
-                availabilityInFlight.result = !presets.isEmpty
-                availabilityContinuations = availabilityInFlight.continuations
-                availabilityInFlight.continuations.removeAll()
-                exportPresetAvailabilityInFlight[cacheKey] = nil
-            }
+        if let availabilityInFlight {
+            InFlightOperationSupport.finishContinuation(
+                !presets.isEmpty,
+                in: availabilityInFlight,
+                on: exportPresetCompatibilityCacheQueue
+            ) {}
         }
-        for continuation in continuations {
-            continuation.resume(returning: presets)
-        }
-        for continuation in availabilityContinuations {
-            continuation.resume(returning: !presets.isEmpty)
-        }
+
         return presets
     }
 
@@ -248,7 +246,10 @@ extension VideoConversionEngine {
         }
 
         if let inFlight = exportPresetCompatibilityCacheQueue.sync(execute: { exportPresetCompatibilityInFlight[cacheKey] }) {
-            let presets = await awaitCompatibleExportPresets(inFlight)
+            let presets = await InFlightOperationSupport.awaitContinuation(
+                inFlight,
+                on: exportPresetCompatibilityCacheQueue
+            )
             return !presets.isEmpty
         }
 
@@ -257,13 +258,16 @@ extension VideoConversionEngine {
                 return (existing, false)
             }
 
-            let created = InFlightCapability<Bool>()
+            let created = InFlightContinuation<Bool>()
             exportPresetAvailabilityInFlight[cacheKey] = created
             return (created, true)
         }
 
         if !shouldBuild {
-            return await awaitCompatibleExportPresetAvailability(inFlight)
+            return await InFlightOperationSupport.awaitContinuation(
+                inFlight,
+                on: exportPresetCompatibilityCacheQueue
+            )
         }
 
         var isCompatible = false
@@ -278,57 +282,13 @@ extension VideoConversionEngine {
             }
         }
 
-        var continuations: [CheckedContinuation<Bool, Never>] = []
-        exportPresetCompatibilityCacheQueue.sync {
+        return InFlightOperationSupport.finishContinuation(
+            isCompatible,
+            in: inFlight,
+            on: exportPresetCompatibilityCacheQueue
+        ) {
             exportPresetAvailabilityCache[cacheKey] = isCompatible
-            inFlight.result = isCompatible
-            continuations = inFlight.continuations
-            inFlight.continuations.removeAll()
             exportPresetAvailabilityInFlight[cacheKey] = nil
-        }
-        for continuation in continuations {
-            continuation.resume(returning: isCompatible)
-        }
-        return isCompatible
-    }
-
-    private static func awaitCompatibleExportPresets(
-        _ inFlight: InFlightCapability<[String]>
-    ) async -> [String] {
-        await withCheckedContinuation { continuation in
-            var resolved: [String]?
-
-            exportPresetCompatibilityCacheQueue.sync {
-                if let result = inFlight.result {
-                    resolved = result
-                } else {
-                    inFlight.continuations.append(continuation)
-                }
-            }
-
-            if let resolved {
-                continuation.resume(returning: resolved)
-            }
-        }
-    }
-
-    private static func awaitCompatibleExportPresetAvailability(
-        _ inFlight: InFlightCapability<Bool>
-    ) async -> Bool {
-        await withCheckedContinuation { continuation in
-            var resolved: Bool?
-
-            exportPresetCompatibilityCacheQueue.sync {
-                if let result = inFlight.result {
-                    resolved = result
-                } else {
-                    inFlight.continuations.append(continuation)
-                }
-            }
-
-            if let resolved {
-                continuation.resume(returning: resolved)
-            }
         }
     }
 
@@ -374,11 +334,13 @@ extension VideoConversionEngine {
             try await session.export(to: outputURL, as: outputFileType)
             PerformanceSignpost.end("VideoEncode", token: token, message: preset)
             await onProgress(1)
-        } catch is CancellationError {
-            PerformanceSignpost.end("VideoEncode", token: token, message: "cancelled")
-            throw ConversionError.exportCancelled
         } catch {
-            PerformanceSignpost.end("VideoEncode", token: token, message: "failed")
+            if error is CancellationError {
+                PerformanceSignpost.end("VideoEncode", token: token, message: "cancelled")
+            } else {
+                PerformanceSignpost.end("VideoEncode", token: token, message: "failed")
+            }
+            try rethrowIfExportCancelled(error)
             throw ConversionError.exportFailed(underlying: error, preset: preset)
         }
     }

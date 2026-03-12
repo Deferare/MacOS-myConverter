@@ -1,6 +1,14 @@
 import Foundation
 
 extension ContentViewModel {
+    func resetCancelledConversionState(
+        progressKeyPath: ReferenceWritableKeyPath<ContentViewModel, Double>,
+        errorMessageKeyPath: ReferenceWritableKeyPath<ContentViewModel, String?>
+    ) {
+        setProgress(0, at: progressKeyPath)
+        self[keyPath: errorMessageKeyPath] = nil
+    }
+
     func executeBatchConversion(
         preparedSources: [PreparedSourceConversion],
         batchEnvironment: BatchExecutionEnvironment,
@@ -48,11 +56,15 @@ extension ContentViewModel {
                 self[keyPath: errorMessageKeyPath] = summary
             }
         } catch is CancellationError {
-            setProgress(0, at: progressKeyPath)
-            self[keyPath: errorMessageKeyPath] = nil
+            resetCancelledConversionState(
+                progressKeyPath: progressKeyPath,
+                errorMessageKeyPath: errorMessageKeyPath
+            )
         } catch ConversionError.exportCancelled where treatExportCancellationAsCancelled {
-            setProgress(0, at: progressKeyPath)
-            self[keyPath: errorMessageKeyPath] = nil
+            resetCancelledConversionState(
+                progressKeyPath: progressKeyPath,
+                errorMessageKeyPath: errorMessageKeyPath
+            )
         } catch {
             onError(error)
         }
