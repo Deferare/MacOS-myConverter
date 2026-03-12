@@ -184,14 +184,9 @@ extension ImageConversionEngine {
     nonisolated static func makeFFmpegExecutionContext(
         using runtimeProvider: any FFmpegRuntimeProviding = DefaultFFmpegRuntimeProvider()
     ) -> FFmpegExecutionContext? {
-        guard let runtime = runtimeProvider.makeRuntime(),
-              let introspection = try? inspectFFmpeg(using: runtime) else {
-            return nil
-        }
-
-        return FFmpegExecutionContext(
-            runtime: runtime,
-            introspection: introspection
+        FFmpegExecutionContextSupport.makeContext(
+            using: runtimeProvider,
+            inspect: { try inspectFFmpeg(using: $0) }
         )
     }
 

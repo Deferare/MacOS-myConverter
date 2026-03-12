@@ -7,8 +7,8 @@ extension ContentViewModel {
         let fileExtension: String
         let metadata: ConversionMetadata
         let buildOutputSettings: () throws -> OutputSettings
-        let prepareBatchEnvironment: @Sendable ([PreparedSourceConversion], OutputSettings, URL) async -> BatchExecutionEnvironment
-        let prepareSingleSourceEnvironment: (@MainActor (PreparedSourceConversion, OutputSettings, URL) async -> BatchExecutionEnvironment)?
+        let prepareBatchEnvironment: @Sendable ([PreparedSourceConversion], OutputSettings) async -> BatchExecutionEnvironment
+        let prepareSingleSourceEnvironment: (@MainActor (PreparedSourceConversion, OutputSettings) async -> BatchExecutionEnvironment)?
         let validate: (PreparedSourceConversion, BatchExecutionEnvironment) async -> String?
         let runConversion: (PreparedSourceConversion, BatchExecutionEnvironment, OutputSettings, Int, Int) async throws -> URL
     }
@@ -30,8 +30,8 @@ extension ContentViewModel {
         fileExtension: String,
         metadata: ConversionMetadata,
         buildOutputSettings: @escaping () throws -> OutputSettings,
-        prepareBatchEnvironment: @escaping @Sendable ([PreparedSourceConversion], OutputSettings, URL) async -> BatchExecutionEnvironment,
-        prepareSingleSourceEnvironment: (@MainActor (PreparedSourceConversion, OutputSettings, URL) async -> BatchExecutionEnvironment)? = nil,
+        prepareBatchEnvironment: @escaping @Sendable ([PreparedSourceConversion], OutputSettings) async -> BatchExecutionEnvironment,
+        prepareSingleSourceEnvironment: (@MainActor (PreparedSourceConversion, OutputSettings) async -> BatchExecutionEnvironment)? = nil,
         runConversion: @escaping (PreparedSourceConversion, BatchExecutionEnvironment, OutputSettings, Int, Int) async throws -> URL
     ) -> ConversionWorkflowDescriptor<OutputSettings> {
         ConversionWorkflowDescriptor(
@@ -63,19 +63,17 @@ extension ContentViewModel {
             fileExtension: selectedOutputFormatFileExtension(using: videoOutputFormatDescriptor()),
             metadata: kind.conversionMetadata,
             buildOutputSettings: { try self.buildVideoOutputSettings() },
-            prepareBatchEnvironment: { preparedSources, outputSettings, outputDirectoryURL in
+            prepareBatchEnvironment: { preparedSources, outputSettings in
                 await ContentViewModel.prepareVideoBatchExecutionEnvironment(
                     preparedSources: preparedSources,
                     outputSettings: outputSettings,
-                    outputDirectoryURL: outputDirectoryURL,
                     runtimeProvider: self.services.ffmpegRuntimeProvider
                 )
             },
-            prepareSingleSourceEnvironment: { preparedSource, outputSettings, outputDirectoryURL in
+            prepareSingleSourceEnvironment: { preparedSource, outputSettings in
                 await self.prepareSingleVideoBatchExecutionEnvironment(
                     preparedSource: preparedSource,
-                    outputSettings: outputSettings,
-                    outputDirectoryURL: outputDirectoryURL
+                    outputSettings: outputSettings
                 )
             },
             runConversion: { preparedSource, environment, outputSettings, index, totalCount in
@@ -103,10 +101,9 @@ extension ContentViewModel {
             fileExtension: selectedOutputFormatFileExtension(using: imageOutputFormatDescriptor()),
             metadata: kind.conversionMetadata,
             buildOutputSettings: { self.buildImageOutputSettings() },
-            prepareBatchEnvironment: { preparedSources, _, outputDirectoryURL in
+            prepareBatchEnvironment: { preparedSources, _ in
                 await ContentViewModel.prepareImageBatchExecutionEnvironment(
                     preparedSources: preparedSources,
-                    outputDirectoryURL: outputDirectoryURL,
                     runtimeProvider: self.services.ffmpegRuntimeProvider
                 )
             },
@@ -133,10 +130,9 @@ extension ContentViewModel {
             fileExtension: selectedOutputFormatFileExtension(using: audioOutputFormatDescriptor()),
             metadata: kind.conversionMetadata,
             buildOutputSettings: { self.buildAudioOutputSettings() },
-            prepareBatchEnvironment: { preparedSources, _, outputDirectoryURL in
+            prepareBatchEnvironment: { preparedSources, _ in
                 await ContentViewModel.prepareAudioBatchExecutionEnvironment(
                     preparedSources: preparedSources,
-                    outputDirectoryURL: outputDirectoryURL,
                     runtimeProvider: self.services.ffmpegRuntimeProvider
                 )
             },
@@ -235,8 +231,8 @@ extension ContentViewModel {
         treatExportCancellationAsCancelled: Bool = false,
         startState: (URL, Bool) -> Void,
         buildOutputSettings: () throws -> OutputSettings,
-        prepareBatchEnvironment: @escaping @Sendable ([PreparedSourceConversion], OutputSettings, URL) async -> BatchExecutionEnvironment,
-        prepareSingleSourceEnvironment: (@MainActor (PreparedSourceConversion, OutputSettings, URL) async -> BatchExecutionEnvironment)? = nil,
+        prepareBatchEnvironment: @escaping @Sendable ([PreparedSourceConversion], OutputSettings) async -> BatchExecutionEnvironment,
+        prepareSingleSourceEnvironment: (@MainActor (PreparedSourceConversion, OutputSettings) async -> BatchExecutionEnvironment)? = nil,
         validate: @escaping (PreparedSourceConversion, BatchExecutionEnvironment) async -> String?,
         runConversion: @escaping (PreparedSourceConversion, BatchExecutionEnvironment, OutputSettings, Int, Int) async throws -> URL,
         onSavedOutput: @escaping (URL, URL) -> Void,
@@ -316,7 +312,6 @@ extension ContentViewModel {
             await executeSingleSourceConversion(
                 preparedSource: preparedSource,
                 outputSettings: outputSettings,
-                outputDirectoryURL: batchContext.outputDirectoryURL,
                 prepareSingleSourceEnvironment: prepareSingleSourceEnvironment,
                 runningKeyPath: runningKeyPath,
                 progressKeyPath: progressKeyPath,
@@ -337,8 +332,7 @@ extension ContentViewModel {
         let batchEnvironmentTask = Task.detached(priority: .userInitiated) {
             await prepareBatchEnvironment(
                 batchContext.preparedSources,
-                outputSettings,
-                batchContext.outputDirectoryURL
+                outputSettings
             )
         }
         let batchEnvironment = await awaitDetachedTaskValue(batchEnvironmentTask)
@@ -365,11 +359,9 @@ extension ContentViewModel {
     func executeSingleSourceConversion<OutputSettings: Sendable>(
         preparedSource: PreparedSourceConversion,
         outputSettings: OutputSettings,
-        outputDirectoryURL: URL,
         prepareSingleSourceEnvironment: @escaping @MainActor (
             PreparedSourceConversion,
-            OutputSettings,
-            URL
+            OutputSettings
         ) async -> BatchExecutionEnvironment,
         runningKeyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
         progressKeyPath: ReferenceWritableKeyPath<ContentViewModel, Double>,
@@ -397,8 +389,7 @@ extension ContentViewModel {
 
             let batchEnvironment = await prepareSingleSourceEnvironment(
                 preparedSource,
-                outputSettings,
-                outputDirectoryURL
+                outputSettings
             )
 
             let result = try await withSourceSecurityScope(for: preparedSource.sourceURL) {
