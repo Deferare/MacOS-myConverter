@@ -17,12 +17,6 @@ extension ContentViewModel {
         var sidebarSystemImage: String {
             descriptor.sidebarSystemImage
         }
-
-        var inputSystemImage: String {
-            descriptor.usesFilledInputSystemImage
-                ? "\(sidebarSystemImage).fill"
-                : sidebarSystemImage
-        }
     }
 
     struct SelectedFileListState: Equatable {

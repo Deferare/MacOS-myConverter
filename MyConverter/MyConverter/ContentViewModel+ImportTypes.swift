@@ -14,7 +14,6 @@ extension ContentViewModel {
 
     struct MediaDescriptor {
         let sidebarSystemImage: String
-        let usesFilledInputSystemImage: Bool
         let selectedOutputFormatLabel: (ContentViewModel) -> String
         let saveSettingsFailureContext: String
         let loadSettingsFailureContext: String
@@ -30,7 +29,6 @@ extension ContentViewModel.MediaKind {
         case .video:
             return ContentViewModel.MediaDescriptor(
                 sidebarSystemImage: "film",
-                usesFilledInputSystemImage: true,
                 selectedOutputFormatLabel: { viewModel in
                     viewModel.selectedOutputFormatLabel(using: viewModel.videoOutputFormatDescriptor())
                 },
@@ -51,7 +49,6 @@ extension ContentViewModel.MediaKind {
         case .image:
             return ContentViewModel.MediaDescriptor(
                 sidebarSystemImage: "photo",
-                usesFilledInputSystemImage: true,
                 selectedOutputFormatLabel: { viewModel in
                     viewModel.selectedOutputFormatLabel(using: viewModel.imageOutputFormatDescriptor())
                 },
@@ -72,7 +69,6 @@ extension ContentViewModel.MediaKind {
         case .audio:
             return ContentViewModel.MediaDescriptor(
                 sidebarSystemImage: "waveform",
-                usesFilledInputSystemImage: false,
                 selectedOutputFormatLabel: { viewModel in
                     viewModel.selectedOutputFormatLabel(using: viewModel.audioOutputFormatDescriptor())
                 },
