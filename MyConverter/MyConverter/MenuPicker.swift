@@ -112,6 +112,14 @@ private struct ConverterControlBackground: View {
     }
 }
 
+private struct ConverterRowDivider: View {
+    var body: some View {
+        Rectangle()
+            .fill(.white.opacity(0.08))
+            .frame(height: 1)
+    }
+}
+
 private extension View {
     @ViewBuilder
     func converterControlFrame(using metrics: ConverterSettingMetrics) -> some View {
@@ -126,13 +134,16 @@ private extension View {
 struct ConverterSettingRow<Control: View>: View {
     let title: String
     let control: Control
+    let showsDivider: Bool
     @Environment(\.converterSettingMetrics) private var metrics
 
     init(
         _ title: String,
+        showsDivider: Bool = true,
         @ViewBuilder control: () -> Control
     ) {
         self.title = title
+        self.showsDivider = showsDivider
         self.control = control()
     }
 
@@ -155,6 +166,11 @@ struct ConverterSettingRow<Control: View>: View {
         .padding(.horizontal, metrics.rowHorizontalPadding)
         .padding(.vertical, metrics.rowVerticalPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .bottom) {
+            if showsDivider {
+                ConverterRowDivider()
+            }
+        }
     }
 
     private var titleLabel: some View {
@@ -168,6 +184,7 @@ struct ConverterSettingRow<Control: View>: View {
 
 struct ConverterSettingsHint: View {
     let text: String
+    var showsDivider = true
     @Environment(\.converterSettingMetrics) private var metrics
 
     var body: some View {
@@ -184,27 +201,35 @@ struct ConverterSettingsHint: View {
         .padding(.horizontal, metrics.rowHorizontalPadding)
         .padding(.vertical, metrics.hintVerticalPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .bottom) {
+            if showsDivider {
+                ConverterRowDivider()
+            }
+        }
     }
 }
 
 struct ConverterTextFieldRow: View {
     let title: String
     let prompt: String
+    let showsDivider: Bool
     @Binding var text: String
     @Environment(\.converterSettingMetrics) private var metrics
 
     init(
         _ title: String,
         prompt: String,
+        showsDivider: Bool = true,
         text: Binding<String>
     ) {
         self.title = title
         self.prompt = prompt
+        self.showsDivider = showsDivider
         _text = text
     }
 
     var body: some View {
-        ConverterSettingRow(title) {
+        ConverterSettingRow(title, showsDivider: showsDivider) {
             TextField(prompt, text: $text)
                 .textFieldStyle(.plain)
                 .font(.subheadline.weight(.medium))
@@ -298,18 +323,21 @@ struct OutputFolderSelectionRow: View {
 
 struct ConverterToggleRow: View {
     let title: String
+    let showsDivider: Bool
     @Binding var isOn: Bool
 
     init(
         _ title: String,
+        showsDivider: Bool = true,
         isOn: Binding<Bool>
     ) {
         self.title = title
+        self.showsDivider = showsDivider
         _isOn = isOn
     }
 
     var body: some View {
-        ConverterSettingRow(title) {
+        ConverterSettingRow(title, showsDivider: showsDivider) {
             Toggle(title, isOn: $isOn)
                 .labelsHidden()
                 .toggleStyle(.switch)
@@ -323,6 +351,7 @@ struct MenuPicker<Option: Identifiable & Hashable>: View {
     @Binding var selection: Option
     let options: [Option]
     let disabledWhenEmpty: Bool
+    let showsDivider: Bool
     let label: (Option) -> String
     @Environment(\.converterSettingMetrics) private var metrics
 
@@ -331,12 +360,14 @@ struct MenuPicker<Option: Identifiable & Hashable>: View {
         selection: Binding<Option>,
         options: [Option],
         disabledWhenEmpty: Bool = false,
+        showsDivider: Bool = true,
         label: @escaping (Option) -> String
     ) {
         self.title = title
         _selection = selection
         self.options = options
         self.disabledWhenEmpty = disabledWhenEmpty
+        self.showsDivider = showsDivider
         self.label = label
     }
 
@@ -350,7 +381,7 @@ struct MenuPicker<Option: Identifiable & Hashable>: View {
     }
 
     var body: some View {
-        ConverterSettingRow(title) {
+        ConverterSettingRow(title, showsDivider: showsDivider) {
             Menu {
                 ForEach(pickerOptions, id: \.self) { option in
                     Button {

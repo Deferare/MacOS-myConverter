@@ -10,6 +10,10 @@ struct VideoConverterFormSectionView: View, Equatable {
 
     var body: some View {
         let _ = PerformanceSignpost.event("VideoFormRender")
+        let showsPlaybackSpeed = state.shouldShowGIFPlaybackSpeedOption
+        let showsVideoBitRate = state.shouldShowVideoBitRateOption
+        let showsCustomVideoBitRate = showsVideoBitRate && state.selectedVideoBitRate == .custom
+        let showsAudioSettings = state.shouldShowAudioSettings
 
         ConverterFormSections(
             isConverting: state.isConverting
@@ -19,6 +23,7 @@ struct VideoConverterFormSectionView: View, Equatable {
                 selection: bindings.selectedOutputFormat,
                 options: state.outputFormatOptions,
                 disabledWhenEmpty: true,
+                showsDivider: true,
                 label: { "\($0.displayName) (.\($0.fileExtension))" }
             )
 
@@ -28,6 +33,7 @@ struct VideoConverterFormSectionView: View, Equatable {
                     selection: bindings.selectedVideoEncoder,
                     options: state.videoEncoderOptions,
                     disabledWhenEmpty: true,
+                    showsDivider: true,
                     label: { $0.rawValue }
                 )
             }
@@ -36,6 +42,7 @@ struct VideoConverterFormSectionView: View, Equatable {
                 "Resolution",
                 selection: bindings.selectedResolution,
                 options: Array(ResolutionOption.allCases),
+                showsDivider: true,
                 label: { $0.rawValue }
             )
 
@@ -43,6 +50,7 @@ struct VideoConverterFormSectionView: View, Equatable {
                 "Frame Rate",
                 selection: bindings.selectedFrameRate,
                 options: Array(FrameRateOption.allCases),
+                showsDivider: showsPlaybackSpeed || showsVideoBitRate || showsCustomVideoBitRate || showsAudioSettings,
                 label: { $0.rawValue }
             )
 
@@ -51,6 +59,7 @@ struct VideoConverterFormSectionView: View, Equatable {
                     "Playback Speed",
                     selection: bindings.selectedGIFPlaybackSpeed,
                     options: Array(GIFPlaybackSpeedOption.allCases),
+                    showsDivider: showsVideoBitRate || showsCustomVideoBitRate || showsAudioSettings,
                     label: { $0.rawValue }
                 )
             }
@@ -60,6 +69,7 @@ struct VideoConverterFormSectionView: View, Equatable {
                     "Video Bit Rate",
                     selection: bindings.selectedVideoBitRate,
                     options: Array(VideoBitRateOption.allCases),
+                    showsDivider: showsCustomVideoBitRate || showsAudioSettings,
                     label: { $0.rawValue }
                 )
             }
@@ -68,6 +78,7 @@ struct VideoConverterFormSectionView: View, Equatable {
                 ConverterTextFieldRow(
                     "Custom Video Bit Rate",
                     prompt: "Custom Kbps (e.g. 5000)",
+                    showsDivider: showsAudioSettings,
                     text: bindings.customVideoBitRate
                 )
             }
@@ -78,6 +89,7 @@ struct VideoConverterFormSectionView: View, Equatable {
                     selection: bindings.selectedAudioEncoder,
                     options: state.audioEncoderOptions,
                     disabledWhenEmpty: true,
+                    showsDivider: true,
                     label: { $0.rawValue }
                 )
 
@@ -86,7 +98,8 @@ struct VideoConverterFormSectionView: View, Equatable {
                     sampleRateSelection: bindings.selectedSampleRate,
                     bitRateSelection: bindings.selectedAudioBitRate,
                     showSampleRate: state.shouldShowAudioSampleRateOption,
-                    showBitRate: state.shouldShowAudioBitRateOption
+                    showBitRate: state.shouldShowAudioBitRateOption,
+                    showsDividerOnLastRow: false
                 )
             }
         }

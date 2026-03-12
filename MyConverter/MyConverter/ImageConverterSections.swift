@@ -10,6 +10,10 @@ struct ImageConverterFormSectionView: View, Equatable {
 
     var body: some View {
         let _ = PerformanceSignpost.event("ImageFormRender")
+        let showsHint = state.hintMessage != nil
+        let showsQuality = state.shouldShowImageQualityOption
+        let showsPNGCompression = state.shouldShowPNGCompressionOption
+        let showsPreserveAnimation = state.shouldShowPreserveAnimationOption
 
         ConverterFormSections(
             isConverting: state.isConverting
@@ -19,6 +23,7 @@ struct ImageConverterFormSectionView: View, Equatable {
                 selection: bindings.selectedOutputFormat,
                 options: state.outputFormatOptions,
                 disabledWhenEmpty: true,
+                showsDivider: true,
                 label: { "\($0.displayName) (.\($0.fileExtension))" }
             )
 
@@ -26,6 +31,7 @@ struct ImageConverterFormSectionView: View, Equatable {
                 "Resolution",
                 selection: bindings.selectedResolution,
                 options: Array(ResolutionOption.allCases),
+                showsDivider: showsQuality || showsPNGCompression || showsPreserveAnimation || showsHint,
                 label: { $0.rawValue }
             )
 
@@ -34,6 +40,7 @@ struct ImageConverterFormSectionView: View, Equatable {
                     "Quality",
                     selection: bindings.selectedQuality,
                     options: Array(ImageQualityOption.allCases),
+                    showsDivider: showsPNGCompression || showsPreserveAnimation || showsHint,
                     label: { $0.rawValue }
                 )
             }
@@ -43,16 +50,21 @@ struct ImageConverterFormSectionView: View, Equatable {
                     "PNG Compression",
                     selection: bindings.selectedPNGCompressionLevel,
                     options: Array(PNGCompressionLevelOption.allCases),
+                    showsDivider: showsPreserveAnimation || showsHint,
                     label: { $0.rawValue }
                 )
             }
 
             if state.shouldShowPreserveAnimationOption {
-                ConverterToggleRow("Preserve Animation", isOn: bindings.preserveAnimation)
+                ConverterToggleRow(
+                    "Preserve Animation",
+                    showsDivider: showsHint,
+                    isOn: bindings.preserveAnimation
+                )
             }
 
             if let hint = state.hintMessage {
-                ConverterSettingsHint(text: hint)
+                ConverterSettingsHint(text: hint, showsDivider: false)
             }
         }
     }

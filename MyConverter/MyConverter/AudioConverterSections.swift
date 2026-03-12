@@ -19,6 +19,7 @@ struct AudioConverterFormSectionView: View, Equatable {
                 selection: bindings.selectedOutputFormat,
                 options: state.outputFormatOptions,
                 disabledWhenEmpty: true,
+                showsDivider: true,
                 label: { "\($0.displayName) (.\($0.fileExtension))" }
             )
 
@@ -27,6 +28,7 @@ struct AudioConverterFormSectionView: View, Equatable {
                 selection: bindings.selectedOutputEncoder,
                 options: state.audioOutputEncoderOptions,
                 disabledWhenEmpty: true,
+                showsDivider: true,
                 label: { $0.rawValue }
             )
 
@@ -35,11 +37,12 @@ struct AudioConverterFormSectionView: View, Equatable {
                 sampleRateSelection: bindings.selectedOutputSampleRate,
                 bitRateSelection: bindings.selectedOutputBitRate,
                 showSampleRate: state.shouldShowAudioOutputSampleRateOption,
-                showBitRate: state.shouldShowAudioOutputBitRateOption
+                showBitRate: state.shouldShowAudioOutputBitRateOption,
+                showsDividerOnLastRow: state.hintMessage != nil
             )
 
             if let hint = state.hintMessage {
-                ConverterSettingsHint(text: hint)
+                ConverterSettingsHint(text: hint, showsDivider: false)
             }
         }
     }

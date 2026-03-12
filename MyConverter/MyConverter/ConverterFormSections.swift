@@ -3,7 +3,6 @@ import SwiftUI
 struct ConverterFormSections<SettingsContent: View>: View {
     let isConverting: Bool
     let settingsContent: SettingsContent
-    @Environment(\.converterSettingMetrics) private var metrics
 
     init(
         isConverting: Bool,
@@ -14,7 +13,7 @@ struct ConverterFormSections<SettingsContent: View>: View {
     }
 
     var body: some View {
-        VStack(spacing: metrics.sectionSpacing) {
+        VStack(spacing: 0) {
             settingsContent
         }
         .disabled(isConverting)

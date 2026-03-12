@@ -267,36 +267,38 @@ struct IPadMediaConverterView: View {
             Text("Conversion Settings")
                 .font(Metrics.sectionTitleFont)
 
-            OutputFolderSelectionRow(
-                pathText: viewModel.selectedOutputDirectoryURL(for: kind).map {
-                    viewModel.abbreviatedOutputDirectoryPath($0)
-                } ?? "No folder selected",
-                hasSelection: viewModel.hasSelectedOutputDirectory(for: kind),
-                tint: kind.liquidGlassTint,
-                isDisabled: renderState.screenState.isConverting,
-                onChoose: {
-                    Task {
-                        await viewModel.chooseOutputDirectory(for: kind)
+            VStack(spacing: 0) {
+                OutputFolderSelectionRow(
+                    pathText: viewModel.selectedOutputDirectoryURL(for: kind).map {
+                        viewModel.abbreviatedOutputDirectoryPath($0)
+                    } ?? "No folder selected",
+                    hasSelection: viewModel.hasSelectedOutputDirectory(for: kind),
+                    tint: kind.liquidGlassTint,
+                    isDisabled: renderState.screenState.isConverting,
+                    onChoose: {
+                        Task {
+                            await viewModel.chooseOutputDirectory(for: kind)
+                        }
                     }
-                }
-            )
+                )
 
-            switch kind {
-            case .video:
-                VideoConverterFormSectionView(
-                    state: viewModel.videoFormPresentationState(),
-                    bindings: viewModel.videoFormBindings()
-                )
-            case .image:
-                ImageConverterFormSectionView(
-                    state: viewModel.imageFormPresentationState(),
-                    bindings: viewModel.imageFormBindings()
-                )
-            case .audio:
-                AudioConverterFormSectionView(
-                    state: viewModel.audioFormPresentationState(),
-                    bindings: viewModel.audioFormBindings()
-                )
+                switch kind {
+                case .video:
+                    VideoConverterFormSectionView(
+                        state: viewModel.videoFormPresentationState(),
+                        bindings: viewModel.videoFormBindings()
+                    )
+                case .image:
+                    ImageConverterFormSectionView(
+                        state: viewModel.imageFormPresentationState(),
+                        bindings: viewModel.imageFormBindings()
+                    )
+                case .audio:
+                    AudioConverterFormSectionView(
+                        state: viewModel.audioFormPresentationState(),
+                        bindings: viewModel.audioFormBindings()
+                    )
+                }
             }
         }
         .padding(Metrics.panelPadding)
