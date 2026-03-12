@@ -7,7 +7,7 @@ final class MyConverterCoreTests: XCTestCase {
         let handle = OutputDestinationHandle(url: rawURL)
 
         XCTAssertEqual(handle.kind, .folder)
-        XCTAssertEqual(handle.url, rawURL.standardizedFileURL)
+        XCTAssertEqual(handle.url, rawURL)
         XCTAssertNil(handle.bookmarkData)
     }
 
