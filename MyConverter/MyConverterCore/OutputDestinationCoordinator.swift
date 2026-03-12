@@ -15,7 +15,7 @@ struct OutputDestinationHandle: Equatable, Sendable {
         bookmarkData: Data? = nil
     ) {
         self.kind = kind
-        self.url = url.standardizedFileURL
+        self.url = url
         self.bookmarkData = bookmarkData
     }
 }

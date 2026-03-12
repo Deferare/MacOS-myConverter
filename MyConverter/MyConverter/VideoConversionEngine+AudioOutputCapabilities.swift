@@ -4,19 +4,19 @@ extension VideoConversionEngine {
     nonisolated static func defaultAudioOutputFormats() -> [AudioFormatOption] {
         let knownFormats = AudioFormatOption.ffmpegKnownFormats
 
-        guard let ffmpegPath = FFmpegBinaryLocator.findPath() else {
+        guard let runtime = DefaultFFmpegRuntimeProvider().makeRuntime() else {
             return knownFormats
         }
 
         return cachedCapabilityValue(
-            readCached: { capabilityCacheQueue.sync(execute: { defaultAudioFormatsCache[ffmpegPath] }) },
+            readCached: { capabilityCacheQueue.sync(execute: { defaultAudioFormatsCache[runtime.cacheIdentity] }) },
             storeCached: { resolved in
                 capabilityCacheQueue.sync {
-                    defaultAudioFormatsCache[ffmpegPath] = resolved
+                    defaultAudioFormatsCache[runtime.cacheIdentity] = resolved
                 }
             }
         ) {
-            guard let introspection = try? inspectFFmpeg(at: ffmpegPath) else {
+            guard let introspection = try? inspectFFmpeg(using: runtime) else {
                 return knownFormats
             }
 
@@ -27,11 +27,11 @@ extension VideoConversionEngine {
     }
 
     nonisolated static func availableAudioEncoders(for format: AudioFormatOption) -> [AudioEncoderOption] {
-        guard let ffmpegPath = FFmpegBinaryLocator.findPath() else {
+        guard let runtime = DefaultFFmpegRuntimeProvider().makeRuntime() else {
             return format.allowsFFmpegAutomaticAudioCodec ? [.auto] : []
         }
 
-        let cacheKey = makeCapabilityCacheKey(path: ffmpegPath, normalizedID: format.normalizedID)
+        let cacheKey = makeCapabilityCacheKey(path: runtime.cacheIdentity, normalizedID: format.normalizedID)
         return cachedCapabilityValue(
             readCached: { capabilityCacheQueue.sync(execute: { audioFormatEncoderOptionsCache[cacheKey] }) },
             storeCached: { resolved in
@@ -40,7 +40,7 @@ extension VideoConversionEngine {
                 }
             }
         ) {
-            guard let introspection = try? inspectFFmpeg(at: ffmpegPath),
+            guard let introspection = try? inspectFFmpeg(using: runtime),
                   isFFmpegAudioFormatSupported(format, introspection: introspection) else {
                 return []
             }

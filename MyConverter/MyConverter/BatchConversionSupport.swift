@@ -15,7 +15,8 @@ enum BatchConversionSupport {
     nonisolated static func prepareContext(
         sourceURLs: [URL],
         fileExtension: String,
-        outputDirectoryURL: URL
+        outputDirectoryURL: URL,
+        outputDirectoryAccessURL: URL? = nil
     ) -> PreparedBatchConversionContext? {
         var destinationURLsBySourceID: [String: URL] = [:]
         var allocator = OutputPathUtilities.ReservedOutputAllocator.preloaded(for: outputDirectoryURL)
@@ -28,7 +29,8 @@ enum BatchConversionSupport {
 
         guard let batchAccess = prepareBatchDirectoryAccess(
             sourceURLs: sourceURLs,
-            destinationURLsBySourceID: destinationURLsBySourceID
+            destinationURLsBySourceID: destinationURLsBySourceID,
+            outputDirectoryAccessURL: outputDirectoryAccessURL
         ) else {
             return nil
         }
@@ -54,6 +56,7 @@ enum BatchConversionSupport {
                 sourceURL: sourceURL,
                 sourceID: sourceID,
                 destinationURL: destinationURL,
+                destinationDirectoryAccessURL: batchAccess.batchDirectoryURL ?? outputDirectoryURL,
                 workingOutputURL: preparedWorkingOutput.url,
                 workingOutputStrategy: preparedWorkingOutput.strategy
             )
@@ -81,16 +84,12 @@ enum BatchConversionSupport {
         from sourceURL: URL,
         preparedSource: PreparedSourceConversion
     ) throws -> URL {
-        let destinationDirectoryURL = preparedSource.destinationURL.deletingLastPathComponent()
-
-        return try SecurityScopedResourceAccess.withAccess(to: preparedSource.destinationURL) {
-            try SecurityScopedResourceAccess.withAccess(to: destinationDirectoryURL) {
-                try OutputPathUtilities.commitPreparedOutput(
-                    from: sourceURL,
-                    to: preparedSource.destinationURL,
-                    strategy: preparedSource.workingOutputStrategy
-                )
-            }
+        return try SecurityScopedResourceAccess.withAccess(to: preparedSource.destinationDirectoryAccessURL) {
+            try OutputPathUtilities.commitPreparedOutput(
+                from: sourceURL,
+                to: preparedSource.destinationURL,
+                strategy: preparedSource.workingOutputStrategy
+            )
         }
     }
 }

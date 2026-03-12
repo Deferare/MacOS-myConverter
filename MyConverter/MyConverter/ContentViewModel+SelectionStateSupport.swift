@@ -147,23 +147,7 @@ extension ContentViewModel {
     func clearSelectedSource(for kind: MediaKind) {
         clearPreparedSingleVideoSelection(for: kind)
         cancelSelectionAnalysis(for: kind)
-        switch kind {
-        case .video:
-            updateState(\.videoRuntimeState) { state in
-                state.media.sourceURL = nil
-                state.media.queuedSourceURLs = []
-            }
-        case .image:
-            updateState(\.imageRuntimeState) { state in
-                state.media.sourceURL = nil
-                state.media.queuedSourceURLs = []
-            }
-        case .audio:
-            updateState(\.audioRuntimeState) { state in
-                state.media.sourceURL = nil
-                state.media.queuedSourceURLs = []
-            }
-        }
+        assignSelection([], for: kind)
         restoreIdleMediaState(
             for: kind,
             resetOutputs: true,

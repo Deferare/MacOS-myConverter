@@ -180,6 +180,15 @@ enum OutputPathUtilities {
         for sourceURL: URL,
         destinationURL: URL
     ) -> PreparedWorkingOutput {
+        #if os(iOS)
+        return PreparedWorkingOutput(
+            url: temporaryOutputURL(
+                for: sourceURL,
+                fileExtension: destinationURL.pathExtension
+            ),
+            strategy: .workingDirectoryFallback
+        )
+        #else
         if let destinationAdjacent = destinationAdjacentTemporaryOutputURL(for: destinationURL) {
             return PreparedWorkingOutput(
                 url: destinationAdjacent,
@@ -194,6 +203,7 @@ enum OutputPathUtilities {
             ),
             strategy: .workingDirectoryFallback
         )
+        #endif
     }
 
     nonisolated static func commitPreparedOutput(
@@ -329,6 +339,15 @@ enum OutputPathUtilities {
                 path: destinationURL.path,
                 message: error.localizedDescription
             )
+        }
+    }
+}
+
+extension OutputPathUtilities.SaveOutputError: LocalizedError {
+    var errorDescription: String? {
+        switch self {
+        case let .outputSaveFailed(path, message):
+            return "Failed to save output to \(path): \(message)"
         }
     }
 }

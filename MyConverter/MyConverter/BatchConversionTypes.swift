@@ -18,6 +18,7 @@ struct PreparedSourceConversion: Sendable {
     let sourceURL: URL
     let sourceID: String
     let destinationURL: URL
+    let destinationDirectoryAccessURL: URL
     let workingOutputURL: URL
     let workingOutputStrategy: WorkingOutputStrategy
 }

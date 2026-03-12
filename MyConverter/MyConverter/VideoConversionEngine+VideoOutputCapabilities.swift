@@ -4,19 +4,19 @@ extension VideoConversionEngine {
     nonisolated static func defaultOutputFormats() -> [VideoFormatOption] {
         let avFormats = VideoFormatOption.avFoundationDefaultFormats
 
-        guard let ffmpegPath = FFmpegBinaryLocator.findPath() else {
+        guard let runtime = DefaultFFmpegRuntimeProvider().makeRuntime() else {
             return avFormats
         }
 
         return cachedCapabilityValue(
-            readCached: { capabilityCacheQueue.sync(execute: { defaultVideoFormatsCache[ffmpegPath] }) },
+            readCached: { capabilityCacheQueue.sync(execute: { defaultVideoFormatsCache[runtime.cacheIdentity] }) },
             storeCached: { resolved in
                 capabilityCacheQueue.sync {
-                    defaultVideoFormatsCache[ffmpegPath] = resolved
+                    defaultVideoFormatsCache[runtime.cacheIdentity] = resolved
                 }
             }
         ) {
-            guard let introspection = try? inspectFFmpeg(at: ffmpegPath) else {
+            guard let introspection = try? inspectFFmpeg(using: runtime) else {
                 return avFormats
             }
 
@@ -32,11 +32,11 @@ extension VideoConversionEngine {
             return [.auto]
         }
 
-        guard let ffmpegPath = FFmpegBinaryLocator.findPath() else {
+        guard let runtime = DefaultFFmpegRuntimeProvider().makeRuntime() else {
             return [.auto]
         }
 
-        let cacheKey = makeCapabilityCacheKey(path: ffmpegPath, normalizedID: format.normalizedID)
+        let cacheKey = makeCapabilityCacheKey(path: runtime.cacheIdentity, normalizedID: format.normalizedID)
         return cachedCapabilityValue(
             readCached: { capabilityCacheQueue.sync(execute: { videoEncoderOptionsCache[cacheKey] }) },
             storeCached: { resolved in
@@ -45,7 +45,7 @@ extension VideoConversionEngine {
                 }
             }
         ) {
-            guard let introspection = try? inspectFFmpeg(at: ffmpegPath),
+            guard let introspection = try? inspectFFmpeg(using: runtime),
                   isFFmpegFormatSupported(format, introspection: introspection) else {
                 return format.avFileType == nil ? [VideoEncoderOption]() : [.auto]
             }
@@ -65,11 +65,11 @@ extension VideoConversionEngine {
             return []
         }
 
-        guard let ffmpegPath = FFmpegBinaryLocator.findPath() else {
+        guard let runtime = DefaultFFmpegRuntimeProvider().makeRuntime() else {
             return [.auto]
         }
 
-        let cacheKey = makeCapabilityCacheKey(path: ffmpegPath, normalizedID: format.normalizedID)
+        let cacheKey = makeCapabilityCacheKey(path: runtime.cacheIdentity, normalizedID: format.normalizedID)
         return cachedCapabilityValue(
             readCached: { capabilityCacheQueue.sync(execute: { videoFormatAudioEncoderOptionsCache[cacheKey] }) },
             storeCached: { resolved in
@@ -78,7 +78,7 @@ extension VideoConversionEngine {
                 }
             }
         ) {
-            guard let introspection = try? inspectFFmpeg(at: ffmpegPath),
+            guard let introspection = try? inspectFFmpeg(using: runtime),
                   isFFmpegFormatSupported(format, introspection: introspection) else {
                 return format.avFileType == nil ? [AudioEncoderOption]() : [.auto]
             }

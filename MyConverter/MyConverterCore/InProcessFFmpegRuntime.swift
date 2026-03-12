@@ -14,18 +14,28 @@ enum EmbeddedFFmpegBridge {
     }
 
     nonisolated private static let executionLock = NSLock()
+    nonisolated private static let stateQueue = DispatchQueue(label: "myconverter.ffmpeg.bridge.state")
+    nonisolated(unsafe) private static var currentExecutionThread: pthread_t?
+    nonisolated(unsafe) private static var currentInputWriteDescriptor: Int32 = -1
 
     nonisolated static func runCommand(
         arguments: [String],
         outputLineHandler: (@Sendable (String) -> Void)?
     ) async throws -> FFmpegCommandResult {
         #if os(iOS) && MYCONVERTER_IOS_FFMPEG_BRIDGE
-        return try await Task.detached(priority: .userInitiated) {
+        let task = Task.detached(priority: .userInitiated) {
             try runCapturedCommand(
                 arguments: arguments,
                 outputLineHandler: outputLineHandler
             )
-        }.value
+        }
+
+        return try await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: {
+            cancelCurrentCommand()
+            task.cancel()
+        }
         #else
         throw FFmpegRuntimeError.unavailable(
             "The in-process FFmpeg bridge is not configured for this build."
@@ -51,28 +61,111 @@ enum EmbeddedFFmpegBridge {
         #endif
     }
 
+    nonisolated static func cancelCurrentCommand() {
+        #if os(iOS) && MYCONVERTER_IOS_FFMPEG_BRIDGE
+        let (thread, inputWriteDescriptor) = stateQueue.sync {
+            (currentExecutionThread, currentInputWriteDescriptor)
+        }
+
+        if inputWriteDescriptor >= 0 {
+            let bytes = Array("q\n".utf8)
+            _ = bytes.withUnsafeBytes { buffer in
+                write(inputWriteDescriptor, buffer.baseAddress, buffer.count)
+            }
+        }
+
+        let signals: [Int32] = [SIGINT, SIGINT, SIGTERM]
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            for signal in signals {
+                if let thread {
+                    pthread_kill(thread, signal)
+                }
+                kill(getpid(), signal)
+                usleep(50_000)
+            }
+        }
+        #endif
+    }
+
     #if os(iOS) && MYCONVERTER_IOS_FFMPEG_BRIDGE
+    private typealias CVoidFunction = @convention(c) () -> Void
+
+    nonisolated private static func resolveMutableInt32Symbol(_ name: String) -> UnsafeMutablePointer<Int32>? {
+        guard let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), name) else {
+            return nil
+        }
+        return symbol.assumingMemoryBound(to: Int32.self)
+    }
+
+    nonisolated private static func resolveVoidFunction(_ name: String) -> CVoidFunction? {
+        guard let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), name) else {
+            return nil
+        }
+        return unsafeBitCast(symbol, to: CVoidFunction.self)
+    }
+
     nonisolated private static func runCapturedCommand(
         arguments: [String],
         outputLineHandler: (@Sendable (String) -> Void)?
     ) throws -> FFmpegCommandResult {
         executionLock.lock()
-        defer { executionLock.unlock() }
+        stateQueue.sync {
+            currentExecutionThread = pthread_self()
+        }
+        defer {
+            stateQueue.sync {
+                currentExecutionThread = nil
+            }
+            executionLock.unlock()
+        }
 
         let commandArguments = arguments.first == "ffmpeg"
             ? arguments
             : ["ffmpeg"] + arguments
 
+        let stdinInteractionPointer = resolveMutableInt32Symbol("stdin_interaction")
+        let previousStdinInteraction = stdinInteractionPointer?.pointee
+        stdinInteractionPointer?.pointee = 1
+        let termInit = resolveVoidFunction("term_init")
+        let termExit = resolveVoidFunction("term_exit")
+        termInit?()
+
+        var inputPipeDescriptors = [Int32](repeating: 0, count: 2)
+        guard pipe(&inputPipeDescriptors) == 0 else {
+            if let previousStdinInteraction {
+                stdinInteractionPointer?.pointee = previousStdinInteraction
+            }
+            termExit?()
+            throw FFmpegRuntimeError.unavailable("Failed to create FFmpeg input pipe.")
+        }
+
+        let inputReadDescriptor = inputPipeDescriptors[0]
+        let inputWriteDescriptor = inputPipeDescriptors[1]
+
         var pipeDescriptors = [Int32](repeating: 0, count: 2)
         guard pipe(&pipeDescriptors) == 0 else {
+            if let previousStdinInteraction {
+                stdinInteractionPointer?.pointee = previousStdinInteraction
+            }
+            termExit?()
+            close(inputReadDescriptor)
+            close(inputWriteDescriptor)
             throw FFmpegRuntimeError.unavailable("Failed to create FFmpeg output pipe.")
         }
 
         let readDescriptor = pipeDescriptors[0]
         let writeDescriptor = pipeDescriptors[1]
+        let savedStdin = dup(STDIN_FILENO)
         let savedStdout = dup(STDOUT_FILENO)
         let savedStderr = dup(STDERR_FILENO)
-        guard savedStdout >= 0, savedStderr >= 0 else {
+        guard savedStdin >= 0, savedStdout >= 0, savedStderr >= 0 else {
+            if let previousStdinInteraction {
+                stdinInteractionPointer?.pointee = previousStdinInteraction
+            }
+            termExit?()
+            close(inputReadDescriptor)
+            close(inputWriteDescriptor)
             close(readDescriptor)
             close(writeDescriptor)
             throw FFmpegRuntimeError.unavailable("Failed to duplicate output descriptors.")
@@ -117,18 +210,33 @@ enum EmbeddedFFmpegBridge {
         }
 
         fflush(nil)
+        dup2(inputReadDescriptor, STDIN_FILENO)
         dup2(writeDescriptor, STDOUT_FILENO)
         dup2(writeDescriptor, STDERR_FILENO)
+        close(inputReadDescriptor)
+        stateQueue.sync {
+            currentInputWriteDescriptor = inputWriteDescriptor
+        }
 
         let status = ffmpeg(commandArguments)
 
         fflush(nil)
+        stateQueue.sync {
+            currentInputWriteDescriptor = -1
+        }
+        dup2(savedStdin, STDIN_FILENO)
         dup2(savedStdout, STDOUT_FILENO)
         dup2(savedStderr, STDERR_FILENO)
+        close(savedStdin)
         close(savedStdout)
         close(savedStderr)
+        close(inputWriteDescriptor)
         close(writeDescriptor)
         readerGroup.wait()
+        termExit?()
+        if let previousStdinInteraction {
+            stdinInteractionPointer?.pointee = previousStdinInteraction
+        }
 
         return FFmpegCommandResult(
             terminationStatus: Int32(status),

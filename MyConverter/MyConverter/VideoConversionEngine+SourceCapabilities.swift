@@ -2,8 +2,8 @@ import AVFoundation
 import Foundation
 
 extension VideoConversionEngine {
-    private static func makeSourceCapabilityCacheKey(for inputURL: URL, ffmpegPath: String?) -> String {
-        "\(OutputPathUtilities.fileFingerprint(for: inputURL))|\(ffmpegPath ?? "none")"
+    private static func makeSourceCapabilityCacheKey(for inputURL: URL, runtimeIdentity: String?) -> String {
+        "\(OutputPathUtilities.fileFingerprint(for: inputURL))|\(runtimeIdentity ?? "none")"
     }
 
     private static func makeVideoCapabilities(
@@ -31,8 +31,8 @@ extension VideoConversionEngine {
     }
 
     static func sourceCapabilitiesForAudio(for inputURL: URL) async -> AudioSourceCapabilities {
-        let ffmpegPath = FFmpegBinaryLocator.findPath()
-        let cacheKey = makeSourceCapabilityCacheKey(for: inputURL, ffmpegPath: ffmpegPath)
+        let runtime = DefaultFFmpegRuntimeProvider().makeRuntime()
+        let cacheKey = makeSourceCapabilityCacheKey(for: inputURL, runtimeIdentity: runtime?.cacheIdentity)
         if let cached = sourceCapabilityCacheQueue.sync(execute: { audioSourceCapabilitiesCache[cacheKey] }) {
             return cached
         }
@@ -52,7 +52,7 @@ extension VideoConversionEngine {
         }
 
         let resolved = await Task.detached(priority: .userInitiated) {
-            await resolveAudioSourceCapabilities(for: inputURL, ffmpegPath: ffmpegPath)
+            await resolveAudioSourceCapabilities(for: inputURL, runtime: runtime)
         }.value
 
         var continuations: [CheckedContinuation<AudioSourceCapabilities, Never>] = []
@@ -71,9 +71,9 @@ extension VideoConversionEngine {
 
     private static func resolveAudioSourceCapabilities(
         for inputURL: URL,
-        ffmpegPath: String?
+        runtime: (any FFmpegRuntime)?
     ) async -> AudioSourceCapabilities {
-        guard let ffmpegPath else {
+        guard let runtime else {
             return makeAudioCapabilities(
                 availableOutputFormats: [],
                 errorMessage: "Audio conversion requires ffmpeg, but ffmpeg was not found."
@@ -101,7 +101,7 @@ extension VideoConversionEngine {
         }
 
         let hasAudioTrack = await ffmpegCanReadMappedStream(
-            ffmpegPath: ffmpegPath,
+            runtime: runtime,
             inputURL: inputURL,
             mapSpecifier: "0:a:0",
             frameArguments: ["-frames:a", "1"]
@@ -121,8 +121,8 @@ extension VideoConversionEngine {
         for inputURL: URL,
         stagedInputLease: FFmpegStagingSupport.StagedInputLease? = nil
     ) async -> VideoSourceCapabilities {
-        let ffmpegPath = FFmpegBinaryLocator.findPath()
-        let cacheKey = makeSourceCapabilityCacheKey(for: inputURL, ffmpegPath: ffmpegPath)
+        let runtime = DefaultFFmpegRuntimeProvider().makeRuntime()
+        let cacheKey = makeSourceCapabilityCacheKey(for: inputURL, runtimeIdentity: runtime?.cacheIdentity)
         if let cached = sourceCapabilityCacheQueue.sync(execute: { videoSourceCapabilitiesCache[cacheKey] }) {
             return cached
         }
@@ -144,7 +144,7 @@ extension VideoConversionEngine {
         let resolved = await Task.detached(priority: .userInitiated) {
             await resolveVideoSourceCapabilities(
                 for: inputURL,
-                ffmpegPath: ffmpegPath,
+                runtime: runtime,
                 stagedInputLease: stagedInputLease
             )
         }.value
@@ -205,10 +205,10 @@ extension VideoConversionEngine {
 
     private static func resolveVideoSourceCapabilities(
         for inputURL: URL,
-        ffmpegPath: String?,
+        runtime: (any FFmpegRuntime)?,
         stagedInputLease: FFmpegStagingSupport.StagedInputLease?
     ) async -> VideoSourceCapabilities {
-        let ffmpegAvailable = ffmpegPath != nil
+        let ffmpegAvailable = runtime != nil
         let defaultFormats = defaultOutputFormats()
         let assetTrackProbe = await assetTrackProbe(for: inputURL)
 
@@ -238,9 +238,9 @@ extension VideoConversionEngine {
             return makeVideoCapabilities(availableOutputFormats: avSupported)
         }
 
-        if let ffmpegPath {
+        if let runtime {
             let hasVideoTrack = await ffmpegCanReadMappedStream(
-                ffmpegPath: ffmpegPath,
+                runtime: runtime,
                 inputURL: inputURL,
                 stagedInputLease: stagedInputLease,
                 mapSpecifier: "0:v:0",

@@ -36,6 +36,7 @@ final class ContentViewModel: ObservableObject {
     var taskState = TaskState()
     var capabilityWarmState = CapabilityWarmState()
     var selectionPreparationState = SelectionPreparationState()
+    var securityScopeState = SecurityScopeState()
 
     init(services: PlatformServices) {
         self.services = services
@@ -45,5 +46,12 @@ final class ContentViewModel: ObservableObject {
 
     convenience init() {
         self.init(services: .makeDefault())
+    }
+
+    deinit {
+        let retained = securityScopeState.retainedByPath.values
+        for entry in retained where entry.shouldStopAccessing {
+            entry.url.stopAccessingSecurityScopedResource()
+        }
     }
 }

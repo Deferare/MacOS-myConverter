@@ -30,6 +30,9 @@ extension ContentViewModel {
     }
 
     func cancelConversionTask(for kind: MediaKind) {
+        #if os(iOS)
+        EmbeddedFFmpegBridge.cancelCurrentCommand()
+        #endif
         guard let task = currentConversionTask(for: kind) else { return }
         task.cancel()
     }

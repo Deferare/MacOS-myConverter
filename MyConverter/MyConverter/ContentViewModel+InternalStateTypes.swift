@@ -1,6 +1,19 @@
 import Foundation
 
 extension ContentViewModel {
+    struct RetainedSecurityScopedURL {
+        let url: URL
+        let shouldStopAccessing: Bool
+        var retainCount: Int
+    }
+
+    struct SecurityScopeState {
+        var retainedByPath: [String: RetainedSecurityScopedURL] = [:]
+        var pathsByKind: [MediaKind: Set<String>] = [:]
+        var outputDirectoryPathByKind: [MediaKind: String] = [:]
+        var outputDestinationHandleByKind: [MediaKind: OutputDestinationHandle] = [:]
+    }
+
     struct PreparedSingleVideoSelection {
         let sourceID: String
         let sourceURL: URL

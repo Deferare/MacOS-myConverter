@@ -11,14 +11,21 @@ extension ContentViewModel {
     }
 
     func selectedOutputDestinationHandle(for kind: MediaKind) -> OutputDestinationHandle? {
-        selectedOutputDirectoryURL(for: kind).map { OutputDestinationHandle(url: $0) }
+        if let handle = securityScopeState.outputDestinationHandleByKind[kind] {
+            return handle
+        }
+        return selectedOutputDirectoryURL(for: kind).map { OutputDestinationHandle(url: $0) }
     }
 
     func setSelectedOutputDestinationHandle(_ handle: OutputDestinationHandle?, for kind: MediaKind) {
+        securityScopeState.outputDestinationHandleByKind[kind] = handle
         setSelectedOutputDirectoryURL(handle?.url, for: kind)
     }
 
     func selectedOutputDirectoryURL(for kind: MediaKind) -> URL? {
+        if let handle = securityScopeState.outputDestinationHandleByKind[kind] {
+            return handle.url
+        }
         switch kind {
         case .video:
             return selectedVideoOutputDirectoryURL
@@ -30,6 +37,11 @@ extension ContentViewModel {
     }
 
     func setSelectedOutputDirectoryURL(_ url: URL?, for kind: MediaKind) {
+        let previousHandle = securityScopeState.outputDestinationHandleByKind[kind]
+        if previousHandle?.url.path != url?.path {
+            securityScopeState.outputDestinationHandleByKind[kind] = nil
+        }
+        synchronizeOutputDirectorySecurityScope(for: url, kind: kind)
         switch kind {
         case .video:
             selectedVideoOutputDirectoryURL = url

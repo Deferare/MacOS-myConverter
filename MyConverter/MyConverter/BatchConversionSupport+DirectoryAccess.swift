@@ -33,7 +33,8 @@ extension BatchConversionSupport {
 extension BatchConversionSupport {
     nonisolated static func prepareBatchDirectoryAccess(
         sourceURLs: [URL],
-        destinationURLsBySourceID: [String: URL]
+        destinationURLsBySourceID: [String: URL],
+        outputDirectoryAccessURL: URL? = nil
     ) -> PreparedBatchDirectoryAccess? {
         let firstSourceID = ContentViewModelSupport.sourceIdentifier(for: sourceURLs[0])
         guard let firstDestinationURL = destinationURLsBySourceID[firstSourceID] else {
@@ -41,10 +42,11 @@ extension BatchConversionSupport {
         }
 
         let initialDirectoryURL = firstDestinationURL.deletingLastPathComponent()
-        let initialAccess = initialDirectoryURL.startAccessingSecurityScopedResource()
+        let accessURL = outputDirectoryAccessURL ?? initialDirectoryURL
+        let initialAccess = accessURL.startAccessingSecurityScopedResource()
         return .init(
             destinationURLsBySourceID: destinationURLsBySourceID,
-            batchDirectoryURL: initialDirectoryURL,
+            batchDirectoryURL: accessURL,
             shouldStopAccessing: initialAccess
         )
     }

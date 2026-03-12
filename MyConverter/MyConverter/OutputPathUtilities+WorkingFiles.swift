@@ -62,6 +62,40 @@ extension OutputPathUtilities {
 
         try removeFileIfExists(at: destinationURL)
 
+        #if os(iOS)
+        var coordinationError: NSError?
+        var fileOperationError: Error?
+        let coordinator = NSFileCoordinator(filePresenter: nil)
+
+        coordinator.coordinate(writingItemAt: destinationURL, options: [], error: &coordinationError) { coordinatedDestinationURL in
+            do {
+                try FileManager.default.moveItem(at: sourceURL, to: coordinatedDestinationURL)
+            } catch {
+                do {
+                    try FileManager.default.copyItem(at: sourceURL, to: coordinatedDestinationURL)
+                    try? FileManager.default.removeItem(at: sourceURL)
+                } catch {
+                    fileOperationError = error
+                }
+            }
+        }
+
+        if let coordinationError {
+            throw SaveOutputError.outputSaveFailed(
+                path: destinationURL.path,
+                message: coordinationError.localizedDescription
+            )
+        }
+
+        if let fileOperationError {
+            throw SaveOutputError.outputSaveFailed(
+                path: destinationURL.path,
+                message: fileOperationError.localizedDescription
+            )
+        }
+
+        return destinationURL
+        #else
         do {
             try FileManager.default.moveItem(at: sourceURL, to: destinationURL)
             return destinationURL
@@ -77,6 +111,7 @@ extension OutputPathUtilities {
                 )
             }
         }
+        #endif
     }
 
     nonisolated static func workingDirectoryURL() -> URL {

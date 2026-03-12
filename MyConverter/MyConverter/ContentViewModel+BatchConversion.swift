@@ -174,6 +174,7 @@ extension ContentViewModel {
             missingSourceLog: workflow.metadata.missingSourceLog,
             fileExtension: workflow.fileExtension,
             outputLabel: workflow.metadata.outputLabel,
+            preferredOutputDestination: selectedOutputDestinationHandle(for: workflow.kind),
             preferredOutputDirectory: selectedOutputDirectoryURL(for: workflow.kind),
             runningKeyPath: descriptor.isConverting,
             progressKeyPath: descriptor.progress,
@@ -223,6 +224,7 @@ extension ContentViewModel {
         missingSourceLog: String,
         fileExtension: String,
         outputLabel: String,
+        preferredOutputDestination: OutputDestinationHandle?,
         preferredOutputDirectory: URL?,
         runningKeyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
         progressKeyPath: ReferenceWritableKeyPath<ContentViewModel, Double>,
@@ -269,8 +271,10 @@ extension ContentViewModel {
         let sourceURLs = shouldResumePartialBatch ? remainingSourceURLs : allSourceURLs
 
         let resolvedOutputDirectoryURL: URL
+        let resolvedOutputDirectoryAccessURL: URL
         if let preferredOutputDirectory {
             resolvedOutputDirectoryURL = preferredOutputDirectory.standardizedFileURL
+            resolvedOutputDirectoryAccessURL = preferredOutputDestination?.url ?? preferredOutputDirectory
         } else {
             guard let selectedDestination = await services.outputDestinationCoordinator.chooseOutputDestination(
                 suggestedDirectory: primarySourceURL.deletingLastPathComponent(),
@@ -280,13 +284,15 @@ extension ContentViewModel {
                 return
             }
             resolvedOutputDirectoryURL = selectedDestination.url
+            resolvedOutputDirectoryAccessURL = selectedDestination.url
         }
 
         let batchContextTask = Task.detached(priority: .userInitiated) {
             BatchConversionSupport.prepareContext(
                 sourceURLs: sourceURLs,
                 fileExtension: fileExtension,
-                outputDirectoryURL: resolvedOutputDirectoryURL
+                outputDirectoryURL: resolvedOutputDirectoryURL,
+                outputDirectoryAccessURL: resolvedOutputDirectoryAccessURL
             )
         }
         let batchContext = await withTaskCancellationHandler(

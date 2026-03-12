@@ -13,6 +13,6 @@ extension VideoConversionEngine {
     }
 
     static func isFFmpegAvailable() -> Bool {
-        FFmpegBinaryLocator.findPath() != nil
+        DefaultFFmpegRuntimeProvider().makeRuntime() != nil
     }
 }
