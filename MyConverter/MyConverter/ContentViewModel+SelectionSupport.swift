@@ -39,21 +39,9 @@ extension ContentViewModel {
         task = nil
     }
 
-    func pendingSelectionAnalysisTaskKeyPath(
-        for kind: MediaKind
-    ) -> ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?> {
-        switch kind {
-        case .video:
-            return \.taskState.pendingVideoSelectionAnalysisTask
-        case .image:
-            return \.taskState.pendingImageSelectionAnalysisTask
-        case .audio:
-            return \.taskState.pendingAudioSelectionAnalysisTask
-        }
-    }
-
     func cancelPendingSelectionAnalysis(for kind: MediaKind) {
-        cancelTask(at: pendingSelectionAnalysisTaskKeyPath(for: kind))
+        let descriptor = mediaStateDescriptor(for: kind)
+        cancelTask(at: descriptor.pendingSelectionAnalysisTask)
     }
 
     func cancelSelectionAnalysis(for kind: MediaKind) {
@@ -73,7 +61,7 @@ extension ContentViewModel {
         setMediaStateValue(using: descriptor, \.isAnalyzing, to: true)
         applyPlaceholderCapabilities(for: kind)
         scheduleDebouncedTask(
-            pendingSelectionAnalysisTaskKeyPath(for: kind),
+            descriptor.pendingSelectionAnalysisTask,
             delayNanoseconds: Self.selectionAnalysisDebounceNanoseconds
         ) { viewModel in
             viewModel.analyzeSelectedSources(selection, for: kind)

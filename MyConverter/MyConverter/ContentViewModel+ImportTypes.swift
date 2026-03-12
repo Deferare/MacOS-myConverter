@@ -20,6 +20,7 @@ extension ContentViewModel {
         let conversionMetadata: ConversionMetadata
         let acceptsInput: (URL) -> Bool
         let preferredImportTypes: (UTType?) -> [UTType]
+        let availableImportSources: () -> [ContentViewModel.ImportSource]
     }
 }
 
@@ -44,7 +45,8 @@ extension ContentViewModel.MediaKind {
                     includeDebugInfo: true
                 ),
                 acceptsInput: ContentViewModelSupport.isVideoInputURL(_:),
-                preferredImportTypes: { [.movie, .video, $0].compactMap { $0 } }
+                preferredImportTypes: { [.movie, .video, $0].compactMap { $0 } },
+                availableImportSources: { [.photoLibrary, .files] }
             )
         case .image:
             return ContentViewModel.MediaDescriptor(
@@ -64,7 +66,8 @@ extension ContentViewModel.MediaKind {
                     includeDebugInfo: false
                 ),
                 acceptsInput: ContentViewModelSupport.isImageInputURL(_:),
-                preferredImportTypes: { _ in [.image] }
+                preferredImportTypes: { _ in [.image] },
+                availableImportSources: { [.photoLibrary, .files] }
             )
         case .audio:
             return ContentViewModel.MediaDescriptor(
@@ -86,7 +89,8 @@ extension ContentViewModel.MediaKind {
                 acceptsInput: ContentViewModelSupport.isAudioInputURL(_:),
                 preferredImportTypes: {
                     [.audio, .movie, .video, .audiovisualContent, $0].compactMap { $0 }
-                }
+                },
+                availableImportSources: { [.files] }
             )
         }
     }
@@ -137,12 +141,7 @@ extension ContentViewModel {
     }
 
     func availableImportSources(for kind: MediaKind) -> [ImportSource] {
-        switch kind {
-        case .video, .image:
-            return [.photoLibrary, .files]
-        case .audio:
-            return [.files]
-        }
+        kind.descriptor.availableImportSources()
     }
 
     func requestImport(for kind: MediaKind) {

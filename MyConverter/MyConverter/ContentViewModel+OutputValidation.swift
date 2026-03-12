@@ -1,10 +1,20 @@
 import Foundation
 
 extension ContentViewModel {
+    enum PreparedSourceOutputValidationResult {
+        case handled(String?)
+        case unavailable
+    }
+
     struct MediaValidationDescriptor {
         let validationMessage: (ContentViewModel) -> String?
         let hintMessage: (ContentViewModel) -> String?
         let validateSourceOutputSettings: (ContentViewModel, URL) async -> String?
+        let validatePreparedSourceOutputSettings: (
+            ContentViewModel,
+            PreparedSourceConversion,
+            BatchExecutionEnvironment
+        ) async -> String?
     }
 
     private struct OutputFormatValidationInput<Capability, Format> {
@@ -19,17 +29,29 @@ extension ContentViewModel {
         let errorMessage: (Capability) -> String?
         let preSourceValidation: (ContentViewModel, URL) async -> String?
         let additionalCapabilityValidation: (ContentViewModel, Capability) -> String?
+        let validatePreparedSource: (
+            ContentViewModel,
+            PreparedSourceConversion,
+            BatchExecutionEnvironment,
+            OutputFormatDescriptor<Format>
+        ) -> PreparedSourceOutputValidationResult
     }
 
     func makeMediaValidationDescriptor(
         validationMessage: @escaping (ContentViewModel) -> String?,
         hintMessage: @escaping (ContentViewModel) -> String? = { _ in nil },
-        validateSourceOutputSettings: @escaping (ContentViewModel, URL) async -> String?
+        validateSourceOutputSettings: @escaping (ContentViewModel, URL) async -> String?,
+        validatePreparedSourceOutputSettings: @escaping (
+            ContentViewModel,
+            PreparedSourceConversion,
+            BatchExecutionEnvironment
+        ) async -> String?
     ) -> MediaValidationDescriptor {
         MediaValidationDescriptor(
             validationMessage: validationMessage,
             hintMessage: hintMessage,
-            validateSourceOutputSettings: validateSourceOutputSettings
+            validateSourceOutputSettings: validateSourceOutputSettings,
+            validatePreparedSourceOutputSettings: validatePreparedSourceOutputSettings
         )
     }
 
@@ -139,6 +161,26 @@ extension ContentViewModel {
                         input.additionalCapabilityValidation(viewModel, capabilities)
                     }
                 )
+            },
+            validatePreparedSourceOutputSettings: { viewModel, source, environment in
+                let descriptor = input.formatDescriptor(viewModel)
+                switch input.validatePreparedSource(viewModel, source, environment, descriptor) {
+                case .handled(let message):
+                    return message
+                case .unavailable:
+                    return await viewModel.validateOutputFormatAvailability(
+                        for: source.sourceURL,
+                        selectedFormatNormalizedID: viewModel.selectedOutputFormatNormalizedID(using: descriptor),
+                        unavailableMessage: input.unavailableMessage,
+                        fetchCapabilities: input.fetchCapabilities,
+                        availableFormats: input.availableFormats,
+                        errorMessage: input.errorMessage,
+                        formatNormalizedID: descriptor.formatNormalizedID,
+                        additionalValidation: { capabilities in
+                            input.additionalCapabilityValidation(viewModel, capabilities)
+                        }
+                    )
+                }
             }
         )
     }
@@ -178,7 +220,29 @@ extension ContentViewModel {
                 preSourceValidation: { viewModel, _ in
                     viewModel.videoFFmpegRequirementMessage()
                 },
-                additionalCapabilityValidation: { _, _ in nil }
+                additionalCapabilityValidation: { _, _ in nil },
+                validatePreparedSource: { viewModel, source, environment, descriptor in
+                    guard let cached = environment.preparedVideoSources[source.sourceID] else {
+                        return .unavailable
+                    }
+
+                    if let message = viewModel.videoFFmpegRequirementMessage() {
+                        return .handled(message)
+                    }
+
+                    return .handled(
+                        viewModel.validateCachedOutputFormatAvailability(
+                            capabilities: cached.sourceCapabilities,
+                            selectedFormatNormalizedID: viewModel.selectedOutputFormatNormalizedID(
+                                using: descriptor
+                            ),
+                            unavailableMessage: "Selected container is not available for this source.",
+                            availableFormats: { $0.availableOutputFormats },
+                            errorMessage: { $0.errorMessage },
+                            formatNormalizedID: { $0.normalizedID }
+                        )
+                    )
+                }
             )
         )
     }
@@ -213,6 +277,29 @@ extension ContentViewModel {
                     viewModel.imageAnimationExportValidationMessage(
                         isAnimated: capabilities.frameCount > 1
                     )
+                },
+                validatePreparedSource: { viewModel, source, environment, descriptor in
+                    guard let cached = environment.preparedImageCapabilities[source.sourceID] else {
+                        return .unavailable
+                    }
+
+                    return .handled(
+                        viewModel.validateCachedOutputFormatAvailability(
+                            capabilities: cached,
+                            selectedFormatNormalizedID: viewModel.selectedOutputFormatNormalizedID(
+                                using: descriptor
+                            ),
+                            unavailableMessage: "Selected output format is not available for this source.",
+                            availableFormats: { $0.availableOutputFormats },
+                            errorMessage: { $0.errorMessage },
+                            formatNormalizedID: { $0.normalizedID },
+                            additionalValidation: { capabilities in
+                                viewModel.imageAnimationExportValidationMessage(
+                                    isAnimated: capabilities.frameCount > 1
+                                )
+                            }
+                        )
+                    )
                 }
             )
         )
@@ -239,7 +326,25 @@ extension ContentViewModel {
                 availableFormats: { $0.availableOutputFormats },
                 errorMessage: { $0.errorMessage },
                 preSourceValidation: { _, _ in nil },
-                additionalCapabilityValidation: { _, _ in nil }
+                additionalCapabilityValidation: { _, _ in nil },
+                validatePreparedSource: { viewModel, source, environment, descriptor in
+                    guard let cached = environment.preparedAudioCapabilities[source.sourceID] else {
+                        return .unavailable
+                    }
+
+                    return .handled(
+                        viewModel.validateCachedOutputFormatAvailability(
+                            capabilities: cached,
+                            selectedFormatNormalizedID: viewModel.selectedOutputFormatNormalizedID(
+                                using: descriptor
+                            ),
+                            unavailableMessage: "Selected output format is not available for this source.",
+                            availableFormats: { $0.availableOutputFormats },
+                            errorMessage: { $0.errorMessage },
+                            formatNormalizedID: { $0.normalizedID }
+                        )
+                    )
+                }
             )
         )
     }
@@ -265,58 +370,11 @@ extension ContentViewModel {
         source: PreparedSourceConversion,
         environment: BatchExecutionEnvironment
     ) async -> String? {
-        switch kind {
-        case .video:
-            if let cached = environment.preparedVideoSources[source.sourceID] {
-                if let message = videoFFmpegRequirementMessage() {
-                    return message
-                }
-
-                return validateCachedOutputFormatAvailability(
-                    capabilities: cached.sourceCapabilities,
-                    selectedFormatNormalizedID: selectedOutputFormatNormalizedID(
-                        using: videoOutputFormatDescriptor()
-                    ),
-                    unavailableMessage: "Selected container is not available for this source.",
-                    availableFormats: { $0.availableOutputFormats },
-                    errorMessage: { $0.errorMessage },
-                    formatNormalizedID: { $0.normalizedID }
-                )
-            }
-        case .image:
-            if let cached = environment.preparedImageCapabilities[source.sourceID] {
-                return validateCachedOutputFormatAvailability(
-                    capabilities: cached,
-                    selectedFormatNormalizedID: selectedOutputFormatNormalizedID(
-                        using: imageOutputFormatDescriptor()
-                    ),
-                    unavailableMessage: "Selected output format is not available for this source.",
-                    availableFormats: { $0.availableOutputFormats },
-                    errorMessage: { $0.errorMessage },
-                    formatNormalizedID: { $0.normalizedID },
-                    additionalValidation: { capabilities in
-                        imageAnimationExportValidationMessage(
-                            isAnimated: capabilities.frameCount > 1
-                        )
-                    }
-                )
-            }
-        case .audio:
-            if let cached = environment.preparedAudioCapabilities[source.sourceID] {
-                return validateCachedOutputFormatAvailability(
-                    capabilities: cached,
-                    selectedFormatNormalizedID: selectedOutputFormatNormalizedID(
-                        using: audioOutputFormatDescriptor()
-                    ),
-                    unavailableMessage: "Selected output format is not available for this source.",
-                    availableFormats: { $0.availableOutputFormats },
-                    errorMessage: { $0.errorMessage },
-                    formatNormalizedID: { $0.normalizedID }
-                )
-            }
-        }
-
-        return await validateSourceOutputSettings(for: kind, sourceURL: source.sourceURL)
+        await mediaValidationDescriptor(for: kind).validatePreparedSourceOutputSettings(
+            self,
+            source,
+            environment
+        )
     }
 
     func outputSettingsValidationMessage<Format>(

@@ -36,6 +36,7 @@ extension ContentViewModel {
     struct MediaTaskKeyPaths {
         let analysisTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>
         let conversionTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>
+        let pendingSelectionAnalysisTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>
     }
 
     struct MediaBehaviorDescriptor {
@@ -87,6 +88,7 @@ extension ContentViewModel {
         let totalBatchCount: ReferenceWritableKeyPath<ContentViewModel, Int>
         let analysisTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>
         let conversionTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>
+        let pendingSelectionAnalysisTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>
         let sourceSettingsActions: SourceSettingsActions
         let capabilityBootstrap: CapabilityBootstrapDescriptor
         let validation: MediaValidationDescriptor
@@ -117,6 +119,7 @@ extension ContentViewModel {
             totalBatchCount: state.totalBatchCount,
             analysisTask: tasks.analysisTask,
             conversionTask: tasks.conversionTask,
+            pendingSelectionAnalysisTask: tasks.pendingSelectionAnalysisTask,
             sourceSettingsActions: behavior.sourceSettingsActions,
             capabilityBootstrap: behavior.capabilityBootstrap,
             validation: behavior.validation,
@@ -220,11 +223,13 @@ extension ContentViewModel {
 
     private func makeMediaTaskKeyPaths(
         analysisTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>,
-        conversionTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>
+        conversionTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>,
+        pendingSelectionAnalysisTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>
     ) -> MediaTaskKeyPaths {
         MediaTaskKeyPaths(
             analysisTask: analysisTask,
-            conversionTask: conversionTask
+            conversionTask: conversionTask,
+            pendingSelectionAnalysisTask: pendingSelectionAnalysisTask
         )
     }
 
@@ -259,7 +264,8 @@ extension ContentViewModel {
                     ),
                     tasks: makeMediaTaskKeyPaths(
                         analysisTask: \.taskState.sourceAnalysisTask,
-                        conversionTask: \.taskState.conversionTask
+                        conversionTask: \.taskState.conversionTask,
+                        pendingSelectionAnalysisTask: \.taskState.pendingVideoSelectionAnalysisTask
                     ),
                     sourceSettings: { $0.videoSourceSettingsComponents().flow },
                     capabilityBootstrap: videoCapabilityBootstrapDescriptor(),
@@ -290,7 +296,8 @@ extension ContentViewModel {
                     ),
                     tasks: makeMediaTaskKeyPaths(
                         analysisTask: \.taskState.imageSourceAnalysisTask,
-                        conversionTask: \.taskState.imageConversionTask
+                        conversionTask: \.taskState.imageConversionTask,
+                        pendingSelectionAnalysisTask: \.taskState.pendingImageSelectionAnalysisTask
                     ),
                     sourceSettings: { $0.imageSourceSettingsComponents().flow },
                     capabilityBootstrap: imageCapabilityBootstrapDescriptor(),
@@ -321,7 +328,8 @@ extension ContentViewModel {
                     ),
                     tasks: makeMediaTaskKeyPaths(
                         analysisTask: \.taskState.audioSourceAnalysisTask,
-                        conversionTask: \.taskState.audioConversionTask
+                        conversionTask: \.taskState.audioConversionTask,
+                        pendingSelectionAnalysisTask: \.taskState.pendingAudioSelectionAnalysisTask
                     ),
                     sourceSettings: { $0.audioSourceSettingsComponents().flow },
                     capabilityBootstrap: audioCapabilityBootstrapDescriptor(),

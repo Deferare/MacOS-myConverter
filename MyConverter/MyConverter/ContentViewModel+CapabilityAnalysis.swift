@@ -243,25 +243,8 @@ extension ContentViewModel {
             preferredSelection: formatDescriptor.preferredSelection
         )
 
-        switch formatDescriptor.kind {
-        case .video:
-            if let selected = resolvedSelection as? VideoFormatOption {
-                updateState(\.videoOptionsState) { state in
-                    state.selectedOutputFormat = selected
-                }
-            }
-        case .image:
-            if let selected = resolvedSelection as? ImageFormatOption {
-                updateState(\.imageOptionsState) { state in
-                    state.selectedOutputFormat = selected
-                }
-            }
-        case .audio:
-            if let selected = resolvedSelection as? AudioFormatOption {
-                updateState(\.audioOptionsState) { state in
-                    state.selectedOutputFormat = selected
-                }
-            }
+        if let selected = resolvedSelection {
+            self[keyPath: formatDescriptor.selectedFormat] = selected
         }
 
         postSelectionUpdate()
@@ -269,37 +252,15 @@ extension ContentViewModel {
     }
 
     func applySourceAnalysisResolution<Format>(
-        for kind: MediaKind,
+        using state: SourceAnalysisStateDescriptor<Format>,
         resolvedFormats: [Format],
         warningMessage: String?,
         errorMessage: String?
     ) {
-        switch kind {
-        case .video:
-            guard let typedFormats = resolvedFormats as? [VideoFormatOption] else { return }
-            updateState(\.videoRuntimeState) { state in
-                state.media.isAnalyzingSource = false
-                state.media.availableOutputFormats = typedFormats
-                state.media.sourceCompatibilityWarningMessage = warningMessage
-                state.media.sourceCompatibilityErrorMessage = errorMessage
-            }
-        case .image:
-            guard let typedFormats = resolvedFormats as? [ImageFormatOption] else { return }
-            updateState(\.imageRuntimeState) { state in
-                state.media.isAnalyzingSource = false
-                state.media.availableOutputFormats = typedFormats
-                state.media.sourceCompatibilityWarningMessage = warningMessage
-                state.media.sourceCompatibilityErrorMessage = errorMessage
-            }
-        case .audio:
-            guard let typedFormats = resolvedFormats as? [AudioFormatOption] else { return }
-            updateState(\.audioRuntimeState) { state in
-                state.media.isAnalyzingSource = false
-                state.media.availableOutputFormats = typedFormats
-                state.media.sourceCompatibilityWarningMessage = warningMessage
-                state.media.sourceCompatibilityErrorMessage = errorMessage
-            }
-        }
+        self[keyPath: state.isAnalyzing] = false
+        self[keyPath: state.availableFormats] = resolvedFormats
+        self[keyPath: state.warningMessage] = warningMessage
+        self[keyPath: state.errorMessage] = errorMessage
     }
 
     nonisolated static func aggregateSourceCapabilities<Capability: Sendable, Format: Sendable>(
@@ -435,7 +396,7 @@ extension ContentViewModel {
                 }
 
                 applySourceAnalysisResolution(
-                    for: state.kind,
+                    using: state,
                     resolvedFormats: resolvedFormats,
                     warningMessage: joinedWarnings,
                     errorMessage: joinedErrors
@@ -483,7 +444,7 @@ extension ContentViewModel {
             }
 
             self.applySourceAnalysisResolution(
-                for: state.kind,
+                using: state,
                 resolvedFormats: resolvedFormats,
                 warningMessage: joinedWarnings,
                 errorMessage: joinedErrors

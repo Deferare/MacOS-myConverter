@@ -237,37 +237,9 @@ extension ContentViewModel {
             preferredSelection: descriptor.preferredSelection
         )
 
-        switch descriptor.kind {
-        case .video:
-            guard let resolvedFormats = formats as? [VideoFormatOption] else { return }
-            updateState(\.videoRuntimeState) { state in
-                state.media.availableOutputFormats = resolvedFormats
-            }
-            if let selected = resolvedSelection as? VideoFormatOption {
-                updateState(\.videoOptionsState) { state in
-                    state.selectedOutputFormat = selected
-                }
-            }
-        case .image:
-            guard let resolvedFormats = formats as? [ImageFormatOption] else { return }
-            updateState(\.imageRuntimeState) { state in
-                state.media.availableOutputFormats = resolvedFormats
-            }
-            if let selected = resolvedSelection as? ImageFormatOption {
-                updateState(\.imageOptionsState) { state in
-                    state.selectedOutputFormat = selected
-                }
-            }
-        case .audio:
-            guard let resolvedFormats = formats as? [AudioFormatOption] else { return }
-            updateState(\.audioRuntimeState) { state in
-                state.media.availableOutputFormats = resolvedFormats
-            }
-            if let selected = resolvedSelection as? AudioFormatOption {
-                updateState(\.audioOptionsState) { state in
-                    state.selectedOutputFormat = selected
-                }
-            }
+        self[keyPath: descriptor.availableFormats] = formats
+        if let selected = resolvedSelection {
+            self[keyPath: descriptor.selectedFormat] = selected
         }
 
         postApply()

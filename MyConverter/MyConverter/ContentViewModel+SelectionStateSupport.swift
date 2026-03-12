@@ -101,32 +101,7 @@ extension ContentViewModel {
         }
 
         resetCompatibilityState(for: kind)
-        switch kind {
-        case .video:
-            updateState(\.videoRuntimeState) { state in
-                state.media.isAnalyzingSource = false
-                if resetBatchState {
-                    state.media.currentBatchIndex = 0
-                    state.media.totalBatchCount = 0
-                }
-            }
-        case .image:
-            updateState(\.imageRuntimeState) { state in
-                state.media.isAnalyzingSource = false
-                if resetBatchState {
-                    state.media.currentBatchIndex = 0
-                    state.media.totalBatchCount = 0
-                }
-            }
-        case .audio:
-            updateState(\.audioRuntimeState) { state in
-                state.media.isAnalyzingSource = false
-                if resetBatchState {
-                    state.media.currentBatchIndex = 0
-                    state.media.totalBatchCount = 0
-                }
-            }
-        }
+        clearActivityState(for: kind, resetBatchState: resetBatchState)
 
         applyPlaceholderCapabilities(for: kind)
 
@@ -151,59 +126,34 @@ extension ContentViewModel {
     }
 
     func resetConversionOutputs(for kind: MediaKind) {
-        switch kind {
-        case .video:
-            updateState(\.videoRuntimeState) { state in
-                state.media.convertedURL = nil
-                state.media.convertedURLs = []
-                state.media.convertedOutputURLsBySourceID = [:]
-                state.media.processedSourceIDs = []
-                state.media.conversionErrorMessage = nil
-            }
-        case .image:
-            updateState(\.imageRuntimeState) { state in
-                state.media.convertedURL = nil
-                state.media.convertedURLs = []
-                state.media.convertedOutputURLsBySourceID = [:]
-                state.media.processedSourceIDs = []
-                state.media.conversionErrorMessage = nil
-            }
-        case .audio:
-            updateState(\.audioRuntimeState) { state in
-                state.media.convertedURL = nil
-                state.media.convertedURLs = []
-                state.media.convertedOutputURLsBySourceID = [:]
-                state.media.processedSourceIDs = []
-                state.media.conversionErrorMessage = nil
-            }
-        }
+        let descriptor = mediaStateDescriptor(for: kind)
+        setMediaStateValue(using: descriptor, \.convertedURL, to: nil)
+        setMediaStateValue(using: descriptor, \.convertedURLs, to: [])
+        setMediaStateValue(using: descriptor, \.convertedOutputURLsBySourceID, to: [:])
+        setMediaStateValue(using: descriptor, \.processedSourceIDs, to: [])
+        setMediaStateValue(using: descriptor, \.conversionErrorMessage, to: nil)
     }
 
     func resetCompatibilityState(for kind: MediaKind, resetMetadata: Bool = true) {
+        let descriptor = mediaStateDescriptor(for: kind)
         if resetMetadata {
-            mediaStateDescriptor(for: kind).resetCompatibilityMetadata(self)
+            descriptor.resetCompatibilityMetadata(self)
         }
 
-        switch kind {
-        case .video:
-            updateState(\.videoRuntimeState) { state in
-                state.media.sourceCompatibilityErrorMessage = nil
-                state.media.sourceCompatibilityWarningMessage = nil
-            }
-        case .image:
-            updateState(\.imageRuntimeState) { state in
-                state.media.sourceCompatibilityErrorMessage = nil
-                state.media.sourceCompatibilityWarningMessage = nil
-            }
-        case .audio:
-            updateState(\.audioRuntimeState) { state in
-                state.media.sourceCompatibilityErrorMessage = nil
-                state.media.sourceCompatibilityWarningMessage = nil
-            }
-        }
+        setMediaStateValue(using: descriptor, \.compatibilityErrorMessage, to: nil)
+        setMediaStateValue(using: descriptor, \.compatibilityWarningMessage, to: nil)
     }
 
     func resetSelectionCompatibilityState(for kind: MediaKind) {
         resetCompatibilityState(for: kind)
+    }
+
+    private func clearActivityState(for kind: MediaKind, resetBatchState: Bool) {
+        let descriptor = mediaStateDescriptor(for: kind)
+        setMediaStateValue(using: descriptor, \.isAnalyzing, to: false)
+
+        guard resetBatchState else { return }
+        setMediaStateValue(using: descriptor, \.currentBatchIndex, to: 0)
+        setMediaStateValue(using: descriptor, \.totalBatchCount, to: 0)
     }
 }

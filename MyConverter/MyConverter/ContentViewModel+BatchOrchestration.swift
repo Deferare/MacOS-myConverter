@@ -10,6 +10,19 @@ extension ContentViewModel {
         #endif
     }
 
+    private func outputDirectoryKeyPath(
+        for kind: MediaKind
+    ) -> ReferenceWritableKeyPath<ContentViewModel, URL?> {
+        switch kind {
+        case .video:
+            return \.selectedVideoOutputDirectoryURL
+        case .image:
+            return \.selectedImageOutputDirectoryURL
+        case .audio:
+            return \.selectedAudioOutputDirectoryURL
+        }
+    }
+
     func selectedOutputDestinationHandle(for kind: MediaKind) -> OutputDestinationHandle? {
         if let handle = securityScopeState.outputDestinationHandleByKind[kind] {
             return handle
@@ -26,14 +39,7 @@ extension ContentViewModel {
         if let handle = securityScopeState.outputDestinationHandleByKind[kind] {
             return handle.url
         }
-        switch kind {
-        case .video:
-            return selectedVideoOutputDirectoryURL
-        case .image:
-            return selectedImageOutputDirectoryURL
-        case .audio:
-            return selectedAudioOutputDirectoryURL
-        }
+        return self[keyPath: outputDirectoryKeyPath(for: kind)]
     }
 
     func setSelectedOutputDirectoryURL(_ url: URL?, for kind: MediaKind) {
@@ -42,14 +48,7 @@ extension ContentViewModel {
             securityScopeState.outputDestinationHandleByKind[kind] = nil
         }
         synchronizeOutputDirectorySecurityScope(for: url, kind: kind)
-        switch kind {
-        case .video:
-            selectedVideoOutputDirectoryURL = url
-        case .image:
-            selectedImageOutputDirectoryURL = url
-        case .audio:
-            selectedAudioOutputDirectoryURL = url
-        }
+        self[keyPath: outputDirectoryKeyPath(for: kind)] = url
     }
 
     func hasSelectedOutputDirectory(for kind: MediaKind) -> Bool {
