@@ -1,0 +1,23 @@
+{
+  "originHash" : "492ef7f9806fac3e2beb5c2f88b12d536ae282d7f4d9bb08141274e000816e5e",
+  "pins" : [
+    {
+      "identity" : "ffmpeg-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/kewlbear/FFmpeg-iOS.git",
+      "state" : {
+        "revision" : "4552bf5787c532fa650dcd10bda9403cd9d3a285"
+      }
+    },
+    {
+      "identity" : "ffmpeg-ios-support",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/kewlbear/FFmpeg-iOS-Support",
+      "state" : {
+        "revision" : "be3bd9149ac53760e8725652eee99c405b2be47a",
+        "version" : "0.0.2"
+      }
+    }
+  ],
+  "version" : 3
+}

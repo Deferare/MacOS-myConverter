@@ -31,6 +31,30 @@ struct OpenSourceLicensesSheet: View {
 
                     Divider()
 
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("FFmpeg-iOS")
+                            .font(.title3.weight(.semibold))
+
+                        Text("The iPad app uses the FFmpeg-iOS and FFmpeg-iOS-Support packages to invoke FFmpeg in-process.")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+
+                        Text("License: GNU Lesser General Public License v2.1 or later.")
+                            .font(.body)
+
+                        if let packageURL = URL(string: "https://github.com/kewlbear/FFmpeg-iOS") {
+                            Link("FFmpeg-iOS Package", destination: packageURL)
+                                .font(.callout)
+                        }
+
+                        if let supportURL = URL(string: "https://github.com/kewlbear/FFmpeg-iOS-Support") {
+                            Link("FFmpeg-iOS-Support Package", destination: supportURL)
+                                .font(.callout)
+                        }
+                    }
+
+                    Divider()
+
                     Text("The bundled ffmpeg binary is validated during build to reject GPL-enabled configurations.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
