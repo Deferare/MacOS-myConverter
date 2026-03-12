@@ -23,6 +23,10 @@ struct IPadMediaConverterView: View {
         Color(uiColor: .label)
     }
 
+    private var shouldShowImportSourceMenu: Bool {
+        viewModel.availableImportSources(for: kind).count > 1
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
@@ -47,51 +51,25 @@ struct IPadMediaConverterView: View {
     }
 
     private var emptyInputSection: some View {
-        Button {
-            viewModel.requestFileImport()
-        } label: {
-            VStack(spacing: 18) {
-                ZStack {
-                    Circle()
-                        .fill(.black.opacity(isDropTargeted ? 0.20 : 0.14))
-                        .overlay(
-                            Circle()
-                                .stroke(
-                                    isDropTargeted ? kind.liquidGlassTint.opacity(0.34) : .white.opacity(0.10),
-                                    lineWidth: isDropTargeted ? 1.6 : 1
-                                )
-                        )
-                        .shadow(color: .black.opacity(0.18), radius: 22, y: 12)
+        VStack(spacing: 18) {
+            importTriggerControl
 
-                    Circle()
-                        .fill(.white.opacity(isDropTargeted ? 0.24 : 0.20))
-                        .frame(width: 56, height: 56)
+            VStack(spacing: 8) {
+                Text(isDropTargeted ? "Drop to Import" : "Drop Files Here")
+                    .font(.system(size: 23, weight: .bold, design: .rounded))
 
-                    Image(systemName: isDropTargeted ? "arrow.down" : "plus")
-                        .font(.system(size: 25, weight: .bold))
-                        .foregroundStyle(.white.opacity(0.96))
-                }
-                .frame(width: 140, height: 140)
-                .scaleEffect(isDropTargeted ? 1.03 : 1.0)
-
-                VStack(spacing: 8) {
-                    Text(isDropTargeted ? "Drop to Import" : "Drop Files Here")
-                        .font(.system(size: 23, weight: .bold, design: .rounded))
-
-                    Text(
-                        isDropTargeted
-                            ? "Release to add the files to this queue."
-                            : "Drop files here or tap anywhere in this area to browse."
-                    )
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
+                Text(
+                    isDropTargeted
+                        ? "Release to add the files to this queue."
+                        : "Drop files here or tap the button above to browse."
+                )
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
             }
-            .frame(maxWidth: .infinity)
-            .frame(minHeight: 430)
         }
-        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+        .frame(minHeight: 430)
         .padding(Metrics.panelPadding)
         .background(panelBackground)
         .overlay(
@@ -103,6 +81,60 @@ struct IPadMediaConverterView: View {
             viewModel.handleDrop(providers: providers, for: kind)
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.78), value: isDropTargeted)
+    }
+
+    private var importTriggerControl: some View {
+        Group {
+            if shouldShowImportSourceMenu {
+                Menu {
+                    importSourceMenuContent
+                } label: {
+                    importTriggerCircle
+                }
+            } else {
+                Button {
+                    viewModel.requestImport(for: kind)
+                } label: {
+                    importTriggerCircle
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var importSourceMenuContent: some View {
+        ForEach(viewModel.availableImportSources(for: kind)) { source in
+            Button(source.buttonTitle) {
+                viewModel.startImport(from: source, for: kind)
+            }
+        }
+    }
+
+    private var importTriggerCircle: some View {
+        ZStack {
+            Circle()
+                .fill(.black.opacity(isDropTargeted ? 0.20 : 0.14))
+                .overlay(
+                    Circle()
+                        .stroke(
+                            isDropTargeted ? kind.liquidGlassTint.opacity(0.34) : .white.opacity(0.10),
+                            lineWidth: isDropTargeted ? 1.6 : 1
+                        )
+                )
+                .shadow(color: .black.opacity(0.18), radius: 22, y: 12)
+
+            Circle()
+                .fill(.white.opacity(isDropTargeted ? 0.24 : 0.20))
+                .frame(width: 56, height: 56)
+
+            Image(systemName: isDropTargeted ? "arrow.down" : "plus")
+                .font(.system(size: 25, weight: .bold))
+                .foregroundStyle(.white.opacity(0.96))
+        }
+        .frame(width: 140, height: 140)
+        .scaleEffect(isDropTargeted ? 1.03 : 1.0)
+        .contentShape(Circle())
     }
 
     private var filesSection: some View {
@@ -208,6 +240,7 @@ struct IPadMediaConverterView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+
         }
         .padding(Metrics.panelPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -217,6 +250,7 @@ struct IPadMediaConverterView: View {
                 .stroke(.white.opacity(0.10), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: Metrics.panelCornerRadius, style: .continuous))
+        .converterSettingMetrics(.compact)
     }
 
     private var settingsSection: some View {
@@ -279,11 +313,20 @@ struct IPadMediaConverterView: View {
                     }
                     .disabled(renderState.selectedFileListState.selectedURLs.isEmpty)
 
-                    Button {
-                        viewModel.requestFileImport()
-                    } label: {
-                        Image(systemName: "plus")
-                            .foregroundStyle(toolbarUtilityTint)
+                    if shouldShowImportSourceMenu {
+                        Menu {
+                            importSourceMenuContent
+                        } label: {
+                            Image(systemName: "plus")
+                                .foregroundStyle(toolbarUtilityTint)
+                        }
+                    } else {
+                        Button {
+                            viewModel.requestImport(for: kind)
+                        } label: {
+                            Image(systemName: "plus")
+                                .foregroundStyle(toolbarUtilityTint)
+                        }
                     }
                 }
 

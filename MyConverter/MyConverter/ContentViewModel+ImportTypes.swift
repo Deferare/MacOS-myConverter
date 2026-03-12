@@ -127,3 +127,47 @@ extension ContentViewModel {
         isImporting = true
     }
 }
+
+#if os(iOS)
+extension ContentViewModel {
+    var activeFileImportRequest: ImportRequest? {
+        guard let activeImportRequest, activeImportRequest.source == .files else { return nil }
+        return activeImportRequest
+    }
+
+    var activePhotoLibraryImportRequest: ImportRequest? {
+        guard let activeImportRequest, activeImportRequest.source == .photoLibrary else { return nil }
+        return activeImportRequest
+    }
+
+    func availableImportSources(for kind: MediaKind) -> [ImportSource] {
+        switch kind {
+        case .video, .image:
+            return [.photoLibrary, .files]
+        case .audio:
+            return [.files]
+        }
+    }
+
+    func requestImport(for kind: MediaKind) {
+        guard let fallbackSource = availableImportSources(for: kind).first(where: { $0 == .files })
+            ?? availableImportSources(for: kind).first else {
+            return
+        }
+
+        activeImportRequest = nil
+        isImporting = false
+        startImport(from: fallbackSource, for: kind)
+    }
+
+    func startImport(from source: ImportSource, for kind: MediaKind) {
+        activeImportRequest = ImportRequest(kind: kind, source: source)
+        isImporting = source == .files
+    }
+
+    func finishActiveImportRequest() {
+        activeImportRequest = nil
+        isImporting = false
+    }
+}
+#endif

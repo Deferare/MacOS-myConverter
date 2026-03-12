@@ -22,6 +22,31 @@ final class ContentViewModel: ObservableObject {
         case error
     }
 
+    enum ImportSource: String, CaseIterable, Identifiable {
+        case files
+        case photoLibrary
+
+        var id: String { rawValue }
+
+        var buttonTitle: String {
+            switch self {
+            case .files:
+                return "Files"
+            case .photoLibrary:
+                return "Photo Library"
+            }
+        }
+    }
+
+    struct ImportRequest: Equatable, Identifiable {
+        let kind: MediaKind
+        let source: ImportSource
+
+        var id: String {
+            "\(kind.rawValue)-\(source.rawValue)"
+        }
+    }
+
     @Published var videoRuntimeState = VideoRuntimeState()
     @Published var imageRuntimeState = ImageRuntimeState()
     @Published var audioRuntimeState = AudioRuntimeState()
@@ -30,6 +55,7 @@ final class ContentViewModel: ObservableObject {
     @Published var audioOptionsState = AudioOptionsState()
 
     @Published var isImporting = false
+    @Published var activeImportRequest: ImportRequest?
 
     let services: PlatformServices
     var settingsState = PersistedSettingsState()
