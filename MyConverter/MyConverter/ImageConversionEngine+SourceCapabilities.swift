@@ -4,8 +4,8 @@ import ImageIO
 
 extension ImageConversionEngine {
     nonisolated static func sourceCapabilities(for inputURL: URL) async -> ImageSourceCapabilities {
-        let ffmpegPath = ffmpegBinaryPath()
-        let cacheKey = makeSourceCapabilityCacheKey(for: inputURL, ffmpegPath: ffmpegPath)
+        let runtime = ffmpegRuntime()
+        let cacheKey = makeSourceCapabilityCacheKey(for: inputURL, runtime: runtime)
         return await InFlightOperationSupport.loadCachedAsyncValue(
             cacheKey: cacheKey,
             on: sourceCapabilityCacheQueue,
@@ -14,15 +14,18 @@ extension ImageConversionEngine {
             storeInFlight: { sourceCapabilitiesInFlight[cacheKey] = $0 },
             build: {
                 await detachedTaskValue(priority: .userInitiated) {
-                    sourceCapabilitiesSync(for: inputURL, ffmpegPath: ffmpegPath)
+                    sourceCapabilitiesSync(for: inputURL, runtime: runtime)
                 }
             },
             storeCachedValue: { sourceCapabilitiesCache[cacheKey] = $0 }
         )
     }
 
-    nonisolated private static func makeSourceCapabilityCacheKey(for inputURL: URL, ffmpegPath: String?) -> String {
-        "\(OutputPathUtilities.fileFingerprint(for: inputURL))|\(ffmpegPath ?? "none")"
+    nonisolated private static func makeSourceCapabilityCacheKey(
+        for inputURL: URL,
+        runtime: (any FFmpegRuntime)?
+    ) -> String {
+        "\(OutputPathUtilities.fileFingerprint(for: inputURL))|\(runtime?.cacheIdentity ?? "none")"
     }
 
     nonisolated private static func makeSourceCapabilities(
@@ -43,13 +46,13 @@ extension ImageConversionEngine {
 
     nonisolated private static func sourceCapabilitiesSync(
         for inputURL: URL,
-        ffmpegPath: String?
+        runtime: (any FFmpegRuntime)?
     ) -> ImageSourceCapabilities {
-        let availableOutputFormats = defaultOutputFormats()
+        let availableOutputFormats = defaultOutputFormats(using: runtime)
 
         guard let source = CGImageSourceCreateWithURL(inputURL as CFURL, nil) else {
-            if let ffmpegPath,
-               ffmpegCanDecodeSource(ffmpegPath: ffmpegPath, inputURL: inputURL) {
+            if let runtime,
+               ffmpegCanDecodeSource(runtime: runtime, inputURL: inputURL) {
                 return makeSourceCapabilities(
                     availableOutputFormats: availableOutputFormats,
                     warningMessage: "Image metadata could not be read by ImageIO. Conversion will rely on ffmpeg.",
@@ -94,7 +97,7 @@ extension ImageConversionEngine {
         var warnings: [String] = []
         if frameCount > 1 {
             warnings.append("Animated image detected.")
-            if ffmpegPath == nil {
+            if runtime == nil {
                 warnings.append("ffmpeg is unavailable, so only the first frame can be exported.")
             }
         }

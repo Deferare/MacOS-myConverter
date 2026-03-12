@@ -38,11 +38,11 @@ extension ContentViewModel {
 
     struct CapabilityWarmState {
         var warmedKinds: Set<MediaKind> = []
-        var ffmpegPath: String?
+        var ffmpegRuntimeIdentity: String?
 
-        mutating func invalidateIfNeeded(for resolvedFFmpegPath: String?) {
-            guard ffmpegPath != resolvedFFmpegPath else { return }
-            ffmpegPath = resolvedFFmpegPath
+        mutating func invalidateIfNeeded(for resolvedFFmpegRuntimeIdentity: String?) {
+            guard ffmpegRuntimeIdentity != resolvedFFmpegRuntimeIdentity else { return }
+            ffmpegRuntimeIdentity = resolvedFFmpegRuntimeIdentity
             warmedKinds.removeAll()
         }
 
@@ -54,8 +54,8 @@ extension ContentViewModel {
             requestedKinds.filter { !warmedKinds.contains($0) }
         }
 
-        mutating func markWarmed(_ kinds: [MediaKind], ffmpegPath: String?) {
-            self.ffmpegPath = ffmpegPath
+        mutating func markWarmed(_ kinds: [MediaKind], ffmpegRuntimeIdentity: String?) {
+            self.ffmpegRuntimeIdentity = ffmpegRuntimeIdentity
             warmedKinds.formUnion(kinds)
         }
     }

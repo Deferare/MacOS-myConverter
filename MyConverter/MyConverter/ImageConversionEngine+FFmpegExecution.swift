@@ -189,8 +189,4 @@ extension ImageConversionEngine {
             inspect: { try inspectFFmpeg(using: $0) }
         )
     }
-
-    nonisolated static func makeFFmpegExecutionContext() -> FFmpegExecutionContext? {
-        makeFFmpegExecutionContext(using: DefaultFFmpegRuntimeProvider())
-    }
 }

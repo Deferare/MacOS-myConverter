@@ -26,11 +26,4 @@ extension ImageConversionEngine {
             }
         )) ?? false
     }
-
-    nonisolated static func ffmpegCanDecodeSource(
-        ffmpegPath: String,
-        inputURL: URL
-    ) -> Bool {
-        ffmpegCanDecodeSource(runtime: ProcessFFmpegRuntime(path: ffmpegPath), inputURL: inputURL)
-    }
 }

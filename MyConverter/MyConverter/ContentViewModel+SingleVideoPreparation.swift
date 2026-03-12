@@ -8,7 +8,7 @@ extension ContentViewModel {
         let assetTrackProbe = await VideoConversionEngine.assetTrackProbe(for: sourceURL)
 
         var stagedInputLease: FFmpegStagingSupport.StagedInputLease?
-        if !assetTrackProbe.isReadable, FFmpegBinaryLocator.findPath() != nil {
+        if !assetTrackProbe.isReadable, VideoConversionEngine.ffmpegRuntime() != nil {
             stagedInputLease = try? FFmpegStagingSupport.acquireLease(
                 for: sourceURL,
                 makeError: { code, message in
@@ -17,9 +17,11 @@ extension ContentViewModel {
             )
         }
 
-        let sourceCapabilities = await VideoConversionEngine.sourceCapabilities(
+        let preparedSourceContext = await Self.prepareVideoSourceContext(
             for: sourceURL,
-            stagedInputLease: stagedInputLease
+            outputFileType: nil,
+            stagedInputLease: stagedInputLease,
+            assetTrackProbe: assetTrackProbe
         )
 
         guard !Task.isCancelled else {
@@ -34,12 +36,7 @@ extension ContentViewModel {
         return PreparedSingleVideoSelection(
             sourceID: ContentViewModelSupport.sourceIdentifier(for: sourceURL),
             sourceURL: sourceURL,
-            preparedSourceContext: VideoConversionEngine.PreparedSourceContext(
-                sourceCapabilities: sourceCapabilities,
-                assetTrackProbe: assetTrackProbe,
-                candidatePresets: nil,
-                stagedInputLease: stagedInputLease
-            )
+            preparedSourceContext: preparedSourceContext
         )
     }
 

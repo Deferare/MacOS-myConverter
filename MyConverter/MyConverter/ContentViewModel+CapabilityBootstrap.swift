@@ -137,8 +137,8 @@ extension ContentViewModel {
     func scheduleCapabilityBootstrap(for kinds: [MediaKind]) {
         let requestedKinds = uniqueMediaKinds(kinds)
         guard !requestedKinds.isEmpty else { return }
-        let resolvedFFmpegPath = FFmpegBinaryLocator.findPath()
-        capabilityWarmState.invalidateIfNeeded(for: resolvedFFmpegPath)
+        let resolvedFFmpegRuntimeIdentity = services.ffmpegRuntimeProvider.makeRuntime()?.cacheIdentity
+        capabilityWarmState.invalidateIfNeeded(for: resolvedFFmpegRuntimeIdentity)
         let pendingKinds = capabilityWarmState.pendingKinds(in: requestedKinds)
         guard !pendingKinds.isEmpty else {
             PerformanceSignpost.event(
@@ -182,7 +182,10 @@ extension ContentViewModel {
 
             guard !Task.isCancelled else { return }
             applyWarmedDefaultCapabilitiesIfNeeded(warmed)
-            capabilityWarmState.markWarmed(pendingKinds, ffmpegPath: resolvedFFmpegPath)
+            capabilityWarmState.markWarmed(
+                pendingKinds,
+                ffmpegRuntimeIdentity: resolvedFFmpegRuntimeIdentity
+            )
             PerformanceSignpost.event(
                 "CapabilityBootstrapApply",
                 message: pendingKindsDescription(for: pendingKinds)

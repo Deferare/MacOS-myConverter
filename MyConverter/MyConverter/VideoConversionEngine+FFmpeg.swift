@@ -90,10 +90,6 @@ extension VideoConversionEngine {
         )
     }
 
-    nonisolated static func makeFFmpegExecutionContext() -> FFmpegExecutionContext? {
-        makeFFmpegExecutionContext(using: DefaultFFmpegRuntimeProvider())
-    }
-
     static func ffmpegCanReadMappedStream(
         runtime: any FFmpegRuntime,
         inputURL: URL,

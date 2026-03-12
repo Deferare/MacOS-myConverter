@@ -77,19 +77,27 @@ extension ContentViewModel {
 
     nonisolated static func prepareVideoSourceContext(
         for sourceURL: URL,
-        outputFileType: AVFileType?
+        outputFileType: AVFileType?,
+        stagedInputLease: FFmpegStagingSupport.StagedInputLease? = nil,
+        assetTrackProbe: VideoConversionEngine.AssetTrackProbe? = nil
     ) async -> VideoConversionEngine.PreparedSourceContext {
+        let resolvedAssetTrackProbe: VideoConversionEngine.AssetTrackProbe
+        if let assetTrackProbe {
+            resolvedAssetTrackProbe = assetTrackProbe
+        } else {
+            resolvedAssetTrackProbe = await VideoConversionEngine.assetTrackProbe(
+                for: sourceURL
+            )
+        }
         let sourceCapabilities = await VideoConversionEngine.sourceCapabilities(
-            for: sourceURL
-        )
-        let assetTrackProbe = await VideoConversionEngine.assetTrackProbe(
-            for: sourceURL
+            for: sourceURL,
+            stagedInputLease: stagedInputLease
         )
 
         let candidatePresets: [String]?
         if let outputFileType,
-           assetTrackProbe.isReadable,
-           assetTrackProbe.hasVideoTrack {
+           resolvedAssetTrackProbe.isReadable,
+           resolvedAssetTrackProbe.hasVideoTrack {
             let asset = AVURLAsset(url: sourceURL)
             candidatePresets = await VideoConversionEngine.compatibleExportPresets(
                 for: asset,
@@ -102,9 +110,9 @@ extension ContentViewModel {
 
         return VideoConversionEngine.PreparedSourceContext(
             sourceCapabilities: sourceCapabilities,
-            assetTrackProbe: assetTrackProbe,
+            assetTrackProbe: resolvedAssetTrackProbe,
             candidatePresets: candidatePresets,
-            stagedInputLease: nil
+            stagedInputLease: stagedInputLease
         )
     }
 

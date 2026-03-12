@@ -3,21 +3,28 @@ import ImageIO
 
 extension ImageConversionEngine {
     nonisolated static func defaultOutputFormats() -> [ImageFormatOption] {
+        defaultOutputFormats(using: ffmpegRuntime())
+    }
+
+    nonisolated static func defaultOutputFormats(
+        using runtime: (any FFmpegRuntime)?
+    ) -> [ImageFormatOption] {
         let imageIOFormats = imageIOAvailableFormats()
 
-        guard let ffmpegPath = ffmpegBinaryPath() else {
+        guard let runtime else {
             return imageIOFormats
         }
 
+        let cacheKey = runtime.cacheIdentity
         return CachedValueSupport.resolve(
-            readCached: { outputFormatCacheQueue.sync(execute: { defaultOutputFormatsCache[ffmpegPath] }) },
+            readCached: { outputFormatCacheQueue.sync(execute: { defaultOutputFormatsCache[cacheKey] }) },
             storeCached: { resolved in
                 outputFormatCacheQueue.sync {
-                    defaultOutputFormatsCache[ffmpegPath] = resolved
+                    defaultOutputFormatsCache[cacheKey] = resolved
                 }
             }
         ) {
-            guard let introspection = try? inspectFFmpeg(at: ffmpegPath) else {
+            guard let introspection = try? inspectFFmpeg(using: runtime) else {
                 return imageIOFormats
             }
 
@@ -32,14 +39,6 @@ extension ImageConversionEngine {
 
             return mergedFormats(primary: ffmpegFormats, secondary: imageIOFormats)
         }
-    }
-
-    nonisolated static func isFFmpegFormatSupported(_ format: ImageFormatOption, ffmpegPath: String) -> Bool {
-        guard let introspection = try? inspectFFmpeg(at: ffmpegPath) else {
-            return false
-        }
-
-        return isFFmpegFormatSupported(format, introspection: introspection)
     }
 
     nonisolated private static func mergedFormats(

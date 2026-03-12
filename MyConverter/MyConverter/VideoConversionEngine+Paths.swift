@@ -12,7 +12,7 @@ extension VideoConversionEngine {
         }
     }
 
-    static func isFFmpegAvailable() -> Bool {
+    nonisolated static func isFFmpegAvailable() -> Bool {
         ffmpegRuntime() != nil
     }
 }

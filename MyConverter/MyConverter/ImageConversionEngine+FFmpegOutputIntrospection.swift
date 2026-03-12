@@ -18,10 +18,6 @@ extension ImageConversionEngine {
         )
     }
 
-    nonisolated static func inspectFFmpeg(at ffmpegPath: String) throws -> FFmpegIntrospection {
-        try inspectFFmpeg(using: ProcessFFmpegRuntime(path: ffmpegPath))
-    }
-
     nonisolated private static func buildFFmpegIntrospection(using runtime: any FFmpegRuntime) throws -> FFmpegIntrospection {
         let encodersOutput = try FFmpegParsingSupport.runCommandOutput(
             runtime: runtime,
