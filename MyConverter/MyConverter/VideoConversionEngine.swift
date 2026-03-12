@@ -45,6 +45,12 @@ enum VideoConversionEngine {
         let hasAudioTrack: Bool
     }
 
+    nonisolated static func ffmpegRuntime(
+        using runtimeProvider: any FFmpegRuntimeProviding = DefaultFFmpegRuntimeProvider()
+    ) -> (any FFmpegRuntime)? {
+        runtimeProvider.makeRuntime()
+    }
+
     static func rethrowIfExportCancelled(_ error: Error) throws {
         if error is CancellationError {
             throw ConversionError.exportCancelled

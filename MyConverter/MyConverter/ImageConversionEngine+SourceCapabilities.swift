@@ -4,7 +4,7 @@ import ImageIO
 
 extension ImageConversionEngine {
     nonisolated static func sourceCapabilities(for inputURL: URL) async -> ImageSourceCapabilities {
-        let ffmpegPath = FFmpegBinaryLocator.findPath()
+        let ffmpegPath = ffmpegBinaryPath()
         let cacheKey = makeSourceCapabilityCacheKey(for: inputURL, ffmpegPath: ffmpegPath)
         return await InFlightOperationSupport.loadCachedAsyncValue(
             cacheKey: cacheKey,

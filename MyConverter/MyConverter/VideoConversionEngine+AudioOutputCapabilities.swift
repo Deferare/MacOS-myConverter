@@ -4,7 +4,7 @@ extension VideoConversionEngine {
     nonisolated static func defaultAudioOutputFormats() -> [AudioFormatOption] {
         let knownFormats = AudioFormatOption.ffmpegKnownFormats
 
-        guard let runtime = DefaultFFmpegRuntimeProvider().makeRuntime() else {
+        guard let runtime = ffmpegRuntime() else {
             return knownFormats
         }
 
@@ -27,7 +27,7 @@ extension VideoConversionEngine {
     }
 
     nonisolated static func availableAudioEncoders(for format: AudioFormatOption) -> [AudioEncoderOption] {
-        guard let runtime = DefaultFFmpegRuntimeProvider().makeRuntime() else {
+        guard let runtime = ffmpegRuntime() else {
             return automaticOptionIfEnabled(.auto, enabled: format.allowsFFmpegAutomaticAudioCodec)
         }
 

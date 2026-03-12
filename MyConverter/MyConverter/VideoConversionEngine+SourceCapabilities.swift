@@ -31,7 +31,7 @@ extension VideoConversionEngine {
     }
 
     static func sourceCapabilitiesForAudio(for inputURL: URL) async -> AudioSourceCapabilities {
-        let runtime = DefaultFFmpegRuntimeProvider().makeRuntime()
+        let runtime = ffmpegRuntime()
         let cacheKey = makeSourceCapabilityCacheKey(for: inputURL, runtimeIdentity: runtime?.cacheIdentity)
         return await InFlightOperationSupport.loadCachedAsyncValue(
             cacheKey: cacheKey,
@@ -101,7 +101,7 @@ extension VideoConversionEngine {
         for inputURL: URL,
         stagedInputLease: FFmpegStagingSupport.StagedInputLease? = nil
     ) async -> VideoSourceCapabilities {
-        let runtime = DefaultFFmpegRuntimeProvider().makeRuntime()
+        let runtime = ffmpegRuntime()
         let cacheKey = makeSourceCapabilityCacheKey(for: inputURL, runtimeIdentity: runtime?.cacheIdentity)
         return await InFlightOperationSupport.loadCachedAsyncValue(
             cacheKey: cacheKey,

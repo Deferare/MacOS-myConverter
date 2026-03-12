@@ -13,6 +13,6 @@ extension VideoConversionEngine {
     }
 
     static func isFFmpegAvailable() -> Bool {
-        DefaultFFmpegRuntimeProvider().makeRuntime() != nil
+        ffmpegRuntime() != nil
     }
 }

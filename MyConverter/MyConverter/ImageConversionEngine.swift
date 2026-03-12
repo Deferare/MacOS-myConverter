@@ -31,8 +31,12 @@ enum ImageConversionEngine {
     nonisolated(unsafe) static var sourceCapabilitiesCache: [String: ImageSourceCapabilities] = [:]
     nonisolated(unsafe) static var sourceCapabilitiesInFlight: [String: InFlightContinuation<ImageSourceCapabilities>] = [:]
 
+    nonisolated static func ffmpegBinaryPath() -> String? {
+        FFmpegBinaryLocator.findPath()
+    }
+
     nonisolated static func isFFmpegAvailable() -> Bool {
-        DefaultFFmpegRuntimeProvider().makeRuntime() != nil
+        ffmpegBinaryPath() != nil
     }
 }
 

@@ -4,7 +4,7 @@ extension VideoConversionEngine {
     nonisolated static func defaultOutputFormats() -> [VideoFormatOption] {
         let avFormats = VideoFormatOption.avFoundationDefaultFormats
 
-        guard let runtime = DefaultFFmpegRuntimeProvider().makeRuntime() else {
+        guard let runtime = ffmpegRuntime() else {
             return avFormats
         }
 
@@ -32,7 +32,7 @@ extension VideoConversionEngine {
             return [.auto]
         }
 
-        guard let runtime = DefaultFFmpegRuntimeProvider().makeRuntime() else {
+        guard let runtime = ffmpegRuntime() else {
             return automaticOptionIfEnabled(.auto, enabled: true)
         }
 
@@ -64,7 +64,7 @@ extension VideoConversionEngine {
             return []
         }
 
-        guard let runtime = DefaultFFmpegRuntimeProvider().makeRuntime() else {
+        guard let runtime = ffmpegRuntime() else {
             return automaticOptionIfEnabled(.auto, enabled: true)
         }
 

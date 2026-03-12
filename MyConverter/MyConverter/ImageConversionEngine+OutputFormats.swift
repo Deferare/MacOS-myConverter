@@ -5,7 +5,7 @@ extension ImageConversionEngine {
     nonisolated static func defaultOutputFormats() -> [ImageFormatOption] {
         let imageIOFormats = imageIOAvailableFormats()
 
-        guard let ffmpegPath = FFmpegBinaryLocator.findPath() else {
+        guard let ffmpegPath = ffmpegBinaryPath() else {
             return imageIOFormats
         }
 
