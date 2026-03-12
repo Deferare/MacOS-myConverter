@@ -2,8 +2,9 @@ import SwiftUI
 
 private enum AboutThemeMetrics {
     static let cardCornerRadius: CGFloat = 28
-    static let rowCornerRadius: CGFloat = 20
     static let rowIconSize: CGFloat = 38
+    static let rowVerticalPadding: CGFloat = 14
+    static let dividerLeadingInset: CGFloat = 52
 }
 
 struct AboutPanelCard<Content: View>: View {
@@ -55,28 +56,12 @@ struct AboutSectionHeader: View {
     }
 }
 
-struct AboutRowCard<Content: View>: View {
-    let content: Content
-
-    init(@ViewBuilder content: () -> Content) {
-        self.content = content()
-    }
-
+struct AboutSectionDivider: View {
     var body: some View {
-        content
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(rowBackground)
-    }
-
-    private var rowBackground: some View {
-        RoundedRectangle(cornerRadius: AboutThemeMetrics.rowCornerRadius, style: .continuous)
-            .fill(.white.opacity(0.06))
-            .overlay(
-                RoundedRectangle(cornerRadius: AboutThemeMetrics.rowCornerRadius, style: .continuous)
-                    .stroke(.white.opacity(0.10), lineWidth: 1)
-            )
+        Rectangle()
+            .fill(.white.opacity(0.08))
+            .frame(height: 1)
+            .padding(.leading, AboutThemeMetrics.dividerLeadingInset)
     }
 }
 
@@ -88,41 +73,45 @@ struct AboutMetadataRow: View {
     var emphasizesValue = false
 
     var body: some View {
-        AboutRowCard {
-            HStack(spacing: 14) {
-                Image(systemName: systemImage)
-                    .font(.body.weight(.semibold))
+        HStack(spacing: 14) {
+            rowIcon(symbolName: systemImage)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
-                    .frame(width: AboutThemeMetrics.rowIconSize, height: AboutThemeMetrics.rowIconSize)
-                    .background(
-                        Circle()
-                            .fill(.white.opacity(0.05))
-                            .overlay(
-                                Circle()
-                                    .stroke(.white.opacity(0.08), lineWidth: 1)
-                            )
-                    )
+                    .textCase(.uppercase)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
+                Text(value)
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(emphasizesValue ? Color.accentColor : .primary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-                    Text(value)
-                        .font(.body.weight(.medium))
-                        .foregroundStyle(emphasizesValue ? Color.accentColor : .primary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                if let trailingSystemImage {
-                    Image(systemName: trailingSystemImage)
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(.secondary)
-                }
+            if let trailingSystemImage {
+                Image(systemName: trailingSystemImage)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.secondary)
             }
         }
+        .padding(.vertical, AboutThemeMetrics.rowVerticalPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func rowIcon(symbolName: String) -> some View {
+        Image(systemName: symbolName)
+            .font(.body.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .frame(width: AboutThemeMetrics.rowIconSize, height: AboutThemeMetrics.rowIconSize)
+            .background(
+                Circle()
+                    .fill(.white.opacity(0.05))
+                    .overlay(
+                        Circle()
+                            .stroke(.white.opacity(0.08), lineWidth: 1)
+                    )
+            )
     }
 }
 
@@ -133,30 +122,38 @@ struct AboutInlineStatusRow: View {
     var showsProgress = false
 
     var body: some View {
-        AboutRowCard {
-            HStack(spacing: 12) {
-                if showsProgress {
-                    ProgressView()
-                        .controlSize(.small)
-                } else {
-                    Image(systemName: isError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(isError ? .orange : .secondary)
-                }
+        HStack(spacing: 12) {
+            statusLeadingView
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
 
-                    Text(message)
-                        .font(.caption)
-                        .foregroundStyle(isError ? .orange : .secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer()
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(isError ? .orange : .secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, AboutThemeMetrics.rowVerticalPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private var statusLeadingView: some View {
+        if showsProgress {
+            ProgressView()
+                .controlSize(.small)
+                .frame(width: AboutThemeMetrics.rowIconSize, height: AboutThemeMetrics.rowIconSize)
+        } else {
+            Image(systemName: isError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(isError ? .orange : .secondary)
+                .frame(width: AboutThemeMetrics.rowIconSize, height: AboutThemeMetrics.rowIconSize)
         }
     }
 }

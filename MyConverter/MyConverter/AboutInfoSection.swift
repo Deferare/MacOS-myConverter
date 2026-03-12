@@ -12,12 +12,14 @@ struct AboutInfoSection: View {
                     systemImage: "person.text.rectangle"
                 )
 
-                VStack(spacing: 10) {
+                VStack(spacing: 0) {
                     AboutMetadataRow(
                         title: "Developer",
                         value: "JiHoon K (Deferare)",
                         systemImage: "person.crop.circle"
                     )
+
+                    AboutSectionDivider()
 
                     Link(destination: URL(string: "mailto:deferare@icloud.com")!) {
                         AboutMetadataRow(
@@ -31,11 +33,15 @@ struct AboutInfoSection: View {
                     }
                     .buttonStyle(.plain)
 
+                    AboutSectionDivider()
+
                     AboutMetadataRow(
                         title: "License",
                         value: "© 2026 Deferare. All rights reserved.",
                         systemImage: "c.circle"
                     )
+
+                    AboutSectionDivider()
 
                     Button {
                         onOpenLicenses()
