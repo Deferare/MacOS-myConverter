@@ -109,7 +109,6 @@ struct IPadFileRow: View {
         static let titleSpacing: CGFloat = 8
         static let thumbnailHeight: CGFloat = 28
         static let accessorySpacing: CGFloat = 8
-        static let outputPreviewWidth: CGFloat = 180
         static let progressBarHeight: CGFloat = 6
     }
 
@@ -179,20 +178,11 @@ struct IPadFileRow: View {
     @ViewBuilder
     private var outputSection: some View {
         switch rowState {
-        case .completed(let outputURL):
-            VStack(alignment: .trailing, spacing: 3) {
-                statusPill(title: "Saved", color: .green)
-
-                Text(outputURL.lastPathComponent)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .frame(maxWidth: Metrics.outputPreviewWidth, alignment: .trailing)
-            }
-            .padding(.leading, Metrics.accessorySpacing)
-            .fixedSize(horizontal: true, vertical: false)
-            .layoutPriority(1)
+        case .completed:
+            statusPill(title: "Saved", color: .green)
+                .padding(.leading, Metrics.accessorySpacing)
+                .fixedSize(horizontal: true, vertical: false)
+                .layoutPriority(1)
         case .skipped:
             statusPill(title: "Skipped", color: .orange)
                 .padding(.leading, Metrics.accessorySpacing)

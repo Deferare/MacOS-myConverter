@@ -19,6 +19,10 @@ struct IPadMediaConverterView: View {
         viewModel.converterRenderState(for: kind)
     }
 
+    private var toolbarUtilityTint: Color {
+        Color(uiColor: .label)
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
@@ -271,6 +275,7 @@ struct IPadMediaConverterView: View {
                         viewModel.clearSelectedSource(for: kind)
                     } label: {
                         Image(systemName: "trash")
+                            .foregroundStyle(toolbarUtilityTint)
                     }
                     .disabled(renderState.selectedFileListState.selectedURLs.isEmpty)
 
@@ -278,6 +283,7 @@ struct IPadMediaConverterView: View {
                         viewModel.requestFileImport()
                     } label: {
                         Image(systemName: "plus")
+                            .foregroundStyle(toolbarUtilityTint)
                     }
                 }
 
