@@ -1,6 +1,23 @@
 import Foundation
 
+struct FFmpegMuxerDescriptor: Sendable {
+    let name: String
+    let description: String
+}
+
 enum FFmpegParsingSupport {
+    nonisolated static func runCommandOutput(
+        runtime: any FFmpegRuntime,
+        arguments: [String],
+        makeError: (Int32, String) -> Error
+    ) throws -> String {
+        let result = FFmpegCommandCache.run(runtime: runtime, arguments: arguments)
+        guard result.terminationStatus == 0 else {
+            throw makeError(result.terminationStatus, result.output)
+        }
+        return result.output
+    }
+
     nonisolated static func parseEncoders(
         from output: String,
         mediaFlag: Character
@@ -25,8 +42,8 @@ enum FFmpegParsingSupport {
     nonisolated static func parseMuxerDescriptors(
         from output: String,
         lowercaseDescription: Bool
-    ) -> [(name: String, description: String)] {
-        var descriptors: [(name: String, description: String)] = []
+    ) -> [FFmpegMuxerDescriptor] {
+        var descriptors: [FFmpegMuxerDescriptor] = []
 
         for line in output.split(separator: "\n", omittingEmptySubsequences: false) {
             let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -52,7 +69,7 @@ enum FFmpegParsingSupport {
                 .filter { !$0.isEmpty }
 
             for name in names {
-                descriptors.append((name: name, description: description))
+                descriptors.append(FFmpegMuxerDescriptor(name: name, description: description))
             }
         }
 
@@ -107,6 +124,56 @@ enum FFmpegParsingSupport {
         }
 
         return result
+    }
+
+    nonisolated static func collectMuxerExtensions(
+        runtime: any FFmpegRuntime,
+        muxerDescriptors: [FFmpegMuxerDescriptor],
+        maxTokenLength: Int?,
+        shouldInclude: (FFmpegMuxerDescriptor) -> Bool,
+        fallbackExtension: (FFmpegMuxerDescriptor) -> String?
+    ) -> [String: [String]] {
+        var byMuxer: [String: [String]] = [:]
+        var visited = Set<String>()
+
+        for descriptor in muxerDescriptors {
+            guard visited.insert(descriptor.name).inserted else { continue }
+            guard shouldInclude(descriptor) else { continue }
+
+            let help = FFmpegCommandCache.run(
+                runtime: runtime,
+                arguments: ["-hide_banner", "-h", "muxer=\(descriptor.name)"]
+            )
+            guard help.terminationStatus == 0 else { continue }
+
+            var extensions = parseMuxerExtensions(
+                from: help.output,
+                maxTokenLength: maxTokenLength
+            )
+            if extensions.isEmpty, let fallbackExtension = fallbackExtension(descriptor) {
+                extensions = [fallbackExtension]
+            }
+            guard !extensions.isEmpty else { continue }
+            byMuxer[descriptor.name] = extensions
+        }
+
+        return byMuxer
+    }
+
+    nonisolated static func discoveredFormats<Format>(
+        from introspection: FFmpegIntrospection,
+        includeExtension: (String) -> Bool = { _ in true },
+        makeFormat: (String, String) -> Format
+    ) -> [Format] {
+        var formats: [Format] = []
+
+        for (muxer, extensions) in introspection.muxerExtensions {
+            for fileExtension in extensions where includeExtension(fileExtension) {
+                formats.append(makeFormat(fileExtension, muxer))
+            }
+        }
+
+        return formats
     }
 }
 

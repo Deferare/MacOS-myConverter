@@ -78,6 +78,55 @@ enum InFlightOperationSupport {
         throw missingResultError()
     }
 
+    nonisolated static func loadCachedGroupedValue<Value>(
+        cacheKey: String,
+        on queue: DispatchQueue,
+        cachedValue: () -> Value?,
+        existingInFlight: () -> InFlightGroupedResult<Value>?,
+        storeInFlight: (InFlightGroupedResult<Value>?) -> Void,
+        missingResultError: @autoclosure () -> Error,
+        build: () throws -> Value,
+        storeCachedValue: (Value) -> Void
+    ) throws -> Value {
+        if let cached = queue.sync(execute: cachedValue) {
+            return cached
+        }
+
+        let (inFlight, shouldBuild) = queue.sync { () -> (InFlightGroupedResult<Value>, Bool) in
+            if let existing = existingInFlight() {
+                return (existing, false)
+            }
+
+            let created = InFlightGroupedResult<Value>()
+            storeInFlight(created)
+            return (created, true)
+        }
+
+        if !shouldBuild {
+            return try waitForGroupedResult(
+                inFlight,
+                cachedValue: { queue.sync(execute: cachedValue) },
+                missingResultError: missingResultError()
+            )
+        }
+
+        do {
+            let resolved = try build()
+            finishGroupedResult(.success(resolved), in: inFlight, on: queue) { result in
+                if case .success(let resolved) = result {
+                    storeCachedValue(resolved)
+                }
+                storeInFlight(nil)
+            }
+            return resolved
+        } catch {
+            finishGroupedResult(.failure(error), in: inFlight, on: queue) { _ in
+                storeInFlight(nil)
+            }
+            throw error
+        }
+    }
+
     nonisolated static func finishGroupedResult<Value>(
         _ result: Result<Value, Error>,
         in inFlight: InFlightGroupedResult<Value>,

@@ -9,7 +9,7 @@ extension ImageConversionEngine {
             return imageIOFormats
         }
 
-        return cachedOutputFormatValue(
+        return CachedValueSupport.resolve(
             readCached: { outputFormatCacheQueue.sync(execute: { defaultOutputFormatsCache[ffmpegPath] }) },
             storeCached: { resolved in
                 outputFormatCacheQueue.sync {
@@ -50,19 +50,16 @@ extension ImageConversionEngine {
     }
 
     nonisolated private static func ffmpegDiscoveredFormats(from introspection: FFmpegIntrospection) -> [ImageFormatOption] {
-        var discovered: [ImageFormatOption] = []
-
-        for (muxer, extensions) in introspection.muxerExtensions {
-            for ext in extensions {
-                discovered.append(ImageFormatOption.fromFFmpegExtension(ext, muxer: muxer))
-            }
-        }
-
-        return ImageFormatOption.deduplicatedAndSorted(discovered)
+        ImageFormatOption.deduplicatedAndSorted(
+            FFmpegParsingSupport.discoveredFormats(
+                from: introspection,
+                makeFormat: ImageFormatOption.fromFFmpegExtension(_:muxer:)
+            )
+        )
     }
 
     nonisolated private static func imageIOAvailableFormats() -> [ImageFormatOption] {
-        cachedOutputFormatValue(
+        CachedValueSupport.resolve(
             readCached: { outputFormatCacheQueue.sync(execute: { imageIOAvailableFormatsCache }) },
             storeCached: { resolved in
                 outputFormatCacheQueue.sync {

@@ -8,7 +8,7 @@ extension VideoConversionEngine {
             return avFormats
         }
 
-        return cachedCapabilityValue(
+        return CachedValueSupport.resolve(
             readCached: { capabilityCacheQueue.sync(execute: { defaultVideoFormatsCache[runtime.cacheIdentity] }) },
             storeCached: { resolved in
                 capabilityCacheQueue.sync {
@@ -16,7 +16,7 @@ extension VideoConversionEngine {
                 }
             }
         ) {
-            guard let introspection = try? inspectFFmpeg(using: runtime) else {
+            guard let introspection = ffmpegIntrospection(using: runtime) else {
                 return avFormats
             }
 
@@ -33,11 +33,11 @@ extension VideoConversionEngine {
         }
 
         guard let runtime = DefaultFFmpegRuntimeProvider().makeRuntime() else {
-            return [.auto]
+            return automaticOptionIfEnabled(.auto, enabled: true)
         }
 
         let cacheKey = makeCapabilityCacheKey(path: runtime.cacheIdentity, normalizedID: format.normalizedID)
-        return cachedCapabilityValue(
+        return CachedValueSupport.resolve(
             readCached: { capabilityCacheQueue.sync(execute: { videoEncoderOptionsCache[cacheKey] }) },
             storeCached: { resolved in
                 capabilityCacheQueue.sync {
@@ -45,9 +45,8 @@ extension VideoConversionEngine {
                 }
             }
         ) {
-            guard let introspection = try? inspectFFmpeg(using: runtime),
-                  isFFmpegFormatSupported(format, introspection: introspection) else {
-                return format.avFileType == nil ? [VideoEncoderOption]() : [.auto]
+            guard let introspection = supportedIntrospection(using: runtime, for: format) else {
+                return automaticOptionIfEnabled(.auto, enabled: format.avFileType != nil)
             }
 
             return availableEncoderOptions(
@@ -66,11 +65,11 @@ extension VideoConversionEngine {
         }
 
         guard let runtime = DefaultFFmpegRuntimeProvider().makeRuntime() else {
-            return [.auto]
+            return automaticOptionIfEnabled(.auto, enabled: true)
         }
 
         let cacheKey = makeCapabilityCacheKey(path: runtime.cacheIdentity, normalizedID: format.normalizedID)
-        return cachedCapabilityValue(
+        return CachedValueSupport.resolve(
             readCached: { capabilityCacheQueue.sync(execute: { videoFormatAudioEncoderOptionsCache[cacheKey] }) },
             storeCached: { resolved in
                 capabilityCacheQueue.sync {
@@ -78,9 +77,8 @@ extension VideoConversionEngine {
                 }
             }
         ) {
-            guard let introspection = try? inspectFFmpeg(using: runtime),
-                  isFFmpegFormatSupported(format, introspection: introspection) else {
-                return format.avFileType == nil ? [AudioEncoderOption]() : [.auto]
+            guard let introspection = supportedIntrospection(using: runtime, for: format) else {
+                return automaticOptionIfEnabled(.auto, enabled: format.avFileType != nil)
             }
 
             return availableEncoderOptions(

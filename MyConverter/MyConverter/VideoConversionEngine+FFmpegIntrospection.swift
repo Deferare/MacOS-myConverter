@@ -3,32 +3,19 @@ import Foundation
 extension VideoConversionEngine {
     nonisolated static func inspectFFmpeg(using runtime: any FFmpegRuntime) throws -> FFmpegIntrospection {
         let cacheKey = runtime.cacheIdentity
-        if let cached = ffmpegIntrospectionCacheQueue.sync(execute: { ffmpegIntrospectionCache[cacheKey] }) {
-            return cached
-        }
-
-        let (inFlight, shouldBuild) = ffmpegIntrospectionCacheQueue.sync { () -> (InFlightGroupedResult<FFmpegIntrospection>, Bool) in
-            if let existing = ffmpegIntrospectionInFlight[cacheKey] {
-                return (existing, false)
-            }
-
-            let created = InFlightGroupedResult<FFmpegIntrospection>()
-            ffmpegIntrospectionInFlight[cacheKey] = created
-            return (created, true)
-        }
-
-        if !shouldBuild {
-            return try waitForFFmpegIntrospection(inFlight, cacheKey: cacheKey)
-        }
-
-        do {
-            let introspection = try buildFFmpegIntrospection(using: runtime)
-            finishFFmpegIntrospection(inFlight, cacheKey: cacheKey, result: .success(introspection))
-            return introspection
-        } catch {
-            finishFFmpegIntrospection(inFlight, cacheKey: cacheKey, result: .failure(error))
-            throw error
-        }
+        return try InFlightOperationSupport.loadCachedGroupedValue(
+            cacheKey: cacheKey,
+            on: ffmpegIntrospectionCacheQueue,
+            cachedValue: { ffmpegIntrospectionCache[cacheKey] },
+            existingInFlight: { ffmpegIntrospectionInFlight[cacheKey] },
+            storeInFlight: { ffmpegIntrospectionInFlight[cacheKey] = $0 },
+            missingResultError: ConversionError.ffmpegFailed(
+                -1,
+                "FFmpeg introspection did not produce a result."
+            ),
+            build: { try buildFFmpegIntrospection(using: runtime) },
+            storeCachedValue: { ffmpegIntrospectionCache[cacheKey] = $0 }
+        )
     }
 
     nonisolated static func inspectFFmpeg(at ffmpegPath: String) throws -> FFmpegIntrospection {
@@ -36,68 +23,45 @@ extension VideoConversionEngine {
     }
 
     nonisolated private static func buildFFmpegIntrospection(using runtime: any FFmpegRuntime) throws -> FFmpegIntrospection {
-        let encodersResult = FFmpegCommandCache.run(
+        let encodersOutput = try FFmpegParsingSupport.runCommandOutput(
             runtime: runtime,
-            arguments: ["-hide_banner", "-encoders"]
+            arguments: ["-hide_banner", "-encoders"],
+            makeError: ConversionError.ffmpegFailed
         )
-        let muxersResult = FFmpegCommandCache.run(
+        let muxersOutput = try FFmpegParsingSupport.runCommandOutput(
             runtime: runtime,
-            arguments: ["-hide_banner", "-muxers"]
+            arguments: ["-hide_banner", "-muxers"],
+            makeError: ConversionError.ffmpegFailed
         )
 
-        guard encodersResult.terminationStatus == 0 else {
-            throw ConversionError.ffmpegFailed(encodersResult.terminationStatus, encodersResult.output)
-        }
-        guard muxersResult.terminationStatus == 0 else {
-            throw ConversionError.ffmpegFailed(muxersResult.terminationStatus, muxersResult.output)
-        }
-
-        let videoEncoders = parseFFmpegEncoders(from: encodersResult.output, mediaFlag: "V")
-        let audioEncoders = parseFFmpegEncoders(from: encodersResult.output, mediaFlag: "A")
-        let muxerDescriptors = parseFFmpegMuxerDescriptors(from: muxersResult.output)
-        let muxers = Set(muxerDescriptors.map(\.name))
-        let muxerExtensions = parseFFmpegVideoMuxerExtensions(
+        let videoEncoders = FFmpegParsingSupport.parseEncoders(from: encodersOutput, mediaFlag: "V")
+        let audioEncoders = FFmpegParsingSupport.parseEncoders(from: encodersOutput, mediaFlag: "A")
+        let muxerDescriptors = FFmpegParsingSupport.parseMuxerDescriptors(
+            from: muxersOutput,
+            lowercaseDescription: true
+        )
+        let muxerExtensions = FFmpegParsingSupport.collectMuxerExtensions(
             runtime: runtime,
-            muxerDescriptors: muxerDescriptors
+            muxerDescriptors: muxerDescriptors,
+            maxTokenLength: nil,
+            shouldInclude: { descriptor in
+                isLikelyVideoMuxer(descriptor) || isLikelyAudioMuxer(descriptor)
+            },
+            fallbackExtension: { descriptor in
+                if VideoFormatOption.isLikelyVideoFileExtension(descriptor.name) ||
+                    AudioFormatOption.isLikelyAudioFileExtension(descriptor.name) {
+                    return descriptor.name
+                }
+                return nil
+            }
         )
 
         return FFmpegIntrospection(
             videoEncoders: videoEncoders,
             audioEncoders: audioEncoders,
-            muxers: muxers,
+            muxers: Set(muxerDescriptors.map(\.name)),
             muxerExtensions: muxerExtensions
         )
-    }
-
-    nonisolated private static func waitForFFmpegIntrospection(
-        _ inFlight: InFlightGroupedResult<FFmpegIntrospection>,
-        cacheKey: String
-    ) throws -> FFmpegIntrospection {
-        try InFlightOperationSupport.waitForGroupedResult(
-            inFlight,
-            cachedValue: { ffmpegIntrospectionCacheQueue.sync(execute: { ffmpegIntrospectionCache[cacheKey] }) },
-            missingResultError: ConversionError.ffmpegFailed(
-                -1,
-                "FFmpeg introspection did not produce a result."
-            )
-        )
-    }
-
-    nonisolated private static func finishFFmpegIntrospection(
-        _ inFlight: InFlightGroupedResult<FFmpegIntrospection>,
-        cacheKey: String,
-        result: Result<FFmpegIntrospection, Error>
-    ) {
-        InFlightOperationSupport.finishGroupedResult(
-            result,
-            in: inFlight,
-            on: ffmpegIntrospectionCacheQueue
-        ) { result in
-            if case .success(let introspection) = result {
-                ffmpegIntrospectionCache[cacheKey] = introspection
-            }
-            ffmpegIntrospectionInFlight[cacheKey] = nil
-        }
     }
 
     nonisolated static func isFFmpegFormatSupported(_ format: VideoFormatOption, introspection: FFmpegIntrospection) -> Bool {
@@ -122,27 +86,23 @@ extension VideoConversionEngine {
     }
 
     nonisolated static func ffmpegDiscoveredFormats(from introspection: FFmpegIntrospection) -> [VideoFormatOption] {
-        var formats: [VideoFormatOption] = []
-
-        for (muxer, extensions) in introspection.muxerExtensions {
-            for fileExtension in extensions where VideoFormatOption.isLikelyVideoFileExtension(fileExtension) {
-                formats.append(VideoFormatOption.fromFFmpegExtension(fileExtension, muxer: muxer))
-            }
-        }
-
-        return VideoFormatOption.deduplicatedAndSorted(formats)
+        VideoFormatOption.deduplicatedAndSorted(
+            FFmpegParsingSupport.discoveredFormats(
+                from: introspection,
+                includeExtension: VideoFormatOption.isLikelyVideoFileExtension(_:),
+                makeFormat: VideoFormatOption.fromFFmpegExtension(_:muxer:)
+            )
+        )
     }
 
     nonisolated static func ffmpegDiscoveredAudioFormats(from introspection: FFmpegIntrospection) -> [AudioFormatOption] {
-        var formats: [AudioFormatOption] = []
-
-        for (muxer, extensions) in introspection.muxerExtensions {
-            for fileExtension in extensions where AudioFormatOption.isLikelyAudioFileExtension(fileExtension) {
-                formats.append(AudioFormatOption.fromFFmpegExtension(fileExtension, muxer: muxer))
-            }
-        }
-
-        return AudioFormatOption.deduplicatedAndSorted(formats)
+        AudioFormatOption.deduplicatedAndSorted(
+            FFmpegParsingSupport.discoveredFormats(
+                from: introspection,
+                includeExtension: AudioFormatOption.isLikelyAudioFileExtension(_:),
+                makeFormat: AudioFormatOption.fromFFmpegExtension(_:muxer:)
+            )
+        )
     }
 
     nonisolated private static func hasCompatibleAudioEncoder(_ format: AudioFormatOption, introspection: FFmpegIntrospection) -> Bool {
@@ -173,54 +133,6 @@ extension VideoConversionEngine {
             guard option.isCompatible(with: format) else { return false }
             return option.codecCandidates.contains(where: { introspection.audioEncoders.contains($0) })
         }
-    }
-
-    nonisolated private static func parseFFmpegEncoders(from output: String, mediaFlag: Character) -> Set<String> {
-        FFmpegParsingSupport.parseEncoders(from: output, mediaFlag: mediaFlag)
-    }
-
-    nonisolated private static func parseFFmpegMuxerDescriptors(from output: String) -> [FFmpegMuxerDescriptor] {
-        FFmpegParsingSupport.parseMuxerDescriptors(
-            from: output,
-            lowercaseDescription: true
-        )
-        .map { descriptor in
-            FFmpegMuxerDescriptor(name: descriptor.name, description: descriptor.description)
-        }
-    }
-
-    nonisolated private static func parseFFmpegVideoMuxerExtensions(
-        runtime: any FFmpegRuntime,
-        muxerDescriptors: [FFmpegMuxerDescriptor]
-    ) -> [String: [String]] {
-        var byMuxer: [String: [String]] = [:]
-        var visited = Set<String>()
-
-        for descriptor in muxerDescriptors {
-            guard visited.insert(descriptor.name).inserted else { continue }
-            guard isLikelyVideoMuxer(descriptor) || isLikelyAudioMuxer(descriptor) else { continue }
-
-            let help = FFmpegCommandCache.run(
-                runtime: runtime,
-                arguments: ["-hide_banner", "-h", "muxer=\(descriptor.name)"]
-            )
-            guard help.terminationStatus == 0 else { continue }
-
-            var extensions = parseFFmpegMuxerExtensions(from: help.output)
-            if extensions.isEmpty,
-               VideoFormatOption.isLikelyVideoFileExtension(descriptor.name) ||
-                AudioFormatOption.isLikelyAudioFileExtension(descriptor.name) {
-                extensions = [descriptor.name]
-            }
-            guard !extensions.isEmpty else { continue }
-            byMuxer[descriptor.name] = extensions
-        }
-
-        return byMuxer
-    }
-
-    nonisolated private static func parseFFmpegMuxerExtensions(from output: String) -> [String] {
-        FFmpegParsingSupport.parseMuxerExtensions(from: output, maxTokenLength: nil)
     }
 
     nonisolated private static func isLikelyVideoMuxer(_ descriptor: FFmpegMuxerDescriptor) -> Bool {

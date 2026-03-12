@@ -39,11 +39,6 @@ enum VideoConversionEngine {
         let stagedInputLease: FFmpegStagingSupport.StagedInputLease?
     }
 
-    struct FFmpegMuxerDescriptor {
-        let name: String
-        let description: String
-    }
-
     struct AssetTrackProbe: Sendable {
         let isReadable: Bool
         let hasVideoTrack: Bool

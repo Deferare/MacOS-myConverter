@@ -31,11 +31,6 @@ enum ImageConversionEngine {
     nonisolated(unsafe) static var sourceCapabilitiesCache: [String: ImageSourceCapabilities] = [:]
     nonisolated(unsafe) static var sourceCapabilitiesInFlight: [String: InFlightContinuation<ImageSourceCapabilities>] = [:]
 
-    struct FFmpegMuxerDescriptor {
-        let name: String
-        let description: String
-    }
-
     nonisolated static func isFFmpegAvailable() -> Bool {
         DefaultFFmpegRuntimeProvider().makeRuntime() != nil
     }

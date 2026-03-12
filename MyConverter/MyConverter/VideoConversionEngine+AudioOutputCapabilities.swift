@@ -8,7 +8,7 @@ extension VideoConversionEngine {
             return knownFormats
         }
 
-        return cachedCapabilityValue(
+        return CachedValueSupport.resolve(
             readCached: { capabilityCacheQueue.sync(execute: { defaultAudioFormatsCache[runtime.cacheIdentity] }) },
             storeCached: { resolved in
                 capabilityCacheQueue.sync {
@@ -16,7 +16,7 @@ extension VideoConversionEngine {
                 }
             }
         ) {
-            guard let introspection = try? inspectFFmpeg(using: runtime) else {
+            guard let introspection = ffmpegIntrospection(using: runtime) else {
                 return knownFormats
             }
 
@@ -28,11 +28,11 @@ extension VideoConversionEngine {
 
     nonisolated static func availableAudioEncoders(for format: AudioFormatOption) -> [AudioEncoderOption] {
         guard let runtime = DefaultFFmpegRuntimeProvider().makeRuntime() else {
-            return format.allowsFFmpegAutomaticAudioCodec ? [.auto] : []
+            return automaticOptionIfEnabled(.auto, enabled: format.allowsFFmpegAutomaticAudioCodec)
         }
 
         let cacheKey = makeCapabilityCacheKey(path: runtime.cacheIdentity, normalizedID: format.normalizedID)
-        return cachedCapabilityValue(
+        return CachedValueSupport.resolve(
             readCached: { capabilityCacheQueue.sync(execute: { audioFormatEncoderOptionsCache[cacheKey] }) },
             storeCached: { resolved in
                 capabilityCacheQueue.sync {
@@ -40,8 +40,7 @@ extension VideoConversionEngine {
                 }
             }
         ) {
-            guard let introspection = try? inspectFFmpeg(using: runtime),
-                  isFFmpegAudioFormatSupported(format, introspection: introspection) else {
+            guard let introspection = supportedIntrospection(using: runtime, for: format) else {
                 return []
             }
 
