@@ -2,7 +2,7 @@ import Foundation
 
 extension ImageConversionEngine {
     nonisolated static func ffmpegCanDecodeSource(
-        ffmpegPath: String,
+        runtime: any FFmpegRuntime,
         inputURL: URL
     ) -> Bool {
         (try? FFmpegStagingSupport.withStagedInputSync(
@@ -11,8 +11,7 @@ extension ImageConversionEngine {
                 ImageConversionError.ffmpegFailed(code, message)
             },
             operation: { stagedInputURL in
-                let result = ProcessCommandRunner.runCommandSync(
-                    path: ffmpegPath,
+                let result = runtime.runCommandSync(
                     arguments: [
                         "-hide_banner",
                         "-loglevel", "error",
@@ -26,5 +25,12 @@ extension ImageConversionEngine {
                 return result.terminationStatus == 0
             }
         )) ?? false
+    }
+
+    nonisolated static func ffmpegCanDecodeSource(
+        ffmpegPath: String,
+        inputURL: URL
+    ) -> Bool {
+        ffmpegCanDecodeSource(runtime: ProcessFFmpegRuntime(path: ffmpegPath), inputURL: inputURL)
     }
 }

@@ -118,7 +118,9 @@ struct ContentView: View {
             tint: kind.liquidGlassTint,
             isDisabled: screenState.isConverting,
             onChoose: {
-                viewModel.chooseOutputDirectory(for: kind)
+                Task {
+                    await viewModel.chooseOutputDirectory(for: kind)
+                }
             }
         )
 

@@ -1,6 +1,9 @@
-import AppKit
 import Foundation
+#if os(macOS)
+import AppKit
+#endif
 
+#if os(macOS)
 extension BatchConversionSupport {
     static func presentBatchDirectoryAccessPanel(
         suggestedDirectory: URL,
@@ -24,7 +27,10 @@ extension BatchConversionSupport {
         }
         return panel.url
     }
+}
+#endif
 
+extension BatchConversionSupport {
     nonisolated static func prepareBatchDirectoryAccess(
         sourceURLs: [URL],
         destinationURLsBySourceID: [String: URL]

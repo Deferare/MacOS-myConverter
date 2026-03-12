@@ -32,18 +32,6 @@ enum VideoConversionEngine {
         AVAssetExportPresetLowQuality
     ]
 
-    struct FFmpegIntrospection {
-        let videoEncoders: Set<String>
-        let audioEncoders: Set<String>
-        let muxers: Set<String>
-        let muxerExtensions: [String: [String]]
-    }
-
-    struct FFmpegExecutionContext: Sendable {
-        let ffmpegPath: String
-        let introspection: FFmpegIntrospection
-    }
-
     struct PreparedSourceContext: Sendable {
         let sourceCapabilities: VideoSourceCapabilities
         let assetTrackProbe: AssetTrackProbe

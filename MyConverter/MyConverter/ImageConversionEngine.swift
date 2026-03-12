@@ -31,17 +31,6 @@ enum ImageConversionEngine {
     nonisolated(unsafe) static var sourceCapabilitiesCache: [String: ImageSourceCapabilities] = [:]
     nonisolated(unsafe) static var sourceCapabilitiesInFlight: [String: InFlightCapability<ImageSourceCapabilities>] = [:]
 
-    struct FFmpegIntrospection {
-        let encoders: Set<String>
-        let muxers: Set<String>
-        let muxerExtensions: [String: [String]]
-    }
-
-    struct FFmpegExecutionContext: Sendable {
-        let ffmpegPath: String
-        let introspection: FFmpegIntrospection
-    }
-
     final class InFlightFFmpegIntrospection: @unchecked Sendable {
         nonisolated let group: DispatchGroup
         nonisolated(unsafe) var result: Result<FFmpegIntrospection, Error>?
@@ -65,7 +54,7 @@ enum ImageConversionEngine {
     }
 
     nonisolated static func isFFmpegAvailable() -> Bool {
-        FFmpegBinaryLocator.findPath() != nil
+        DefaultFFmpegRuntimeProvider().makeRuntime() != nil
     }
 }
 

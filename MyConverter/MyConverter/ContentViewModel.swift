@@ -31,13 +31,19 @@ final class ContentViewModel: ObservableObject {
 
     @Published var isImporting = false
 
+    let services: PlatformServices
     var settingsState = PersistedSettingsState()
     var taskState = TaskState()
     var capabilityWarmState = CapabilityWarmState()
     var selectionPreparationState = SelectionPreparationState()
 
-    init() {
+    init(services: PlatformServices) {
+        self.services = services
         loadPersistedSourceSettingsState()
         applyPlaceholderCapabilityState()
+    }
+
+    convenience init() {
+        self.init(services: .makeDefault())
     }
 }

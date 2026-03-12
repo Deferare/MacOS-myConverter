@@ -1,4 +1,3 @@
-import AppKit
 import Foundation
 
 enum BatchConversionSupport {

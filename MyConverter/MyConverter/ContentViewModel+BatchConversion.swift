@@ -67,7 +67,8 @@ extension ContentViewModel {
                 await ContentViewModel.prepareVideoBatchExecutionEnvironment(
                     preparedSources: preparedSources,
                     outputSettings: outputSettings,
-                    outputDirectoryURL: outputDirectoryURL
+                    outputDirectoryURL: outputDirectoryURL,
+                    runtimeProvider: self.services.ffmpegRuntimeProvider
                 )
             },
             prepareSingleSourceEnvironment: { preparedSource, outputSettings, outputDirectoryURL in
@@ -105,7 +106,8 @@ extension ContentViewModel {
             prepareBatchEnvironment: { preparedSources, _, outputDirectoryURL in
                 await ContentViewModel.prepareImageBatchExecutionEnvironment(
                     preparedSources: preparedSources,
-                    outputDirectoryURL: outputDirectoryURL
+                    outputDirectoryURL: outputDirectoryURL,
+                    runtimeProvider: self.services.ffmpegRuntimeProvider
                 )
             },
             runConversion: { preparedSource, environment, outputSettings, index, totalCount in
@@ -134,7 +136,8 @@ extension ContentViewModel {
             prepareBatchEnvironment: { preparedSources, _, outputDirectoryURL in
                 await ContentViewModel.prepareAudioBatchExecutionEnvironment(
                     preparedSources: preparedSources,
-                    outputDirectoryURL: outputDirectoryURL
+                    outputDirectoryURL: outputDirectoryURL,
+                    runtimeProvider: self.services.ffmpegRuntimeProvider
                 )
             },
             runConversion: { preparedSource, environment, outputSettings, index, totalCount in
@@ -144,6 +147,7 @@ extension ContentViewModel {
                     outputSettings: outputSettings,
                     inputDurationSeconds: nil,
                     ffmpegContext: environment.videoFFmpegContext,
+                    runtimeProvider: self.services.ffmpegRuntimeProvider,
                     onProgress: self.batchProgressHandler(
                         for: kind,
                         index: index,
@@ -268,14 +272,14 @@ extension ContentViewModel {
         if let preferredOutputDirectory {
             resolvedOutputDirectoryURL = preferredOutputDirectory.standardizedFileURL
         } else {
-            guard let selectedDirectory = BatchConversionSupport.presentBatchDirectoryAccessPanel(
+            guard let selectedDestination = await services.outputDestinationCoordinator.chooseOutputDestination(
                 suggestedDirectory: primarySourceURL.deletingLastPathComponent(),
                 outputLabel: outputLabel,
                 fileCount: sourceURLs.count
             ) else {
                 return
             }
-            resolvedOutputDirectoryURL = selectedDirectory.standardizedFileURL
+            resolvedOutputDirectoryURL = selectedDestination.url
         }
 
         let batchContextTask = Task.detached(priority: .userInitiated) {

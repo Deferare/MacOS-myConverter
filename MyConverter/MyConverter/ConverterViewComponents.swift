@@ -2,19 +2,6 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-extension ContentViewModel.MediaKind {
-    var liquidGlassTint: Color {
-        switch self {
-        case .video:
-            return .blue
-        case .image:
-            return .orange
-        case .audio:
-            return .teal
-        }
-    }
-}
-
 struct LiquidGlassBackdrop: View {
     let tint: Color
 
@@ -191,26 +178,6 @@ struct ConverterInputArea: View {
             onImport: onImport,
             onReorder: onReorder
         )
-    }
-}
-
-struct ConverterFormSections<SettingsContent: View>: View {
-    let isConverting: Bool
-    let settingsContent: SettingsContent
-
-    init(
-        isConverting: Bool,
-        @ViewBuilder settingsContent: () -> SettingsContent
-    ) {
-        self.isConverting = isConverting
-        self.settingsContent = settingsContent()
-    }
-
-    var body: some View {
-        VStack(spacing: 14) {
-            settingsContent
-        }
-        .disabled(isConverting)
     }
 }
 

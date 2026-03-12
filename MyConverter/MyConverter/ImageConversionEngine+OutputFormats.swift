@@ -99,7 +99,7 @@ extension ImageConversionEngine {
             return format.allowsFFmpegAutomaticCodec
         }
 
-        let hasEncoder = format.ffmpegEncoderCandidates.contains { introspection.encoders.contains($0) }
+        let hasEncoder = format.ffmpegEncoderCandidates.contains { introspection.videoEncoders.contains($0) }
         return hasEncoder || format.allowsFFmpegAutomaticCodec
     }
 }

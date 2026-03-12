@@ -111,14 +111,9 @@ enum FFmpegParsingSupport {
 }
 
 enum FFmpegCommandCache {
-    struct CommandResult {
-        let terminationStatus: Int32
-        let output: String
-    }
-
     final class InFlightCommand: @unchecked Sendable {
         nonisolated let group: DispatchGroup
-        nonisolated(unsafe) var result: CommandResult?
+        nonisolated(unsafe) var result: FFmpegCommandResult?
 
         nonisolated init() {
             group = DispatchGroup()
@@ -127,14 +122,14 @@ enum FFmpegCommandCache {
     }
 
     nonisolated private static let cacheQueue = DispatchQueue(label: "myconverter.ffmpeg.command.cache")
-    nonisolated(unsafe) private static var cache: [String: CommandResult] = [:]
+    nonisolated(unsafe) private static var cache: [String: FFmpegCommandResult] = [:]
     nonisolated(unsafe) private static var inFlight: [String: InFlightCommand] = [:]
 
     nonisolated static func run(
-        path: String,
+        runtime: any FFmpegRuntime,
         arguments: [String]
-    ) -> CommandResult {
-        let cacheKey = makeCacheKey(path: path, arguments: arguments)
+    ) -> FFmpegCommandResult {
+        let cacheKey = makeCacheKey(identity: runtime.cacheIdentity, arguments: arguments)
         if let cached = cacheQueue.sync(execute: { cache[cacheKey] }) {
             return cached
         }
@@ -154,14 +149,10 @@ enum FFmpegCommandCache {
             if let result = command.result {
                 return result
             }
-            return CommandResult(terminationStatus: -1, output: "")
+            return FFmpegCommandResult(terminationStatus: -1, output: "")
         }
 
-        let resolved = ProcessCommandRunner.runCommandSync(path: path, arguments: arguments)
-        let result = CommandResult(
-            terminationStatus: resolved.terminationStatus,
-            output: resolved.output
-        )
+        let result = runtime.runCommandSync(arguments: arguments)
 
         cacheQueue.sync {
             cache[cacheKey] = result
@@ -173,8 +164,15 @@ enum FFmpegCommandCache {
         return result
     }
 
-    nonisolated private static func makeCacheKey(path: String, arguments: [String]) -> String {
+    nonisolated static func run(
+        path: String,
+        arguments: [String]
+    ) -> FFmpegCommandResult {
+        run(runtime: ProcessFFmpegRuntime(path: path), arguments: arguments)
+    }
+
+    nonisolated private static func makeCacheKey(identity: String, arguments: [String]) -> String {
         let separator = "\u{1F}"
-        return ([path] + arguments).joined(separator: separator)
+        return ([identity] + arguments).joined(separator: separator)
     }
 }

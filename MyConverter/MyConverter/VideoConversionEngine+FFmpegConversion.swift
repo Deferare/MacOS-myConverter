@@ -7,10 +7,11 @@ extension VideoConversionEngine {
         outputSettings: VideoOutputSettings,
         inputDurationSeconds: Double?,
         ffmpegContext: FFmpegExecutionContext? = nil,
+        runtimeProvider: any FFmpegRuntimeProviding = DefaultFFmpegRuntimeProvider(),
         stagedInputLease: FFmpegStagingSupport.StagedInputLease? = nil,
         onProgress: @escaping ProgressHandler
     ) async throws -> Bool {
-        guard let ffmpegContext = ffmpegContext ?? makeFFmpegExecutionContext() else {
+        guard let ffmpegContext = ffmpegContext ?? makeFFmpegExecutionContext(using: runtimeProvider) else {
             return false
         }
 
@@ -23,7 +24,7 @@ extension VideoConversionEngine {
 
         try await convertWithFFmpeg(
             introspection: ffmpegContext.introspection,
-            ffmpegPath: ffmpegContext.ffmpegPath,
+            runtime: ffmpegContext.runtime,
             inputURL: inputURL,
             outputURL: outputURL,
             outputSettings: outputSettings,
@@ -36,7 +37,7 @@ extension VideoConversionEngine {
 
     static func convertWithFFmpeg(
         introspection: FFmpegIntrospection,
-        ffmpegPath: String,
+        runtime: any FFmpegRuntime,
         inputURL: URL,
         outputURL: URL,
         outputSettings: VideoOutputSettings,
@@ -75,7 +76,7 @@ extension VideoConversionEngine {
                 outputURL: outputURL,
                 operation: { videoCodec, audioCodec in
                     try await runFFmpeg(
-                        ffmpegPath: ffmpegPath,
+                        runtime: runtime,
                         inputURL: stagedInputURL,
                         outputURL: outputURL,
                         outputSettings: outputSettings,
@@ -92,7 +93,7 @@ extension VideoConversionEngine {
 
     static func convertAudioWithFFmpeg(
         introspection: FFmpegIntrospection,
-        ffmpegPath: String,
+        runtime: any FFmpegRuntime,
         inputURL: URL,
         outputURL: URL,
         outputSettings: AudioOutputSettings,
@@ -116,7 +117,7 @@ extension VideoConversionEngine {
                 outputURL: outputURL,
                 operation: { _, audioCodec in
                     try await runAudioFFmpeg(
-                        ffmpegPath: ffmpegPath,
+                        runtime: runtime,
                         inputURL: stagedInputURL,
                         outputURL: outputURL,
                         outputSettings: outputSettings,

@@ -7,9 +7,10 @@ extension ImageConversionEngine {
         outputSettings: ImageOutputSettings,
         allowFallbackOnFailure: Bool,
         ffmpegContext: FFmpegExecutionContext? = nil,
+        runtimeProvider: any FFmpegRuntimeProviding = DefaultFFmpegRuntimeProvider(),
         onProgress: @escaping ProgressHandler
     ) async throws -> URL? {
-        guard let ffmpegContext = ffmpegContext ?? makeFFmpegExecutionContext() else {
+        guard let ffmpegContext = ffmpegContext ?? makeFFmpegExecutionContext(using: runtimeProvider) else {
             return nil
         }
 
@@ -61,7 +62,7 @@ extension ImageConversionEngine {
     ) async throws {
         try await withStagedFFmpegInput(inputURL) { stagedInputURL in
             let selectedCodec = outputSettings.containerFormat.ffmpegEncoderCandidates.first(where: {
-                ffmpegContext.introspection.encoders.contains($0)
+                ffmpegContext.introspection.videoEncoders.contains($0)
             })
 
             if !outputSettings.containerFormat.ffmpegEncoderCandidates.isEmpty &&
@@ -113,11 +114,11 @@ extension ImageConversionEngine {
             try Task.checkCancellation()
             reportProgress(0.05, onProgress: onProgress)
             let token = PerformanceSignpost.begin("ImageEncode", message: inputURL.lastPathComponent)
-            let result: (terminationStatus: Int32, output: String)
+            let result: FFmpegCommandResult
             do {
-                result = try await ProcessCommandRunner.runCommand(
-                    path: ffmpegContext.ffmpegPath,
-                    arguments: args
+                result = try await ffmpegContext.runtime.runCommand(
+                    arguments: args,
+                    outputLineHandler: nil
                 )
                 PerformanceSignpost.end("ImageEncode", token: token, message: inputURL.lastPathComponent)
             } catch {
@@ -180,15 +181,21 @@ extension ImageConversionEngine {
         }
     }
 
-    nonisolated static func makeFFmpegExecutionContext() -> FFmpegExecutionContext? {
-        guard let ffmpegPath = FFmpegBinaryLocator.findPath(),
-              let introspection = try? inspectFFmpeg(at: ffmpegPath) else {
+    nonisolated static func makeFFmpegExecutionContext(
+        using runtimeProvider: any FFmpegRuntimeProviding = DefaultFFmpegRuntimeProvider()
+    ) -> FFmpegExecutionContext? {
+        guard let runtime = runtimeProvider.makeRuntime(),
+              let introspection = try? inspectFFmpeg(using: runtime) else {
             return nil
         }
 
         return FFmpegExecutionContext(
-            ffmpegPath: ffmpegPath,
+            runtime: runtime,
             introspection: introspection
         )
+    }
+
+    nonisolated static func makeFFmpegExecutionContext() -> FFmpegExecutionContext? {
+        makeFFmpegExecutionContext(using: DefaultFFmpegRuntimeProvider())
     }
 }

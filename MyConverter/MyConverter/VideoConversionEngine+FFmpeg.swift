@@ -7,11 +7,12 @@ extension VideoConversionEngine {
         outputSettings: AudioOutputSettings,
         inputDurationSeconds: Double?,
         ffmpegContext: FFmpegExecutionContext? = nil,
+        runtimeProvider: any FFmpegRuntimeProviding = DefaultFFmpegRuntimeProvider(),
         onProgress: @escaping ProgressHandler
     ) async throws -> URL {
         try OutputPathUtilities.removeFileIfExists(at: outputURL)
 
-        guard let ffmpegContext = ffmpegContext ?? makeFFmpegExecutionContext() else {
+        guard let ffmpegContext = ffmpegContext ?? makeFFmpegExecutionContext(using: runtimeProvider) else {
             throw ConversionError.ffmpegUnavailable
         }
 
@@ -24,7 +25,7 @@ extension VideoConversionEngine {
 
         try await convertAudioWithFFmpeg(
             introspection: ffmpegContext.introspection,
-            ffmpegPath: ffmpegContext.ffmpegPath,
+            runtime: ffmpegContext.runtime,
             inputURL: inputURL,
             outputURL: outputURL,
             outputSettings: outputSettings,
@@ -63,6 +64,7 @@ extension VideoConversionEngine {
         outputSettings: VideoOutputSettings,
         inputDurationSeconds: Double?,
         ffmpegContext: FFmpegExecutionContext? = nil,
+        runtimeProvider: any FFmpegRuntimeProviding = DefaultFFmpegRuntimeProvider(),
         stagedInputLease: FFmpegStagingSupport.StagedInputLease? = nil,
         onProgress: @escaping ProgressHandler
     ) async throws -> URL? {
@@ -72,26 +74,33 @@ extension VideoConversionEngine {
             outputSettings: outputSettings,
             inputDurationSeconds: inputDurationSeconds,
             ffmpegContext: ffmpegContext,
+            runtimeProvider: runtimeProvider,
             stagedInputLease: stagedInputLease,
             onProgress: onProgress
         )
         return didConvert ? outputURL : nil
     }
 
-    static func makeFFmpegExecutionContext() -> FFmpegExecutionContext? {
-        guard let ffmpegPath = FFmpegBinaryLocator.findPath(),
-              let introspection = try? inspectFFmpeg(at: ffmpegPath) else {
+    nonisolated static func makeFFmpegExecutionContext(
+        using runtimeProvider: any FFmpegRuntimeProviding = DefaultFFmpegRuntimeProvider()
+    ) -> FFmpegExecutionContext? {
+        guard let runtime = runtimeProvider.makeRuntime(),
+              let introspection = try? inspectFFmpeg(using: runtime) else {
             return nil
         }
 
         return FFmpegExecutionContext(
-            ffmpegPath: ffmpegPath,
+            runtime: runtime,
             introspection: introspection
         )
     }
 
+    nonisolated static func makeFFmpegExecutionContext() -> FFmpegExecutionContext? {
+        makeFFmpegExecutionContext(using: DefaultFFmpegRuntimeProvider())
+    }
+
     static func ffmpegCanReadMappedStream(
-        ffmpegPath: String,
+        runtime: any FFmpegRuntime,
         inputURL: URL,
         stagedInputLease: FFmpegStagingSupport.StagedInputLease? = nil,
         mapSpecifier: String,
@@ -105,13 +114,13 @@ extension VideoConversionEngine {
         ]
 
         let runProbe: (URL) async -> Bool = { stagedInputURL in
-            guard let result = try? await ProcessCommandRunner.runCommand(
-                path: ffmpegPath,
+            guard let result = try? await runtime.runCommand(
                 arguments: [
                     "-hide_banner",
                     "-loglevel", "error",
                     "-i", stagedInputURL.path
-                ] + probeArguments
+                ] + probeArguments,
+                outputLineHandler: nil
             ) else {
                 return false
             }
@@ -130,5 +139,21 @@ extension VideoConversionEngine {
             },
             operation: runProbe
         )) ?? false
+    }
+
+    static func ffmpegCanReadMappedStream(
+        ffmpegPath: String,
+        inputURL: URL,
+        stagedInputLease: FFmpegStagingSupport.StagedInputLease? = nil,
+        mapSpecifier: String,
+        frameArguments: [String]
+    ) async -> Bool {
+        await ffmpegCanReadMappedStream(
+            runtime: ProcessFFmpegRuntime(path: ffmpegPath),
+            inputURL: inputURL,
+            stagedInputLease: stagedInputLease,
+            mapSpecifier: mapSpecifier,
+            frameArguments: frameArguments
+        )
     }
 }
