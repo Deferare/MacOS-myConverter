@@ -1,6 +1,5 @@
 #if os(iOS)
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct IPadFileRow: View {
     let kind: ContentViewModel.MediaKind
@@ -31,9 +30,15 @@ struct IPadFileRow: View {
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
 
-                Text(url.pathExtension.isEmpty ? "Original file" : url.pathExtension.uppercased())
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    tag(url.pathExtension.isEmpty ? "Source" : url.pathExtension.uppercased())
+
+                    if isProcessed {
+                        tag("Done", tone: .green)
+                    } else if selectedFileListState.isConverting {
+                        tag("Active", tone: .orange)
+                    }
+                }
 
                 if let outputURL {
                     Text("Output: \(outputURL.lastPathComponent)")
@@ -46,12 +51,13 @@ struct IPadFileRow: View {
             Spacer()
 
             if selectedFileListState.isConverting {
-                ProgressView(value: progressValue)
-                    .frame(width: 72)
-            } else if isProcessed {
-                Label("Done", systemImage: "checkmark.circle.fill")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.green)
+                VStack(alignment: .trailing, spacing: 6) {
+                    ProgressView(value: progressValue)
+                        .frame(width: 90)
+                    Text("\(Int((progressValue * 100).rounded()))%")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
             }
         }
         .padding(14)
@@ -73,6 +79,62 @@ struct IPadFileRow: View {
             return "photo"
         case .audio:
             return "waveform"
+        }
+    }
+
+    private func tag(_ text: String, tone: Color = .secondary) -> some View {
+        Text(text)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(tone)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(tone.opacity(0.12), in: Capsule())
+    }
+}
+
+struct IPadResultRow: View {
+    let url: URL
+    let kind: ContentViewModel.MediaKind
+    let thumbnailProvider: any ThumbnailProvider
+
+    var body: some View {
+        HStack(spacing: 14) {
+            IPadThumbnailView(
+                url: url,
+                provider: thumbnailProvider,
+                fallbackSystemImage: fallbackSystemImage
+            )
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(url.lastPathComponent)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+
+                Text("Saved output")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            ShareLink(item: url) {
+                Label("Share", systemImage: "square.and.arrow.up")
+                    .font(.caption.weight(.semibold))
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding(14)
+        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    private var fallbackSystemImage: String {
+        switch kind {
+        case .video:
+            return "play.rectangle"
+        case .image:
+            return "photo.on.rectangle"
+        case .audio:
+            return "waveform.circle"
         }
     }
 }

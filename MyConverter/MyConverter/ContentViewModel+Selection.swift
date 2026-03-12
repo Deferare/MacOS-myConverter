@@ -11,12 +11,5 @@ extension ContentViewModel {
             primaryKeyPath: descriptor.sourceURL,
             queuedKeyPath: descriptor.queuedSourceURLs
         )
-        #if os(iOS)
-        let snapshot = mediaStateSnapshot(for: kind)
-        let renderState = converterRenderState(for: kind)
-        print(
-            "[Selection] kind=\(kind.rawValue) sourceURL=\(snapshot.sourceURL?.lastPathComponent ?? "nil") queued=\(snapshot.queuedSourceURLs.count) selectedFileCount=\(renderState.screenState.selectedFileCount) showsSettings=\(renderState.screenState.showsSettings) canConvert=\(renderState.screenState.canConvert) status=\(renderState.inputHeaderState.statusMessage)"
-        )
-        #endif
     }
 }
