@@ -327,17 +327,6 @@ extension ContentViewModel {
         )
     }
 
-    func mediaDescriptorComponents(for kind: MediaKind) -> MediaDescriptorComponents {
-        switch kind {
-        case .video:
-            return videoMediaDescriptorComponents()
-        case .image:
-            return imageMediaDescriptorComponents()
-        case .audio:
-            return audioMediaDescriptorComponents()
-        }
-    }
-
     func mediaStateValue<Value>(
         using descriptor: MediaStateDescriptor,
         _ keyPath: KeyPath<MediaStateDescriptor, ReferenceWritableKeyPath<ContentViewModel, Value>>
@@ -415,7 +404,7 @@ extension ContentViewModel {
     }
 
     func mediaStateDescriptor(for kind: MediaKind) -> MediaStateDescriptor {
-        let components = mediaDescriptorComponents(for: kind)
+        let components = kind.mediaDescriptorComponents(using: self)
         return makeMediaStateDescriptor(
             state: components.state,
             tasks: components.tasks,
@@ -424,7 +413,7 @@ extension ContentViewModel {
     }
 
     func mediaBehaviorDescriptor(for kind: MediaKind) -> MediaBehaviorDescriptor {
-        mediaDescriptorComponents(for: kind).behavior
+        kind.mediaDescriptorComponents(using: self).behavior
     }
 
     func analyzeSelectedSources(_ urls: [URL], for kind: MediaKind) {
@@ -448,5 +437,18 @@ extension ContentViewModel {
             currentBatchIndex: mediaStateValue(using: descriptor, \.currentBatchIndex),
             totalBatchCount: mediaStateValue(using: descriptor, \.totalBatchCount)
         )
+    }
+}
+
+private extension ContentViewModel.MediaKind {
+    func mediaDescriptorComponents(using viewModel: ContentViewModel) -> ContentViewModel.MediaDescriptorComponents {
+        switch self {
+        case .video:
+            return viewModel.videoMediaDescriptorComponents()
+        case .image:
+            return viewModel.imageMediaDescriptorComponents()
+        case .audio:
+            return viewModel.audioMediaDescriptorComponents()
+        }
     }
 }
