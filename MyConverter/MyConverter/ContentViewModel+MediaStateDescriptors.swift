@@ -147,6 +147,36 @@ extension ContentViewModel {
         )
     }
 
+    private func makeMediaDescriptorComponents<
+        Settings: Equatable,
+        Persisted: Codable,
+        Format,
+        Capability: Sendable,
+        OutputSettings: Sendable
+    >(
+        state: MediaStateKeyPaths,
+        tasks: MediaTaskKeyPaths,
+        sourceSettings: @escaping (ContentViewModel) -> SourceSettingsFlowDescriptor<Settings, Persisted, Format>,
+        capabilityBootstrap: CapabilityBootstrapDescriptor,
+        validation: MediaValidationDescriptor,
+        conversionWorkflow: @escaping (ContentViewModel) -> ConversionWorkflowDescriptor<OutputSettings>,
+        resetCompatibilityMetadata: @escaping (ContentViewModel) -> Void = { _ in },
+        sourceAnalysis: @escaping (ContentViewModel) -> SourceAnalysisDescriptor<Capability, Format>
+    ) -> MediaDescriptorComponents {
+        MediaDescriptorComponents(
+            state: state,
+            tasks: tasks,
+            behavior: makeMediaBehaviorDescriptor(
+                sourceSettings: sourceSettings,
+                capabilityBootstrap: capabilityBootstrap,
+                validation: validation,
+                conversionWorkflow: conversionWorkflow,
+                resetCompatibilityMetadata: resetCompatibilityMetadata,
+                sourceAnalysis: sourceAnalysis
+            )
+        )
+    }
+
     private func makeMediaStateKeyPaths(
         sourceURL: ReferenceWritableKeyPath<ContentViewModel, URL?>,
         queuedSourceURLs: ReferenceWritableKeyPath<ContentViewModel, [URL]>,
@@ -202,7 +232,7 @@ extension ContentViewModel {
     }
 
     private func videoMediaDescriptorComponents() -> MediaDescriptorComponents {
-        MediaDescriptorComponents(
+        makeMediaDescriptorComponents(
             state: makeMediaStateKeyPaths(
                 sourceURL: \.sourceURL,
                 queuedSourceURLs: \.queuedSourceURLs,
@@ -224,19 +254,17 @@ extension ContentViewModel {
                 conversionTask: \.taskState.conversionTask,
                 pendingSelectionAnalysisTask: \.taskState.pendingVideoSelectionAnalysisTask
             ),
-            behavior: makeMediaBehaviorDescriptor(
-                sourceSettings: { $0.videoSourceSettingsComponents().flow },
-                capabilityBootstrap: videoCapabilityBootstrapDescriptor(),
-                validation: videoValidationDescriptor(),
-                conversionWorkflow: { $0.videoConversionWorkflowDescriptor() },
-                resetCompatibilityMetadata: resetCompatibilityMetadata(_:),
-                sourceAnalysis: { $0.videoSourceAnalysisDescriptor() }
-            )
+            sourceSettings: { $0.videoSourceSettingsComponents().flow },
+            capabilityBootstrap: videoCapabilityBootstrapDescriptor(),
+            validation: videoValidationDescriptor(),
+            conversionWorkflow: { $0.videoConversionWorkflowDescriptor() },
+            resetCompatibilityMetadata: resetCompatibilityMetadata(_:),
+            sourceAnalysis: { $0.videoSourceAnalysisDescriptor() }
         )
     }
 
     private func imageMediaDescriptorComponents() -> MediaDescriptorComponents {
-        MediaDescriptorComponents(
+        makeMediaDescriptorComponents(
             state: makeMediaStateKeyPaths(
                 sourceURL: \.imageSourceURL,
                 queuedSourceURLs: \.queuedImageSourceURLs,
@@ -258,19 +286,17 @@ extension ContentViewModel {
                 conversionTask: \.taskState.imageConversionTask,
                 pendingSelectionAnalysisTask: \.taskState.pendingImageSelectionAnalysisTask
             ),
-            behavior: makeMediaBehaviorDescriptor(
-                sourceSettings: { $0.imageSourceSettingsComponents().flow },
-                capabilityBootstrap: imageCapabilityBootstrapDescriptor(),
-                validation: imageValidationDescriptor(),
-                conversionWorkflow: { $0.imageConversionWorkflowDescriptor() },
-                resetCompatibilityMetadata: resetImageCompatibilityMetadata(_:),
-                sourceAnalysis: { $0.imageSourceAnalysisDescriptor() }
-            )
+            sourceSettings: { $0.imageSourceSettingsComponents().flow },
+            capabilityBootstrap: imageCapabilityBootstrapDescriptor(),
+            validation: imageValidationDescriptor(),
+            conversionWorkflow: { $0.imageConversionWorkflowDescriptor() },
+            resetCompatibilityMetadata: resetImageCompatibilityMetadata(_:),
+            sourceAnalysis: { $0.imageSourceAnalysisDescriptor() }
         )
     }
 
     private func audioMediaDescriptorComponents() -> MediaDescriptorComponents {
-        MediaDescriptorComponents(
+        makeMediaDescriptorComponents(
             state: makeMediaStateKeyPaths(
                 sourceURL: \.audioSourceURL,
                 queuedSourceURLs: \.queuedAudioSourceURLs,
@@ -292,14 +318,12 @@ extension ContentViewModel {
                 conversionTask: \.taskState.audioConversionTask,
                 pendingSelectionAnalysisTask: \.taskState.pendingAudioSelectionAnalysisTask
             ),
-            behavior: makeMediaBehaviorDescriptor(
-                sourceSettings: { $0.audioSourceSettingsComponents().flow },
-                capabilityBootstrap: audioCapabilityBootstrapDescriptor(),
-                validation: audioValidationDescriptor(),
-                conversionWorkflow: { $0.audioConversionWorkflowDescriptor() },
-                resetCompatibilityMetadata: resetCompatibilityMetadata(_:),
-                sourceAnalysis: { $0.audioSourceAnalysisDescriptor() }
-            )
+            sourceSettings: { $0.audioSourceSettingsComponents().flow },
+            capabilityBootstrap: audioCapabilityBootstrapDescriptor(),
+            validation: audioValidationDescriptor(),
+            conversionWorkflow: { $0.audioConversionWorkflowDescriptor() },
+            resetCompatibilityMetadata: resetCompatibilityMetadata(_:),
+            sourceAnalysis: { $0.audioSourceAnalysisDescriptor() }
         )
     }
 
