@@ -195,9 +195,10 @@ extension ContentViewModel.MediaKind {
 }
 
 extension ContentViewModel {
+    private static let mkvImportType = FormatOptionUtilities.cachedUTType(forFilenameExtension: "mkv")
+
     func preferredImportTypes(for kind: MediaKind) -> [UTType] {
-        let mkvType = FormatOptionUtilities.cachedUTType(forFilenameExtension: "mkv")
-        return kind.preferredImportTypes(mkvType: mkvType)
+        kind.preferredImportTypes(mkvType: Self.mkvImportType)
     }
 
     func preferredImportTypes(for selectedTab: ConverterTab) -> [UTType] {
@@ -212,16 +213,13 @@ extension ContentViewModel {
 
 #if os(iOS)
 extension ContentViewModel.IOSPhotoLibraryFilter {
-    var pickerFilter: PHPickerFilter? {
-        switch self {
-        case .images:
-            return .images
-        case .videos:
-            return .videos
-        case .none:
-            return nil
-        }
-    }
+    private static let pickerFilters: [Self: PHPickerFilter?] = [
+        .images: .images,
+        .videos: .videos,
+        .none: nil
+    ]
+
+    var pickerFilter: PHPickerFilter? { Self.pickerFilters[self] ?? nil }
 }
 
 extension ContentViewModel.MediaKind {

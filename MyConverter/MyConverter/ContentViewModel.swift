@@ -33,16 +33,14 @@ final class ContentViewModel: ObservableObject {
         case files
         case photoLibrary
 
+        private static let buttonTitles: [Self: String] = [
+            .files: "Files",
+            .photoLibrary: "Photo Library"
+        ]
+
         var id: String { rawValue }
 
-        var buttonTitle: String {
-            switch self {
-            case .files:
-                return "Files"
-            case .photoLibrary:
-                return "Photo Library"
-            }
-        }
+        var buttonTitle: String { Self.buttonTitles[self] ?? rawValue.capitalized }
     }
 
     struct ImportRequest: Equatable, Identifiable {

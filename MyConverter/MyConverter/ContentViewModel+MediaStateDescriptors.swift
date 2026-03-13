@@ -441,14 +441,14 @@ extension ContentViewModel {
 }
 
 private extension ContentViewModel.MediaKind {
+    private static let mediaDescriptorComponentBuilders: [Self: (ContentViewModel) -> ContentViewModel.MediaDescriptorComponents] = [
+        .video: { $0.videoMediaDescriptorComponents() },
+        .image: { $0.imageMediaDescriptorComponents() },
+        .audio: { $0.audioMediaDescriptorComponents() }
+    ]
+
     func mediaDescriptorComponents(using viewModel: ContentViewModel) -> ContentViewModel.MediaDescriptorComponents {
-        switch self {
-        case .video:
-            return viewModel.videoMediaDescriptorComponents()
-        case .image:
-            return viewModel.imageMediaDescriptorComponents()
-        case .audio:
-            return viewModel.audioMediaDescriptorComponents()
-        }
+        Self.mediaDescriptorComponentBuilders[self]?(viewModel)
+            ?? viewModel.videoMediaDescriptorComponents()
     }
 }
