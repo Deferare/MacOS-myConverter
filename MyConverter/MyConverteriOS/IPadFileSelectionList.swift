@@ -1,84 +1,6 @@
 #if os(iOS)
 import SwiftUI
 
-struct IPadFileRowStatusAppearance {
-    let symbolName: String
-    let color: Color
-}
-
-enum IPadFileRowState: Equatable {
-    case pending
-    case converting(progress: Double)
-    case completed(URL)
-    case skipped
-
-    var showsProgressBar: Bool {
-        if case .converting = self {
-            return true
-        }
-
-        return false
-    }
-
-    var progressValue: Double {
-        switch self {
-        case .pending:
-            return 0
-        case .converting(let progress):
-            return progress
-        case .completed, .skipped:
-            return 1
-        }
-    }
-
-    var statusAppearance: IPadFileRowStatusAppearance {
-        switch self {
-        case .pending:
-            return IPadFileRowStatusAppearance(
-                symbolName: "circle.dashed",
-                color: .secondary.opacity(0.45)
-            )
-        case .converting:
-            return IPadFileRowStatusAppearance(
-                symbolName: "circle.fill",
-                color: .accentColor
-            )
-        case .completed:
-            return IPadFileRowStatusAppearance(
-                symbolName: "checkmark.circle.fill",
-                color: .green
-            )
-        case .skipped:
-            return IPadFileRowStatusAppearance(
-                symbolName: "exclamationmark.triangle.fill",
-                color: .orange
-            )
-        }
-    }
-
-}
-
-extension ContentViewModel.SelectedFileListState {
-    func rowState(for url: URL) -> IPadFileRowState {
-        IPadFileRowState(rowStatus: rowStatus(for: url))
-    }
-}
-
-extension IPadFileRowState {
-    init(rowStatus: ContentViewModel.SelectedFileListState.RowStatus) {
-        switch rowStatus {
-        case .pending:
-            self = .pending
-        case .converting(let progress):
-            self = .converting(progress: progress)
-        case .completed(let outputURL):
-            self = .completed(outputURL)
-        case .skipped:
-            self = .skipped
-        }
-    }
-}
-
 struct IPadFileRow: View {
     private enum Metrics {
         static let rowSpacing: CGFloat = 10
@@ -96,7 +18,7 @@ struct IPadFileRow: View {
     let kind: ContentViewModel.MediaKind
     let url: URL
     let order: Int
-    let rowState: IPadFileRowState
+    let rowStatus: ContentViewModel.SelectedFileListState.RowStatus
     let thumbnailProvider: any ThumbnailProvider
 
     var body: some View {
@@ -108,10 +30,10 @@ struct IPadFileRow: View {
             }
             .frame(minHeight: Metrics.thumbnailHeight)
 
-            if rowState.showsProgressBar {
-                ProgressView(value: rowState.progressValue, total: 1.0)
+            if rowStatus.showsProgressBar {
+                ProgressView(value: rowStatus.progressValue, total: 1.0)
                     .progressViewStyle(.linear)
-                    .tint(rowState.statusAppearance.color)
+                    .tint(rowStatus.statusAppearance.color)
                     .frame(height: Metrics.progressBarHeight)
                     .transition(progressTransition)
             }
@@ -120,7 +42,7 @@ struct IPadFileRow: View {
         .padding(.vertical, Metrics.rowVerticalPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(rowBackground)
-        .animation(.spring(response: 0.24, dampingFraction: 0.86), value: rowState.showsProgressBar)
+        .animation(.spring(response: 0.24, dampingFraction: 0.86), value: rowStatus.showsProgressBar)
     }
 
     private var sourceSection: some View {
@@ -158,7 +80,7 @@ struct IPadFileRow: View {
 
     @ViewBuilder
     private var outputSection: some View {
-        switch rowState {
+        switch rowStatus {
         case .completed:
             statusPill(title: "Saved", color: .green)
                 .padding(.leading, Metrics.accessorySpacing)
@@ -175,9 +97,9 @@ struct IPadFileRow: View {
     }
 
     private var statusIndicator: some View {
-        Image(systemName: rowState.statusAppearance.symbolName)
+        Image(systemName: rowStatus.statusAppearance.symbolName)
             .font(.callout.weight(.semibold))
-            .foregroundStyle(rowState.statusAppearance.color)
+            .foregroundStyle(rowStatus.statusAppearance.color)
             .frame(width: 36)
     }
 

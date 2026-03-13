@@ -198,7 +198,7 @@ struct IPadMediaConverterView: View {
                         kind: kind,
                         url: url,
                         order: index + 1,
-                        rowState: renderState.selectedFileListState.rowState(for: url),
+                        rowStatus: renderState.selectedFileListState.rowStatus(for: url),
                         thumbnailProvider: viewModel.services.thumbnailProvider
                     )
                     .onDrag {

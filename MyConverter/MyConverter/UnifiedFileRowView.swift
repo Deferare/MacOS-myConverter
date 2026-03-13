@@ -23,110 +23,45 @@ struct UnifiedFileRowView: View, Equatable {
         static let progressAnimationDuration: Double = 0.06
     }
 
-    struct StatusAppearance {
-        let symbolName: String
-        let color: Color
-    }
-
-    enum RowState: Equatable {
-        case pending
-        case converting(progress: Double)
-        case completed(URL)
-        case skipped
-
-        var showsProgressBar: Bool {
-            switch self {
-            case .converting:
-                return true
-            case .pending, .completed, .skipped:
-                return false
-            }
-        }
-
-        var progressValue: Double {
-            switch self {
-            case .pending:
-                return 0
-            case .converting(let progress):
-                return progress
-            case .completed:
-                return 1
-            case .skipped:
-                return 1
-            }
-        }
-
-        var completedOutputURL: URL? {
-            guard case .completed(let outputURL) = self else {
-                return nil
-            }
-
-            return outputURL
-        }
-
-        var statusAppearance: StatusAppearance {
-            switch self {
-            case .pending:
-                return StatusAppearance(
-                    symbolName: "circle.dashed",
-                    color: .secondary.opacity(0.45)
-                )
-            case .converting:
-                return StatusAppearance(
-                    symbolName: "circle.fill",
-                    color: .accentColor
-                )
-            case .completed:
-                return StatusAppearance(
-                    symbolName: "checkmark.circle.fill",
-                    color: .green
-                )
-            case .skipped:
-                return StatusAppearance(
-                    symbolName: "exclamationmark.triangle.fill",
-                    color: .orange
-                )
-            }
-        }
-    }
-
     let sourceURL: URL
     let order: Int
-    let rowState: RowState
+    let rowStatus: ContentViewModel.SelectedFileListState.RowStatus
     @State private var displayedCompletedOutputURL: URL?
     @State private var completionAccessoryRevealTask: Task<Void, Never>?
 
     init(
         sourceURL: URL,
         order: Int,
-        rowState: RowState
+        rowStatus: ContentViewModel.SelectedFileListState.RowStatus
     ) {
         self.sourceURL = sourceURL
         self.order = order
-        self.rowState = rowState
-        _displayedCompletedOutputURL = State(initialValue: rowState.completedOutputURL)
+        self.rowStatus = rowStatus
+        _displayedCompletedOutputURL = State(initialValue: rowStatus.completedOutputURL)
         _completionAccessoryRevealTask = State(initialValue: nil)
     }
 
     static func == (lhs: UnifiedFileRowView, rhs: UnifiedFileRowView) -> Bool {
         lhs.sourceURL == rhs.sourceURL &&
-        lhs.order == rhs.order &&
-        lhs.rowState == rhs.rowState
+            lhs.order == rhs.order &&
+            lhs.rowStatus == rhs.rowStatus
     }
 
-    static func estimatedHeight(for rowState: RowState) -> CGFloat {
-        let baseHeight = primaryContentMinHeight(for: rowState) + (Metrics.rowVerticalPadding * 2)
-        guard rowState.showsProgressBar else {
+    static func estimatedHeight(for rowStatus: ContentViewModel.SelectedFileListState.RowStatus) -> CGFloat {
+        let baseHeight = primaryContentMinHeight(for: rowStatus) + (Metrics.rowVerticalPadding * 2)
+        guard rowStatus.showsProgressBar else {
             return baseHeight
         }
 
         return baseHeight + Metrics.rowSpacing + Metrics.progressBarHeight
     }
 
-    private static func primaryContentMinHeight(for rowState: RowState) -> CGFloat {
+    private static func primaryContentMinHeight(
+        for rowStatus: ContentViewModel.SelectedFileListState.RowStatus
+    ) -> CGFloat {
         let sourceContentHeight = max(Metrics.primaryContentMinHeight, Metrics.thumbnailHeight)
 
-        switch rowState {
+        switch rowStatus {
         case .completed:
             return max(sourceContentHeight, Metrics.completedActionHeight)
         case .pending, .converting, .skipped:
@@ -135,7 +70,7 @@ struct UnifiedFileRowView: View, Equatable {
     }
 
     private var primaryContentMinHeight: CGFloat {
-        Self.primaryContentMinHeight(for: rowState)
+        Self.primaryContentMinHeight(for: rowStatus)
     }
 
     var body: some View {
@@ -147,12 +82,12 @@ struct UnifiedFileRowView: View, Equatable {
             }
             .frame(minHeight: primaryContentMinHeight)
 
-            if rowState.showsProgressBar {
-                ProgressView(value: rowState.progressValue, total: 1.0)
+            if rowStatus.showsProgressBar {
+                ProgressView(value: rowStatus.progressValue, total: 1.0)
                     .progressViewStyle(.linear)
-                    .tint(rowState.statusAppearance.color)
+                    .tint(rowStatus.statusAppearance.color)
                     .frame(height: Metrics.progressBarHeight)
-                    .animation(progressAnimation, value: rowState.progressValue)
+                    .animation(progressAnimation, value: rowStatus.progressValue)
                     .transition(progressTransition)
             }
         }
@@ -160,12 +95,12 @@ struct UnifiedFileRowView: View, Equatable {
         .padding(.vertical, Metrics.rowVerticalPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(rowBackground)
-        .animation(visibilityTransitionAnimation, value: rowState.showsProgressBar)
+        .animation(visibilityTransitionAnimation, value: rowStatus.showsProgressBar)
         .animation(visibilityTransitionAnimation, value: showsCompletedActions)
         .onDisappear {
             cancelCompletionAccessoryReveal()
         }
-        .onChange(of: rowState) { oldValue, newValue in
+        .onChange(of: rowStatus) { oldValue, newValue in
             syncCompletedActions(from: oldValue, to: newValue)
         }
     }
@@ -182,7 +117,7 @@ struct UnifiedFileRowView: View, Equatable {
     }
 
     private var progressAnimation: Animation? {
-        switch rowState {
+        switch rowStatus {
         case .converting:
             return .linear(duration: Metrics.progressAnimationDuration)
         case .pending, .completed, .skipped:
@@ -237,7 +172,7 @@ struct UnifiedFileRowView: View, Equatable {
 
             try? await Task.sleep(nanoseconds: Metrics.completionAccessoryRevealDelayNanoseconds)
             guard !Task.isCancelled else { return }
-            guard rowState.completedOutputURL == outputURL else { return }
+            guard rowStatus.completedOutputURL == outputURL else { return }
 
             withAnimation(visibilityTransitionAnimation) {
                 displayedCompletedOutputURL = outputURL
@@ -245,7 +180,10 @@ struct UnifiedFileRowView: View, Equatable {
         }
     }
 
-    private func syncCompletedActions(from previousState: RowState, to newState: RowState) {
+    private func syncCompletedActions(
+        from previousState: ContentViewModel.SelectedFileListState.RowStatus,
+        to newState: ContentViewModel.SelectedFileListState.RowStatus
+    ) {
         cancelCompletionAccessoryReveal()
 
         if let outputURL = newState.completedOutputURL {
@@ -292,9 +230,9 @@ struct UnifiedFileRowView: View, Equatable {
     // MARK: - Status Indicator
 
     private var statusIndicator: some View {
-        Image(systemName: rowState.statusAppearance.symbolName)
+        Image(systemName: rowStatus.statusAppearance.symbolName)
             .font(.callout.weight(.semibold))
-            .foregroundStyle(rowState.statusAppearance.color)
+            .foregroundStyle(rowStatus.statusAppearance.color)
             .frame(width: Metrics.statusIndicatorWidth)
     }
 
@@ -305,7 +243,7 @@ struct UnifiedFileRowView: View, Equatable {
             if let outputURL = displayedCompletedOutputURL {
                 completedActionsView(outputURL)
                     .transition(completedActionsTransition)
-            } else if case .skipped = rowState {
+            } else if case .skipped = rowStatus {
                 statusPlaceholderView("Skipped", color: .orange)
             }
         }
@@ -315,7 +253,7 @@ struct UnifiedFileRowView: View, Equatable {
     }
 
     private var outputSectionLeadingPadding: CGFloat {
-        switch rowState {
+        switch rowStatus {
         case .completed, .skipped:
             return Metrics.outputSectionSpacing
         case .pending, .converting:

@@ -6,7 +6,7 @@ struct UnifiedFileListView: View {
     private struct RowDescriptor: Identifiable {
         let url: URL
         let order: Int
-        let rowState: UnifiedFileRowView.RowState
+        let rowStatus: ContentViewModel.SelectedFileListState.RowStatus
 
         var id: String {
             url.path
@@ -72,7 +72,7 @@ struct UnifiedFileListView: View {
                         UnifiedFileRowView(
                             sourceURL: row.url,
                             order: row.order,
-                            rowState: row.rowState
+                            rowStatus: row.rowStatus
                         )
                         .equatable()
                         .transition(.identity)
@@ -115,9 +115,7 @@ struct UnifiedFileListView: View {
             return RowDescriptor(
                 url: url,
                 order: index + 1,
-                rowState: UnifiedFileRowView.RowState(
-                    rowStatus: selectedFileListState.rowStatus(for: url)
-                )
+                rowStatus: selectedFileListState.rowStatus(for: url)
             )
         }
     }
@@ -204,7 +202,7 @@ struct UnifiedFileListView: View {
         }
 
         let rowHeights = rowDescriptors.map { descriptor in
-            UnifiedFileRowView.estimatedHeight(for: descriptor.rowState)
+            UnifiedFileRowView.estimatedHeight(for: descriptor.rowStatus)
         }
 
         return rowHeights.reduce(0, +) + (CGFloat(rowDescriptors.count - 1) * Metrics.rowSpacing)
@@ -213,20 +211,5 @@ struct UnifiedFileListView: View {
     private func totalPopulatedHeight(for rowDescriptors: [RowDescriptor]) -> CGFloat {
         let contentHeight = Metrics.headerHeight + Metrics.containerSpacing + min(totalRowsHeight(for: rowDescriptors), maximumScrollHeight)
         return min(fileDropAreaHeight, (Metrics.contentPadding * 2) + contentHeight)
-    }
-}
-
-private extension UnifiedFileRowView.RowState {
-    init(rowStatus: ContentViewModel.SelectedFileListState.RowStatus) {
-        switch rowStatus {
-        case .pending:
-            self = .pending
-        case .converting(let progress):
-            self = .converting(progress: progress)
-        case .completed(let outputURL):
-            self = .completed(outputURL)
-        case .skipped:
-            self = .skipped
-        }
     }
 }
