@@ -74,7 +74,7 @@ extension ContentViewModel {
         ) -> SourceAnalysisSelectionHandlers<Capability, Format>
     }
 
-    func makeSourceAnalysisDescriptor<Capability: Sendable, Format: Sendable>(
+    static func makeSourceAnalysisDescriptor<Capability: Sendable, Format: Sendable>(
         kind: MediaKind,
         availableFormatsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [Format]>,
         fetchCapabilities: @escaping @Sendable (URL) async -> Capability,
@@ -87,7 +87,7 @@ extension ContentViewModel {
         buildSelectionHandlers: @escaping (ContentViewModel, [URL]) -> SourceAnalysisSelectionHandlers<Capability, Format>
     ) -> SourceAnalysisDescriptor<Capability, Format> {
         SourceAnalysisDescriptor(
-            state: sourceAnalysisStateDescriptor(
+            state: Self.sourceAnalysisStateDescriptor(
                 for: kind,
                 availableFormatsKeyPath: availableFormatsKeyPath
             ),
@@ -102,10 +102,10 @@ extension ContentViewModel {
         )
     }
 
-    func makeCapabilitySummaryDescriptor<Capability: Sendable, Format: Sendable>(
+    static func makeCapabilitySummaryDescriptor<Capability: Sendable, Format: Sendable>(
         _ input: CapabilitySummaryInput<Capability, Format>
     ) -> SourceAnalysisDescriptor<Capability, Format> {
-        makeSourceAnalysisDescriptor(
+        Self.makeSourceAnalysisDescriptor(
             kind: input.kind,
             availableFormatsKeyPath: input.availableFormatsKeyPath,
             fetchCapabilities: input.fetchCapabilities,
@@ -119,7 +119,7 @@ extension ContentViewModel {
         )
     }
 
-    func makeResolvedOutputSelectionHandlers<Capability: Sendable, Format: Sendable>(
+    static func makeResolvedOutputSelectionHandlers<Capability: Sendable, Format: Sendable>(
         persistKind: MediaKind,
         formatDescriptor: @escaping (ContentViewModel) -> OutputFormatDescriptor<Format>,
         capabilityObserver: @escaping (
@@ -154,11 +154,11 @@ extension ContentViewModel {
         }
     }
 
-    func sourceAnalysisStateDescriptor<Format: Sendable>(
+    static func sourceAnalysisStateDescriptor<Format: Sendable>(
         for kind: MediaKind,
         availableFormatsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [Format]>
     ) -> SourceAnalysisStateDescriptor<Format> {
-        let descriptor = mediaStateDescriptor(for: kind)
+        let descriptor = Self.mediaStateDescriptor(for: kind)
         return SourceAnalysisStateDescriptor(
             kind: kind,
             analysisTask: descriptor.analysisTask,
@@ -178,7 +178,7 @@ extension ContentViewModel {
         uniqueStandardizedURLs(urls).first.map(sourceIdentifier(for:))
     }
 
-    func makeImageSourceCapabilityObserver()
+    static func makeImageSourceCapabilityObserver()
         -> (ContentViewModel, [URL]) -> SourceAnalysisCapabilityObserver<ImageSourceCapabilities> {
         { viewModel, urls in
             let primarySourceID = viewModel.primarySelectedSourceID(from: urls)

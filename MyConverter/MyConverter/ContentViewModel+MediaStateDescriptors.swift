@@ -339,8 +339,12 @@ extension ContentViewModel {
         }
     }
 
-    func mediaStateDescriptor(for kind: MediaKind) -> MediaStateDescriptor {
+    static func mediaStateDescriptor(for kind: MediaKind) -> MediaStateDescriptor {
         kind.mediaStateDescriptor
+    }
+
+    func mediaStateDescriptor(for kind: MediaKind) -> MediaStateDescriptor {
+        Self.mediaStateDescriptor(for: kind)
     }
 
     func analyzeSelectedSources(_ urls: [URL], for kind: MediaKind) {
