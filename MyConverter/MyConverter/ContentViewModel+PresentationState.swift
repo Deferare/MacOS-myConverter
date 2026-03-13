@@ -23,6 +23,30 @@ extension ContentViewModel {
         let shouldShowVideoBitRateOption: Bool
         let shouldShowAudioSampleRateOption: Bool
         let shouldShowAudioBitRateOption: Bool
+
+        init(viewModel: ContentViewModel) {
+            isConverting = viewModel.isConverting
+            selectedOutputFormat = viewModel.selectedOutputFormat
+            selectedVideoEncoder = viewModel.selectedVideoEncoder
+            selectedResolution = viewModel.selectedResolution
+            selectedFrameRate = viewModel.selectedFrameRate
+            selectedGIFPlaybackSpeed = viewModel.selectedGIFPlaybackSpeed
+            selectedVideoBitRate = viewModel.selectedVideoBitRate
+            customVideoBitRate = viewModel.customVideoBitRate
+            selectedAudioEncoder = viewModel.selectedAudioEncoder
+            selectedAudioMode = viewModel.selectedAudioMode
+            selectedSampleRate = viewModel.selectedSampleRate
+            selectedAudioBitRate = viewModel.selectedAudioBitRate
+            outputFormatOptions = viewModel.outputFormatOptions
+            videoEncoderOptions = viewModel.videoEncoderOptions
+            audioEncoderOptions = viewModel.audioEncoderOptions
+            shouldShowVideoEncoderOption = viewModel.shouldShowVideoEncoderOption
+            shouldShowAudioSettings = viewModel.shouldShowAudioSettings
+            shouldShowGIFPlaybackSpeedOption = viewModel.shouldShowGIFPlaybackSpeedOption
+            shouldShowVideoBitRateOption = viewModel.shouldShowVideoBitRateOption
+            shouldShowAudioSampleRateOption = viewModel.shouldShowAudioSampleRateOption
+            shouldShowAudioBitRateOption = viewModel.shouldShowAudioBitRateOption
+        }
     }
 
     struct VideoFormBindings {
@@ -65,6 +89,20 @@ extension ContentViewModel {
         let shouldShowPNGCompressionOption: Bool
         let shouldShowPreserveAnimationOption: Bool
         let hintMessage: String?
+
+        init(viewModel: ContentViewModel) {
+            isConverting = viewModel.isImageConverting
+            selectedOutputFormat = viewModel.selectedImageOutputFormat
+            selectedResolution = viewModel.selectedImageResolution
+            selectedQuality = viewModel.selectedImageQuality
+            selectedPNGCompressionLevel = viewModel.selectedPNGCompressionLevel
+            preserveAnimation = viewModel.preserveImageAnimation
+            outputFormatOptions = viewModel.imageOutputFormatOptions
+            shouldShowImageQualityOption = viewModel.shouldShowImageQualityOption
+            shouldShowPNGCompressionOption = viewModel.shouldShowPNGCompressionOption
+            shouldShowPreserveAnimationOption = viewModel.shouldShowPreserveAnimationOption
+            hintMessage = viewModel.hintMessage(for: .image)
+        }
     }
 
     struct ImageFormBindings {
@@ -95,6 +133,20 @@ extension ContentViewModel {
         let shouldShowAudioOutputSampleRateOption: Bool
         let shouldShowAudioOutputBitRateOption: Bool
         let hintMessage: String?
+
+        init(viewModel: ContentViewModel) {
+            isConverting = viewModel.isAudioConverting
+            selectedOutputFormat = viewModel.selectedAudioOutputFormat
+            selectedOutputEncoder = viewModel.selectedAudioOutputEncoder
+            selectedOutputMode = viewModel.selectedAudioOutputMode
+            selectedOutputSampleRate = viewModel.selectedAudioOutputSampleRate
+            selectedOutputBitRate = viewModel.selectedAudioOutputBitRate
+            outputFormatOptions = viewModel.audioOutputFormatOptions
+            audioOutputEncoderOptions = viewModel.audioOutputEncoderOptions
+            shouldShowAudioOutputSampleRateOption = viewModel.shouldShowAudioOutputSampleRateOption
+            shouldShowAudioOutputBitRateOption = viewModel.shouldShowAudioOutputBitRateOption
+            hintMessage = viewModel.hintMessage(for: .audio)
+        }
     }
 
     struct AudioFormBindings {
@@ -130,29 +182,7 @@ extension ContentViewModel {
     }
 
     func videoFormPresentationState() -> VideoFormPresentationState {
-        VideoFormPresentationState(
-            isConverting: isConverting,
-            selectedOutputFormat: selectedOutputFormat,
-            selectedVideoEncoder: selectedVideoEncoder,
-            selectedResolution: selectedResolution,
-            selectedFrameRate: selectedFrameRate,
-            selectedGIFPlaybackSpeed: selectedGIFPlaybackSpeed,
-            selectedVideoBitRate: selectedVideoBitRate,
-            customVideoBitRate: customVideoBitRate,
-            selectedAudioEncoder: selectedAudioEncoder,
-            selectedAudioMode: selectedAudioMode,
-            selectedSampleRate: selectedSampleRate,
-            selectedAudioBitRate: selectedAudioBitRate,
-            outputFormatOptions: outputFormatOptions,
-            videoEncoderOptions: videoEncoderOptions,
-            audioEncoderOptions: audioEncoderOptions,
-            shouldShowVideoEncoderOption: shouldShowVideoEncoderOption,
-            shouldShowAudioSettings: shouldShowAudioSettings,
-            shouldShowGIFPlaybackSpeedOption: shouldShowGIFPlaybackSpeedOption,
-            shouldShowVideoBitRateOption: shouldShowVideoBitRateOption,
-            shouldShowAudioSampleRateOption: shouldShowAudioSampleRateOption,
-            shouldShowAudioBitRateOption: shouldShowAudioBitRateOption
-        )
+        VideoFormPresentationState(viewModel: self)
     }
 
     func videoFormBindings() -> VideoFormBindings {
@@ -160,19 +190,7 @@ extension ContentViewModel {
     }
 
     func imageFormPresentationState() -> ImageFormPresentationState {
-        ImageFormPresentationState(
-            isConverting: isImageConverting,
-            selectedOutputFormat: selectedImageOutputFormat,
-            selectedResolution: selectedImageResolution,
-            selectedQuality: selectedImageQuality,
-            selectedPNGCompressionLevel: selectedPNGCompressionLevel,
-            preserveAnimation: preserveImageAnimation,
-            outputFormatOptions: imageOutputFormatOptions,
-            shouldShowImageQualityOption: shouldShowImageQualityOption,
-            shouldShowPNGCompressionOption: shouldShowPNGCompressionOption,
-            shouldShowPreserveAnimationOption: shouldShowPreserveAnimationOption,
-            hintMessage: hintMessage(for: .image)
-        )
+        ImageFormPresentationState(viewModel: self)
     }
 
     func imageFormBindings() -> ImageFormBindings {
@@ -180,19 +198,7 @@ extension ContentViewModel {
     }
 
     func audioFormPresentationState() -> AudioFormPresentationState {
-        AudioFormPresentationState(
-            isConverting: isAudioConverting,
-            selectedOutputFormat: selectedAudioOutputFormat,
-            selectedOutputEncoder: selectedAudioOutputEncoder,
-            selectedOutputMode: selectedAudioOutputMode,
-            selectedOutputSampleRate: selectedAudioOutputSampleRate,
-            selectedOutputBitRate: selectedAudioOutputBitRate,
-            outputFormatOptions: audioOutputFormatOptions,
-            audioOutputEncoderOptions: audioOutputEncoderOptions,
-            shouldShowAudioOutputSampleRateOption: shouldShowAudioOutputSampleRateOption,
-            shouldShowAudioOutputBitRateOption: shouldShowAudioOutputBitRateOption,
-            hintMessage: hintMessage(for: .audio)
-        )
+        AudioFormPresentationState(viewModel: self)
     }
 
     func audioFormBindings() -> AudioFormBindings {
