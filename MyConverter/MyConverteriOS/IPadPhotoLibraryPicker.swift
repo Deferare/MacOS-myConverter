@@ -15,7 +15,7 @@ struct IPadPhotoLibraryPicker: UIViewControllerRepresentable {
 
     func makeUIViewController(context: Context) -> PHPickerViewController {
         var configuration = PHPickerConfiguration(photoLibrary: .shared())
-        configuration.filter = pickerFilter(for: kind)
+        configuration.filter = kind.photoLibraryPickerFilter
         configuration.selectionLimit = 0
         configuration.preferredAssetRepresentationMode = .current
 
@@ -26,30 +26,10 @@ struct IPadPhotoLibraryPicker: UIViewControllerRepresentable {
 
     func updateUIViewController(_ uiViewController: PHPickerViewController, context: Context) {}
 
-    private func pickerFilter(for kind: ContentViewModel.MediaKind) -> PHPickerFilter? {
-        switch kind {
-        case .image:
-            return .images
-        case .video:
-            return .videos
-        case .audio:
-            return nil
-        }
-    }
-
     private func preferredTypeIdentifier(for provider: NSItemProvider) -> String? {
-        let candidates: [String]
-
-        switch kind {
-        case .image:
-            candidates = [UTType.image.identifier]
-        case .video:
-            candidates = [UTType.movie.identifier, UTType.video.identifier, UTType.audiovisualContent.identifier]
-        case .audio:
-            candidates = [UTType.audio.identifier]
-        }
-
-        if let matchingIdentifier = candidates.first(where: { provider.hasItemConformingToTypeIdentifier($0) }) {
+        if let matchingIdentifier = kind.preferredPhotoLibraryItemTypeIdentifiers.first(
+            where: { provider.hasItemConformingToTypeIdentifier($0) }
+        ) {
             return matchingIdentifier
         }
 
@@ -176,18 +156,8 @@ struct IPadPhotoLibraryPicker: UIViewControllerRepresentable {
             return existingExtension
         }
 
-        return UTType(importedAs: typeIdentifier).preferredFilenameExtension ?? fallbackFileExtension(for: kind)
-    }
-
-    private func fallbackFileExtension(for kind: ContentViewModel.MediaKind) -> String {
-        switch kind {
-        case .image:
-            return "jpg"
-        case .video:
-            return "mov"
-        case .audio:
-            return "m4a"
-        }
+        return UTType(importedAs: typeIdentifier).preferredFilenameExtension ??
+            kind.temporaryImportFallbackFileExtension
     }
 }
 

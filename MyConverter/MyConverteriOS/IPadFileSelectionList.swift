@@ -233,14 +233,7 @@ struct IPadFileRow: View {
     }
 
     private var fallbackSystemImage: String {
-        switch kind {
-        case .video:
-            return "film"
-        case .image:
-            return "photo"
-        case .audio:
-            return "waveform"
-        }
+        kind.descriptor.sidebarSystemImage
     }
 }
 

@@ -1,5 +1,8 @@
 import Foundation
 import UniformTypeIdentifiers
+#if os(iOS)
+import PhotosUI
+#endif
 
 extension ContentViewModel {
     struct ConversionMetadata {
@@ -145,6 +148,45 @@ extension ContentViewModel {
 }
 
 #if os(iOS)
+extension ContentViewModel.MediaKind {
+    var photoLibraryPickerFilter: PHPickerFilter? {
+        switch self {
+        case .image:
+            return .images
+        case .video:
+            return .videos
+        case .audio:
+            return nil
+        }
+    }
+
+    var preferredPhotoLibraryItemTypeIdentifiers: [String] {
+        switch self {
+        case .image:
+            return [UTType.image.identifier]
+        case .video:
+            return [
+                UTType.movie.identifier,
+                UTType.video.identifier,
+                UTType.audiovisualContent.identifier
+            ]
+        case .audio:
+            return [UTType.audio.identifier]
+        }
+    }
+
+    var temporaryImportFallbackFileExtension: String {
+        switch self {
+        case .image:
+            return "jpg"
+        case .video:
+            return "mov"
+        case .audio:
+            return "m4a"
+        }
+    }
+}
+
 extension ContentViewModel {
     var activeFileImportRequest: ImportRequest? {
         guard let activeImportRequest, activeImportRequest.source == .files else { return nil }
