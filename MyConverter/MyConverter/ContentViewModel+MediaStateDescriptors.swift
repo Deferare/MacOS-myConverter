@@ -189,14 +189,14 @@ extension ContentViewModel {
             conversionTask: \.taskState.conversionTask,
             pendingSelectionAnalysisTask: \.taskState.pendingVideoSelectionAnalysisTask
         ),
-        sourceSettingsActions: makeSourceSettingsActions(using: { $0.videoSourceSettingsComponents().flow }),
+        sourceSettingsActions: makeSourceSettingsActions(using: { _ in videoSourceSettingsComponentsValue.flow }),
         capabilityBootstrap: videoCapabilityBootstrapDescriptorValue,
         validation: videoValidationDescriptorValue,
         conversionExecution: makeConversionExecutionDescriptor(
             workflow: { $0.videoConversionWorkflowDescriptor() }
         ),
         resetCompatibilityMetadata: resetCompatibilityMetadata(_:),
-        analyzeSelection: makeMediaSelectionAnalyzer(descriptor: { $0.videoSourceAnalysisDescriptor() })
+        analyzeSelection: makeMediaSelectionAnalyzer(descriptor: { _ in videoSourceAnalysisDescriptorValue })
     )
 
     private static let imageStateDescriptorValue = makeMediaStateDescriptor(
@@ -221,14 +221,14 @@ extension ContentViewModel {
             conversionTask: \.taskState.imageConversionTask,
             pendingSelectionAnalysisTask: \.taskState.pendingImageSelectionAnalysisTask
         ),
-        sourceSettingsActions: makeSourceSettingsActions(using: { $0.imageSourceSettingsComponents().flow }),
+        sourceSettingsActions: makeSourceSettingsActions(using: { _ in imageSourceSettingsComponentsValue.flow }),
         capabilityBootstrap: imageCapabilityBootstrapDescriptorValue,
         validation: imageValidationDescriptorValue,
         conversionExecution: makeConversionExecutionDescriptor(
             workflow: { $0.imageConversionWorkflowDescriptor() }
         ),
         resetCompatibilityMetadata: resetImageCompatibilityMetadata(_:),
-        analyzeSelection: makeMediaSelectionAnalyzer(descriptor: { $0.imageSourceAnalysisDescriptor() })
+        analyzeSelection: makeMediaSelectionAnalyzer(descriptor: { _ in imageSourceAnalysisDescriptorValue })
     )
 
     private static let audioStateDescriptorValue = makeMediaStateDescriptor(
@@ -253,14 +253,14 @@ extension ContentViewModel {
             conversionTask: \.taskState.audioConversionTask,
             pendingSelectionAnalysisTask: \.taskState.pendingAudioSelectionAnalysisTask
         ),
-        sourceSettingsActions: makeSourceSettingsActions(using: { $0.audioSourceSettingsComponents().flow }),
+        sourceSettingsActions: makeSourceSettingsActions(using: { _ in audioSourceSettingsComponentsValue.flow }),
         capabilityBootstrap: audioCapabilityBootstrapDescriptorValue,
         validation: audioValidationDescriptorValue,
         conversionExecution: makeConversionExecutionDescriptor(
             workflow: { $0.audioConversionWorkflowDescriptor() }
         ),
         resetCompatibilityMetadata: resetCompatibilityMetadata(_:),
-        analyzeSelection: makeMediaSelectionAnalyzer(descriptor: { $0.audioSourceAnalysisDescriptor() })
+        analyzeSelection: makeMediaSelectionAnalyzer(descriptor: { _ in audioSourceAnalysisDescriptorValue })
     )
 
     func mediaStateValue<Value>(

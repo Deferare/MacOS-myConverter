@@ -1,7 +1,7 @@
 import Foundation
 
 extension ContentViewModel {
-    private static let imageSourceAnalysisDescriptorValue = makeCapabilitySummaryDescriptor(
+    static let imageSourceAnalysisDescriptorValue = makeCapabilitySummaryDescriptor(
         CapabilitySummaryInput(
             kind: .image,
             availableFormatsKeyPath: \.availableImageOutputFormats,

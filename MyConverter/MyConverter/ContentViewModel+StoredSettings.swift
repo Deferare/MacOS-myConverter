@@ -12,7 +12,7 @@ extension ContentViewModel {
         let preferredSelection: ([Format]) -> Format?
     }
 
-    func makeOutputFormatDescriptor<Format>(
+    static func makeOutputFormatDescriptor<Format>(
         sourceURL: ReferenceWritableKeyPath<ContentViewModel, URL?>,
         availableFormats: ReferenceWritableKeyPath<ContentViewModel, [Format]>,
         selectedFormat: ReferenceWritableKeyPath<ContentViewModel, Format>,
@@ -115,8 +115,7 @@ extension ContentViewModel {
         return preferredSelection(options)
     }
 
-    func videoOutputFormatDescriptor() -> OutputFormatDescriptor<VideoFormatOption> {
-        makeOutputFormatDescriptor(
+    static let videoOutputFormatDescriptorValue = makeOutputFormatDescriptor(
             sourceURL: \.sourceURL,
             availableFormats: \.availableOutputFormats,
             selectedFormat: \.selectedOutputFormat,
@@ -126,10 +125,8 @@ extension ContentViewModel {
             formatFileExtension: { $0.fileExtension },
             preferredSelection: VideoFormatOption.defaultSelection(from:)
         )
-    }
 
-    func imageOutputFormatDescriptor() -> OutputFormatDescriptor<ImageFormatOption> {
-        makeOutputFormatDescriptor(
+    static let imageOutputFormatDescriptorValue = makeOutputFormatDescriptor(
             sourceURL: \.imageSourceURL,
             availableFormats: \.availableImageOutputFormats,
             selectedFormat: \.selectedImageOutputFormat,
@@ -139,10 +136,8 @@ extension ContentViewModel {
             formatFileExtension: { $0.fileExtension },
             preferredSelection: { $0.first }
         )
-    }
 
-    func audioOutputFormatDescriptor() -> OutputFormatDescriptor<AudioFormatOption> {
-        makeOutputFormatDescriptor(
+    static let audioOutputFormatDescriptorValue = makeOutputFormatDescriptor(
             sourceURL: \.audioSourceURL,
             availableFormats: \.availableAudioOutputFormats,
             selectedFormat: \.selectedAudioOutputFormat,
@@ -152,6 +147,17 @@ extension ContentViewModel {
             formatFileExtension: { $0.fileExtension },
             preferredSelection: AudioFormatOption.defaultSelection(from:)
         )
+
+    func videoOutputFormatDescriptor() -> OutputFormatDescriptor<VideoFormatOption> {
+        Self.videoOutputFormatDescriptorValue
+    }
+
+    func imageOutputFormatDescriptor() -> OutputFormatDescriptor<ImageFormatOption> {
+        Self.imageOutputFormatDescriptorValue
+    }
+
+    func audioOutputFormatDescriptor() -> OutputFormatDescriptor<AudioFormatOption> {
+        Self.audioOutputFormatDescriptorValue
     }
 
     func defaultedOutputFormats<Format>(

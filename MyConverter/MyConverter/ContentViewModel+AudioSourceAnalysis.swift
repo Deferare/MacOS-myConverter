@@ -1,7 +1,7 @@
 import Foundation
 
 extension ContentViewModel {
-    private static let audioSourceAnalysisDescriptorValue = makeCapabilitySummaryDescriptor(
+    static let audioSourceAnalysisDescriptorValue = makeCapabilitySummaryDescriptor(
         CapabilitySummaryInput(
             kind: .audio,
             availableFormatsKeyPath: \.availableAudioOutputFormats,

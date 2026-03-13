@@ -1,7 +1,7 @@
 import Foundation
 
 extension ContentViewModel {
-    private static let videoSourceAnalysisDescriptorValue = makeCapabilitySummaryDescriptor(
+    static let videoSourceAnalysisDescriptorValue = makeCapabilitySummaryDescriptor(
         CapabilitySummaryInput(
             kind: .video,
             availableFormatsKeyPath: \.availableOutputFormats,
