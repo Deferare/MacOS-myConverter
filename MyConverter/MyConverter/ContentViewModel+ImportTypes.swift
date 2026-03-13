@@ -148,42 +148,64 @@ extension ContentViewModel {
 }
 
 #if os(iOS)
+extension ContentViewModel {
+    struct IOSImportDescriptor {
+        let photoLibraryPickerFilter: PHPickerFilter?
+        let preferredPhotoLibraryItemTypeIdentifiers: [String]
+        let temporaryImportFallbackFileExtension: String
+    }
+}
+
 extension ContentViewModel.MediaKind {
-    var photoLibraryPickerFilter: PHPickerFilter? {
-        switch self {
-        case .image:
-            return .images
-        case .video:
-            return .videos
-        case .audio:
-            return nil
-        }
+    private func imageIOSImportDescriptor() -> ContentViewModel.IOSImportDescriptor {
+        ContentViewModel.IOSImportDescriptor(
+            photoLibraryPickerFilter: .images,
+            preferredPhotoLibraryItemTypeIdentifiers: [UTType.image.identifier],
+            temporaryImportFallbackFileExtension: "jpg"
+        )
     }
 
-    var preferredPhotoLibraryItemTypeIdentifiers: [String] {
-        switch self {
-        case .image:
-            return [UTType.image.identifier]
-        case .video:
-            return [
+    private func videoIOSImportDescriptor() -> ContentViewModel.IOSImportDescriptor {
+        ContentViewModel.IOSImportDescriptor(
+            photoLibraryPickerFilter: .videos,
+            preferredPhotoLibraryItemTypeIdentifiers: [
                 UTType.movie.identifier,
                 UTType.video.identifier,
                 UTType.audiovisualContent.identifier
-            ]
+            ],
+            temporaryImportFallbackFileExtension: "mov"
+        )
+    }
+
+    private func audioIOSImportDescriptor() -> ContentViewModel.IOSImportDescriptor {
+        ContentViewModel.IOSImportDescriptor(
+            photoLibraryPickerFilter: nil,
+            preferredPhotoLibraryItemTypeIdentifiers: [UTType.audio.identifier],
+            temporaryImportFallbackFileExtension: "m4a"
+        )
+    }
+
+    var iosImportDescriptor: ContentViewModel.IOSImportDescriptor {
+        switch self {
+        case .video:
+            return videoIOSImportDescriptor()
+        case .image:
+            return imageIOSImportDescriptor()
         case .audio:
-            return [UTType.audio.identifier]
+            return audioIOSImportDescriptor()
         }
     }
 
+    var photoLibraryPickerFilter: PHPickerFilter? {
+        iosImportDescriptor.photoLibraryPickerFilter
+    }
+
+    var preferredPhotoLibraryItemTypeIdentifiers: [String] {
+        iosImportDescriptor.preferredPhotoLibraryItemTypeIdentifiers
+    }
+
     var temporaryImportFallbackFileExtension: String {
-        switch self {
-        case .image:
-            return "jpg"
-        case .video:
-            return "mov"
-        case .audio:
-            return "m4a"
-        }
+        iosImportDescriptor.temporaryImportFallbackFileExtension
     }
 }
 
