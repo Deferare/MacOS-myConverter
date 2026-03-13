@@ -51,20 +51,12 @@ extension ContentViewModel {
         postApplyWhenWarmed: { $0.refreshVideoCodecOptions() }
     )
 
-    func videoCapabilityBootstrapDescriptor() -> CapabilityBootstrapDescriptor {
-        Self.videoCapabilityBootstrapDescriptorValue
-    }
-
     static let imageCapabilityBootstrapDescriptorValue = makeCapabilityBootstrapDescriptor(
         for: .image,
         warmDefaultFormats: ImageConversionEngine.defaultOutputFormats,
         placeholderFormats: ContentViewModelSupport.placeholderImageFormats,
         formatDescriptor: { $0.imageOutputFormatDescriptor() }
     )
-
-    func imageCapabilityBootstrapDescriptor() -> CapabilityBootstrapDescriptor {
-        Self.imageCapabilityBootstrapDescriptorValue
-    }
 
     static let audioCapabilityBootstrapDescriptorValue = makeCapabilityBootstrapDescriptor(
         for: .audio,
@@ -74,14 +66,6 @@ extension ContentViewModel {
         applyAdditionalPlaceholderState: { $0.applyPlaceholderAudioCodecOptions() },
         postApplyWhenWarmed: { $0.refreshAudioCodecOptions() }
     )
-
-    func audioCapabilityBootstrapDescriptor() -> CapabilityBootstrapDescriptor {
-        Self.audioCapabilityBootstrapDescriptorValue
-    }
-
-    func capabilityBootstrapDescriptor(for kind: MediaKind) -> CapabilityBootstrapDescriptor {
-        mediaBehaviorDescriptor(for: kind).capabilityBootstrap
-    }
 
     func applyPlaceholderCapabilityState() {
         MediaKind.allCases.forEach { applyPlaceholderCapabilities(for: $0) }
@@ -103,7 +87,7 @@ extension ContentViewModel {
     }
 
     func applyPlaceholderCapabilities(for kind: MediaKind) {
-        capabilityBootstrapDescriptor(for: kind).applyPlaceholder(self)
+        mediaStateDescriptor(for: kind).capabilityBootstrap.applyPlaceholder(self)
     }
 
     func markCapabilityBootstrapNeedsRefresh(for kinds: [MediaKind]) {
@@ -171,7 +155,9 @@ extension ContentViewModel {
     private func warmDefaultCapabilities(
         for kinds: [MediaKind]
     ) async -> [WarmedDefaultCapability] {
-        let warmers = kinds.map { capabilityBootstrapDescriptor(for: $0).warmDefaultCapabilities }
+        let warmers = kinds.map {
+            mediaStateDescriptor(for: $0).capabilityBootstrap.warmDefaultCapabilities
+        }
         return await detachedTaskValue(priority: .userInitiated) {
             await withTaskGroup(
                 of: WarmedDefaultCapability.self,

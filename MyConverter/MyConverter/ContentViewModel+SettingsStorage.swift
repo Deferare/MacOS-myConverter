@@ -349,10 +349,6 @@ extension ContentViewModel {
         )
     }
 
-    func sourceSettingsActions(for kind: MediaKind) -> SourceSettingsActions {
-        mediaBehaviorDescriptor(for: kind).sourceSettingsActions
-    }
-
     func loadPersistedSourceSettingsState() {
         settingsState.videoSettingsBySourceID =
             loadPersistedSourceSettings(using: videoSourceSettingsComponents().storage)
@@ -505,14 +501,14 @@ extension ContentViewModel {
     }
 
     func applyDefaultSourceSettings(for kind: MediaKind) {
-        sourceSettingsActions(for: kind).applyDefault(self)
+        mediaStateDescriptor(for: kind).sourceSettingsActions.applyDefault(self)
     }
 
     func applyStoredSourceSettings(for sourceID: String, for kind: MediaKind) {
-        sourceSettingsActions(for: kind).applyForSourceID(self, sourceID)
+        mediaStateDescriptor(for: kind).sourceSettingsActions.applyForSourceID(self, sourceID)
     }
 
     func persistCurrentSourceSettingsIfNeeded(for kind: MediaKind) {
-        sourceSettingsActions(for: kind).persistCurrent(self)
+        mediaStateDescriptor(for: kind).sourceSettingsActions.persistCurrent(self)
     }
 }

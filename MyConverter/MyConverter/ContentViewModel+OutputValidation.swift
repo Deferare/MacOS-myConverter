@@ -343,32 +343,19 @@ extension ContentViewModel {
         )
     )
 
-    func videoValidationDescriptor() -> MediaValidationDescriptor {
-        Self.videoValidationDescriptorValue
-    }
-
-    func imageValidationDescriptor() -> MediaValidationDescriptor {
-        Self.imageValidationDescriptorValue
-    }
-
-    func audioValidationDescriptor() -> MediaValidationDescriptor {
-        Self.audioValidationDescriptorValue
-    }
-
-    func mediaValidationDescriptor(for kind: MediaKind) -> MediaValidationDescriptor {
-        mediaBehaviorDescriptor(for: kind).validation
-    }
-
     func validationMessage(for kind: MediaKind) -> String? {
-        mediaValidationDescriptor(for: kind).validationMessage(self)
+        mediaStateDescriptor(for: kind).validation.validationMessage(self)
     }
 
     func hintMessage(for kind: MediaKind) -> String? {
-        mediaValidationDescriptor(for: kind).hintMessage(self)
+        mediaStateDescriptor(for: kind).validation.hintMessage(self)
     }
 
     func validateSourceOutputSettings(for kind: MediaKind, sourceURL: URL) async -> String? {
-        await mediaValidationDescriptor(for: kind).validateSourceOutputSettings(self, sourceURL)
+        await mediaStateDescriptor(for: kind).validation.validateSourceOutputSettings(
+            self,
+            sourceURL
+        )
     }
 
     func validatePreparedSourceOutputSettings(
@@ -376,7 +363,7 @@ extension ContentViewModel {
         source: PreparedSourceConversion,
         environment: BatchExecutionEnvironment
     ) async -> String? {
-        await mediaValidationDescriptor(for: kind).validatePreparedSourceOutputSettings(
+        await mediaStateDescriptor(for: kind).validation.validatePreparedSourceOutputSettings(
             self,
             source,
             environment
