@@ -49,34 +49,6 @@ extension ContentViewModel {
         }
     }
 
-    struct VideoFormBindings {
-        let selectedOutputFormat: Binding<VideoFormatOption>
-        let selectedVideoEncoder: Binding<VideoEncoderOption>
-        let selectedResolution: Binding<ResolutionOption>
-        let selectedFrameRate: Binding<FrameRateOption>
-        let selectedGIFPlaybackSpeed: Binding<GIFPlaybackSpeedOption>
-        let selectedVideoBitRate: Binding<VideoBitRateOption>
-        let customVideoBitRate: Binding<String>
-        let selectedAudioEncoder: Binding<AudioEncoderOption>
-        let selectedAudioMode: Binding<AudioModeOption>
-        let selectedSampleRate: Binding<SampleRateOption>
-        let selectedAudioBitRate: Binding<AudioBitRateOption>
-
-        init(viewModel: ContentViewModel) {
-            selectedOutputFormat = viewModel.binding(to: \.selectedOutputFormat)
-            selectedVideoEncoder = viewModel.binding(to: \.selectedVideoEncoder)
-            selectedResolution = viewModel.binding(to: \.selectedResolution)
-            selectedFrameRate = viewModel.binding(to: \.selectedFrameRate)
-            selectedGIFPlaybackSpeed = viewModel.binding(to: \.selectedGIFPlaybackSpeed)
-            selectedVideoBitRate = viewModel.binding(to: \.selectedVideoBitRate)
-            customVideoBitRate = viewModel.binding(to: \.customVideoBitRate)
-            selectedAudioEncoder = viewModel.binding(to: \.selectedAudioEncoder)
-            selectedAudioMode = viewModel.binding(to: \.selectedAudioMode)
-            selectedSampleRate = viewModel.binding(to: \.selectedSampleRate)
-            selectedAudioBitRate = viewModel.binding(to: \.selectedAudioBitRate)
-        }
-    }
-
     struct ImageFormPresentationState: Equatable {
         let isConverting: Bool
         let selectedOutputFormat: ImageFormatOption
@@ -102,22 +74,6 @@ extension ContentViewModel {
             shouldShowPNGCompressionOption = viewModel.shouldShowPNGCompressionOption
             shouldShowPreserveAnimationOption = viewModel.shouldShowPreserveAnimationOption
             hintMessage = viewModel.hintMessage(for: .image)
-        }
-    }
-
-    struct ImageFormBindings {
-        let selectedOutputFormat: Binding<ImageFormatOption>
-        let selectedResolution: Binding<ResolutionOption>
-        let selectedQuality: Binding<ImageQualityOption>
-        let selectedPNGCompressionLevel: Binding<PNGCompressionLevelOption>
-        let preserveAnimation: Binding<Bool>
-
-        init(viewModel: ContentViewModel) {
-            selectedOutputFormat = viewModel.binding(to: \.selectedImageOutputFormat)
-            selectedResolution = viewModel.binding(to: \.selectedImageResolution)
-            selectedQuality = viewModel.binding(to: \.selectedImageQuality)
-            selectedPNGCompressionLevel = viewModel.binding(to: \.selectedPNGCompressionLevel)
-            preserveAnimation = viewModel.binding(to: \.preserveImageAnimation)
         }
     }
 
@@ -149,30 +105,14 @@ extension ContentViewModel {
         }
     }
 
-    struct AudioFormBindings {
-        let selectedOutputFormat: Binding<AudioFormatOption>
-        let selectedOutputEncoder: Binding<AudioEncoderOption>
-        let selectedOutputMode: Binding<AudioModeOption>
-        let selectedOutputSampleRate: Binding<SampleRateOption>
-        let selectedOutputBitRate: Binding<AudioBitRateOption>
-
-        init(viewModel: ContentViewModel) {
-            selectedOutputFormat = viewModel.binding(to: \.selectedAudioOutputFormat)
-            selectedOutputEncoder = viewModel.binding(to: \.selectedAudioOutputEncoder)
-            selectedOutputMode = viewModel.binding(to: \.selectedAudioOutputMode)
-            selectedOutputSampleRate = viewModel.binding(to: \.selectedAudioOutputSampleRate)
-            selectedOutputBitRate = viewModel.binding(to: \.selectedAudioOutputBitRate)
-        }
-    }
-
-    private func binding<Value>(
+    func binding<Value>(
         get: @escaping @MainActor @Sendable () -> Value,
         set: @escaping @MainActor @Sendable (Value) -> Void
     ) -> Binding<Value> {
         Binding(get: get, set: set)
     }
 
-    private func binding<Value>(
+    func binding<Value>(
         to keyPath: ReferenceWritableKeyPath<ContentViewModel, Value>
     ) -> Binding<Value> {
         binding(

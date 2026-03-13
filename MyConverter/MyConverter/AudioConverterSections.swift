@@ -2,11 +2,11 @@ import SwiftUI
 
 struct AudioConverterFormSectionView: View, Equatable {
     let state: ContentViewModel.AudioFormPresentationState
-    let bindings: ContentViewModel.AudioFormBindings
+    @ObservedObject private var viewModel: ContentViewModel
 
     init(viewModel: ContentViewModel) {
+        _viewModel = ObservedObject(wrappedValue: viewModel)
         state = .init(viewModel: viewModel)
-        bindings = .init(viewModel: viewModel)
     }
 
     static func == (lhs: AudioConverterFormSectionView, rhs: AudioConverterFormSectionView) -> Bool {
@@ -21,7 +21,7 @@ struct AudioConverterFormSectionView: View, Equatable {
         ) {
             MenuPicker(
                 "Output Format",
-                selection: bindings.selectedOutputFormat,
+                selection: viewModel.binding(to: \.selectedAudioOutputFormat),
                 options: state.outputFormatOptions,
                 disabledWhenEmpty: true,
                 showsDivider: true,
@@ -30,7 +30,7 @@ struct AudioConverterFormSectionView: View, Equatable {
 
             MenuPicker(
                 "Audio Encoder",
-                selection: bindings.selectedOutputEncoder,
+                selection: viewModel.binding(to: \.selectedAudioOutputEncoder),
                 options: state.audioOutputEncoderOptions,
                 disabledWhenEmpty: true,
                 showsDivider: true,
@@ -38,9 +38,9 @@ struct AudioConverterFormSectionView: View, Equatable {
             )
 
             AudioModeAndRatePickers(
-                modeSelection: bindings.selectedOutputMode,
-                sampleRateSelection: bindings.selectedOutputSampleRate,
-                bitRateSelection: bindings.selectedOutputBitRate,
+                modeSelection: viewModel.binding(to: \.selectedAudioOutputMode),
+                sampleRateSelection: viewModel.binding(to: \.selectedAudioOutputSampleRate),
+                bitRateSelection: viewModel.binding(to: \.selectedAudioOutputBitRate),
                 showSampleRate: state.shouldShowAudioOutputSampleRateOption,
                 showBitRate: state.shouldShowAudioOutputBitRateOption,
                 showsDividerOnLastRow: state.hintMessage != nil

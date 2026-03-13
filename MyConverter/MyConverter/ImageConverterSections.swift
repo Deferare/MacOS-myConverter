@@ -2,11 +2,11 @@ import SwiftUI
 
 struct ImageConverterFormSectionView: View, Equatable {
     let state: ContentViewModel.ImageFormPresentationState
-    let bindings: ContentViewModel.ImageFormBindings
+    @ObservedObject private var viewModel: ContentViewModel
 
     init(viewModel: ContentViewModel) {
+        _viewModel = ObservedObject(wrappedValue: viewModel)
         state = .init(viewModel: viewModel)
-        bindings = .init(viewModel: viewModel)
     }
 
     static func == (lhs: ImageConverterFormSectionView, rhs: ImageConverterFormSectionView) -> Bool {
@@ -25,7 +25,7 @@ struct ImageConverterFormSectionView: View, Equatable {
         ) {
             MenuPicker(
                 "Output Format",
-                selection: bindings.selectedOutputFormat,
+                selection: viewModel.binding(to: \.selectedImageOutputFormat),
                 options: state.outputFormatOptions,
                 disabledWhenEmpty: true,
                 showsDivider: true,
@@ -34,7 +34,7 @@ struct ImageConverterFormSectionView: View, Equatable {
 
             MenuPicker(
                 "Resolution",
-                selection: bindings.selectedResolution,
+                selection: viewModel.binding(to: \.selectedImageResolution),
                 options: Array(ResolutionOption.allCases),
                 showsDivider: showsQuality || showsPNGCompression || showsPreserveAnimation || showsHint,
                 label: { $0.rawValue }
@@ -43,7 +43,7 @@ struct ImageConverterFormSectionView: View, Equatable {
             if state.shouldShowImageQualityOption {
                 MenuPicker(
                     "Quality",
-                    selection: bindings.selectedQuality,
+                    selection: viewModel.binding(to: \.selectedImageQuality),
                     options: Array(ImageQualityOption.allCases),
                     showsDivider: showsPNGCompression || showsPreserveAnimation || showsHint,
                     label: { $0.rawValue }
@@ -53,7 +53,7 @@ struct ImageConverterFormSectionView: View, Equatable {
             if state.shouldShowPNGCompressionOption {
                 MenuPicker(
                     "PNG Compression",
-                    selection: bindings.selectedPNGCompressionLevel,
+                    selection: viewModel.binding(to: \.selectedPNGCompressionLevel),
                     options: Array(PNGCompressionLevelOption.allCases),
                     showsDivider: showsPreserveAnimation || showsHint,
                     label: { $0.rawValue }
@@ -64,7 +64,7 @@ struct ImageConverterFormSectionView: View, Equatable {
                 ConverterToggleRow(
                     "Preserve Animation",
                     showsDivider: showsHint,
-                    isOn: bindings.preserveAnimation
+                    isOn: viewModel.binding(to: \.preserveImageAnimation)
                 )
             }
 

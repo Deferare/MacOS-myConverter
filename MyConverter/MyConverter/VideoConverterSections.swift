@@ -2,11 +2,11 @@ import SwiftUI
 
 struct VideoConverterFormSectionView: View, Equatable {
     let state: ContentViewModel.VideoFormPresentationState
-    let bindings: ContentViewModel.VideoFormBindings
+    @ObservedObject private var viewModel: ContentViewModel
 
     init(viewModel: ContentViewModel) {
+        _viewModel = ObservedObject(wrappedValue: viewModel)
         state = .init(viewModel: viewModel)
-        bindings = .init(viewModel: viewModel)
     }
 
     static func == (lhs: VideoConverterFormSectionView, rhs: VideoConverterFormSectionView) -> Bool {
@@ -25,7 +25,7 @@ struct VideoConverterFormSectionView: View, Equatable {
         ) {
             MenuPicker(
                 "Output Format",
-                selection: bindings.selectedOutputFormat,
+                selection: viewModel.binding(to: \.selectedOutputFormat),
                 options: state.outputFormatOptions,
                 disabledWhenEmpty: true,
                 showsDivider: true,
@@ -35,7 +35,7 @@ struct VideoConverterFormSectionView: View, Equatable {
             if state.shouldShowVideoEncoderOption {
                 MenuPicker(
                     "Video Encoder",
-                    selection: bindings.selectedVideoEncoder,
+                    selection: viewModel.binding(to: \.selectedVideoEncoder),
                     options: state.videoEncoderOptions,
                     disabledWhenEmpty: true,
                     showsDivider: true,
@@ -45,7 +45,7 @@ struct VideoConverterFormSectionView: View, Equatable {
 
             MenuPicker(
                 "Resolution",
-                selection: bindings.selectedResolution,
+                selection: viewModel.binding(to: \.selectedResolution),
                 options: Array(ResolutionOption.allCases),
                 showsDivider: true,
                 label: { $0.rawValue }
@@ -53,7 +53,7 @@ struct VideoConverterFormSectionView: View, Equatable {
 
             MenuPicker(
                 "Frame Rate",
-                selection: bindings.selectedFrameRate,
+                selection: viewModel.binding(to: \.selectedFrameRate),
                 options: Array(FrameRateOption.allCases),
                 showsDivider: showsPlaybackSpeed || showsVideoBitRate || showsCustomVideoBitRate || showsAudioSettings,
                 label: { $0.rawValue }
@@ -62,7 +62,7 @@ struct VideoConverterFormSectionView: View, Equatable {
             if state.shouldShowGIFPlaybackSpeedOption {
                 MenuPicker(
                     "Playback Speed",
-                    selection: bindings.selectedGIFPlaybackSpeed,
+                    selection: viewModel.binding(to: \.selectedGIFPlaybackSpeed),
                     options: Array(GIFPlaybackSpeedOption.allCases),
                     showsDivider: showsVideoBitRate || showsCustomVideoBitRate || showsAudioSettings,
                     label: { $0.rawValue }
@@ -72,7 +72,7 @@ struct VideoConverterFormSectionView: View, Equatable {
             if state.shouldShowVideoBitRateOption {
                 MenuPicker(
                     "Video Bit Rate",
-                    selection: bindings.selectedVideoBitRate,
+                    selection: viewModel.binding(to: \.selectedVideoBitRate),
                     options: Array(VideoBitRateOption.allCases),
                     showsDivider: showsCustomVideoBitRate || showsAudioSettings,
                     label: { $0.rawValue }
@@ -84,14 +84,14 @@ struct VideoConverterFormSectionView: View, Equatable {
                     "Custom Video Bit Rate",
                     prompt: "Custom Kbps (e.g. 5000)",
                     showsDivider: showsAudioSettings,
-                    text: bindings.customVideoBitRate
+                    text: viewModel.binding(to: \.customVideoBitRate)
                 )
             }
 
             if state.shouldShowAudioSettings {
                 MenuPicker(
                     "Audio Encoder",
-                    selection: bindings.selectedAudioEncoder,
+                    selection: viewModel.binding(to: \.selectedAudioEncoder),
                     options: state.audioEncoderOptions,
                     disabledWhenEmpty: true,
                     showsDivider: true,
@@ -99,9 +99,9 @@ struct VideoConverterFormSectionView: View, Equatable {
                 )
 
                 AudioModeAndRatePickers(
-                    modeSelection: bindings.selectedAudioMode,
-                    sampleRateSelection: bindings.selectedSampleRate,
-                    bitRateSelection: bindings.selectedAudioBitRate,
+                    modeSelection: viewModel.binding(to: \.selectedAudioMode),
+                    sampleRateSelection: viewModel.binding(to: \.selectedSampleRate),
+                    bitRateSelection: viewModel.binding(to: \.selectedAudioBitRate),
                     showSampleRate: state.shouldShowAudioSampleRateOption,
                     showBitRate: state.shouldShowAudioBitRateOption,
                     showsDividerOnLastRow: false
