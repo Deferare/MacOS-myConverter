@@ -1,13 +1,39 @@
 import Foundation
 
 extension ContentViewModel {
+    private func setDefaultValueIfNeeded<Value: Equatable>(
+        _ value: inout Value,
+        when condition: Bool,
+        defaultValue: Value
+    ) {
+        guard condition else { return }
+        value = defaultValue
+    }
+
+    private func applyPreferredOptionIfNeeded<State, Option: Equatable>(
+        in state: inout State,
+        selection: WritableKeyPath<State, Option>,
+        options: [Option],
+        preferredOption: ([Option]) -> Option?
+    ) {
+        if let preferredSelection = preferredOptionIfNeeded(
+            current: state[keyPath: selection],
+            options: options,
+            preferredOption: preferredOption
+        ) {
+            state[keyPath: selection] = preferredSelection
+        }
+    }
+
     private func normalizeVideoCodecDependencies(
         in state: inout VideoOptionsState,
         format: VideoFormatOption
     ) {
-        if !state.selectedVideoEncoder.supportsVideoBitRate {
-            state.selectedVideoBitRate = .auto
-        }
+        setDefaultValueIfNeeded(
+            &state.selectedVideoBitRate,
+            when: !state.selectedVideoEncoder.supportsVideoBitRate,
+            defaultValue: .auto
+        )
 
         guard format.supportsAudioTrack else {
             state.selectedAudioEncoder = .auto
@@ -16,9 +42,11 @@ extension ContentViewModel {
             return
         }
 
-        if !state.selectedAudioEncoder.supportsAudioBitRate {
-            state.selectedAudioBitRate = .auto
-        }
+        setDefaultValueIfNeeded(
+            &state.selectedAudioBitRate,
+            when: !state.selectedAudioEncoder.supportsAudioBitRate,
+            defaultValue: .auto
+        )
     }
 
     private func normalizeAudioCodecDependencies(
@@ -26,17 +54,17 @@ extension ContentViewModel {
         encoderOptions: [AudioEncoderOption],
         preferredOption: ([AudioEncoderOption]) -> AudioEncoderOption?
     ) {
-        if let preferredEncoder = preferredOptionIfNeeded(
-            current: state.selectedOutputEncoder,
+        applyPreferredOptionIfNeeded(
+            in: &state,
+            selection: \.selectedOutputEncoder,
             options: encoderOptions,
             preferredOption: preferredOption
-        ) {
-            state.selectedOutputEncoder = preferredEncoder
-        }
-
-        if !state.selectedOutputEncoder.supportsAudioBitRate {
-            state.selectedOutputBitRate = .auto
-        }
+        )
+        setDefaultValueIfNeeded(
+            &state.selectedOutputBitRate,
+            when: !state.selectedOutputEncoder.supportsAudioBitRate,
+            defaultValue: .auto
+        )
     }
 
     private func preferredAudioOutputEncoderOption(
@@ -80,21 +108,20 @@ extension ContentViewModel {
         availableAudioEncoders = resolvedAudioEncoders
 
         updateState(\.videoOptionsState) { state in
-            if let preferredVideoEncoder = preferredOptionIfNeeded(
-                current: state.selectedVideoEncoder,
+            applyPreferredOptionIfNeeded(
+                in: &state,
+                selection: \.selectedVideoEncoder,
                 options: resolvedVideoEncoderOptions,
                 preferredOption: ContentViewModelSupport.preferredVideoEncoder(from:)
-            ) {
-                state.selectedVideoEncoder = preferredVideoEncoder
-            }
+            )
 
-            if format.supportsAudioTrack,
-               let preferredAudioEncoder = preferredOptionIfNeeded(
-                   current: state.selectedAudioEncoder,
-                   options: resolvedAudioEncoderOptions,
-                   preferredOption: ContentViewModelSupport.preferredAudioEncoder(from:)
-               ) {
-                state.selectedAudioEncoder = preferredAudioEncoder
+            if format.supportsAudioTrack {
+                applyPreferredOptionIfNeeded(
+                    in: &state,
+                    selection: \.selectedAudioEncoder,
+                    options: resolvedAudioEncoderOptions,
+                    preferredOption: ContentViewModelSupport.preferredAudioEncoder(from:)
+                )
             }
             normalizeVideoCodecDependencies(in: &state, format: format)
         }
