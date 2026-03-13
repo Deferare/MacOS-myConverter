@@ -121,7 +121,7 @@ extension ContentViewModel {
         )
     }
 
-    func makeSourceSettingsActions<Settings: Equatable, Persisted: Codable, Format>(
+    static func makeSourceSettingsActions<Settings: Equatable, Persisted: Codable, Format>(
         using descriptor: @escaping (ContentViewModel) -> SourceSettingsFlowDescriptor<Settings, Persisted, Format>
     ) -> SourceSettingsActions {
         SourceSettingsActions(

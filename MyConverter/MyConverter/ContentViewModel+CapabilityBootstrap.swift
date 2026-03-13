@@ -10,7 +10,7 @@ extension ContentViewModel {
         let applyPlaceholder: (ContentViewModel) -> Void
     }
 
-    func makeCapabilityBootstrapDescriptor<Format: Sendable>(
+    static func makeCapabilityBootstrapDescriptor<Format: Sendable>(
         for kind: MediaKind,
         warmDefaultFormats: @escaping @Sendable () -> [Format],
         placeholderFormats: @escaping () -> [Format],
@@ -42,35 +42,41 @@ extension ContentViewModel {
         )
     }
 
+    static let videoCapabilityBootstrapDescriptorValue = makeCapabilityBootstrapDescriptor(
+        for: .video,
+        warmDefaultFormats: VideoConversionEngine.defaultOutputFormats,
+        placeholderFormats: ContentViewModelSupport.placeholderVideoFormats,
+        formatDescriptor: { $0.videoOutputFormatDescriptor() },
+        applyAdditionalPlaceholderState: { $0.applyPlaceholderVideoCodecOptions() },
+        postApplyWhenWarmed: { $0.refreshVideoCodecOptions() }
+    )
+
     func videoCapabilityBootstrapDescriptor() -> CapabilityBootstrapDescriptor {
-        makeCapabilityBootstrapDescriptor(
-            for: .video,
-            warmDefaultFormats: VideoConversionEngine.defaultOutputFormats,
-            placeholderFormats: ContentViewModelSupport.placeholderVideoFormats,
-            formatDescriptor: { $0.videoOutputFormatDescriptor() },
-            applyAdditionalPlaceholderState: { $0.applyPlaceholderVideoCodecOptions() },
-            postApplyWhenWarmed: { $0.refreshVideoCodecOptions() }
-        )
+        Self.videoCapabilityBootstrapDescriptorValue
     }
+
+    static let imageCapabilityBootstrapDescriptorValue = makeCapabilityBootstrapDescriptor(
+        for: .image,
+        warmDefaultFormats: ImageConversionEngine.defaultOutputFormats,
+        placeholderFormats: ContentViewModelSupport.placeholderImageFormats,
+        formatDescriptor: { $0.imageOutputFormatDescriptor() }
+    )
 
     func imageCapabilityBootstrapDescriptor() -> CapabilityBootstrapDescriptor {
-        makeCapabilityBootstrapDescriptor(
-            for: .image,
-            warmDefaultFormats: ImageConversionEngine.defaultOutputFormats,
-            placeholderFormats: ContentViewModelSupport.placeholderImageFormats,
-            formatDescriptor: { $0.imageOutputFormatDescriptor() }
-        )
+        Self.imageCapabilityBootstrapDescriptorValue
     }
 
+    static let audioCapabilityBootstrapDescriptorValue = makeCapabilityBootstrapDescriptor(
+        for: .audio,
+        warmDefaultFormats: VideoConversionEngine.defaultAudioOutputFormats,
+        placeholderFormats: ContentViewModelSupport.placeholderAudioFormats,
+        formatDescriptor: { $0.audioOutputFormatDescriptor() },
+        applyAdditionalPlaceholderState: { $0.applyPlaceholderAudioCodecOptions() },
+        postApplyWhenWarmed: { $0.refreshAudioCodecOptions() }
+    )
+
     func audioCapabilityBootstrapDescriptor() -> CapabilityBootstrapDescriptor {
-        makeCapabilityBootstrapDescriptor(
-            for: .audio,
-            warmDefaultFormats: VideoConversionEngine.defaultAudioOutputFormats,
-            placeholderFormats: ContentViewModelSupport.placeholderAudioFormats,
-            formatDescriptor: { $0.audioOutputFormatDescriptor() },
-            applyAdditionalPlaceholderState: { $0.applyPlaceholderAudioCodecOptions() },
-            postApplyWhenWarmed: { $0.refreshAudioCodecOptions() }
-        )
+        Self.audioCapabilityBootstrapDescriptorValue
     }
 
     func capabilityBootstrapDescriptor(for kind: MediaKind) -> CapabilityBootstrapDescriptor {

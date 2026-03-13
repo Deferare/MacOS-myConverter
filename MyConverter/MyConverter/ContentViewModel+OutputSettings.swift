@@ -42,7 +42,7 @@ extension ContentViewModel {
         condition ? values() : []
     }
 
-    func resolvedAudioEncodingSettings(
+    private func resolvedAudioEncodingSettings(
         codecCandidates: [String],
         includeAudio: Bool,
         channels: Int?,
@@ -132,7 +132,7 @@ extension ContentViewModel {
             includeBitRate: shouldShowAudioOutputBitRateOption
         )
 
-        AudioOutputSettings(
+        return AudioOutputSettings(
             containerFormat: selectedAudioOutputFormat,
             audioCodecCandidates: audioSettings.codecCandidates,
             audioChannels: audioSettings.channels,

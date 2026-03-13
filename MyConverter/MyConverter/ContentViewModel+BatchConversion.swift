@@ -17,7 +17,7 @@ extension ContentViewModel {
         let execute: @MainActor (ContentViewModel) async -> Void
     }
 
-    func makeConversionExecutionDescriptor<OutputSettings: Sendable>(
+    static func makeConversionExecutionDescriptor<OutputSettings: Sendable>(
         workflow: @escaping (ContentViewModel) -> ConversionWorkflowDescriptor<OutputSettings>
     ) -> ConversionExecutionDescriptor {
         ConversionExecutionDescriptor { viewModel in

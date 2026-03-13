@@ -185,7 +185,7 @@ extension ContentViewModel {
         )
     }
 
-    private static let videoValidationDescriptorValue = makeOutputFormatValidationDescriptor(
+    static let videoValidationDescriptorValue = makeOutputFormatValidationDescriptor(
         OutputFormatValidationInput(
             kind: .video,
             hintMessage: { _ in nil },
@@ -245,7 +245,7 @@ extension ContentViewModel {
         )
     )
 
-    private static let imageValidationDescriptorValue = makeOutputFormatValidationDescriptor(
+    static let imageValidationDescriptorValue = makeOutputFormatValidationDescriptor(
         OutputFormatValidationInput(
             kind: .image,
             hintMessage: { viewModel in
@@ -301,7 +301,7 @@ extension ContentViewModel {
         )
     )
 
-    private static let audioValidationDescriptorValue = makeOutputFormatValidationDescriptor(
+    static let audioValidationDescriptorValue = makeOutputFormatValidationDescriptor(
         OutputFormatValidationInput(
             kind: .audio,
             hintMessage: { viewModel in
