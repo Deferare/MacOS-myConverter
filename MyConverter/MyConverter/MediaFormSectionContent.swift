@@ -5,22 +5,13 @@ extension ContentViewModel.MediaKind {
     func formSectionContent(viewModel: ContentViewModel) -> some View {
         switch self {
         case .video:
-            VideoConverterFormSectionView(
-                state: viewModel.videoFormPresentationState(),
-                bindings: viewModel.videoFormBindings()
-            )
+            VideoConverterFormSectionView(viewModel: viewModel)
             .equatable()
         case .image:
-            ImageConverterFormSectionView(
-                state: viewModel.imageFormPresentationState(),
-                bindings: viewModel.imageFormBindings()
-            )
+            ImageConverterFormSectionView(viewModel: viewModel)
             .equatable()
         case .audio:
-            AudioConverterFormSectionView(
-                state: viewModel.audioFormPresentationState(),
-                bindings: viewModel.audioFormBindings()
-            )
+            AudioConverterFormSectionView(viewModel: viewModel)
             .equatable()
         }
     }

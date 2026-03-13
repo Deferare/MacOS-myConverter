@@ -4,6 +4,13 @@ struct VideoConverterFormSectionView: View, Equatable {
     let state: ContentViewModel.VideoFormPresentationState
     let bindings: ContentViewModel.VideoFormBindings
 
+    init(viewModel: ContentViewModel) {
+        self.init(
+            state: .init(viewModel: viewModel),
+            bindings: .init(viewModel: viewModel)
+        )
+    }
+
     static func == (lhs: VideoConverterFormSectionView, rhs: VideoConverterFormSectionView) -> Bool {
         lhs.state == rhs.state
     }

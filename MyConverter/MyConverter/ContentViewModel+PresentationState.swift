@@ -181,27 +181,4 @@ extension ContentViewModel {
         )
     }
 
-    func videoFormPresentationState() -> VideoFormPresentationState {
-        VideoFormPresentationState(viewModel: self)
-    }
-
-    func videoFormBindings() -> VideoFormBindings {
-        VideoFormBindings(viewModel: self)
-    }
-
-    func imageFormPresentationState() -> ImageFormPresentationState {
-        ImageFormPresentationState(viewModel: self)
-    }
-
-    func imageFormBindings() -> ImageFormBindings {
-        ImageFormBindings(viewModel: self)
-    }
-
-    func audioFormPresentationState() -> AudioFormPresentationState {
-        AudioFormPresentationState(viewModel: self)
-    }
-
-    func audioFormBindings() -> AudioFormBindings {
-        AudioFormBindings(viewModel: self)
-    }
 }
