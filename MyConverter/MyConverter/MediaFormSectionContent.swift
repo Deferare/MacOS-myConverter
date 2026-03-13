@@ -1,11 +1,9 @@
 import SwiftUI
 
-struct MediaFormSectionContent: View {
-    let kind: ContentViewModel.MediaKind
-    @ObservedObject var viewModel: ContentViewModel
-
-    var body: some View {
-        switch kind {
+extension ContentViewModel.MediaKind {
+    @ViewBuilder
+    func formSectionContent(viewModel: ContentViewModel) -> some View {
+        switch self {
         case .video:
             VideoConverterFormSectionView(
                 state: viewModel.videoFormPresentationState(),
@@ -47,6 +45,6 @@ struct MediaSettingsFormContent: View {
                 }
             }
         )
-        MediaFormSectionContent(kind: kind, viewModel: viewModel)
+        kind.formSectionContent(viewModel: viewModel)
     }
 }
