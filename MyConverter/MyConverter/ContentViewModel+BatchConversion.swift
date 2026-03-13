@@ -27,34 +27,13 @@ extension ContentViewModel {
         ) async throws -> URL
     }
 
-    struct ConversionWorkflowDescriptor<OutputSettings: Sendable> {
-        let kind: MediaKind
-        let canConvert: Bool
-        let fileExtension: String
-        let metadata: ConversionMetadata
-        let buildOutputSettings: () throws -> OutputSettings
-        let prepareBatchEnvironment: @Sendable ([PreparedSourceConversion], OutputSettings) async -> BatchExecutionEnvironment
-        let prepareSingleSourceEnvironment: (
-            @MainActor @Sendable (
-                PreparedSourceConversion,
-                OutputSettings
-            ) async -> BatchExecutionEnvironment
-        )?
-        let validate: (PreparedSourceConversion, BatchExecutionEnvironment) async -> String?
-        let runConversion: (PreparedSourceConversion, BatchExecutionEnvironment, OutputSettings, Int, Int) async throws -> URL
-    }
-
     struct ConversionExecutionDescriptor {
         let execute: @MainActor (ContentViewModel) async -> Void
     }
 
-    static func makeConversionExecutionDescriptor<OutputSettings: Sendable>(
-        using profile: ConversionWorkflowProfile<OutputSettings>
-    ) -> ConversionExecutionDescriptor {
+    static func makeConversionExecutionDescriptor<OutputSettings: Sendable>(using profile: ConversionWorkflowProfile<OutputSettings>) -> ConversionExecutionDescriptor {
         ConversionExecutionDescriptor { viewModel in
-            await viewModel.performConversion(
-                using: viewModel.makeConversionWorkflowDescriptor(using: profile)
-            )
+            await viewModel.performConversion(using: profile)
         }
     }
 
@@ -152,40 +131,12 @@ extension ContentViewModel {
         }
     )
 
-    func makeConversionWorkflowDescriptor<OutputSettings: Sendable>(
-        kind: MediaKind,
-        fileExtension: String,
-        metadata: ConversionMetadata,
-        buildOutputSettings: @escaping () throws -> OutputSettings,
-        prepareBatchEnvironment: @escaping @Sendable ([PreparedSourceConversion], OutputSettings) async -> BatchExecutionEnvironment,
-        prepareSingleSourceEnvironment: (@MainActor (PreparedSourceConversion, OutputSettings) async -> BatchExecutionEnvironment)? = nil,
-        runConversion: @escaping (PreparedSourceConversion, BatchExecutionEnvironment, OutputSettings, Int, Int) async throws -> URL
-    ) -> ConversionWorkflowDescriptor<OutputSettings> {
-        ConversionWorkflowDescriptor(
-            kind: kind,
-            canConvert: canStartConversion(
-                for: kind,
-                validationMessage: validationMessage(for: kind)
-            ),
-            fileExtension: fileExtension,
-            metadata: metadata,
-            buildOutputSettings: buildOutputSettings,
-            prepareBatchEnvironment: prepareBatchEnvironment,
-            prepareSingleSourceEnvironment: prepareSingleSourceEnvironment,
-            validate: { preparedSource, environment in
-                await self.validatePreparedSourceOutputSettings(
-                    for: kind,
-                    source: preparedSource,
-                    environment: environment
-                )
-            },
-            runConversion: runConversion
-        )
-    }
-
-    func makeConversionWorkflowDescriptor<OutputSettings: Sendable>(
-        using profile: ConversionWorkflowProfile<OutputSettings>
-    ) -> ConversionWorkflowDescriptor<OutputSettings> {
+    func performConversion<OutputSettings: Sendable>(using profile: ConversionWorkflowProfile<OutputSettings>) async {
+        let kind = profile.kind
+        let descriptor = mediaStateDescriptor(for: kind)
+        let metadata = kind.conversionMetadata
+        let validationMessage = validationMessage(for: kind)
+        let canConvert = canStartConversion(for: kind, validationMessage: validationMessage)
         let prepareSingleSourceEnvironment: (
             @MainActor @Sendable (
                 PreparedSourceConversion,
@@ -201,15 +152,45 @@ extension ContentViewModel {
             prepareSingleSourceEnvironment = nil
         }
 
-        return makeConversionWorkflowDescriptor(
-            kind: profile.kind,
+        await performMediaBatchConversion(
+            canConvert: canConvert,
+            primarySourceURL: mediaStateValue(using: descriptor, \.sourceURL),
+            queuedSourceURLs: mediaStateValue(using: descriptor, \.queuedSourceURLs),
+            existingOutputURLsBySourceID: mediaStateValue(
+                using: descriptor,
+                \.convertedOutputURLsBySourceID
+            ),
+            missingSourceLog: metadata.missingSourceLog,
             fileExtension: profile.fileExtension(self),
-            metadata: profile.kind.conversionMetadata,
+            outputLabel: metadata.outputLabel,
+            preferredOutputDestination: selectedOutputDestinationHandle(for: kind),
+            preferredOutputDirectory: selectedOutputDirectoryURL(for: kind),
+            runningKeyPath: descriptor.isConverting,
+            progressKeyPath: descriptor.progress,
+            errorMessageKeyPath: descriptor.conversionErrorMessage,
+            currentBatchIndexKeyPath: descriptor.currentBatchIndex,
+            totalBatchCountKeyPath: descriptor.totalBatchCount,
+            skippedSummaryPrefix: metadata.skippedSummaryPrefix,
+            treatExportCancellationAsCancelled: metadata.treatExportCancellationAsCancelled,
+            startState: { outputDirectoryURL, preserveCompletedOutputs in
+                self.setSelectedOutputDirectoryURL(outputDirectoryURL, for: kind)
+                self.prepareConversionStartState(
+                    for: kind,
+                    preserveCompletedOutputs: preserveCompletedOutputs
+                )
+            },
             buildOutputSettings: { try profile.buildOutputSettings(self) },
             prepareBatchEnvironment: { preparedSources, outputSettings in
                 await profile.prepareBatchEnvironment(self, preparedSources, outputSettings)
             },
             prepareSingleSourceEnvironment: prepareSingleSourceEnvironment,
+            validate: { preparedSource, environment in
+                await self.validatePreparedSourceOutputSettings(
+                    for: kind,
+                    source: preparedSource,
+                    environment: environment
+                )
+            },
             runConversion: { preparedSource, environment, outputSettings, index, totalCount in
                 try await profile.runConversion(
                     self,
@@ -219,64 +200,24 @@ extension ContentViewModel {
                     index,
                     totalCount
                 )
-            }
-        )
-    }
-
-    func performConversion<OutputSettings: Sendable>(
-        using workflow: ConversionWorkflowDescriptor<OutputSettings>
-    ) async {
-        let descriptor = mediaStateDescriptor(for: workflow.kind)
-
-        await performMediaBatchConversion(
-            canConvert: workflow.canConvert,
-            primarySourceURL: mediaStateValue(using: descriptor, \.sourceURL),
-            queuedSourceURLs: mediaStateValue(using: descriptor, \.queuedSourceURLs),
-            existingOutputURLsBySourceID: mediaStateValue(
-                using: descriptor,
-                \.convertedOutputURLsBySourceID
-            ),
-            missingSourceLog: workflow.metadata.missingSourceLog,
-            fileExtension: workflow.fileExtension,
-            outputLabel: workflow.metadata.outputLabel,
-            preferredOutputDestination: selectedOutputDestinationHandle(for: workflow.kind),
-            preferredOutputDirectory: selectedOutputDirectoryURL(for: workflow.kind),
-            runningKeyPath: descriptor.isConverting,
-            progressKeyPath: descriptor.progress,
-            errorMessageKeyPath: descriptor.conversionErrorMessage,
-            currentBatchIndexKeyPath: descriptor.currentBatchIndex,
-            totalBatchCountKeyPath: descriptor.totalBatchCount,
-            skippedSummaryPrefix: workflow.metadata.skippedSummaryPrefix,
-            treatExportCancellationAsCancelled: workflow.metadata.treatExportCancellationAsCancelled,
-            startState: { outputDirectoryURL, preserveCompletedOutputs in
-                self.setSelectedOutputDirectoryURL(outputDirectoryURL, for: workflow.kind)
-                self.prepareConversionStartState(
-                    for: workflow.kind,
-                    preserveCompletedOutputs: preserveCompletedOutputs
-                )
             },
-            buildOutputSettings: workflow.buildOutputSettings,
-            prepareBatchEnvironment: workflow.prepareBatchEnvironment,
-            prepareSingleSourceEnvironment: workflow.prepareSingleSourceEnvironment,
-            validate: workflow.validate,
-            runConversion: workflow.runConversion,
             onSavedOutput: { sourceURL, savedURL in
-                self.appendConvertedOutput(savedURL, from: sourceURL, for: workflow.kind)
+                self.appendConvertedOutput(savedURL, from: sourceURL, for: kind)
             },
             onSourceProcessed: { sourceURL in
-                self.markProcessedSource(sourceURL, for: workflow.kind)
+                self.markProcessedSource(sourceURL, for: kind)
             },
             onError: { error in
                 self.applyConversionError(
                     error,
-                    for: workflow.kind,
-                    logPrefix: workflow.metadata.errorLogPrefix,
-                    treatExportCancellationAsCancelled: workflow.metadata.treatExportCancellationAsCancelled,
-                    includeDebugInfo: workflow.metadata.includeDebugInfo
+                    for: kind,
+                    logPrefix: metadata.errorLogPrefix,
+                    treatExportCancellationAsCancelled: metadata.treatExportCancellationAsCancelled,
+                    includeDebugInfo: metadata.includeDebugInfo
                 )
             },
             onSingleSourceCompletion: {
-                self.clearPreparedSingleVideoSelection(for: workflow.kind)
+                self.clearPreparedSingleVideoSelection(for: kind)
             }
         )
     }
