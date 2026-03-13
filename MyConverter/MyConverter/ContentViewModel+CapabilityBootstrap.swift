@@ -1,72 +1,43 @@
 import Foundation
 
 extension ContentViewModel {
-    enum WarmedDefaultCapability: Sendable {
-        case video([VideoFormatOption])
-        case image([ImageFormatOption])
-        case audio([AudioFormatOption])
-
-        var kind: MediaKind {
-            switch self {
-            case .video:
-                return .video
-            case .image:
-                return .image
-            case .audio:
-                return .audio
-            }
-        }
-
-        var videoFormats: [VideoFormatOption]? {
-            guard case let .video(formats) = self else { return nil }
-            return formats
-        }
-
-        var imageFormats: [ImageFormatOption]? {
-            guard case let .image(formats) = self else { return nil }
-            return formats
-        }
-
-        var audioFormats: [AudioFormatOption]? {
-            guard case let .audio(formats) = self else { return nil }
-            return formats
-        }
+    struct WarmedDefaultCapability: Sendable {
+        let applyIfIdle: @MainActor @Sendable (ContentViewModel) -> Void
     }
 
     struct CapabilityBootstrapDescriptor {
         let warmDefaultCapabilities: @Sendable () -> WarmedDefaultCapability
         let applyPlaceholder: (ContentViewModel) -> Void
-        let applyWarmedIfIdle: (ContentViewModel, WarmedDefaultCapability) -> Void
     }
 
-    func makeCapabilityBootstrapDescriptor<Format>(
+    func makeCapabilityBootstrapDescriptor<Format: Sendable>(
         for kind: MediaKind,
-        warmDefaultCapabilities: @escaping @Sendable () -> WarmedDefaultCapability,
+        warmDefaultFormats: @escaping @Sendable () -> [Format],
         placeholderFormats: @escaping () -> [Format],
-        formatDescriptor: @escaping (ContentViewModel) -> OutputFormatDescriptor<Format>,
-        warmedFormats: @escaping (WarmedDefaultCapability) -> [Format]?,
+        formatDescriptor: @escaping @MainActor @Sendable (ContentViewModel) -> OutputFormatDescriptor<Format>,
         applyAdditionalPlaceholderState: @escaping (ContentViewModel) -> Void = { _ in },
-        postApplyWhenWarmed: @escaping (ContentViewModel) -> Void = { _ in }
+        postApplyWhenWarmed: @escaping @MainActor @Sendable (ContentViewModel) -> Void = { _ in }
     ) -> CapabilityBootstrapDescriptor {
         CapabilityBootstrapDescriptor(
-            warmDefaultCapabilities: warmDefaultCapabilities,
+            warmDefaultCapabilities: {
+                let warmedFormats = warmDefaultFormats()
+                return WarmedDefaultCapability { viewModel in
+                    viewModel.applyWarmedOutputFormatsIfIdle(
+                        warmedFormats,
+                        for: kind,
+                        formatDescriptor: formatDescriptor(viewModel),
+                        postApply: {
+                            postApplyWhenWarmed(viewModel)
+                        }
+                    )
+                }
+            },
             applyPlaceholder: { viewModel in
                 viewModel.applyAvailableOutputFormats(
                     placeholderFormats(),
                     using: formatDescriptor(viewModel)
                 )
                 applyAdditionalPlaceholderState(viewModel)
-            },
-            applyWarmedIfIdle: { viewModel, warmed in
-                guard let formats = warmedFormats(warmed) else { return }
-                viewModel.applyWarmedOutputFormatsIfIdle(
-                    formats,
-                    for: kind,
-                    formatDescriptor: formatDescriptor(viewModel),
-                    postApply: {
-                        postApplyWhenWarmed(viewModel)
-                    }
-                )
             }
         )
     }
@@ -74,10 +45,9 @@ extension ContentViewModel {
     func videoCapabilityBootstrapDescriptor() -> CapabilityBootstrapDescriptor {
         makeCapabilityBootstrapDescriptor(
             for: .video,
-            warmDefaultCapabilities: { .video(VideoConversionEngine.defaultOutputFormats()) },
+            warmDefaultFormats: VideoConversionEngine.defaultOutputFormats,
             placeholderFormats: ContentViewModelSupport.placeholderVideoFormats,
             formatDescriptor: { $0.videoOutputFormatDescriptor() },
-            warmedFormats: { $0.videoFormats },
             applyAdditionalPlaceholderState: { $0.applyPlaceholderVideoCodecOptions() },
             postApplyWhenWarmed: { $0.refreshVideoCodecOptions() }
         )
@@ -86,20 +56,18 @@ extension ContentViewModel {
     func imageCapabilityBootstrapDescriptor() -> CapabilityBootstrapDescriptor {
         makeCapabilityBootstrapDescriptor(
             for: .image,
-            warmDefaultCapabilities: { .image(ImageConversionEngine.defaultOutputFormats()) },
+            warmDefaultFormats: ImageConversionEngine.defaultOutputFormats,
             placeholderFormats: ContentViewModelSupport.placeholderImageFormats,
-            formatDescriptor: { $0.imageOutputFormatDescriptor() },
-            warmedFormats: { $0.imageFormats }
+            formatDescriptor: { $0.imageOutputFormatDescriptor() }
         )
     }
 
     func audioCapabilityBootstrapDescriptor() -> CapabilityBootstrapDescriptor {
         makeCapabilityBootstrapDescriptor(
             for: .audio,
-            warmDefaultCapabilities: { .audio(VideoConversionEngine.defaultAudioOutputFormats()) },
+            warmDefaultFormats: VideoConversionEngine.defaultAudioOutputFormats,
             placeholderFormats: ContentViewModelSupport.placeholderAudioFormats,
             formatDescriptor: { $0.audioOutputFormatDescriptor() },
-            warmedFormats: { $0.audioFormats },
             applyAdditionalPlaceholderState: { $0.applyPlaceholderAudioCodecOptions() },
             postApplyWhenWarmed: { $0.refreshAudioCodecOptions() }
         )
@@ -190,7 +158,7 @@ extension ContentViewModel {
 
     func applyWarmedDefaultCapabilitiesIfNeeded(_ warmedCapabilities: [WarmedDefaultCapability]) {
         warmedCapabilities.forEach {
-            capabilityBootstrapDescriptor(for: $0.kind).applyWarmedIfIdle(self, $0)
+            $0.applyIfIdle(self)
         }
     }
 
