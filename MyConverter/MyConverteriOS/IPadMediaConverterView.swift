@@ -24,8 +24,12 @@ struct IPadMediaConverterView: View {
         Color(uiColor: .label)
     }
 
+    private var importSources: [ContentViewModel.ImportSource] {
+        viewModel.availableImportSources(for: kind)
+    }
+
     private var shouldShowImportSourceMenu: Bool {
-        viewModel.availableImportSources(for: kind).count > 1
+        importSources.count > 1
     }
 
     private var settingMetrics: ConverterSettingMetrics {
@@ -93,29 +97,36 @@ struct IPadMediaConverterView: View {
     }
 
     private var importTriggerControl: some View {
-        Group {
-            if shouldShowImportSourceMenu {
-                Menu {
-                    importSourceMenuContent
-                } label: {
-                    importTriggerCircle
-                }
-            } else {
-                Button {
-                    viewModel.requestImport(for: kind)
-                } label: {
-                    importTriggerCircle
-                }
-            }
+        importSourceTrigger {
+            importTriggerCircle
         }
         .buttonStyle(.plain)
     }
 
     @ViewBuilder
     private var importSourceMenuContent: some View {
-        ForEach(viewModel.availableImportSources(for: kind)) { source in
+        ForEach(importSources) { source in
             Button(source.buttonTitle) {
                 viewModel.startImport(from: source, for: kind)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func importSourceTrigger<Label: View>(
+        @ViewBuilder label: () -> Label
+    ) -> some View {
+        if shouldShowImportSourceMenu {
+            Menu {
+                importSourceMenuContent
+            } label: {
+                label()
+            }
+        } else {
+            Button {
+                viewModel.requestImport(for: kind)
+            } label: {
+                label()
             }
         }
     }
@@ -298,20 +309,9 @@ struct IPadMediaConverterView: View {
                     }
                     .disabled(renderState.selectedFileListState.selectedURLs.isEmpty)
 
-                    if shouldShowImportSourceMenu {
-                        Menu {
-                            importSourceMenuContent
-                        } label: {
-                            Image(systemName: "plus")
-                                .foregroundStyle(toolbarUtilityTint)
-                        }
-                    } else {
-                        Button {
-                            viewModel.requestImport(for: kind)
-                        } label: {
-                            Image(systemName: "plus")
-                                .foregroundStyle(toolbarUtilityTint)
-                        }
+                    importSourceTrigger {
+                        Image(systemName: "plus")
+                            .foregroundStyle(toolbarUtilityTint)
                     }
                 }
 
