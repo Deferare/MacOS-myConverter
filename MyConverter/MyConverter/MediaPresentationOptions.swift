@@ -12,7 +12,7 @@ enum ResolutionOption: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     var dimensions: (width: Int, height: Int)? {
-        self == .original ? nil : parsedDimensions(in: rawValue)
+        optionalParsedDimensions(in: rawValue, isEnabled: self != .original)
     }
 }
 
@@ -36,7 +36,7 @@ enum FrameRateOption: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     var fps: Int? {
-        self == .original ? nil : parsedLeadingInteger(in: rawValue)
+        optionalParsedLeadingInteger(in: rawValue, isEnabled: self != .original)
     }
 }
 

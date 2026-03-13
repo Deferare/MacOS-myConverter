@@ -5,6 +5,11 @@ nonisolated func parsedLeadingInteger(in value: String) -> Int? {
     return digits.flatMap { Int($0) }
 }
 
+nonisolated func optionalParsedLeadingInteger(in value: String, isEnabled: Bool) -> Int? {
+    guard isEnabled else { return nil }
+    return parsedLeadingInteger(in: value)
+}
+
 nonisolated func parsedDimensions(in value: String, separator: Character = "x") -> (width: Int, height: Int)? {
     let parts = value.split(separator: separator)
     guard parts.count == 2,
@@ -13,6 +18,11 @@ nonisolated func parsedDimensions(in value: String, separator: Character = "x") 
         return nil
     }
     return (width, height)
+}
+
+nonisolated func optionalParsedDimensions(in value: String, isEnabled: Bool) -> (width: Int, height: Int)? {
+    guard isEnabled else { return nil }
+    return parsedDimensions(in: value)
 }
 
 nonisolated func parsedParenthesizedInteger(in value: String) -> Int? {

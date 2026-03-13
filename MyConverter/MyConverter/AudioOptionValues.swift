@@ -3,18 +3,15 @@ enum AudioModeOption: String, CaseIterable, Identifiable {
     case stereo = "Stereo"
     case mono = "Mono"
 
+    private static let channelCounts: [Self: Int?] = [
+        .auto: nil,
+        .stereo: 2,
+        .mono: 1
+    ]
+
     var id: String { rawValue }
 
-    var channelCount: Int? {
-        switch self {
-        case .auto:
-            return nil
-        case .stereo:
-            return 2
-        case .mono:
-            return 1
-        }
-    }
+    var channelCount: Int? { Self.channelCounts[self] ?? nil }
 }
 
 enum SampleRateOption: String, CaseIterable, Identifiable {
@@ -26,7 +23,7 @@ enum SampleRateOption: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     var hertz: Int {
-        parsedLeadingInteger(in: rawValue) ?? 0
+        optionalParsedLeadingInteger(in: rawValue, isEnabled: true) ?? 0
     }
 }
 
@@ -44,6 +41,6 @@ enum AudioBitRateOption: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     var kbps: Int? {
-        self == .auto ? nil : parsedLeadingInteger(in: rawValue)
+        optionalParsedLeadingInteger(in: rawValue, isEnabled: self != .auto)
     }
 }
