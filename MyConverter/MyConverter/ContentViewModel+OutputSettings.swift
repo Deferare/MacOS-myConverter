@@ -11,6 +11,16 @@ extension ContentViewModel {
         return fallback()
     }
 
+    func resolvedOptions<Option>(
+        _ options: [Option],
+        autoOption: Option,
+        includesAutoOption: Bool
+    ) -> [Option] {
+        resolvedOptions(options) {
+            includesAutoOption ? [autoOption] : []
+        }
+    }
+
     func optionalValue<Value>(
         when condition: Bool,
         _ value: @autoclosure () -> Value?

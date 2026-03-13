@@ -6,18 +6,22 @@ extension ContentViewModel {
     }
 
     var videoEncoderOptions: [VideoEncoderOption] {
-        resolvedOptions(availableVideoEncoders) {
-            selectedOutputFormat.avFileType == nil ? [] : [.auto]
-        }
+        resolvedOptions(
+            availableVideoEncoders,
+            autoOption: VideoEncoderOption.auto,
+            includesAutoOption: selectedOutputFormat.avFileType != nil
+        )
     }
 
     var audioEncoderOptions: [AudioEncoderOption] {
         if !shouldShowAudioSettings {
             return []
         }
-        return resolvedOptions(availableAudioEncoders) {
-            selectedOutputFormat.avFileType == nil ? [] : [.auto]
-        }
+        return resolvedOptions(
+            availableAudioEncoders,
+            autoOption: AudioEncoderOption.auto,
+            includesAutoOption: selectedOutputFormat.avFileType != nil
+        )
     }
 
     var shouldShowVideoEncoderOption: Bool {

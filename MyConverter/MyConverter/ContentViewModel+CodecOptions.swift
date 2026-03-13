@@ -63,13 +63,17 @@ extension ContentViewModel {
         let resolvedAudioEncoders = format.supportsAudioTrack
             ? VideoConversionEngine.availableAudioEncoders(for: format)
             : []
-        let resolvedVideoEncoderOptions = resolvedOptions(resolvedVideoEncoders) {
-            format.avFileType == nil ? [] : [.auto]
-        }
+        let resolvedVideoEncoderOptions = resolvedOptions(
+            resolvedVideoEncoders,
+            autoOption: VideoEncoderOption.auto,
+            includesAutoOption: format.avFileType != nil
+        )
         let resolvedAudioEncoderOptions = format.supportsAudioTrack
-            ? resolvedOptions(resolvedAudioEncoders) {
-                format.avFileType == nil ? [] : [.auto]
-            }
+            ? resolvedOptions(
+                resolvedAudioEncoders,
+                autoOption: AudioEncoderOption.auto,
+                includesAutoOption: format.avFileType != nil
+            )
             : []
 
         availableVideoEncoders = resolvedVideoEncoders
@@ -106,12 +110,11 @@ extension ContentViewModel {
     func refreshAudioCodecOptions() {
         let format = selectedAudioOutputFormat
         let resolvedEncoders = VideoConversionEngine.availableAudioEncoders(for: format)
-        let resolvedEncoderOptions = resolvedOptions(resolvedEncoders) {
-            if audioSourceURL == nil && format.allowsFFmpegAutomaticAudioCodec {
-                return [.auto]
-            }
-            return []
-        }
+        let resolvedEncoderOptions = resolvedOptions(
+            resolvedEncoders,
+            autoOption: AudioEncoderOption.auto,
+            includesAutoOption: audioSourceURL == nil && format.allowsFFmpegAutomaticAudioCodec
+        )
 
         availableAudioOutputEncoders = resolvedEncoders
 
