@@ -52,7 +52,7 @@ enum ImageConversionError: LocalizedError {
     case ffmpegFailed(Int32, String)
     case encodingFailed
 
-    var errorDescription: String? {
+    private var errorMessage: String {
         switch self {
         case .unreadableImage:
             return "Failed to read input image file."
@@ -72,4 +72,6 @@ enum ImageConversionError: LocalizedError {
             return "Failed to encode image with selected settings."
         }
     }
+
+    var errorDescription: String? { errorMessage }
 }

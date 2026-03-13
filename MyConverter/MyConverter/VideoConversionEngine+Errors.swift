@@ -15,76 +15,99 @@ enum ConversionError: LocalizedError {
     case ffmpegFailed(Int32, String)
     case outputSaveFailed(String, String)
 
-    var errorDescription: String? {
+    private struct Metadata {
+        let errorDescription: String
+        let debugInfo: String
+    }
+
+    private var metadata: Metadata {
         switch self {
         case .unsupportedSource:
-            return "Failed to read input files."
+            return Metadata(
+                errorDescription: "Failed to read input files.",
+                debugInfo: "Unsupported codec/container for this source."
+            )
         case .unreadableAsset:
-            return "Could not parse input video file."
+            return Metadata(
+                errorDescription: "Could not parse input video file.",
+                debugInfo: "Input file parser failed (codec/container might be unsupported)."
+            )
         case .noTracksFound:
-            return "No video/audio tracks found."
+            return Metadata(
+                errorDescription: "No video/audio tracks found.",
+                debugInfo: "Video/Audio track not detected."
+            )
         case .noVideoTrackFound:
-            return "No video track found."
-        case .invalidCustomVideoBitRate:
-            return "Custom Video Bit Rate must be an integer greater than 1 (Kbps)."
-        case .noCompatiblePreset:
-            return "No compatible export preset found in AVFoundation."
-        case .cannotCreateExportSession:
-            return "Could not create conversion session."
+            return Metadata(
+                errorDescription: "No video track found.",
+                debugInfo: "Video track not detected."
+            )
+        case .invalidCustomVideoBitRate(let value):
+            return Metadata(
+                errorDescription: "Custom Video Bit Rate must be an integer greater than 1 (Kbps).",
+                debugInfo: "Input value: \(value)"
+            )
+        case .noCompatiblePreset(let presets):
+            return Metadata(
+                errorDescription: "No compatible export preset found in AVFoundation.",
+                debugInfo: "Supported presets: \(presets.joined(separator: ", "))"
+            )
+        case .cannotCreateExportSession(let preset):
+            return Metadata(
+                errorDescription: "Could not create conversion session.",
+                debugInfo: "Failed to create session with preset: \(preset)"
+            )
         case .unsupportedOutputType(let format):
-            return "\(format.displayName) output is not supported on this device."
+            return Metadata(
+                errorDescription: "\(format.displayName) output is not supported on this device.",
+                debugInfo: "Does not allow .\(format.fileExtension) as outputFileType."
+            )
+        case .exportFailed(let underlying, let preset):
+            if let underlying {
+                return Metadata(
+                    errorDescription: "AVAssetExportSession conversion failed.",
+                    debugInfo: "Preset: \(preset), Detail: \(underlying.localizedDescription)"
+                )
+            }
+            return Metadata(
+                errorDescription: "AVAssetExportSession conversion failed.",
+                debugInfo: "Preset: \(preset)"
+            )
         case .exportCancelled:
-            return "Conversion cancelled."
+            return Metadata(
+                errorDescription: "Conversion cancelled.",
+                debugInfo: "Status: cancelled"
+            )
         case .ffmpegUnavailable:
-            return "AVFoundation cannot open this source and ffmpeg was not found."
-        case .ffmpegFailed(_, let output):
+            return Metadata(
+                errorDescription: "AVFoundation cannot open this source and ffmpeg was not found.",
+                debugInfo: "brew install ffmpeg or include ffmpeg in app bundle."
+            )
+        case .ffmpegFailed(let code, let output):
+            let errorDescription: String
             if output.localizedCaseInsensitiveContains("operation not permitted") ||
                 output.localizedCaseInsensitiveContains("permission denied") {
-                return "Conversion failed due to file permission issues. Please check input file permissions."
-            }
-            if output.localizedCaseInsensitiveContains("unknown encoder") ||
+                errorDescription = "Conversion failed due to file permission issues. Please check input file permissions."
+            } else if output.localizedCaseInsensitiveContains("unknown encoder") ||
                 output.localizedCaseInsensitiveContains("encoder not found") {
-                return "Selected output format is not supported by the bundled ffmpeg encoders."
+                errorDescription = "Selected output format is not supported by the bundled ffmpeg encoders."
+            } else {
+                errorDescription = "FFmpeg conversion failed."
             }
-            return "FFmpeg conversion failed."
-        case .outputSaveFailed:
-            return "Failed to save output file. Please check app storage permissions."
-        case .exportFailed:
-            return "AVAssetExportSession conversion failed."
+
+            return Metadata(
+                errorDescription: errorDescription,
+                debugInfo: "FFmpeg exit code: \(code). Detail: \(output)"
+            )
+        case .outputSaveFailed(let path, let reason):
+            return Metadata(
+                errorDescription: "Failed to save output file. Please check app storage permissions.",
+                debugInfo: "Save path: \(path), Detail: \(reason)"
+            )
         }
     }
 
-    var debugInfo: String {
-        switch self {
-        case .noCompatiblePreset(let presets):
-            return "Supported presets: \(presets.joined(separator: ", "))"
-        case .cannotCreateExportSession(let preset):
-            return "Failed to create session with preset: \(preset)"
-        case .unsupportedOutputType(let format):
-            return "Does not allow .\(format.fileExtension) as outputFileType."
-        case .exportFailed(let underlying, let preset):
-            if let underlying {
-                return "Preset: \(preset), Detail: \(underlying.localizedDescription)"
-            }
-            return "Preset: \(preset)"
-        case .exportCancelled:
-            return "Status: cancelled"
-        case .ffmpegUnavailable:
-            return "brew install ffmpeg or include ffmpeg in app bundle."
-        case .ffmpegFailed(let code, let output):
-            return "FFmpeg exit code: \(code). Detail: \(output)"
-        case .outputSaveFailed(let path, let reason):
-            return "Save path: \(path), Detail: \(reason)"
-        case .invalidCustomVideoBitRate(let value):
-            return "Input value: \(value)"
-        case .unreadableAsset:
-            return "Input file parser failed (codec/container might be unsupported)."
-        case .unsupportedSource:
-            return "Unsupported codec/container for this source."
-        case .noTracksFound:
-            return "Video/Audio track not detected."
-        case .noVideoTrackFound:
-            return "Video track not detected."
-        }
-    }
+    var errorDescription: String? { metadata.errorDescription }
+
+    var debugInfo: String { metadata.debugInfo }
 }
