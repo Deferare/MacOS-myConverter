@@ -141,19 +141,41 @@ extension ContentViewModel {
         )
     }
 
+    private func makeSourceSettingsStorageDescriptor<Settings: Equatable, Persisted: Codable>(
+        kind: MediaKind,
+        isApplyingStoredSettings: ReferenceWritableKeyPath<ContentViewModel, Bool>,
+        sourceURL: ReferenceWritableKeyPath<ContentViewModel, URL?>,
+        settingsBySourceID: ReferenceWritableKeyPath<ContentViewModel, [String: Settings]>,
+        pendingSaveTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>,
+        storageKey: String,
+        mapToPersisted: @escaping (Settings) -> Persisted,
+        restore: @escaping (Persisted) -> Settings
+    ) -> SourceSettingsDescriptor<Settings, Persisted> {
+        let mediaDescriptor = kind.descriptor
+        return makeSourceSettingsDescriptor(
+            isApplyingStoredSettings: isApplyingStoredSettings,
+            sourceURL: sourceURL,
+            settingsBySourceID: settingsBySourceID,
+            pendingSaveTask: pendingSaveTask,
+            storageKey: storageKey,
+            saveFailureContext: mediaDescriptor.saveSettingsFailureContext,
+            loadFailureContext: mediaDescriptor.loadSettingsFailureContext,
+            mapToPersisted: mapToPersisted,
+            restore: restore
+        )
+    }
+
     private func videoSourceSettingsStorage() -> SourceSettingsDescriptor<
         VideoConversionSettings,
         PersistedVideoConversionSettings
     > {
-        let mediaDescriptor = MediaKind.video.descriptor
-        return makeSourceSettingsDescriptor(
+        makeSourceSettingsStorageDescriptor(
+            kind: .video,
             isApplyingStoredSettings: \.settingsState.isApplyingVideoSettings,
             sourceURL: \.sourceURL,
             settingsBySourceID: \.settingsState.videoSettingsBySourceID,
             pendingSaveTask: \.taskState.pendingVideoSettingsSaveTask,
             storageKey: settingsState.videoStorageKey,
-            saveFailureContext: mediaDescriptor.saveSettingsFailureContext,
-            loadFailureContext: mediaDescriptor.loadSettingsFailureContext,
             mapToPersisted: { PersistedVideoConversionSettings(from: $0) },
             restore: { $0.restoredSettings }
         )
@@ -163,15 +185,13 @@ extension ContentViewModel {
         ImageConversionSettings,
         PersistedImageConversionSettings
     > {
-        let mediaDescriptor = MediaKind.image.descriptor
-        return makeSourceSettingsDescriptor(
+        makeSourceSettingsStorageDescriptor(
+            kind: .image,
             isApplyingStoredSettings: \.settingsState.isApplyingImageSettings,
             sourceURL: \.imageSourceURL,
             settingsBySourceID: \.settingsState.imageSettingsBySourceID,
             pendingSaveTask: \.taskState.pendingImageSettingsSaveTask,
             storageKey: settingsState.imageStorageKey,
-            saveFailureContext: mediaDescriptor.saveSettingsFailureContext,
-            loadFailureContext: mediaDescriptor.loadSettingsFailureContext,
             mapToPersisted: { PersistedImageConversionSettings(from: $0) },
             restore: { $0.restoredSettings }
         )
@@ -181,15 +201,13 @@ extension ContentViewModel {
         AudioConversionSettings,
         PersistedAudioConversionSettings
     > {
-        let mediaDescriptor = MediaKind.audio.descriptor
-        return makeSourceSettingsDescriptor(
+        makeSourceSettingsStorageDescriptor(
+            kind: .audio,
             isApplyingStoredSettings: \.settingsState.isApplyingAudioSettings,
             sourceURL: \.audioSourceURL,
             settingsBySourceID: \.settingsState.audioSettingsBySourceID,
             pendingSaveTask: \.taskState.pendingAudioSettingsSaveTask,
             storageKey: settingsState.audioStorageKey,
-            saveFailureContext: mediaDescriptor.saveSettingsFailureContext,
-            loadFailureContext: mediaDescriptor.loadSettingsFailureContext,
             mapToPersisted: { PersistedAudioConversionSettings(from: $0) },
             restore: { $0.restoredSettings }
         )
