@@ -124,7 +124,7 @@ extension ContentViewModel.MediaKind {
             sidebarSystemImage: "film",
             outputDirectoryURL: \.selectedVideoOutputDirectoryURL,
             selectedOutputFormatLabel: { viewModel in
-                viewModel.selectedOutputFormatLabel(using: viewModel.videoOutputFormatDescriptor())
+                viewModel.selectedOutputFormatLabel(using: ContentViewModel.videoOutputFormatDescriptorValue)
             },
             saveSettingsFailureContext: "Failed to persist video settings",
             loadSettingsFailureContext: "Failed to load persisted video settings",
@@ -139,7 +139,7 @@ extension ContentViewModel.MediaKind {
             sidebarSystemImage: "photo",
             outputDirectoryURL: \.selectedImageOutputDirectoryURL,
             selectedOutputFormatLabel: { viewModel in
-                viewModel.selectedOutputFormatLabel(using: viewModel.imageOutputFormatDescriptor())
+                viewModel.selectedOutputFormatLabel(using: ContentViewModel.imageOutputFormatDescriptorValue)
             },
             saveSettingsFailureContext: "Failed to persist image settings",
             loadSettingsFailureContext: "Failed to load persisted image settings",
@@ -154,7 +154,7 @@ extension ContentViewModel.MediaKind {
             sidebarSystemImage: "waveform",
             outputDirectoryURL: \.selectedAudioOutputDirectoryURL,
             selectedOutputFormatLabel: { viewModel in
-                viewModel.selectedOutputFormatLabel(using: viewModel.audioOutputFormatDescriptor())
+                viewModel.selectedOutputFormatLabel(using: ContentViewModel.audioOutputFormatDescriptorValue)
             },
             saveSettingsFailureContext: "Failed to persist audio settings",
             loadSettingsFailureContext: "Failed to load persisted audio settings",

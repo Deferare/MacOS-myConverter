@@ -14,13 +14,9 @@ extension ContentViewModel {
             noCommonFormatsMessage: "No common audio output format is available for the selected files.",
             buildSelectionHandlers: makeResolvedOutputSelectionHandlers(
                 persistKind: .audio,
-                formatDescriptor: { $0.audioOutputFormatDescriptor() },
+                formatDescriptor: { _ in audioOutputFormatDescriptorValue },
                 postSelectionUpdate: { $0.refreshAudioCodecOptions() }
             )
         )
     )
-
-    func audioSourceAnalysisDescriptor() -> SourceAnalysisDescriptor<AudioSourceCapabilities, AudioFormatOption> {
-        Self.audioSourceAnalysisDescriptorValue
-    }
 }

@@ -189,7 +189,7 @@ extension ContentViewModel {
         OutputFormatValidationInput(
             kind: .video,
             hintMessage: { _ in nil },
-            formatDescriptor: { $0.videoOutputFormatDescriptor() },
+            formatDescriptor: { _ in videoOutputFormatDescriptorValue },
             unavailableMessage: "Selected container is not available for this source.",
             preValidation: { viewModel in
                 viewModel.firstNonEmptyMessage(
@@ -258,7 +258,7 @@ extension ContentViewModel {
                         : nil
                 )
             },
-            formatDescriptor: { $0.imageOutputFormatDescriptor() },
+            formatDescriptor: { _ in imageOutputFormatDescriptorValue },
             unavailableMessage: "Selected output format is not available for this source.",
             preValidation: { _ in nil },
             additionalValidation: { viewModel in
@@ -307,7 +307,7 @@ extension ContentViewModel {
             hintMessage: { viewModel in
                 viewModel.compatibilityHintMessage(for: .audio)
             },
-            formatDescriptor: { $0.audioOutputFormatDescriptor() },
+            formatDescriptor: { _ in audioOutputFormatDescriptorValue },
             unavailableMessage: "Selected output format is not available for this source.",
             preValidation: { _ in nil },
             additionalValidation: { viewModel in

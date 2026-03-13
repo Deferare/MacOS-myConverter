@@ -2,7 +2,7 @@ import Foundation
 
 extension ContentViewModel {
     var outputFormatOptions: [VideoFormatOption] {
-        availableOutputFormatOptions(using: videoOutputFormatDescriptor())
+        availableOutputFormatOptions(using: Self.videoOutputFormatDescriptorValue)
     }
 
     var videoEncoderOptions: [VideoEncoderOption] {

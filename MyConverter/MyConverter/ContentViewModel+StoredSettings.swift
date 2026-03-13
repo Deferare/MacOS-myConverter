@@ -148,18 +148,6 @@ extension ContentViewModel {
             preferredSelection: AudioFormatOption.defaultSelection(from:)
         )
 
-    func videoOutputFormatDescriptor() -> OutputFormatDescriptor<VideoFormatOption> {
-        Self.videoOutputFormatDescriptorValue
-    }
-
-    func imageOutputFormatDescriptor() -> OutputFormatDescriptor<ImageFormatOption> {
-        Self.imageOutputFormatDescriptorValue
-    }
-
-    func audioOutputFormatDescriptor() -> OutputFormatDescriptor<AudioFormatOption> {
-        Self.audioOutputFormatDescriptorValue
-    }
-
     func defaultedOutputFormats<Format>(
         sourceURL: URL?,
         availableFormats: [Format],

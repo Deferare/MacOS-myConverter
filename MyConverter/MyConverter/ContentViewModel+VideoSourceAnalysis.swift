@@ -14,13 +14,9 @@ extension ContentViewModel {
             noCommonFormatsMessage: "No common output container is available for the selected files.",
             buildSelectionHandlers: makeResolvedOutputSelectionHandlers(
                 persistKind: .video,
-                formatDescriptor: { $0.videoOutputFormatDescriptor() },
+                formatDescriptor: { _ in videoOutputFormatDescriptorValue },
                 postSelectionUpdate: { $0.refreshVideoCodecOptions() }
             )
         )
     )
-
-    func videoSourceAnalysisDescriptor() -> SourceAnalysisDescriptor<VideoSourceCapabilities, VideoFormatOption> {
-        Self.videoSourceAnalysisDescriptorValue
-    }
 }

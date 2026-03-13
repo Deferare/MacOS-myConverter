@@ -46,7 +46,7 @@ extension ContentViewModel {
         for: .video,
         warmDefaultFormats: VideoConversionEngine.defaultOutputFormats,
         placeholderFormats: ContentViewModelSupport.placeholderVideoFormats,
-        formatDescriptor: { $0.videoOutputFormatDescriptor() },
+        formatDescriptor: { _ in videoOutputFormatDescriptorValue },
         applyAdditionalPlaceholderState: { $0.applyPlaceholderVideoCodecOptions() },
         postApplyWhenWarmed: { $0.refreshVideoCodecOptions() }
     )
@@ -55,14 +55,14 @@ extension ContentViewModel {
         for: .image,
         warmDefaultFormats: ImageConversionEngine.defaultOutputFormats,
         placeholderFormats: ContentViewModelSupport.placeholderImageFormats,
-        formatDescriptor: { $0.imageOutputFormatDescriptor() }
+        formatDescriptor: { _ in imageOutputFormatDescriptorValue }
     )
 
     static let audioCapabilityBootstrapDescriptorValue = makeCapabilityBootstrapDescriptor(
         for: .audio,
         warmDefaultFormats: VideoConversionEngine.defaultAudioOutputFormats,
         placeholderFormats: ContentViewModelSupport.placeholderAudioFormats,
-        formatDescriptor: { $0.audioOutputFormatDescriptor() },
+        formatDescriptor: { _ in audioOutputFormatDescriptorValue },
         applyAdditionalPlaceholderState: { $0.applyPlaceholderAudioCodecOptions() },
         postApplyWhenWarmed: { $0.refreshAudioCodecOptions() }
     )

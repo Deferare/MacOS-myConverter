@@ -307,37 +307,13 @@ extension ContentViewModel {
         }
     }
 
-    func videoSourceSettingsComponents() -> SourceSettingsComponents<
-        VideoConversionSettings,
-        PersistedVideoConversionSettings,
-        VideoFormatOption
-    > {
-        Self.videoSourceSettingsComponentsValue
-    }
-
-    func imageSourceSettingsComponents() -> SourceSettingsComponents<
-        ImageConversionSettings,
-        PersistedImageConversionSettings,
-        ImageFormatOption
-    > {
-        Self.imageSourceSettingsComponentsValue
-    }
-
-    func audioSourceSettingsComponents() -> SourceSettingsComponents<
-        AudioConversionSettings,
-        PersistedAudioConversionSettings,
-        AudioFormatOption
-    > {
-        Self.audioSourceSettingsComponentsValue
-    }
-
     func loadPersistedSourceSettingsState() {
         settingsState.videoSettingsBySourceID =
-            loadPersistedSourceSettings(using: videoSourceSettingsComponents().storage)
+            loadPersistedSourceSettings(using: Self.videoSourceSettingsComponentsValue.storage)
         settingsState.imageSettingsBySourceID =
-            loadPersistedSourceSettings(using: imageSourceSettingsComponents().storage)
+            loadPersistedSourceSettings(using: Self.imageSourceSettingsComponentsValue.storage)
         settingsState.audioSettingsBySourceID =
-            loadPersistedSourceSettings(using: audioSourceSettingsComponents().storage)
+            loadPersistedSourceSettings(using: Self.audioSourceSettingsComponentsValue.storage)
     }
 
     func persistSourceSettingsIfNeeded<Settings: Equatable>(
