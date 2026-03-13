@@ -37,6 +37,20 @@ extension ContentViewModel {
         let selectedAudioMode: Binding<AudioModeOption>
         let selectedSampleRate: Binding<SampleRateOption>
         let selectedAudioBitRate: Binding<AudioBitRateOption>
+
+        init(viewModel: ContentViewModel) {
+            selectedOutputFormat = viewModel.binding(to: \.selectedOutputFormat)
+            selectedVideoEncoder = viewModel.binding(to: \.selectedVideoEncoder)
+            selectedResolution = viewModel.binding(to: \.selectedResolution)
+            selectedFrameRate = viewModel.binding(to: \.selectedFrameRate)
+            selectedGIFPlaybackSpeed = viewModel.binding(to: \.selectedGIFPlaybackSpeed)
+            selectedVideoBitRate = viewModel.binding(to: \.selectedVideoBitRate)
+            customVideoBitRate = viewModel.binding(to: \.customVideoBitRate)
+            selectedAudioEncoder = viewModel.binding(to: \.selectedAudioEncoder)
+            selectedAudioMode = viewModel.binding(to: \.selectedAudioMode)
+            selectedSampleRate = viewModel.binding(to: \.selectedSampleRate)
+            selectedAudioBitRate = viewModel.binding(to: \.selectedAudioBitRate)
+        }
     }
 
     struct ImageFormPresentationState: Equatable {
@@ -59,6 +73,14 @@ extension ContentViewModel {
         let selectedQuality: Binding<ImageQualityOption>
         let selectedPNGCompressionLevel: Binding<PNGCompressionLevelOption>
         let preserveAnimation: Binding<Bool>
+
+        init(viewModel: ContentViewModel) {
+            selectedOutputFormat = viewModel.binding(to: \.selectedImageOutputFormat)
+            selectedResolution = viewModel.binding(to: \.selectedImageResolution)
+            selectedQuality = viewModel.binding(to: \.selectedImageQuality)
+            selectedPNGCompressionLevel = viewModel.binding(to: \.selectedPNGCompressionLevel)
+            preserveAnimation = viewModel.binding(to: \.preserveImageAnimation)
+        }
     }
 
     struct AudioFormPresentationState: Equatable {
@@ -81,6 +103,14 @@ extension ContentViewModel {
         let selectedOutputMode: Binding<AudioModeOption>
         let selectedOutputSampleRate: Binding<SampleRateOption>
         let selectedOutputBitRate: Binding<AudioBitRateOption>
+
+        init(viewModel: ContentViewModel) {
+            selectedOutputFormat = viewModel.binding(to: \.selectedAudioOutputFormat)
+            selectedOutputEncoder = viewModel.binding(to: \.selectedAudioOutputEncoder)
+            selectedOutputMode = viewModel.binding(to: \.selectedAudioOutputMode)
+            selectedOutputSampleRate = viewModel.binding(to: \.selectedAudioOutputSampleRate)
+            selectedOutputBitRate = viewModel.binding(to: \.selectedAudioOutputBitRate)
+        }
     }
 
     private func binding<Value>(
@@ -126,19 +156,7 @@ extension ContentViewModel {
     }
 
     func videoFormBindings() -> VideoFormBindings {
-        VideoFormBindings(
-            selectedOutputFormat: binding(to: \.selectedOutputFormat),
-            selectedVideoEncoder: binding(to: \.selectedVideoEncoder),
-            selectedResolution: binding(to: \.selectedResolution),
-            selectedFrameRate: binding(to: \.selectedFrameRate),
-            selectedGIFPlaybackSpeed: binding(to: \.selectedGIFPlaybackSpeed),
-            selectedVideoBitRate: binding(to: \.selectedVideoBitRate),
-            customVideoBitRate: binding(to: \.customVideoBitRate),
-            selectedAudioEncoder: binding(to: \.selectedAudioEncoder),
-            selectedAudioMode: binding(to: \.selectedAudioMode),
-            selectedSampleRate: binding(to: \.selectedSampleRate),
-            selectedAudioBitRate: binding(to: \.selectedAudioBitRate)
-        )
+        VideoFormBindings(viewModel: self)
     }
 
     func imageFormPresentationState() -> ImageFormPresentationState {
@@ -158,13 +176,7 @@ extension ContentViewModel {
     }
 
     func imageFormBindings() -> ImageFormBindings {
-        ImageFormBindings(
-            selectedOutputFormat: binding(to: \.selectedImageOutputFormat),
-            selectedResolution: binding(to: \.selectedImageResolution),
-            selectedQuality: binding(to: \.selectedImageQuality),
-            selectedPNGCompressionLevel: binding(to: \.selectedPNGCompressionLevel),
-            preserveAnimation: binding(to: \.preserveImageAnimation)
-        )
+        ImageFormBindings(viewModel: self)
     }
 
     func audioFormPresentationState() -> AudioFormPresentationState {
@@ -184,12 +196,6 @@ extension ContentViewModel {
     }
 
     func audioFormBindings() -> AudioFormBindings {
-        AudioFormBindings(
-            selectedOutputFormat: binding(to: \.selectedAudioOutputFormat),
-            selectedOutputEncoder: binding(to: \.selectedAudioOutputEncoder),
-            selectedOutputMode: binding(to: \.selectedAudioOutputMode),
-            selectedOutputSampleRate: binding(to: \.selectedAudioOutputSampleRate),
-            selectedOutputBitRate: binding(to: \.selectedAudioOutputBitRate)
-        )
+        AudioFormBindings(viewModel: self)
     }
 }
