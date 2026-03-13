@@ -268,20 +268,11 @@ struct IPadMediaConverterView: View {
                 .font(Metrics.sectionTitleFont)
 
             VStack(spacing: 0) {
-                OutputFolderSelectionRow(
-                    pathText: viewModel.selectedOutputDirectoryURL(for: kind).map {
-                        viewModel.abbreviatedOutputDirectoryPath($0)
-                    } ?? "No folder selected",
-                    hasSelection: viewModel.hasSelectedOutputDirectory(for: kind),
-                    tint: kind.liquidGlassTint,
-                    isDisabled: renderState.screenState.isConverting,
-                    onChoose: {
-                        Task {
-                            await viewModel.chooseOutputDirectory(for: kind)
-                        }
-                    }
+                MediaSettingsFormContent(
+                    kind: kind,
+                    isConverting: renderState.screenState.isConverting,
+                    viewModel: viewModel
                 )
-                MediaFormSectionContent(kind: kind, viewModel: viewModel)
             }
         }
         .padding(Metrics.panelPadding)

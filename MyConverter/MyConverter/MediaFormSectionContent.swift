@@ -27,3 +27,26 @@ struct MediaFormSectionContent: View {
         }
     }
 }
+
+struct MediaSettingsFormContent: View {
+    let kind: ContentViewModel.MediaKind
+    let isConverting: Bool
+    @ObservedObject var viewModel: ContentViewModel
+
+    var body: some View {
+        OutputFolderSelectionRow(
+            pathText: viewModel.selectedOutputDirectoryURL(for: kind).map {
+                viewModel.abbreviatedOutputDirectoryPath($0)
+            } ?? "No folder selected",
+            hasSelection: viewModel.hasSelectedOutputDirectory(for: kind),
+            tint: kind.liquidGlassTint,
+            isDisabled: isConverting,
+            onChoose: {
+                Task {
+                    await viewModel.chooseOutputDirectory(for: kind)
+                }
+            }
+        )
+        MediaFormSectionContent(kind: kind, viewModel: viewModel)
+    }
+}

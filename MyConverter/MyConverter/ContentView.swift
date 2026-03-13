@@ -110,20 +110,11 @@ struct ContentView: View {
         for kind: ContentViewModel.MediaKind,
         screenState: ContentViewModel.ConverterScreenState
     ) -> some View {
-        OutputFolderSelectionRow(
-            pathText: viewModel.selectedOutputDirectoryURL(for: kind).map {
-                viewModel.abbreviatedOutputDirectoryPath($0)
-            } ?? "No folder selected",
-            hasSelection: viewModel.hasSelectedOutputDirectory(for: kind),
-            tint: kind.liquidGlassTint,
-            isDisabled: screenState.isConverting,
-            onChoose: {
-                Task {
-                    await viewModel.chooseOutputDirectory(for: kind)
-                }
-            }
+        MediaSettingsFormContent(
+            kind: kind,
+            isConverting: screenState.isConverting,
+            viewModel: viewModel
         )
-        MediaFormSectionContent(kind: kind, viewModel: viewModel)
     }
 
 }
