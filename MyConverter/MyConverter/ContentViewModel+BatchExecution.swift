@@ -9,6 +9,39 @@ extension ContentViewModel {
         self[keyPath: errorMessageKeyPath] = nil
     }
 
+    func performManagedConversionExecution(
+        runningKeyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
+        progressKeyPath: ReferenceWritableKeyPath<ContentViewModel, Double>,
+        errorMessageKeyPath: ReferenceWritableKeyPath<ContentViewModel, String?>,
+        currentBatchIndexKeyPath: ReferenceWritableKeyPath<ContentViewModel, Int>,
+        totalBatchCountKeyPath: ReferenceWritableKeyPath<ContentViewModel, Int>,
+        treatExportCancellationAsCancelled: Bool = false,
+        onError: (Error) -> Void,
+        operation: () async throws -> Void
+    ) async {
+        do {
+            defer {
+                self[keyPath: runningKeyPath] = false
+                self[keyPath: currentBatchIndexKeyPath] = 0
+                self[keyPath: totalBatchCountKeyPath] = 0
+            }
+            try Task.checkCancellation()
+            try await operation()
+        } catch is CancellationError {
+            resetCancelledConversionState(
+                progressKeyPath: progressKeyPath,
+                errorMessageKeyPath: errorMessageKeyPath
+            )
+        } catch ConversionError.exportCancelled where treatExportCancellationAsCancelled {
+            resetCancelledConversionState(
+                progressKeyPath: progressKeyPath,
+                errorMessageKeyPath: errorMessageKeyPath
+            )
+        } catch {
+            onError(error)
+        }
+    }
+
     func executeBatchConversion(
         preparedSources: [PreparedSourceConversion],
         batchEnvironment: BatchExecutionEnvironment,
@@ -28,14 +61,15 @@ extension ContentViewModel {
         self[keyPath: totalBatchCountKeyPath] = preparedSources.count
         self[keyPath: currentBatchIndexKeyPath] = 0
 
-        do {
-            defer {
-                self[keyPath: runningKeyPath] = false
-                self[keyPath: currentBatchIndexKeyPath] = 0
-                self[keyPath: totalBatchCountKeyPath] = 0
-            }
-            try Task.checkCancellation()
-
+        await performManagedConversionExecution(
+            runningKeyPath: runningKeyPath,
+            progressKeyPath: progressKeyPath,
+            errorMessageKeyPath: errorMessageKeyPath,
+            currentBatchIndexKeyPath: currentBatchIndexKeyPath,
+            totalBatchCountKeyPath: totalBatchCountKeyPath,
+            treatExportCancellationAsCancelled: treatExportCancellationAsCancelled,
+            onError: onError
+        ) {
             let skippedEntries = try await runBatchConversionLoop(
                 preparedSources: preparedSources,
                 batchEnvironment: batchEnvironment,
@@ -55,18 +89,6 @@ extension ContentViewModel {
             ) {
                 self[keyPath: errorMessageKeyPath] = summary
             }
-        } catch is CancellationError {
-            resetCancelledConversionState(
-                progressKeyPath: progressKeyPath,
-                errorMessageKeyPath: errorMessageKeyPath
-            )
-        } catch ConversionError.exportCancelled where treatExportCancellationAsCancelled {
-            resetCancelledConversionState(
-                progressKeyPath: progressKeyPath,
-                errorMessageKeyPath: errorMessageKeyPath
-            )
-        } catch {
-            onError(error)
         }
     }
 }

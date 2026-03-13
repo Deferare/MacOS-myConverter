@@ -377,57 +377,38 @@ extension ContentViewModel {
         self[keyPath: totalBatchCountKeyPath] = 1
         self[keyPath: currentBatchIndexKeyPath] = 1
 
-        do {
-            defer {
-                self[keyPath: runningKeyPath] = false
-                self[keyPath: currentBatchIndexKeyPath] = 0
-                self[keyPath: totalBatchCountKeyPath] = 0
-            }
-            try Task.checkCancellation()
-
+        await performManagedConversionExecution(
+            runningKeyPath: runningKeyPath,
+            progressKeyPath: progressKeyPath,
+            errorMessageKeyPath: errorMessageKeyPath,
+            currentBatchIndexKeyPath: currentBatchIndexKeyPath,
+            totalBatchCountKeyPath: totalBatchCountKeyPath,
+            treatExportCancellationAsCancelled: treatExportCancellationAsCancelled,
+            onError: onError
+        ) {
             let batchEnvironment = await prepareSingleSourceEnvironment(
                 preparedSource,
                 outputSettings
             )
 
-            let result = try await withSourceSecurityScope(for: preparedSource.sourceURL) {
-                if let validationMessage = await validate(preparedSource, batchEnvironment) {
-                    onSourceProcessed(preparedSource.sourceURL)
-                    return (
-                        savedURL: Optional<URL>.none,
-                        skippedEntry: Optional(
-                            "\(preparedSource.sourceURL.lastPathComponent): \(validationMessage)"
-                        )
+            let result = try await processPreparedSourceConversion(
+                preparedSource,
+                batchEnvironment: batchEnvironment,
+                validate: validate,
+                runConversion: {
+                    try await runConversion(
+                        preparedSource,
+                        batchEnvironment,
+                        outputSettings,
+                        0,
+                        1
                     )
                 }
-
-                defer {
-                    BatchConversionSupport.cleanupWorkingOutputIfNeeded(
-                        preparedSource.workingOutputURL
-                    )
-                }
-
-                let output = try await runConversion(
-                    preparedSource,
-                    batchEnvironment,
-                    outputSettings,
-                    0,
-                    1
-                )
-                try Task.checkCancellation()
-
-                let savedURL = try BatchConversionSupport.savePreparedConvertedOutput(
-                    from: output,
-                    preparedSource: preparedSource
-                )
-                return (
-                    savedURL: Optional(savedURL),
-                    skippedEntry: Optional<String>.none
-                )
-            }
+            )
 
             setProgress(1, at: progressKeyPath)
             if let entry = result.skippedEntry {
+                onSourceProcessed(preparedSource.sourceURL)
                 self[keyPath: errorMessageKeyPath] = BatchConversionSupport.skippedFilesSummary(
                     prefix: skippedSummaryPrefix,
                     entries: [entry]
@@ -436,18 +417,6 @@ extension ContentViewModel {
                 onSavedOutput(preparedSource.sourceURL, savedURL)
                 onSourceProcessed(preparedSource.sourceURL)
             }
-        } catch is CancellationError {
-            resetCancelledConversionState(
-                progressKeyPath: progressKeyPath,
-                errorMessageKeyPath: errorMessageKeyPath
-            )
-        } catch ConversionError.exportCancelled where treatExportCancellationAsCancelled {
-            resetCancelledConversionState(
-                progressKeyPath: progressKeyPath,
-                errorMessageKeyPath: errorMessageKeyPath
-            )
-        } catch {
-            onError(error)
         }
     }
 }

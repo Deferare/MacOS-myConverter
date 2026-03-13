@@ -1,11 +1,50 @@
 import Foundation
 
 extension ContentViewModel {
+    struct PreparedSourceExecutionResult {
+        let savedURL: URL?
+        let skippedEntry: String?
+    }
+
     func withSourceSecurityScope<T>(
         for sourceURL: URL,
         operation: () async throws -> T
     ) async rethrows -> T {
         try await SecurityScopedResourceAccess.withAccess(to: sourceURL, operation: operation)
+    }
+
+    func processPreparedSourceConversion(
+        _ preparedSource: PreparedSourceConversion,
+        batchEnvironment: BatchExecutionEnvironment,
+        validate: @escaping (PreparedSourceConversion, BatchExecutionEnvironment) async -> String?,
+        runConversion: @escaping () async throws -> URL
+    ) async throws -> PreparedSourceExecutionResult {
+        try await withSourceSecurityScope(for: preparedSource.sourceURL) {
+            if let validationMessage = await validate(preparedSource, batchEnvironment) {
+                return PreparedSourceExecutionResult(
+                    savedURL: nil,
+                    skippedEntry: "\(preparedSource.sourceURL.lastPathComponent): \(validationMessage)"
+                )
+            }
+
+            defer {
+                BatchConversionSupport.cleanupWorkingOutputIfNeeded(
+                    preparedSource.workingOutputURL
+                )
+            }
+
+            let output = try await runConversion()
+            try Task.checkCancellation()
+
+            let savedURL = try BatchConversionSupport.savePreparedConvertedOutput(
+                from: output,
+                preparedSource: preparedSource
+            )
+            return PreparedSourceExecutionResult(
+                savedURL: savedURL,
+                skippedEntry: nil
+            )
+        }
     }
 
     func runBatchConversionLoop(
@@ -24,39 +63,27 @@ extension ContentViewModel {
             try Task.checkCancellation()
             onBatchIndexChanged(index + 1)
 
-            let shouldSkipSource = try await withSourceSecurityScope(for: preparedSource.sourceURL) {
-                if let validationMessage = await validate(preparedSource, batchEnvironment) {
-                    skippedEntries.append("\(preparedSource.sourceURL.lastPathComponent): \(validationMessage)")
-                    onSourceProcessed(preparedSource.sourceURL)
-                    return true
-                }
-
-                defer {
-                    BatchConversionSupport.cleanupWorkingOutputIfNeeded(
-                        preparedSource.workingOutputURL
+            let result = try await processPreparedSourceConversion(
+                preparedSource,
+                batchEnvironment: batchEnvironment,
+                validate: validate,
+                runConversion: {
+                    try await runConversion(
+                        preparedSource,
+                        batchEnvironment,
+                        index,
+                        totalCount
                     )
                 }
+            )
 
-                let output = try await runConversion(
-                    preparedSource,
-                    batchEnvironment,
-                    index,
-                    totalCount
-                )
-                try Task.checkCancellation()
-
-                let savedURL = try BatchConversionSupport.savePreparedConvertedOutput(
-                    from: output,
-                    preparedSource: preparedSource
-                )
+            if let skippedEntry = result.skippedEntry {
+                skippedEntries.append(skippedEntry)
+            }
+            if let savedURL = result.savedURL {
                 onSavedOutput(preparedSource.sourceURL, savedURL)
-                onSourceProcessed(preparedSource.sourceURL)
-                return false
             }
-
-            if shouldSkipSource {
-                continue
-            }
+            onSourceProcessed(preparedSource.sourceURL)
         }
 
         return skippedEntries
