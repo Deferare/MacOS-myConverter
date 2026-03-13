@@ -15,6 +15,18 @@ extension ContentViewModel {
         let includeDebugInfo: Bool
     }
 
+    enum IOSPhotoLibraryFilter {
+        case images
+        case videos
+        case none
+    }
+
+    struct IOSImportDescriptor {
+        let photoLibraryFilter: IOSPhotoLibraryFilter
+        let preferredPhotoLibraryItemTypeIdentifiers: [String]
+        let temporaryImportFallbackFileExtension: String
+    }
+
     struct MediaDescriptor {
         let sidebarSystemImage: String
         let outputDirectoryURL: ReferenceWritableKeyPath<ContentViewModel, URL?>
@@ -25,12 +37,67 @@ extension ContentViewModel {
         let acceptsInput: (URL) -> Bool
         let preferredImportTypes: (UTType?) -> [UTType]
         let availableImportSources: () -> [ContentViewModel.ImportSource]
+        let iosImportDescriptor: IOSImportDescriptor
     }
 }
 
 extension ContentViewModel.MediaKind {
-    private func videoDescriptor() -> ContentViewModel.MediaDescriptor {
+    private func makeMediaDescriptor(
+        sidebarSystemImage: String,
+        outputDirectoryURL: ReferenceWritableKeyPath<ContentViewModel, URL?>,
+        selectedOutputFormatLabel: @escaping (ContentViewModel) -> String,
+        saveSettingsFailureContext: String,
+        loadSettingsFailureContext: String,
+        conversionMetadata: ContentViewModel.ConversionMetadata,
+        acceptsInput: @escaping (URL) -> Bool,
+        preferredImportTypes: @escaping (UTType?) -> [UTType],
+        availableImportSources: @escaping () -> [ContentViewModel.ImportSource],
+        iosImportDescriptor: ContentViewModel.IOSImportDescriptor
+    ) -> ContentViewModel.MediaDescriptor {
         ContentViewModel.MediaDescriptor(
+            sidebarSystemImage: sidebarSystemImage,
+            outputDirectoryURL: outputDirectoryURL,
+            selectedOutputFormatLabel: selectedOutputFormatLabel,
+            saveSettingsFailureContext: saveSettingsFailureContext,
+            loadSettingsFailureContext: loadSettingsFailureContext,
+            conversionMetadata: conversionMetadata,
+            acceptsInput: acceptsInput,
+            preferredImportTypes: preferredImportTypes,
+            availableImportSources: availableImportSources,
+            iosImportDescriptor: iosImportDescriptor
+        )
+    }
+
+    private func imageIOSImportDescriptor() -> ContentViewModel.IOSImportDescriptor {
+        ContentViewModel.IOSImportDescriptor(
+            photoLibraryFilter: .images,
+            preferredPhotoLibraryItemTypeIdentifiers: [UTType.image.identifier],
+            temporaryImportFallbackFileExtension: "jpg"
+        )
+    }
+
+    private func videoIOSImportDescriptor() -> ContentViewModel.IOSImportDescriptor {
+        ContentViewModel.IOSImportDescriptor(
+            photoLibraryFilter: .videos,
+            preferredPhotoLibraryItemTypeIdentifiers: [
+                UTType.movie.identifier,
+                UTType.video.identifier,
+                UTType.audiovisualContent.identifier
+            ],
+            temporaryImportFallbackFileExtension: "mov"
+        )
+    }
+
+    private func audioIOSImportDescriptor() -> ContentViewModel.IOSImportDescriptor {
+        ContentViewModel.IOSImportDescriptor(
+            photoLibraryFilter: .none,
+            preferredPhotoLibraryItemTypeIdentifiers: [UTType.audio.identifier],
+            temporaryImportFallbackFileExtension: "m4a"
+        )
+    }
+
+    private func videoDescriptor() -> ContentViewModel.MediaDescriptor {
+        makeMediaDescriptor(
             sidebarSystemImage: "film",
             outputDirectoryURL: \.selectedVideoOutputDirectoryURL,
             selectedOutputFormatLabel: { viewModel in
@@ -49,12 +116,13 @@ extension ContentViewModel.MediaKind {
             ),
             acceptsInput: ContentViewModelSupport.isVideoInputURL(_:),
             preferredImportTypes: { [.movie, .video, $0].compactMap { $0 } },
-            availableImportSources: { [.photoLibrary, .files] }
+            availableImportSources: { [.photoLibrary, .files] },
+            iosImportDescriptor: videoIOSImportDescriptor()
         )
     }
 
     private func imageDescriptor() -> ContentViewModel.MediaDescriptor {
-        ContentViewModel.MediaDescriptor(
+        makeMediaDescriptor(
             sidebarSystemImage: "photo",
             outputDirectoryURL: \.selectedImageOutputDirectoryURL,
             selectedOutputFormatLabel: { viewModel in
@@ -73,12 +141,13 @@ extension ContentViewModel.MediaKind {
             ),
             acceptsInput: ContentViewModelSupport.isImageInputURL(_:),
             preferredImportTypes: { _ in [.image] },
-            availableImportSources: { [.photoLibrary, .files] }
+            availableImportSources: { [.photoLibrary, .files] },
+            iosImportDescriptor: imageIOSImportDescriptor()
         )
     }
 
     private func audioDescriptor() -> ContentViewModel.MediaDescriptor {
-        ContentViewModel.MediaDescriptor(
+        makeMediaDescriptor(
             sidebarSystemImage: "waveform",
             outputDirectoryURL: \.selectedAudioOutputDirectoryURL,
             selectedOutputFormatLabel: { viewModel in
@@ -99,7 +168,8 @@ extension ContentViewModel.MediaKind {
             preferredImportTypes: {
                 [.audio, .movie, .video, .audiovisualContent, $0].compactMap { $0 }
             },
-            availableImportSources: { [.files] }
+            availableImportSources: { [.files] },
+            iosImportDescriptor: audioIOSImportDescriptor()
         )
     }
 
@@ -148,64 +218,30 @@ extension ContentViewModel {
 }
 
 #if os(iOS)
-extension ContentViewModel {
-    struct IOSImportDescriptor {
-        let photoLibraryPickerFilter: PHPickerFilter?
-        let preferredPhotoLibraryItemTypeIdentifiers: [String]
-        let temporaryImportFallbackFileExtension: String
+extension ContentViewModel.IOSPhotoLibraryFilter {
+    var pickerFilter: PHPickerFilter? {
+        switch self {
+        case .images:
+            return .images
+        case .videos:
+            return .videos
+        case .none:
+            return nil
+        }
     }
 }
 
 extension ContentViewModel.MediaKind {
-    private func imageIOSImportDescriptor() -> ContentViewModel.IOSImportDescriptor {
-        ContentViewModel.IOSImportDescriptor(
-            photoLibraryPickerFilter: .images,
-            preferredPhotoLibraryItemTypeIdentifiers: [UTType.image.identifier],
-            temporaryImportFallbackFileExtension: "jpg"
-        )
-    }
-
-    private func videoIOSImportDescriptor() -> ContentViewModel.IOSImportDescriptor {
-        ContentViewModel.IOSImportDescriptor(
-            photoLibraryPickerFilter: .videos,
-            preferredPhotoLibraryItemTypeIdentifiers: [
-                UTType.movie.identifier,
-                UTType.video.identifier,
-                UTType.audiovisualContent.identifier
-            ],
-            temporaryImportFallbackFileExtension: "mov"
-        )
-    }
-
-    private func audioIOSImportDescriptor() -> ContentViewModel.IOSImportDescriptor {
-        ContentViewModel.IOSImportDescriptor(
-            photoLibraryPickerFilter: nil,
-            preferredPhotoLibraryItemTypeIdentifiers: [UTType.audio.identifier],
-            temporaryImportFallbackFileExtension: "m4a"
-        )
-    }
-
-    var iosImportDescriptor: ContentViewModel.IOSImportDescriptor {
-        switch self {
-        case .video:
-            return videoIOSImportDescriptor()
-        case .image:
-            return imageIOSImportDescriptor()
-        case .audio:
-            return audioIOSImportDescriptor()
-        }
-    }
-
     var photoLibraryPickerFilter: PHPickerFilter? {
-        iosImportDescriptor.photoLibraryPickerFilter
+        descriptor.iosImportDescriptor.photoLibraryFilter.pickerFilter
     }
 
     var preferredPhotoLibraryItemTypeIdentifiers: [String] {
-        iosImportDescriptor.preferredPhotoLibraryItemTypeIdentifiers
+        descriptor.iosImportDescriptor.preferredPhotoLibraryItemTypeIdentifiers
     }
 
     var temporaryImportFallbackFileExtension: String {
-        iosImportDescriptor.temporaryImportFallbackFileExtension
+        descriptor.iosImportDescriptor.temporaryImportFallbackFileExtension
     }
 }
 
