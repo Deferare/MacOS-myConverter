@@ -1,6 +1,13 @@
 import Foundation
 
 extension ContentViewModel {
+    private struct ResolvedAudioEncodingSettings {
+        let codecCandidates: [String]
+        let channels: Int?
+        let sampleRate: Int?
+        let bitRateKbps: Int?
+    }
+
     func resolvedOptions<Option>(
         _ options: [Option],
         fallback: () -> [Option]
@@ -35,6 +42,23 @@ extension ContentViewModel {
         condition ? values() : []
     }
 
+    func resolvedAudioEncodingSettings(
+        codecCandidates: [String],
+        includeAudio: Bool,
+        channels: Int?,
+        sampleRate: Int?,
+        includeSampleRate: Bool,
+        bitRateKbps: Int?,
+        includeBitRate: Bool
+    ) -> ResolvedAudioEncodingSettings {
+        ResolvedAudioEncodingSettings(
+            codecCandidates: conditionalValues(when: includeAudio, codecCandidates),
+            channels: optionalValue(when: includeAudio, channels),
+            sampleRate: optionalValue(when: includeSampleRate, sampleRate),
+            bitRateKbps: optionalValue(when: includeBitRate, bitRateKbps)
+        )
+    }
+
     func resolvedVideoBitRateKbps() throws -> Int? {
         guard shouldShowVideoBitRateOption else { return nil }
 
@@ -52,6 +76,16 @@ extension ContentViewModel {
     }
 
     func buildVideoOutputSettings() throws -> VideoOutputSettings {
+        let audioSettings = resolvedAudioEncodingSettings(
+            codecCandidates: selectedAudioEncoder.codecCandidates,
+            includeAudio: shouldShowAudioSettings,
+            channels: selectedAudioMode.channelCount,
+            sampleRate: selectedSampleRate.hertz,
+            includeSampleRate: shouldShowAudioSampleRateOption,
+            bitRateKbps: selectedAudioBitRate.kbps,
+            includeBitRate: shouldShowAudioBitRateOption
+        )
+
         return VideoOutputSettings(
             containerFormat: selectedOutputFormat,
             videoCodecCandidates: selectedVideoEncoder.codecCandidates,
@@ -63,13 +97,10 @@ extension ContentViewModel {
                 selectedGIFPlaybackSpeed.multiplier
             ),
             videoBitRateKbps: try resolvedVideoBitRateKbps(),
-            audioCodecCandidates: conditionalValues(
-                when: shouldShowAudioSettings,
-                selectedAudioEncoder.codecCandidates
-            ),
-            audioChannels: optionalValue(when: shouldShowAudioSettings, selectedAudioMode.channelCount),
-            sampleRate: optionalValue(when: shouldShowAudioSampleRateOption, selectedSampleRate.hertz),
-            audioBitRateKbps: optionalValue(when: shouldShowAudioBitRateOption, selectedAudioBitRate.kbps)
+            audioCodecCandidates: audioSettings.codecCandidates,
+            audioChannels: audioSettings.channels,
+            sampleRate: audioSettings.sampleRate,
+            audioBitRateKbps: audioSettings.bitRateKbps
         )
     }
 
@@ -91,18 +122,22 @@ extension ContentViewModel {
     }
 
     func buildAudioOutputSettings() -> AudioOutputSettings {
+        let audioSettings = resolvedAudioEncodingSettings(
+            codecCandidates: selectedAudioOutputEncoder.codecCandidates,
+            includeAudio: true,
+            channels: selectedAudioOutputMode.channelCount,
+            sampleRate: selectedAudioOutputSampleRate.hertz,
+            includeSampleRate: shouldShowAudioOutputSampleRateOption,
+            bitRateKbps: selectedAudioOutputBitRate.kbps,
+            includeBitRate: shouldShowAudioOutputBitRateOption
+        )
+
         AudioOutputSettings(
             containerFormat: selectedAudioOutputFormat,
-            audioCodecCandidates: selectedAudioOutputEncoder.codecCandidates,
-            audioChannels: selectedAudioOutputMode.channelCount,
-            sampleRate: optionalValue(
-                when: shouldShowAudioOutputSampleRateOption,
-                selectedAudioOutputSampleRate.hertz
-            ),
-            audioBitRateKbps: optionalValue(
-                when: shouldShowAudioOutputBitRateOption,
-                selectedAudioOutputBitRate.kbps
-            )
+            audioCodecCandidates: audioSettings.codecCandidates,
+            audioChannels: audioSettings.channels,
+            sampleRate: audioSettings.sampleRate,
+            audioBitRateKbps: audioSettings.bitRateKbps
         )
     }
 }
