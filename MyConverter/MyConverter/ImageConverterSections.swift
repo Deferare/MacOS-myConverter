@@ -5,10 +5,8 @@ struct ImageConverterFormSectionView: View, Equatable {
     let bindings: ContentViewModel.ImageFormBindings
 
     init(viewModel: ContentViewModel) {
-        self.init(
-            state: .init(viewModel: viewModel),
-            bindings: .init(viewModel: viewModel)
-        )
+        state = .init(viewModel: viewModel)
+        bindings = .init(viewModel: viewModel)
     }
 
     static func == (lhs: ImageConverterFormSectionView, rhs: ImageConverterFormSectionView) -> Bool {

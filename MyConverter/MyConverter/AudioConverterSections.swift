@@ -5,10 +5,8 @@ struct AudioConverterFormSectionView: View, Equatable {
     let bindings: ContentViewModel.AudioFormBindings
 
     init(viewModel: ContentViewModel) {
-        self.init(
-            state: .init(viewModel: viewModel),
-            bindings: .init(viewModel: viewModel)
-        )
+        state = .init(viewModel: viewModel)
+        bindings = .init(viewModel: viewModel)
     }
 
     static func == (lhs: AudioConverterFormSectionView, rhs: AudioConverterFormSectionView) -> Bool {

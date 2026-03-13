@@ -14,7 +14,7 @@ extension ContentViewModel {
             noCommonFormatsMessage: "No common audio output format is available for the selected files.",
             buildSelectionHandlers: makeResolvedOutputSelectionHandlers(
                 persistKind: .audio,
-                formatDescriptor: { _ in audioOutputFormatDescriptorValue },
+                formatDescriptor: audioOutputFormatDescriptorValue,
                 postSelectionUpdate: { $0.refreshAudioCodecOptions() }
             )
         )

@@ -121,7 +121,7 @@ extension ContentViewModel {
 
     static func makeResolvedOutputSelectionHandlers<Capability: Sendable, Format: Sendable>(
         persistKind: MediaKind,
-        formatDescriptor: @escaping (ContentViewModel) -> OutputFormatDescriptor<Format>,
+        formatDescriptor: OutputFormatDescriptor<Format>,
         capabilityObserver: @escaping (
             ContentViewModel,
             [URL]
@@ -141,7 +141,7 @@ extension ContentViewModel {
                     observer.prepareForResolvedFormats(viewModel)
                     viewModel.applyResolvedOutputFormats(
                         resolvedFormats,
-                        formatDescriptor: formatDescriptor(viewModel),
+                        formatDescriptor: formatDescriptor,
                         postSelectionUpdate: {
                             postSelectionUpdate(viewModel)
                         },

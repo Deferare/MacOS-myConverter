@@ -14,7 +14,7 @@ extension ContentViewModel {
             noCommonFormatsMessage: "No common output format is available for the selected files.",
             buildSelectionHandlers: makeResolvedOutputSelectionHandlers(
                 persistKind: .image,
-                formatDescriptor: { _ in imageOutputFormatDescriptorValue },
+                formatDescriptor: imageOutputFormatDescriptorValue,
                 capabilityObserver: makeImageSourceCapabilityObserver()
             )
         )

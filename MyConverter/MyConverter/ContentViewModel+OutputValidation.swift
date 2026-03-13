@@ -20,7 +20,7 @@ extension ContentViewModel {
     private struct OutputFormatValidationInput<Capability, Format> {
         let kind: MediaKind
         let hintMessage: (ContentViewModel) -> String?
-        let formatDescriptor: (ContentViewModel) -> OutputFormatDescriptor<Format>
+        let formatDescriptor: OutputFormatDescriptor<Format>
         let unavailableMessage: String
         let preValidation: (ContentViewModel) -> String?
         let additionalValidation: (ContentViewModel) -> String?
@@ -136,7 +136,7 @@ extension ContentViewModel {
 
                 return viewModel.outputSettingsValidationMessage(
                     for: input.kind,
-                    formatDescriptor: input.formatDescriptor(viewModel),
+                    formatDescriptor: input.formatDescriptor,
                     unavailableMessage: input.unavailableMessage
                 ) {
                     input.additionalValidation(viewModel)
@@ -148,7 +148,7 @@ extension ContentViewModel {
                     return message
                 }
 
-                let descriptor = input.formatDescriptor(viewModel)
+                let descriptor = input.formatDescriptor
                 return await viewModel.validateOutputFormatAvailability(
                     for: sourceURL,
                     selectedFormatNormalizedID: viewModel.selectedOutputFormatNormalizedID(using: descriptor),
@@ -163,7 +163,7 @@ extension ContentViewModel {
                 )
             },
             validatePreparedSourceOutputSettings: { viewModel, source, environment in
-                let descriptor = input.formatDescriptor(viewModel)
+                let descriptor = input.formatDescriptor
                 switch input.validatePreparedSource(viewModel, source, environment, descriptor) {
                 case .handled(let message):
                     return message
@@ -189,7 +189,7 @@ extension ContentViewModel {
         OutputFormatValidationInput(
             kind: .video,
             hintMessage: { _ in nil },
-            formatDescriptor: { _ in videoOutputFormatDescriptorValue },
+            formatDescriptor: videoOutputFormatDescriptorValue,
             unavailableMessage: "Selected container is not available for this source.",
             preValidation: { viewModel in
                 viewModel.firstNonEmptyMessage(
@@ -258,7 +258,7 @@ extension ContentViewModel {
                         : nil
                 )
             },
-            formatDescriptor: { _ in imageOutputFormatDescriptorValue },
+            formatDescriptor: imageOutputFormatDescriptorValue,
             unavailableMessage: "Selected output format is not available for this source.",
             preValidation: { _ in nil },
             additionalValidation: { viewModel in
@@ -307,7 +307,7 @@ extension ContentViewModel {
             hintMessage: { viewModel in
                 viewModel.compatibilityHintMessage(for: .audio)
             },
-            formatDescriptor: { _ in audioOutputFormatDescriptorValue },
+            formatDescriptor: audioOutputFormatDescriptorValue,
             unavailableMessage: "Selected output format is not available for this source.",
             preValidation: { _ in nil },
             additionalValidation: { viewModel in

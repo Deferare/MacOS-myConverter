@@ -14,7 +14,7 @@ extension ContentViewModel {
         for kind: MediaKind,
         warmDefaultFormats: @escaping @Sendable () -> [Format],
         placeholderFormats: @escaping () -> [Format],
-        formatDescriptor: @escaping @MainActor @Sendable (ContentViewModel) -> OutputFormatDescriptor<Format>,
+        formatDescriptor: OutputFormatDescriptor<Format>,
         applyAdditionalPlaceholderState: @escaping (ContentViewModel) -> Void = { _ in },
         postApplyWhenWarmed: @escaping @MainActor @Sendable (ContentViewModel) -> Void = { _ in }
     ) -> CapabilityBootstrapDescriptor {
@@ -25,7 +25,7 @@ extension ContentViewModel {
                     viewModel.applyWarmedOutputFormatsIfIdle(
                         warmedFormats,
                         for: kind,
-                        formatDescriptor: formatDescriptor(viewModel),
+                        formatDescriptor: formatDescriptor,
                         postApply: {
                             postApplyWhenWarmed(viewModel)
                         }
@@ -35,7 +35,7 @@ extension ContentViewModel {
             applyPlaceholder: { viewModel in
                 viewModel.applyAvailableOutputFormats(
                     placeholderFormats(),
-                    using: formatDescriptor(viewModel)
+                    using: formatDescriptor
                 )
                 applyAdditionalPlaceholderState(viewModel)
             }
@@ -46,7 +46,7 @@ extension ContentViewModel {
         for: .video,
         warmDefaultFormats: VideoConversionEngine.defaultOutputFormats,
         placeholderFormats: ContentViewModelSupport.placeholderVideoFormats,
-        formatDescriptor: { _ in videoOutputFormatDescriptorValue },
+        formatDescriptor: videoOutputFormatDescriptorValue,
         applyAdditionalPlaceholderState: { $0.applyPlaceholderVideoCodecOptions() },
         postApplyWhenWarmed: { $0.refreshVideoCodecOptions() }
     )
@@ -55,14 +55,14 @@ extension ContentViewModel {
         for: .image,
         warmDefaultFormats: ImageConversionEngine.defaultOutputFormats,
         placeholderFormats: ContentViewModelSupport.placeholderImageFormats,
-        formatDescriptor: { _ in imageOutputFormatDescriptorValue }
+        formatDescriptor: imageOutputFormatDescriptorValue
     )
 
     static let audioCapabilityBootstrapDescriptorValue = makeCapabilityBootstrapDescriptor(
         for: .audio,
         warmDefaultFormats: VideoConversionEngine.defaultAudioOutputFormats,
         placeholderFormats: ContentViewModelSupport.placeholderAudioFormats,
-        formatDescriptor: { _ in audioOutputFormatDescriptorValue },
+        formatDescriptor: audioOutputFormatDescriptorValue,
         applyAdditionalPlaceholderState: { $0.applyPlaceholderAudioCodecOptions() },
         postApplyWhenWarmed: { $0.refreshAudioCodecOptions() }
     )
