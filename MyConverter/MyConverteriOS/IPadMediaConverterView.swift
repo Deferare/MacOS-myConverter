@@ -25,7 +25,7 @@ struct IPadMediaConverterView: View {
     }
 
     private var importSources: [ContentViewModel.ImportSource] {
-        viewModel.availableImportSources(for: kind)
+        kind.descriptor.availableImportSources
     }
 
     private var shouldShowImportSourceMenu: Bool {

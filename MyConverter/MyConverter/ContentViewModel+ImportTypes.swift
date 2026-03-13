@@ -36,7 +36,7 @@ extension ContentViewModel {
         let conversionMetadata: ConversionMetadata
         let acceptsInput: (URL) -> Bool
         let preferredImportTypes: (UTType?) -> [UTType]
-        let availableImportSources: () -> [ContentViewModel.ImportSource]
+        let availableImportSources: [ContentViewModel.ImportSource]
         let iosImportDescriptor: IOSImportDescriptor
     }
 }
@@ -51,7 +51,7 @@ extension ContentViewModel.MediaKind {
         conversionMetadata: ContentViewModel.ConversionMetadata,
         acceptsInput: @escaping (URL) -> Bool,
         preferredImportTypes: @escaping (UTType?) -> [UTType],
-        availableImportSources: @escaping () -> [ContentViewModel.ImportSource],
+        availableImportSources: [ContentViewModel.ImportSource],
         iosImportDescriptor: ContentViewModel.IOSImportDescriptor
     ) -> ContentViewModel.MediaDescriptor {
         ContentViewModel.MediaDescriptor(
@@ -131,7 +131,7 @@ extension ContentViewModel.MediaKind {
             conversionMetadata: videoConversionMetadata,
             acceptsInput: ContentViewModelSupport.isVideoInputURL(_:),
             preferredImportTypes: { [.movie, .video, $0].compactMap { $0 } },
-            availableImportSources: { [.photoLibrary, .files] },
+            availableImportSources: [.photoLibrary, .files],
             iosImportDescriptor: videoIOSImportDescriptor
         )
 
@@ -146,7 +146,7 @@ extension ContentViewModel.MediaKind {
             conversionMetadata: imageConversionMetadata,
             acceptsInput: ContentViewModelSupport.isImageInputURL(_:),
             preferredImportTypes: { _ in [.image] },
-            availableImportSources: { [.photoLibrary, .files] },
+            availableImportSources: [.photoLibrary, .files],
             iosImportDescriptor: imageIOSImportDescriptor
         )
 
@@ -163,7 +163,7 @@ extension ContentViewModel.MediaKind {
             preferredImportTypes: {
                 [.audio, .movie, .video, .audiovisualContent, $0].compactMap { $0 }
             },
-            availableImportSources: { [.files] },
+            availableImportSources: [.files],
             iosImportDescriptor: audioIOSImportDescriptor
         )
 
@@ -177,18 +177,6 @@ extension ContentViewModel.MediaKind {
         Self.descriptorsByKind[self] ?? Self.videoDescriptor
     }
 
-    func acceptsInput(_ url: URL) -> Bool {
-        descriptor.acceptsInput(url)
-    }
-
-    func preferredImportTypes(mkvType: UTType?) -> [UTType] {
-        descriptor.preferredImportTypes(mkvType)
-    }
-
-    func selectedOutputFormatLabel(using viewModel: ContentViewModel) -> String {
-        descriptor.selectedOutputFormatLabel(viewModel)
-    }
-
     var conversionMetadata: ContentViewModel.ConversionMetadata {
         descriptor.conversionMetadata
     }
@@ -198,7 +186,7 @@ extension ContentViewModel {
     private static let mkvImportType = FormatOptionUtilities.cachedUTType(forFilenameExtension: "mkv")
 
     func preferredImportTypes(for kind: MediaKind) -> [UTType] {
-        kind.preferredImportTypes(mkvType: Self.mkvImportType)
+        kind.descriptor.preferredImportTypes(Self.mkvImportType)
     }
 
     func preferredImportTypes(for selectedTab: ConverterTab) -> [UTType] {
@@ -247,12 +235,8 @@ extension ContentViewModel {
         return activeImportRequest
     }
 
-    func availableImportSources(for kind: MediaKind) -> [ImportSource] {
-        kind.descriptor.availableImportSources()
-    }
-
     func requestImport(for kind: MediaKind) {
-        let importSources = availableImportSources(for: kind)
+        let importSources = kind.descriptor.availableImportSources
         guard let fallbackSource = importSources.first(where: { $0 == .files })
             ?? importSources.first else {
             return

@@ -87,7 +87,7 @@ extension ContentViewModel {
                 isConverting: snapshot.isConverting,
                 canConvert: canStartConversion(using: snapshot, validationMessage: validationMessage),
                 selectedFileCount: selectedFileCount,
-                selectedFormatLabel: selectedOutputFormatLabel(for: kind),
+                selectedFormatLabel: kind.descriptor.selectedOutputFormatLabel(self),
                 convertedCount: convertedCount,
                 showsSettings: selectedFileCount > 0,
                 showsResults: convertedCount > 0,
@@ -181,7 +181,4 @@ extension ContentViewModel {
             validationMessage == nil
     }
 
-    func selectedOutputFormatLabel(for kind: MediaKind) -> String {
-        kind.selectedOutputFormatLabel(using: self)
-    }
 }
