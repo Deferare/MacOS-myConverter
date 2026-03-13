@@ -49,10 +49,12 @@ extension ContentViewModel {
     }
 
     static func makeConversionExecutionDescriptor<OutputSettings: Sendable>(
-        workflow: @escaping (ContentViewModel) -> ConversionWorkflowDescriptor<OutputSettings>
+        using profile: ConversionWorkflowProfile<OutputSettings>
     ) -> ConversionExecutionDescriptor {
         ConversionExecutionDescriptor { viewModel in
-            await viewModel.performConversion(using: workflow(viewModel))
+            await viewModel.performConversion(
+                using: viewModel.makeConversionWorkflowDescriptor(using: profile)
+            )
         }
     }
 
@@ -219,18 +221,6 @@ extension ContentViewModel {
                 )
             }
         )
-    }
-
-    func videoConversionWorkflowDescriptor() -> ConversionWorkflowDescriptor<VideoOutputSettings> {
-        makeConversionWorkflowDescriptor(using: Self.videoConversionWorkflowProfile)
-    }
-
-    func imageConversionWorkflowDescriptor() -> ConversionWorkflowDescriptor<ImageOutputSettings> {
-        makeConversionWorkflowDescriptor(using: Self.imageConversionWorkflowProfile)
-    }
-
-    func audioConversionWorkflowDescriptor() -> ConversionWorkflowDescriptor<AudioOutputSettings> {
-        makeConversionWorkflowDescriptor(using: Self.audioConversionWorkflowProfile)
     }
 
     func performConversion<OutputSettings: Sendable>(

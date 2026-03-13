@@ -8,46 +8,81 @@ extension ContentViewModel {
         let preparedVideoSources: [String: VideoConversionEngine.PreparedSourceContext]
         let preparedAudioCapabilities: [String: AudioSourceCapabilities]
         let preparedImageCapabilities: [String: ImageSourceCapabilities]
+    }
 
-        nonisolated static func video(
-            ffmpegContext: FFmpegExecutionContext?,
-            preparedVideoSources: [String: VideoConversionEngine.PreparedSourceContext]
-        ) -> Self {
-            BatchExecutionEnvironment(
+    struct BatchPreparationDescriptor<Value: Sendable> {
+        let makeFFmpegContext: @Sendable (any FFmpegRuntimeProviding) -> FFmpegExecutionContext?
+        let buildValue: @Sendable (PreparedSourceConversion) async -> Value
+        let makeEnvironment: @Sendable (FFmpegExecutionContext?, [String: Value]) -> BatchExecutionEnvironment
+    }
+
+    nonisolated private static func makeBatchExecutionEnvironment(
+        videoFFmpegContext: FFmpegExecutionContext? = nil,
+        imageFFmpegContext: FFmpegExecutionContext? = nil,
+        preparedVideoSources: [String: VideoConversionEngine.PreparedSourceContext] = [:],
+        preparedAudioCapabilities: [String: AudioSourceCapabilities] = [:],
+        preparedImageCapabilities: [String: ImageSourceCapabilities] = [:]
+    ) -> BatchExecutionEnvironment {
+        BatchExecutionEnvironment(
+            videoFFmpegContext: videoFFmpegContext,
+            imageFFmpegContext: imageFFmpegContext,
+            preparedVideoSources: preparedVideoSources,
+            preparedAudioCapabilities: preparedAudioCapabilities,
+            preparedImageCapabilities: preparedImageCapabilities
+        )
+    }
+
+    nonisolated private static func makeVideoBatchPreparationDescriptor(
+        outputFileType: AVFileType?
+    ) -> BatchPreparationDescriptor<VideoConversionEngine.PreparedSourceContext> {
+        BatchPreparationDescriptor(
+            makeFFmpegContext: { runtimeProvider in
+                VideoConversionEngine.makeFFmpegExecutionContext(using: runtimeProvider)
+            },
+            buildValue: { preparedSource in
+                await prepareVideoSourceContext(
+                    for: preparedSource.sourceURL,
+                    outputFileType: outputFileType
+                )
+            },
+            makeEnvironment: { ffmpegContext, preparedVideoSources in
+                makeBatchExecutionEnvironment(
+                    videoFFmpegContext: ffmpegContext,
+                    preparedVideoSources: preparedVideoSources
+                )
+            }
+        )
+    }
+
+    private static let audioBatchPreparationDescriptor = BatchPreparationDescriptor<AudioSourceCapabilities>(
+        makeFFmpegContext: { runtimeProvider in
+            VideoConversionEngine.makeFFmpegExecutionContext(using: runtimeProvider)
+        },
+        buildValue: { preparedSource in
+            await VideoConversionEngine.sourceCapabilitiesForAudio(for: preparedSource.sourceURL)
+        },
+        makeEnvironment: { ffmpegContext, preparedAudioCapabilities in
+            makeBatchExecutionEnvironment(
                 videoFFmpegContext: ffmpegContext,
-                imageFFmpegContext: nil,
-                preparedVideoSources: preparedVideoSources,
-                preparedAudioCapabilities: [:],
-                preparedImageCapabilities: [:]
+                preparedAudioCapabilities: preparedAudioCapabilities
             )
         }
+    )
 
-        nonisolated static func audio(
-            ffmpegContext: FFmpegExecutionContext?,
-            preparedAudioCapabilities: [String: AudioSourceCapabilities]
-        ) -> Self {
-            BatchExecutionEnvironment(
-                videoFFmpegContext: ffmpegContext,
-                imageFFmpegContext: nil,
-                preparedVideoSources: [:],
-                preparedAudioCapabilities: preparedAudioCapabilities,
-                preparedImageCapabilities: [:]
-            )
-        }
-
-        nonisolated static func image(
-            ffmpegContext: FFmpegExecutionContext?,
-            preparedImageCapabilities: [String: ImageSourceCapabilities]
-        ) -> Self {
-            BatchExecutionEnvironment(
-                videoFFmpegContext: nil,
+    private static let imageBatchPreparationDescriptor = BatchPreparationDescriptor<ImageSourceCapabilities>(
+        makeFFmpegContext: { runtimeProvider in
+            ImageConversionEngine.makeFFmpegExecutionContext(using: runtimeProvider)
+        },
+        buildValue: { preparedSource in
+            await ImageConversionEngine.sourceCapabilities(for: preparedSource.sourceURL)
+        },
+        makeEnvironment: { ffmpegContext, preparedImageCapabilities in
+            makeBatchExecutionEnvironment(
                 imageFFmpegContext: ffmpegContext,
-                preparedVideoSources: [:],
-                preparedAudioCapabilities: [:],
                 preparedImageCapabilities: preparedImageCapabilities
             )
         }
-    }
+    )
 
     nonisolated static func collectPreparedSourceValues<Value: Sendable>(
         from preparedSources: [PreparedSourceConversion],
@@ -73,6 +108,19 @@ extension ContentViewModel {
             }
             return prepared
         }
+    }
+
+    nonisolated static func prepareBatchExecutionEnvironment<Value: Sendable>(
+        preparedSources: [PreparedSourceConversion],
+        runtimeProvider: any FFmpegRuntimeProviding = DefaultFFmpegRuntimeProvider(),
+        using descriptor: BatchPreparationDescriptor<Value>
+    ) async -> BatchExecutionEnvironment {
+        let ffmpegContext = descriptor.makeFFmpegContext(runtimeProvider)
+        let preparedValues = await collectPreparedSourceValues(
+            from: preparedSources,
+            buildValue: descriptor.buildValue
+        )
+        return descriptor.makeEnvironment(ffmpegContext, preparedValues)
     }
 
     nonisolated static func prepareVideoSourceContext(
@@ -121,18 +169,11 @@ extension ContentViewModel {
         outputSettings: VideoOutputSettings,
         runtimeProvider: any FFmpegRuntimeProviding = DefaultFFmpegRuntimeProvider()
     ) async -> BatchExecutionEnvironment {
-        let ffmpegContext = VideoConversionEngine.makeFFmpegExecutionContext(using: runtimeProvider)
         let outputFileType = outputSettings.containerFormat.avFileType
-        let preparedVideoSources = await collectPreparedSourceValues(from: preparedSources) { preparedSource in
-            await prepareVideoSourceContext(
-                for: preparedSource.sourceURL,
-                outputFileType: outputFileType
-            )
-        }
-
-        return BatchExecutionEnvironment.video(
-            ffmpegContext: ffmpegContext,
-            preparedVideoSources: preparedVideoSources
+        return await prepareBatchExecutionEnvironment(
+            preparedSources: preparedSources,
+            runtimeProvider: runtimeProvider,
+            using: makeVideoBatchPreparationDescriptor(outputFileType: outputFileType)
         )
     }
 
@@ -152,8 +193,8 @@ extension ContentViewModel {
             )
         }
 
-        return BatchExecutionEnvironment.video(
-            ffmpegContext: VideoConversionEngine.makeFFmpegExecutionContext(
+        return Self.makeBatchExecutionEnvironment(
+            videoFFmpegContext: VideoConversionEngine.makeFFmpegExecutionContext(
                 using: services.ffmpegRuntimeProvider
             ),
             preparedVideoSources: [preparedSource.sourceID: preparedContext]
@@ -164,17 +205,10 @@ extension ContentViewModel {
         preparedSources: [PreparedSourceConversion],
         runtimeProvider: any FFmpegRuntimeProviding = DefaultFFmpegRuntimeProvider()
     ) async -> BatchExecutionEnvironment {
-        let ffmpegContext = VideoConversionEngine.makeFFmpegExecutionContext(using: runtimeProvider)
-        let preparedAudioCapabilities = await collectPreparedSourceValues(from: preparedSources) {
-            preparedSource in
-            await VideoConversionEngine.sourceCapabilitiesForAudio(
-                for: preparedSource.sourceURL
-            )
-        }
-
-        return BatchExecutionEnvironment.audio(
-            ffmpegContext: ffmpegContext,
-            preparedAudioCapabilities: preparedAudioCapabilities
+        return await prepareBatchExecutionEnvironment(
+            preparedSources: preparedSources,
+            runtimeProvider: runtimeProvider,
+            using: audioBatchPreparationDescriptor
         )
     }
 
@@ -182,17 +216,10 @@ extension ContentViewModel {
         preparedSources: [PreparedSourceConversion],
         runtimeProvider: any FFmpegRuntimeProviding = DefaultFFmpegRuntimeProvider()
     ) async -> BatchExecutionEnvironment {
-        let ffmpegContext = ImageConversionEngine.makeFFmpegExecutionContext(using: runtimeProvider)
-        let preparedImageCapabilities = await collectPreparedSourceValues(from: preparedSources) {
-            preparedSource in
-            await ImageConversionEngine.sourceCapabilities(
-                for: preparedSource.sourceURL
-            )
-        }
-
-        return BatchExecutionEnvironment.image(
-            ffmpegContext: ffmpegContext,
-            preparedImageCapabilities: preparedImageCapabilities
+        return await prepareBatchExecutionEnvironment(
+            preparedSources: preparedSources,
+            runtimeProvider: runtimeProvider,
+            using: imageBatchPreparationDescriptor
         )
     }
 }

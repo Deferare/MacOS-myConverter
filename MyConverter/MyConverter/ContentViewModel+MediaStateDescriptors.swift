@@ -192,9 +192,7 @@ extension ContentViewModel {
         sourceSettingsActions: makeSourceSettingsActions(using: { _ in videoSourceSettingsComponentsValue.flow }),
         capabilityBootstrap: videoCapabilityBootstrapDescriptorValue,
         validation: videoValidationDescriptorValue,
-        conversionExecution: makeConversionExecutionDescriptor(
-            workflow: { $0.videoConversionWorkflowDescriptor() }
-        ),
+        conversionExecution: makeConversionExecutionDescriptor(using: videoConversionWorkflowProfile),
         resetCompatibilityMetadata: resetCompatibilityMetadata(_:),
         analyzeSelection: makeMediaSelectionAnalyzer(descriptor: { _ in videoSourceAnalysisDescriptorValue })
     )
@@ -224,9 +222,7 @@ extension ContentViewModel {
         sourceSettingsActions: makeSourceSettingsActions(using: { _ in imageSourceSettingsComponentsValue.flow }),
         capabilityBootstrap: imageCapabilityBootstrapDescriptorValue,
         validation: imageValidationDescriptorValue,
-        conversionExecution: makeConversionExecutionDescriptor(
-            workflow: { $0.imageConversionWorkflowDescriptor() }
-        ),
+        conversionExecution: makeConversionExecutionDescriptor(using: imageConversionWorkflowProfile),
         resetCompatibilityMetadata: resetImageCompatibilityMetadata(_:),
         analyzeSelection: makeMediaSelectionAnalyzer(descriptor: { _ in imageSourceAnalysisDescriptorValue })
     )
@@ -256,9 +252,7 @@ extension ContentViewModel {
         sourceSettingsActions: makeSourceSettingsActions(using: { _ in audioSourceSettingsComponentsValue.flow }),
         capabilityBootstrap: audioCapabilityBootstrapDescriptorValue,
         validation: audioValidationDescriptorValue,
-        conversionExecution: makeConversionExecutionDescriptor(
-            workflow: { $0.audioConversionWorkflowDescriptor() }
-        ),
+        conversionExecution: makeConversionExecutionDescriptor(using: audioConversionWorkflowProfile),
         resetCompatibilityMetadata: resetCompatibilityMetadata(_:),
         analyzeSelection: makeMediaSelectionAnalyzer(descriptor: { _ in audioSourceAnalysisDescriptorValue })
     )
