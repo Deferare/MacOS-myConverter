@@ -80,44 +80,49 @@ struct IOSRootView: View {
     }
 }
 
-private struct IOSCompactRootContent: View {
+struct IOSCompactRootContent: View {
     @ObservedObject var viewModel: ContentViewModel
     @ObservedObject var donationStore: DonationStore
     @Binding var selectedTab: ConverterTab
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            Tab(ConverterTab.video.title, systemImage: ConverterTab.video.systemImage, value: ConverterTab.video) {
-                NavigationStack {
-                    IPadMediaConverterView(
-                        kind: .video,
-                        viewModel: viewModel
-                    )
-                }
-            }
+            IOSMediaRootTabItem(kind: .video, viewModel: viewModel)
+            IOSMediaRootTabItem(kind: .audio, viewModel: viewModel)
+            IOSMediaRootTabItem(kind: .image, viewModel: viewModel)
+            IOSAboutRootTabItem(donationStore: donationStore)
+        }
+    }
+}
 
-            Tab(ConverterTab.audio.title, systemImage: ConverterTab.audio.systemImage, value: ConverterTab.audio) {
-                NavigationStack {
-                    IPadMediaConverterView(
-                        kind: .audio,
-                        viewModel: viewModel
-                    )
-                }
-            }
+struct IOSMediaRootTabItem: View {
+    let kind: ContentViewModel.MediaKind
+    @ObservedObject var viewModel: ContentViewModel
 
-            Tab(ConverterTab.image.title, systemImage: ConverterTab.image.systemImage, value: ConverterTab.image) {
-                NavigationStack {
-                    IPadMediaConverterView(
-                        kind: .image,
-                        viewModel: viewModel
-                    )
-                }
+    var body: some View {
+        let tab = ConverterTab(rawValue: kind.rawValue) ?? .video
+        Tab(tab.title, systemImage: tab.systemImage, value: tab) {
+            NavigationStack {
+                IPadMediaConverterView(
+                    kind: kind,
+                    viewModel: viewModel
+                )
             }
+        }
+    }
+}
 
-            Tab(ConverterTab.about.title, systemImage: ConverterTab.about.systemImage, value: ConverterTab.about) {
-                NavigationStack {
-                    IPadAboutView(donationStore: donationStore)
-                }
+struct IOSAboutRootTabItem: View {
+    @ObservedObject var donationStore: DonationStore
+
+    var body: some View {
+        Tab(
+            ConverterTab.about.title,
+            systemImage: ConverterTab.about.systemImage,
+            value: ConverterTab.about
+        ) {
+            NavigationStack {
+                IPadAboutView(donationStore: donationStore)
             }
         }
     }
