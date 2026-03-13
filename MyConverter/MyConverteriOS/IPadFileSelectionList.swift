@@ -60,41 +60,22 @@ enum IPadFileRowState: Equatable {
 
 extension ContentViewModel.SelectedFileListState {
     func rowState(for url: URL) -> IPadFileRowState {
-        let sourceID = ContentViewModelSupport.sourceIdentifier(for: url)
-
-        if let outputURL = outputURLsBySourceID[sourceID] {
-            return .completed(outputURL)
-        }
-
-        if isConverting && sourceID == currentConvertingSourceID {
-            return .converting(progress: currentItemProgress)
-        }
-
-        if processedSourceIDs.contains(sourceID) {
-            return .skipped
-        }
-
-        return .pending
+        IPadFileRowState(rowStatus: rowStatus(for: url))
     }
+}
 
-    private var currentConvertingSourceID: String? {
-        guard isConverting, currentBatchIndex > 0 else {
-            return nil
+extension IPadFileRowState {
+    init(rowStatus: ContentViewModel.SelectedFileListState.RowStatus) {
+        switch rowStatus {
+        case .pending:
+            self = .pending
+        case .converting(let progress):
+            self = .converting(progress: progress)
+        case .completed(let outputURL):
+            self = .completed(outputURL)
+        case .skipped:
+            self = .skipped
         }
-
-        let completedBeforeCurrentRunSourceIDs = Set(outputURLsBySourceID.keys).subtracting(processedSourceIDs)
-        let activeBatchSourceURLs = selectedURLs.filter { sourceURL in
-            !completedBeforeCurrentRunSourceIDs.contains(
-                ContentViewModelSupport.sourceIdentifier(for: sourceURL)
-            )
-        }
-
-        let remainingIndex = currentBatchIndex - 1
-        guard activeBatchSourceURLs.indices.contains(remainingIndex) else {
-            return nil
-        }
-
-        return ContentViewModelSupport.sourceIdentifier(for: activeBatchSourceURLs[remainingIndex])
     }
 }
 

@@ -363,14 +363,7 @@ struct IPadMediaConverterView: View {
     }
 
     private var statusTone: Color {
-        switch renderState.inputHeaderState.statusLevel {
-        case .normal:
-            return .secondary
-        case .warning:
-            return .orange
-        case .error:
-            return .red
-        }
+        renderState.inputHeaderState.statusLevel.color
     }
 }
 

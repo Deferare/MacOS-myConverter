@@ -112,13 +112,12 @@ struct UnifiedFileListView: View {
 
     private func makeRowDescriptors() -> [RowDescriptor] {
         sourceURLs.enumerated().map { index, url in
-            let order = index + 1
-            let sourceID = ContentViewModelSupport.sourceIdentifier(for: url)
-
             return RowDescriptor(
                 url: url,
-                order: order,
-                rowState: rowState(for: sourceID, order: order)
+                order: index + 1,
+                rowState: UnifiedFileRowView.RowState(
+                    rowStatus: selectedFileListState.rowStatus(for: url)
+                )
             )
         }
     }
@@ -178,52 +177,18 @@ struct UnifiedFileListView: View {
     }
 
     private var statusColor: Color {
-        switch inputHeaderState.statusLevel {
-        case .normal:
-            return .secondary
-        case .warning:
-            return .orange
-        case .error:
-            return .red
-        }
+        inputHeaderState.statusLevel.color
     }
 
-    private func rowState(for sourceID: String, order: Int) -> UnifiedFileRowView.RowState {
-        if let outputURL = outputURLsBySourceID[sourceID] {
-            return .completed(outputURL)
-        }
-
-        if isConverting && sourceID == currentConvertingSourceID {
-            return .converting(progress: currentItemProgress)
-        }
-
-        if processedSourceIDs.contains(sourceID) {
-            return .skipped
-        }
-
-        return .pending
-    }
-
-    private var currentConvertingSourceID: String? {
-        guard isConverting, currentBatchIndex > 0 else {
-            return nil
-        }
-
-        let completedBeforeCurrentRunSourceIDs = Set(outputURLsBySourceID.keys).subtracting(
-            processedSourceIDs
+    private var selectedFileListState: ContentViewModel.SelectedFileListState {
+        ContentViewModel.SelectedFileListState(
+            selectedURLs: sourceURLs,
+            outputURLsBySourceID: outputURLsBySourceID,
+            processedSourceIDs: processedSourceIDs,
+            isConverting: isConverting,
+            currentBatchIndex: currentBatchIndex,
+            currentItemProgress: currentItemProgress
         )
-        let activeBatchSourceURLs = sourceURLs.filter { sourceURL in
-            !completedBeforeCurrentRunSourceIDs.contains(
-                ContentViewModelSupport.sourceIdentifier(for: sourceURL)
-            )
-        }
-
-        let remainingIndex = currentBatchIndex - 1
-        guard activeBatchSourceURLs.indices.contains(remainingIndex) else {
-            return nil
-        }
-
-        return ContentViewModelSupport.sourceIdentifier(for: activeBatchSourceURLs[remainingIndex])
     }
 
     private var maximumScrollHeight: CGFloat {
@@ -248,5 +213,20 @@ struct UnifiedFileListView: View {
     private func totalPopulatedHeight(for rowDescriptors: [RowDescriptor]) -> CGFloat {
         let contentHeight = Metrics.headerHeight + Metrics.containerSpacing + min(totalRowsHeight(for: rowDescriptors), maximumScrollHeight)
         return min(fileDropAreaHeight, (Metrics.contentPadding * 2) + contentHeight)
+    }
+}
+
+private extension UnifiedFileRowView.RowState {
+    init(rowStatus: ContentViewModel.SelectedFileListState.RowStatus) {
+        switch rowStatus {
+        case .pending:
+            self = .pending
+        case .converting(let progress):
+            self = .converting(progress: progress)
+        case .completed(let outputURL):
+            self = .completed(outputURL)
+        case .skipped:
+            self = .skipped
+        }
     }
 }

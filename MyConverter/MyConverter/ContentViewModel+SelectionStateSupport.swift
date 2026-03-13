@@ -20,12 +20,60 @@ extension ContentViewModel {
     }
 
     struct SelectedFileListState: Equatable {
+        enum RowStatus: Equatable {
+            case pending
+            case converting(progress: Double)
+            case completed(URL)
+            case skipped
+        }
+
         let selectedURLs: [URL]
         let outputURLsBySourceID: [String: URL]
         let processedSourceIDs: Set<String>
         let isConverting: Bool
         let currentBatchIndex: Int
         let currentItemProgress: Double
+
+        func rowStatus(for url: URL) -> RowStatus {
+            rowStatus(forSourceID: ContentViewModelSupport.sourceIdentifier(for: url))
+        }
+
+        func rowStatus(forSourceID sourceID: String) -> RowStatus {
+            if let outputURL = outputURLsBySourceID[sourceID] {
+                return .completed(outputURL)
+            }
+
+            if isConverting, sourceID == currentConvertingSourceID {
+                return .converting(progress: currentItemProgress)
+            }
+
+            if processedSourceIDs.contains(sourceID) {
+                return .skipped
+            }
+
+            return .pending
+        }
+
+        private var currentConvertingSourceID: String? {
+            guard isConverting, currentBatchIndex > 0 else {
+                return nil
+            }
+
+            let completedBeforeCurrentRunSourceIDs = Set(outputURLsBySourceID.keys)
+                .subtracting(processedSourceIDs)
+            let activeBatchSourceURLs = selectedURLs.filter { sourceURL in
+                !completedBeforeCurrentRunSourceIDs.contains(
+                    ContentViewModelSupport.sourceIdentifier(for: sourceURL)
+                )
+            }
+
+            let remainingIndex = currentBatchIndex - 1
+            guard activeBatchSourceURLs.indices.contains(remainingIndex) else {
+                return nil
+            }
+
+            return ContentViewModelSupport.sourceIdentifier(for: activeBatchSourceURLs[remainingIndex])
+        }
     }
 
     func selectedSourceURLs(using snapshot: MediaStateSnapshot) -> [URL] {
