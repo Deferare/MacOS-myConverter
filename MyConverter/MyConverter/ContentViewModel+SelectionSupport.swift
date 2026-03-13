@@ -9,20 +9,6 @@ extension ConverterTab {
 extension ContentViewModel {
     private static let selectionAnalysisDebounceNanoseconds: UInt64 = 200_000_000
 
-    struct MediaSelectionWorkflowDescriptor {
-        let isConversionRunning: Bool
-        let currentPrimaryURL: URL?
-        let selectedSourceURLs: [URL]
-        let assignSelection: ([URL]) -> Void
-        let invalidatePreparedState: () -> Void
-        let cancelAnalysisTask: () -> Void
-        let resetSelectionState: () -> Void
-        let resetCompatibilityState: () -> Void
-        let applyStoredSettingsForSourceID: (String) -> Void
-        let analyzeSelection: ([URL]) -> Void
-        let onSelectionEmptied: () -> Void
-    }
-
     func uniqueStandardizedURLs(_ urls: [URL]) -> [URL] {
         ContentViewModelSupport.uniqueStandardizedURLs(urls)
     }
@@ -68,41 +54,6 @@ extension ContentViewModel {
         }
     }
 
-    func selectionWorkflowDescriptor(for kind: MediaKind) -> MediaSelectionWorkflowDescriptor {
-        let descriptor = mediaStateDescriptor(for: kind)
-
-        return MediaSelectionWorkflowDescriptor(
-            isConversionRunning: mediaStateValue(using: descriptor, \.isConverting),
-            currentPrimaryURL: mediaStateValue(using: descriptor, \.sourceURL),
-            selectedSourceURLs: selectedSourceURLs(for: kind),
-            assignSelection: { selection in
-                self.assignSelection(selection, for: kind)
-            },
-            invalidatePreparedState: {
-                self.clearPreparedSingleVideoSelection(for: kind)
-            },
-            cancelAnalysisTask: {
-                self.cancelSelectionAnalysis(for: kind)
-            },
-            resetSelectionState: {
-                self.resetConversionOutputs(for: kind)
-                self.resetSelectionCompatibilityState(for: kind)
-            },
-            resetCompatibilityState: {
-                self.resetSelectionCompatibilityState(for: kind)
-            },
-            applyStoredSettingsForSourceID: { sourceID in
-                self.applyStoredSourceSettings(for: sourceID, for: kind)
-            },
-            analyzeSelection: { selection in
-                self.scheduleSelectedSourceAnalysis(selection, for: kind)
-            },
-            onSelectionEmptied: {
-                self.restoreIdleMediaState(for: kind)
-            }
-        )
-    }
-
     func assignPrimaryAndQueuedSources(
         _ urls: [URL],
         primaryKeyPath: ReferenceWritableKeyPath<ContentViewModel, URL?>,
@@ -112,24 +63,17 @@ extension ContentViewModel {
         self[keyPath: queuedKeyPath] = Array(urls.dropFirst())
     }
 
-    func applySelectedSources(
-        _ urls: [URL],
-        using workflow: MediaSelectionWorkflowDescriptor
-    ) {
+    func applySelectedSources(_ urls: [URL], for kind: MediaKind) {
         let uniqueURLs = uniqueStandardizedURLs(urls)
         guard let primaryURL = uniqueURLs.first else { return }
 
-        workflow.invalidatePreparedState()
-        workflow.cancelAnalysisTask()
-        workflow.assignSelection(uniqueURLs)
-        workflow.resetSelectionState()
-
-        workflow.applyStoredSettingsForSourceID(sourceIdentifier(for: primaryURL))
-        workflow.analyzeSelection(uniqueURLs)
-    }
-
-    func applySelectedSources(_ urls: [URL], for kind: MediaKind) {
-        applySelectedSources(urls, using: selectionWorkflowDescriptor(for: kind))
+        clearPreparedSingleVideoSelection(for: kind)
+        cancelSelectionAnalysis(for: kind)
+        assignSelection(uniqueURLs, for: kind)
+        resetConversionOutputs(for: kind)
+        resetSelectionCompatibilityState(for: kind)
+        applyStoredSourceSettings(for: sourceIdentifier(for: primaryURL), for: kind)
+        scheduleSelectedSourceAnalysis(uniqueURLs, for: kind)
     }
 
     func applyStoredSettingsForSource<Settings>(
@@ -142,33 +86,28 @@ extension ContentViewModel {
         apply(stored)
     }
 
-    func refreshSelectionAfterPrimarySourceChange(
-        _ urls: [URL],
-        using workflow: MediaSelectionWorkflowDescriptor
-    ) {
+    func refreshSelectionAfterPrimarySourceChange(_ urls: [URL], for kind: MediaKind) {
         guard let primaryURL = urls.first else { return }
 
         let primarySourceID = sourceIdentifier(for: primaryURL)
-        guard workflow.currentPrimaryURL.map(sourceIdentifier(for:)) != primarySourceID else {
+        let descriptor = mediaStateDescriptor(for: kind)
+        guard mediaStateValue(using: descriptor, \.sourceURL).map(sourceIdentifier(for:)) != primarySourceID else {
             return
         }
 
-        workflow.invalidatePreparedState()
-        workflow.cancelAnalysisTask()
-        workflow.resetCompatibilityState()
-        workflow.applyStoredSettingsForSourceID(primarySourceID)
-        workflow.analyzeSelection(urls)
+        clearPreparedSingleVideoSelection(for: kind)
+        cancelSelectionAnalysis(for: kind)
+        resetSelectionCompatibilityState(for: kind)
+        applyStoredSourceSettings(for: primarySourceID, for: kind)
+        scheduleSelectedSourceAnalysis(urls, for: kind)
     }
 
-    func removeProcessedSource(
-        _ processedURL: URL,
-        using workflow: MediaSelectionWorkflowDescriptor
-    ) {
+    func removeProcessedSource(_ processedURL: URL, for kind: MediaKind) {
         let processedID = sourceIdentifier(for: processedURL)
-        let remainingSources = workflow.selectedSourceURLs.filter { sourceIdentifier(for: $0) != processedID }
-        workflow.assignSelection(remainingSources)
+        let remainingSources = selectedSourceURLs(for: kind).filter { sourceIdentifier(for: $0) != processedID }
+        assignSelection(remainingSources, for: kind)
         guard !remainingSources.isEmpty else {
-            workflow.onSelectionEmptied()
+            restoreIdleMediaState(for: kind)
             return
         }
     }

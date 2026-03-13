@@ -3,18 +3,18 @@ import SwiftUI
 
 extension ContentViewModel {
     func moveSelectedSource(from draggedURL: URL, to targetURL: URL, for kind: MediaKind) {
-        let workflow = selectionWorkflowDescriptor(for: kind)
-        guard !workflow.isConversionRunning else { return }
+        let descriptor = mediaStateDescriptor(for: kind)
+        guard !mediaStateValue(using: descriptor, \.isConverting) else { return }
         guard let reordered = reorderedURLsByMoving(
             draggedURL,
             to: targetURL,
-            in: workflow.selectedSourceURLs
+            in: selectedSourceURLs(for: kind)
         ) else {
             return
         }
 
-        workflow.assignSelection(reordered)
-        refreshSelectionAfterPrimarySourceChange(reordered, using: workflow)
+        assignSelection(reordered, for: kind)
+        refreshSelectionAfterPrimarySourceChange(reordered, for: kind)
     }
 
     func reorderedURLsByMoving(_ draggedURL: URL, to targetURL: URL, in urls: [URL]) -> [URL]? {
