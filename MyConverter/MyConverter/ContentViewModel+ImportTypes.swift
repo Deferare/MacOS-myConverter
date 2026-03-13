@@ -26,76 +26,88 @@ extension ContentViewModel {
 }
 
 extension ContentViewModel.MediaKind {
+    private func videoDescriptor() -> ContentViewModel.MediaDescriptor {
+        ContentViewModel.MediaDescriptor(
+            sidebarSystemImage: "film",
+            outputDirectoryURL: \.selectedVideoOutputDirectoryURL,
+            selectedOutputFormatLabel: { viewModel in
+                viewModel.selectedOutputFormatLabel(using: viewModel.videoOutputFormatDescriptor())
+            },
+            saveSettingsFailureContext: "Failed to persist video settings",
+            loadSettingsFailureContext: "Failed to load persisted video settings",
+            conversionMetadata: ContentViewModel.ConversionMetadata(
+                outputLabel: "Video",
+                missingSourceLog: "No file to convert.",
+                destinationErrorCode: -1001,
+                skippedSummaryPrefix: "Some video files were skipped:",
+                treatExportCancellationAsCancelled: true,
+                errorLogPrefix: "Conversion failed",
+                includeDebugInfo: true
+            ),
+            acceptsInput: ContentViewModelSupport.isVideoInputURL(_:),
+            preferredImportTypes: { [.movie, .video, $0].compactMap { $0 } },
+            availableImportSources: { [.photoLibrary, .files] }
+        )
+    }
+
+    private func imageDescriptor() -> ContentViewModel.MediaDescriptor {
+        ContentViewModel.MediaDescriptor(
+            sidebarSystemImage: "photo",
+            outputDirectoryURL: \.selectedImageOutputDirectoryURL,
+            selectedOutputFormatLabel: { viewModel in
+                viewModel.selectedOutputFormatLabel(using: viewModel.imageOutputFormatDescriptor())
+            },
+            saveSettingsFailureContext: "Failed to persist image settings",
+            loadSettingsFailureContext: "Failed to load persisted image settings",
+            conversionMetadata: ContentViewModel.ConversionMetadata(
+                outputLabel: "Image",
+                missingSourceLog: "No image file to convert.",
+                destinationErrorCode: -1002,
+                skippedSummaryPrefix: "Some image files were skipped:",
+                treatExportCancellationAsCancelled: false,
+                errorLogPrefix: "Image conversion failed",
+                includeDebugInfo: false
+            ),
+            acceptsInput: ContentViewModelSupport.isImageInputURL(_:),
+            preferredImportTypes: { _ in [.image] },
+            availableImportSources: { [.photoLibrary, .files] }
+        )
+    }
+
+    private func audioDescriptor() -> ContentViewModel.MediaDescriptor {
+        ContentViewModel.MediaDescriptor(
+            sidebarSystemImage: "waveform",
+            outputDirectoryURL: \.selectedAudioOutputDirectoryURL,
+            selectedOutputFormatLabel: { viewModel in
+                viewModel.selectedOutputFormatLabel(using: viewModel.audioOutputFormatDescriptor())
+            },
+            saveSettingsFailureContext: "Failed to persist audio settings",
+            loadSettingsFailureContext: "Failed to load persisted audio settings",
+            conversionMetadata: ContentViewModel.ConversionMetadata(
+                outputLabel: "Audio",
+                missingSourceLog: "No audio file to convert.",
+                destinationErrorCode: -1003,
+                skippedSummaryPrefix: "Some audio files were skipped:",
+                treatExportCancellationAsCancelled: true,
+                errorLogPrefix: "Audio conversion failed",
+                includeDebugInfo: false
+            ),
+            acceptsInput: ContentViewModelSupport.isAudioInputURL(_:),
+            preferredImportTypes: {
+                [.audio, .movie, .video, .audiovisualContent, $0].compactMap { $0 }
+            },
+            availableImportSources: { [.files] }
+        )
+    }
+
     var descriptor: ContentViewModel.MediaDescriptor {
         switch self {
         case .video:
-            return ContentViewModel.MediaDescriptor(
-                sidebarSystemImage: "film",
-                outputDirectoryURL: \.selectedVideoOutputDirectoryURL,
-                selectedOutputFormatLabel: { viewModel in
-                    viewModel.selectedOutputFormatLabel(using: viewModel.videoOutputFormatDescriptor())
-                },
-                saveSettingsFailureContext: "Failed to persist video settings",
-                loadSettingsFailureContext: "Failed to load persisted video settings",
-                conversionMetadata: ContentViewModel.ConversionMetadata(
-                    outputLabel: "Video",
-                    missingSourceLog: "No file to convert.",
-                    destinationErrorCode: -1001,
-                    skippedSummaryPrefix: "Some video files were skipped:",
-                    treatExportCancellationAsCancelled: true,
-                    errorLogPrefix: "Conversion failed",
-                    includeDebugInfo: true
-                ),
-                acceptsInput: ContentViewModelSupport.isVideoInputURL(_:),
-                preferredImportTypes: { [.movie, .video, $0].compactMap { $0 } },
-                availableImportSources: { [.photoLibrary, .files] }
-            )
+            return videoDescriptor()
         case .image:
-            return ContentViewModel.MediaDescriptor(
-                sidebarSystemImage: "photo",
-                outputDirectoryURL: \.selectedImageOutputDirectoryURL,
-                selectedOutputFormatLabel: { viewModel in
-                    viewModel.selectedOutputFormatLabel(using: viewModel.imageOutputFormatDescriptor())
-                },
-                saveSettingsFailureContext: "Failed to persist image settings",
-                loadSettingsFailureContext: "Failed to load persisted image settings",
-                conversionMetadata: ContentViewModel.ConversionMetadata(
-                    outputLabel: "Image",
-                    missingSourceLog: "No image file to convert.",
-                    destinationErrorCode: -1002,
-                    skippedSummaryPrefix: "Some image files were skipped:",
-                    treatExportCancellationAsCancelled: false,
-                    errorLogPrefix: "Image conversion failed",
-                    includeDebugInfo: false
-                ),
-                acceptsInput: ContentViewModelSupport.isImageInputURL(_:),
-                preferredImportTypes: { _ in [.image] },
-                availableImportSources: { [.photoLibrary, .files] }
-            )
+            return imageDescriptor()
         case .audio:
-            return ContentViewModel.MediaDescriptor(
-                sidebarSystemImage: "waveform",
-                outputDirectoryURL: \.selectedAudioOutputDirectoryURL,
-                selectedOutputFormatLabel: { viewModel in
-                    viewModel.selectedOutputFormatLabel(using: viewModel.audioOutputFormatDescriptor())
-                },
-                saveSettingsFailureContext: "Failed to persist audio settings",
-                loadSettingsFailureContext: "Failed to load persisted audio settings",
-                conversionMetadata: ContentViewModel.ConversionMetadata(
-                    outputLabel: "Audio",
-                    missingSourceLog: "No audio file to convert.",
-                    destinationErrorCode: -1003,
-                    skippedSummaryPrefix: "Some audio files were skipped:",
-                    treatExportCancellationAsCancelled: true,
-                    errorLogPrefix: "Audio conversion failed",
-                    includeDebugInfo: false
-                ),
-                acceptsInput: ContentViewModelSupport.isAudioInputURL(_:),
-                preferredImportTypes: {
-                    [.audio, .movie, .video, .audiovisualContent, $0].compactMap { $0 }
-                },
-                availableImportSources: { [.files] }
-            )
+            return audioDescriptor()
         }
     }
 
@@ -149,8 +161,9 @@ extension ContentViewModel {
     }
 
     func requestImport(for kind: MediaKind) {
-        guard let fallbackSource = availableImportSources(for: kind).first(where: { $0 == .files })
-            ?? availableImportSources(for: kind).first else {
+        let importSources = availableImportSources(for: kind)
+        guard let fallbackSource = importSources.first(where: { $0 == .files })
+            ?? importSources.first else {
             return
         }
 
