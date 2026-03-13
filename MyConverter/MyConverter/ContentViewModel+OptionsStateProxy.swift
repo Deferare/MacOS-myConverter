@@ -6,15 +6,17 @@ extension ContentViewModel {
         let persistKind: MediaKind
     }
 
-    private enum OptionWriteAction {
-        case persist(MediaKind)
-        case deferred(DeferredPersistenceAction)
+    private struct OptionWriteAction {
+        let apply: (ContentViewModel) -> Void
 
-        func apply(to viewModel: ContentViewModel) {
-            switch self {
-            case .persist(let kind):
+        static func persist(_ kind: MediaKind) -> Self {
+            Self { viewModel in
                 viewModel.persistCurrentSourceSettingsIfNeeded(for: kind)
-            case .deferred(let action):
+            }
+        }
+
+        static func deferred(_ action: DeferredPersistenceAction) -> Self {
+            Self { viewModel in
                 viewModel.scheduleDeferredPersistenceAction(action)
             }
         }
@@ -64,7 +66,7 @@ extension ContentViewModel {
         using action: OptionWriteAction
     ) {
         setOptionValue(in: descriptor, valueKeyPath, to: newValue) {
-            action.apply(to: self)
+            action.apply(self)
         }
     }
 
@@ -106,7 +108,12 @@ extension ContentViewModel {
         _ valueKeyPath: WritableKeyPath<State, Value>,
         to newValue: Value
     ) {
-        setOptionValue(in: descriptor, valueKeyPath, to: newValue, using: .persist(descriptor.persistKind))
+        setOptionValue(
+            in: descriptor,
+            valueKeyPath,
+            to: newValue,
+            using: .persist(descriptor.persistKind)
+        )
     }
 
     private func deferOption<State, Value: Equatable>(
