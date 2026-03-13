@@ -123,27 +123,7 @@ struct ContentView: View {
                 }
             }
         )
-
-        switch kind {
-        case .video:
-            VideoConverterFormSectionView(
-                state: viewModel.videoFormPresentationState(),
-                bindings: viewModel.videoFormBindings()
-            )
-            .equatable()
-        case .image:
-            ImageConverterFormSectionView(
-                state: viewModel.imageFormPresentationState(),
-                bindings: viewModel.imageFormBindings()
-            )
-            .equatable()
-        case .audio:
-            AudioConverterFormSectionView(
-                state: viewModel.audioFormPresentationState(),
-                bindings: viewModel.audioFormBindings()
-            )
-            .equatable()
-        }
+        MediaFormSectionContent(kind: kind, viewModel: viewModel)
     }
 
 }

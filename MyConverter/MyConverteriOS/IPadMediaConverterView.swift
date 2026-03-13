@@ -281,24 +281,7 @@ struct IPadMediaConverterView: View {
                         }
                     }
                 )
-
-                switch kind {
-                case .video:
-                    VideoConverterFormSectionView(
-                        state: viewModel.videoFormPresentationState(),
-                        bindings: viewModel.videoFormBindings()
-                    )
-                case .image:
-                    ImageConverterFormSectionView(
-                        state: viewModel.imageFormPresentationState(),
-                        bindings: viewModel.imageFormBindings()
-                    )
-                case .audio:
-                    AudioConverterFormSectionView(
-                        state: viewModel.audioFormPresentationState(),
-                        bindings: viewModel.audioFormBindings()
-                    )
-                }
+                MediaFormSectionContent(kind: kind, viewModel: viewModel)
             }
         }
         .padding(Metrics.panelPadding)
