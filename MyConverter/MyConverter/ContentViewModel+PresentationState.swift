@@ -90,6 +90,15 @@ extension ContentViewModel {
         Binding(get: get, set: set)
     }
 
+    private func binding<Value>(
+        to keyPath: ReferenceWritableKeyPath<ContentViewModel, Value>
+    ) -> Binding<Value> {
+        binding(
+            get: { self[keyPath: keyPath] },
+            set: { self[keyPath: keyPath] = $0 }
+        )
+    }
+
     func videoFormPresentationState() -> VideoFormPresentationState {
         VideoFormPresentationState(
             isConverting: isConverting,
@@ -118,50 +127,17 @@ extension ContentViewModel {
 
     func videoFormBindings() -> VideoFormBindings {
         VideoFormBindings(
-            selectedOutputFormat: binding(
-                get: { self.selectedOutputFormat },
-                set: { self.selectedOutputFormat = $0 }
-            ),
-            selectedVideoEncoder: binding(
-                get: { self.selectedVideoEncoder },
-                set: { self.selectedVideoEncoder = $0 }
-            ),
-            selectedResolution: binding(
-                get: { self.selectedResolution },
-                set: { self.selectedResolution = $0 }
-            ),
-            selectedFrameRate: binding(
-                get: { self.selectedFrameRate },
-                set: { self.selectedFrameRate = $0 }
-            ),
-            selectedGIFPlaybackSpeed: binding(
-                get: { self.selectedGIFPlaybackSpeed },
-                set: { self.selectedGIFPlaybackSpeed = $0 }
-            ),
-            selectedVideoBitRate: binding(
-                get: { self.selectedVideoBitRate },
-                set: { self.selectedVideoBitRate = $0 }
-            ),
-            customVideoBitRate: binding(
-                get: { self.customVideoBitRate },
-                set: { self.customVideoBitRate = $0 }
-            ),
-            selectedAudioEncoder: binding(
-                get: { self.selectedAudioEncoder },
-                set: { self.selectedAudioEncoder = $0 }
-            ),
-            selectedAudioMode: binding(
-                get: { self.selectedAudioMode },
-                set: { self.selectedAudioMode = $0 }
-            ),
-            selectedSampleRate: binding(
-                get: { self.selectedSampleRate },
-                set: { self.selectedSampleRate = $0 }
-            ),
-            selectedAudioBitRate: binding(
-                get: { self.selectedAudioBitRate },
-                set: { self.selectedAudioBitRate = $0 }
-            )
+            selectedOutputFormat: binding(to: \.selectedOutputFormat),
+            selectedVideoEncoder: binding(to: \.selectedVideoEncoder),
+            selectedResolution: binding(to: \.selectedResolution),
+            selectedFrameRate: binding(to: \.selectedFrameRate),
+            selectedGIFPlaybackSpeed: binding(to: \.selectedGIFPlaybackSpeed),
+            selectedVideoBitRate: binding(to: \.selectedVideoBitRate),
+            customVideoBitRate: binding(to: \.customVideoBitRate),
+            selectedAudioEncoder: binding(to: \.selectedAudioEncoder),
+            selectedAudioMode: binding(to: \.selectedAudioMode),
+            selectedSampleRate: binding(to: \.selectedSampleRate),
+            selectedAudioBitRate: binding(to: \.selectedAudioBitRate)
         )
     }
 
@@ -183,26 +159,11 @@ extension ContentViewModel {
 
     func imageFormBindings() -> ImageFormBindings {
         ImageFormBindings(
-            selectedOutputFormat: binding(
-                get: { self.selectedImageOutputFormat },
-                set: { self.selectedImageOutputFormat = $0 }
-            ),
-            selectedResolution: binding(
-                get: { self.selectedImageResolution },
-                set: { self.selectedImageResolution = $0 }
-            ),
-            selectedQuality: binding(
-                get: { self.selectedImageQuality },
-                set: { self.selectedImageQuality = $0 }
-            ),
-            selectedPNGCompressionLevel: binding(
-                get: { self.selectedPNGCompressionLevel },
-                set: { self.selectedPNGCompressionLevel = $0 }
-            ),
-            preserveAnimation: binding(
-                get: { self.preserveImageAnimation },
-                set: { self.preserveImageAnimation = $0 }
-            )
+            selectedOutputFormat: binding(to: \.selectedImageOutputFormat),
+            selectedResolution: binding(to: \.selectedImageResolution),
+            selectedQuality: binding(to: \.selectedImageQuality),
+            selectedPNGCompressionLevel: binding(to: \.selectedPNGCompressionLevel),
+            preserveAnimation: binding(to: \.preserveImageAnimation)
         )
     }
 
@@ -224,26 +185,11 @@ extension ContentViewModel {
 
     func audioFormBindings() -> AudioFormBindings {
         AudioFormBindings(
-            selectedOutputFormat: binding(
-                get: { self.selectedAudioOutputFormat },
-                set: { self.selectedAudioOutputFormat = $0 }
-            ),
-            selectedOutputEncoder: binding(
-                get: { self.selectedAudioOutputEncoder },
-                set: { self.selectedAudioOutputEncoder = $0 }
-            ),
-            selectedOutputMode: binding(
-                get: { self.selectedAudioOutputMode },
-                set: { self.selectedAudioOutputMode = $0 }
-            ),
-            selectedOutputSampleRate: binding(
-                get: { self.selectedAudioOutputSampleRate },
-                set: { self.selectedAudioOutputSampleRate = $0 }
-            ),
-            selectedOutputBitRate: binding(
-                get: { self.selectedAudioOutputBitRate },
-                set: { self.selectedAudioOutputBitRate = $0 }
-            )
+            selectedOutputFormat: binding(to: \.selectedAudioOutputFormat),
+            selectedOutputEncoder: binding(to: \.selectedAudioOutputEncoder),
+            selectedOutputMode: binding(to: \.selectedAudioOutputMode),
+            selectedOutputSampleRate: binding(to: \.selectedAudioOutputSampleRate),
+            selectedOutputBitRate: binding(to: \.selectedAudioOutputBitRate)
         )
     }
 }
