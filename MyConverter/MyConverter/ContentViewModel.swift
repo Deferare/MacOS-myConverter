@@ -7,11 +7,18 @@ enum ConverterTab: String, CaseIterable, Identifiable, Hashable {
     case image
     case about
 
+    static let mediaTabs: [Self] = [.video, .audio, .image]
+    static let appTabs: [Self] = [.about]
+
     var id: String { rawValue }
 
     var title: String { mediaKind?.sidebarTitle ?? "About" }
 
     var systemImage: String { mediaKind?.sidebarSystemImage ?? "info.circle" }
+
+    init(kind: ContentViewModel.MediaKind) {
+        self = Self(rawValue: kind.rawValue) ?? .video
+    }
 }
 
 @MainActor

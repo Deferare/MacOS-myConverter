@@ -3,9 +3,6 @@ import SwiftUI
 struct SidebarView: View {
     @Binding var selectedTab: ConverterTab
 
-    private let mediaTabs: [ConverterTab] = [.video, .audio, .image]
-    private let appTabs: [ConverterTab] = [.about]
-
     private var sidebarSelectionTint: Color {
         selectedTab.mediaKind?.liquidGlassTint ?? .accentColor
     }
@@ -13,11 +10,11 @@ struct SidebarView: View {
     var body: some View {
         List(selection: $selectedTab) {
             Section("Media") {
-                sidebarTabItems(for: mediaTabs)
+                sidebarTabItems(for: ConverterTab.mediaTabs)
             }
 
             Section("App") {
-                sidebarTabItems(for: appTabs)
+                sidebarTabItems(for: ConverterTab.appTabs)
             }
         }
         .listStyle(.sidebar)

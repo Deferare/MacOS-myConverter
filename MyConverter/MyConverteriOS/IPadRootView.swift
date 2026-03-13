@@ -9,13 +9,40 @@ struct IOSRegularRootContent: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             TabSection("Media") {
-                IOSMediaRootTabItem(kind: .video, viewModel: viewModel)
-                IOSMediaRootTabItem(kind: .audio, viewModel: viewModel)
-                IOSMediaRootTabItem(kind: .image, viewModel: viewModel)
+                Tab(ConverterTab.video.title, systemImage: ConverterTab.video.systemImage, value: ConverterTab.video) {
+                    NavigationStack {
+                        IPadMediaConverterView(
+                            kind: .video,
+                            viewModel: viewModel
+                        )
+                    }
+                }
+
+                Tab(ConverterTab.audio.title, systemImage: ConverterTab.audio.systemImage, value: ConverterTab.audio) {
+                    NavigationStack {
+                        IPadMediaConverterView(
+                            kind: .audio,
+                            viewModel: viewModel
+                        )
+                    }
+                }
+
+                Tab(ConverterTab.image.title, systemImage: ConverterTab.image.systemImage, value: ConverterTab.image) {
+                    NavigationStack {
+                        IPadMediaConverterView(
+                            kind: .image,
+                            viewModel: viewModel
+                        )
+                    }
+                }
             }
 
             TabSection("App") {
-                IOSAboutRootTabItem(donationStore: donationStore)
+                Tab(ConverterTab.about.title, systemImage: ConverterTab.about.systemImage, value: ConverterTab.about) {
+                    NavigationStack {
+                        IPadAboutView(donationStore: donationStore)
+                    }
+                }
             }
         }
         .tabViewStyle(.sidebarAdaptable)

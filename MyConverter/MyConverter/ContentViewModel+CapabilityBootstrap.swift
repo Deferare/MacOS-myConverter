@@ -140,6 +140,11 @@ extension ContentViewModel {
         scheduleCapabilityBootstrap(for: [kind])
     }
 
+    func scheduleCapabilityBootstrap(for selectedTab: ConverterTab) {
+        guard let kind = selectedTab.mediaKind else { return }
+        scheduleCapabilityBootstrap(for: kind)
+    }
+
     func scheduleCapabilityBootstrap(for kinds: [MediaKind]) {
         let requestedKinds = uniqueMediaKinds(kinds)
         guard !requestedKinds.isEmpty else { return }

@@ -21,8 +21,7 @@ struct ContentView: View {
     var body: some View {
         rootNavigationView
             .task(id: selectedTab) {
-                guard let kind = selectedTab.mediaKind else { return }
-                viewModel.scheduleCapabilityBootstrap(for: kind)
+                viewModel.scheduleCapabilityBootstrap(for: selectedTab)
             }
             .fileImporter(
                 isPresented: $viewModel.isImporting,
