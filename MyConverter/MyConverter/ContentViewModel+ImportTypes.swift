@@ -42,7 +42,7 @@ extension ContentViewModel {
 }
 
 extension ContentViewModel.MediaKind {
-    private func makeMediaDescriptor(
+    private static func makeMediaDescriptor(
         sidebarSystemImage: String,
         outputDirectoryURL: ReferenceWritableKeyPath<ContentViewModel, URL?>,
         selectedOutputFormatLabel: @escaping (ContentViewModel) -> String,
@@ -68,7 +68,7 @@ extension ContentViewModel.MediaKind {
         )
     }
 
-    private func imageIOSImportDescriptor() -> ContentViewModel.IOSImportDescriptor {
+    private static func imageIOSImportDescriptor() -> ContentViewModel.IOSImportDescriptor {
         ContentViewModel.IOSImportDescriptor(
             photoLibraryFilter: .images,
             preferredPhotoLibraryItemTypeIdentifiers: [UTType.image.identifier],
@@ -76,7 +76,7 @@ extension ContentViewModel.MediaKind {
         )
     }
 
-    private func videoIOSImportDescriptor() -> ContentViewModel.IOSImportDescriptor {
+    private static func videoIOSImportDescriptor() -> ContentViewModel.IOSImportDescriptor {
         ContentViewModel.IOSImportDescriptor(
             photoLibraryFilter: .videos,
             preferredPhotoLibraryItemTypeIdentifiers: [
@@ -88,7 +88,7 @@ extension ContentViewModel.MediaKind {
         )
     }
 
-    private func audioIOSImportDescriptor() -> ContentViewModel.IOSImportDescriptor {
+    private static func audioIOSImportDescriptor() -> ContentViewModel.IOSImportDescriptor {
         ContentViewModel.IOSImportDescriptor(
             photoLibraryFilter: .none,
             preferredPhotoLibraryItemTypeIdentifiers: [UTType.audio.identifier],
@@ -96,8 +96,7 @@ extension ContentViewModel.MediaKind {
         )
     }
 
-    private func videoDescriptor() -> ContentViewModel.MediaDescriptor {
-        makeMediaDescriptor(
+    private static let videoDescriptor = makeMediaDescriptor(
             sidebarSystemImage: "film",
             outputDirectoryURL: \.selectedVideoOutputDirectoryURL,
             selectedOutputFormatLabel: { viewModel in
@@ -119,10 +118,8 @@ extension ContentViewModel.MediaKind {
             availableImportSources: { [.photoLibrary, .files] },
             iosImportDescriptor: videoIOSImportDescriptor()
         )
-    }
 
-    private func imageDescriptor() -> ContentViewModel.MediaDescriptor {
-        makeMediaDescriptor(
+    private static let imageDescriptor = makeMediaDescriptor(
             sidebarSystemImage: "photo",
             outputDirectoryURL: \.selectedImageOutputDirectoryURL,
             selectedOutputFormatLabel: { viewModel in
@@ -144,10 +141,8 @@ extension ContentViewModel.MediaKind {
             availableImportSources: { [.photoLibrary, .files] },
             iosImportDescriptor: imageIOSImportDescriptor()
         )
-    }
 
-    private func audioDescriptor() -> ContentViewModel.MediaDescriptor {
-        makeMediaDescriptor(
+    private static let audioDescriptor = makeMediaDescriptor(
             sidebarSystemImage: "waveform",
             outputDirectoryURL: \.selectedAudioOutputDirectoryURL,
             selectedOutputFormatLabel: { viewModel in
@@ -171,16 +166,15 @@ extension ContentViewModel.MediaKind {
             availableImportSources: { [.files] },
             iosImportDescriptor: audioIOSImportDescriptor()
         )
-    }
 
     var descriptor: ContentViewModel.MediaDescriptor {
         switch self {
         case .video:
-            return videoDescriptor()
+            return Self.videoDescriptor
         case .image:
-            return imageDescriptor()
+            return Self.imageDescriptor
         case .audio:
-            return audioDescriptor()
+            return Self.audioDescriptor
         }
     }
 
