@@ -68,33 +68,57 @@ extension ContentViewModel.MediaKind {
         )
     }
 
-    private static func imageIOSImportDescriptor() -> ContentViewModel.IOSImportDescriptor {
-        ContentViewModel.IOSImportDescriptor(
-            photoLibraryFilter: .images,
-            preferredPhotoLibraryItemTypeIdentifiers: [UTType.image.identifier],
-            temporaryImportFallbackFileExtension: "jpg"
-        )
-    }
+    private static let imageIOSImportDescriptor = ContentViewModel.IOSImportDescriptor(
+        photoLibraryFilter: .images,
+        preferredPhotoLibraryItemTypeIdentifiers: [UTType.image.identifier],
+        temporaryImportFallbackFileExtension: "jpg"
+    )
 
-    private static func videoIOSImportDescriptor() -> ContentViewModel.IOSImportDescriptor {
-        ContentViewModel.IOSImportDescriptor(
-            photoLibraryFilter: .videos,
-            preferredPhotoLibraryItemTypeIdentifiers: [
-                UTType.movie.identifier,
-                UTType.video.identifier,
-                UTType.audiovisualContent.identifier
-            ],
-            temporaryImportFallbackFileExtension: "mov"
-        )
-    }
+    private static let videoIOSImportDescriptor = ContentViewModel.IOSImportDescriptor(
+        photoLibraryFilter: .videos,
+        preferredPhotoLibraryItemTypeIdentifiers: [
+            UTType.movie.identifier,
+            UTType.video.identifier,
+            UTType.audiovisualContent.identifier
+        ],
+        temporaryImportFallbackFileExtension: "mov"
+    )
 
-    private static func audioIOSImportDescriptor() -> ContentViewModel.IOSImportDescriptor {
-        ContentViewModel.IOSImportDescriptor(
-            photoLibraryFilter: .none,
-            preferredPhotoLibraryItemTypeIdentifiers: [UTType.audio.identifier],
-            temporaryImportFallbackFileExtension: "m4a"
-        )
-    }
+    private static let audioIOSImportDescriptor = ContentViewModel.IOSImportDescriptor(
+        photoLibraryFilter: .none,
+        preferredPhotoLibraryItemTypeIdentifiers: [UTType.audio.identifier],
+        temporaryImportFallbackFileExtension: "m4a"
+    )
+
+    private static let videoConversionMetadata = ContentViewModel.ConversionMetadata(
+        outputLabel: "Video",
+        missingSourceLog: "No file to convert.",
+        destinationErrorCode: -1001,
+        skippedSummaryPrefix: "Some video files were skipped:",
+        treatExportCancellationAsCancelled: true,
+        errorLogPrefix: "Conversion failed",
+        includeDebugInfo: true
+    )
+
+    private static let imageConversionMetadata = ContentViewModel.ConversionMetadata(
+        outputLabel: "Image",
+        missingSourceLog: "No image file to convert.",
+        destinationErrorCode: -1002,
+        skippedSummaryPrefix: "Some image files were skipped:",
+        treatExportCancellationAsCancelled: false,
+        errorLogPrefix: "Image conversion failed",
+        includeDebugInfo: false
+    )
+
+    private static let audioConversionMetadata = ContentViewModel.ConversionMetadata(
+        outputLabel: "Audio",
+        missingSourceLog: "No audio file to convert.",
+        destinationErrorCode: -1003,
+        skippedSummaryPrefix: "Some audio files were skipped:",
+        treatExportCancellationAsCancelled: true,
+        errorLogPrefix: "Audio conversion failed",
+        includeDebugInfo: false
+    )
 
     private static let videoDescriptor = makeMediaDescriptor(
             sidebarSystemImage: "film",
@@ -104,19 +128,11 @@ extension ContentViewModel.MediaKind {
             },
             saveSettingsFailureContext: "Failed to persist video settings",
             loadSettingsFailureContext: "Failed to load persisted video settings",
-            conversionMetadata: ContentViewModel.ConversionMetadata(
-                outputLabel: "Video",
-                missingSourceLog: "No file to convert.",
-                destinationErrorCode: -1001,
-                skippedSummaryPrefix: "Some video files were skipped:",
-                treatExportCancellationAsCancelled: true,
-                errorLogPrefix: "Conversion failed",
-                includeDebugInfo: true
-            ),
+            conversionMetadata: videoConversionMetadata,
             acceptsInput: ContentViewModelSupport.isVideoInputURL(_:),
             preferredImportTypes: { [.movie, .video, $0].compactMap { $0 } },
             availableImportSources: { [.photoLibrary, .files] },
-            iosImportDescriptor: videoIOSImportDescriptor()
+            iosImportDescriptor: videoIOSImportDescriptor
         )
 
     private static let imageDescriptor = makeMediaDescriptor(
@@ -127,19 +143,11 @@ extension ContentViewModel.MediaKind {
             },
             saveSettingsFailureContext: "Failed to persist image settings",
             loadSettingsFailureContext: "Failed to load persisted image settings",
-            conversionMetadata: ContentViewModel.ConversionMetadata(
-                outputLabel: "Image",
-                missingSourceLog: "No image file to convert.",
-                destinationErrorCode: -1002,
-                skippedSummaryPrefix: "Some image files were skipped:",
-                treatExportCancellationAsCancelled: false,
-                errorLogPrefix: "Image conversion failed",
-                includeDebugInfo: false
-            ),
+            conversionMetadata: imageConversionMetadata,
             acceptsInput: ContentViewModelSupport.isImageInputURL(_:),
             preferredImportTypes: { _ in [.image] },
             availableImportSources: { [.photoLibrary, .files] },
-            iosImportDescriptor: imageIOSImportDescriptor()
+            iosImportDescriptor: imageIOSImportDescriptor
         )
 
     private static let audioDescriptor = makeMediaDescriptor(
@@ -150,32 +158,23 @@ extension ContentViewModel.MediaKind {
             },
             saveSettingsFailureContext: "Failed to persist audio settings",
             loadSettingsFailureContext: "Failed to load persisted audio settings",
-            conversionMetadata: ContentViewModel.ConversionMetadata(
-                outputLabel: "Audio",
-                missingSourceLog: "No audio file to convert.",
-                destinationErrorCode: -1003,
-                skippedSummaryPrefix: "Some audio files were skipped:",
-                treatExportCancellationAsCancelled: true,
-                errorLogPrefix: "Audio conversion failed",
-                includeDebugInfo: false
-            ),
+            conversionMetadata: audioConversionMetadata,
             acceptsInput: ContentViewModelSupport.isAudioInputURL(_:),
             preferredImportTypes: {
                 [.audio, .movie, .video, .audiovisualContent, $0].compactMap { $0 }
             },
             availableImportSources: { [.files] },
-            iosImportDescriptor: audioIOSImportDescriptor()
+            iosImportDescriptor: audioIOSImportDescriptor
         )
 
+    private static let descriptorsByKind: [Self: ContentViewModel.MediaDescriptor] = [
+        .video: videoDescriptor,
+        .image: imageDescriptor,
+        .audio: audioDescriptor
+    ]
+
     var descriptor: ContentViewModel.MediaDescriptor {
-        switch self {
-        case .video:
-            return Self.videoDescriptor
-        case .image:
-            return Self.imageDescriptor
-        case .audio:
-            return Self.audioDescriptor
-        }
+        Self.descriptorsByKind[self] ?? Self.videoDescriptor
     }
 
     func acceptsInput(_ url: URL) -> Bool {
