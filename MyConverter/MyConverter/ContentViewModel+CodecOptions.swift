@@ -1,6 +1,70 @@
 import Foundation
 
 extension ContentViewModel {
+    private struct AudioCodecDependencyDescriptor<State, Format> {
+        let state: StateProxyDescriptor<State>
+        let currentFormat: (ContentViewModel) -> Format
+        let availableEncoders: ReferenceWritableKeyPath<ContentViewModel, [AudioEncoderOption]>
+        let encoder: WritableKeyPath<State, AudioEncoderOption>
+        let audioMode: WritableKeyPath<State, AudioModeOption>?
+        let bitRate: WritableKeyPath<State, AudioBitRateOption>
+        let supportsAudioTrack: (Format) -> Bool
+        let includesAutoOption: (ContentViewModel, Format) -> Bool
+        let resolvedEncoders: (Format) -> [AudioEncoderOption]
+        let placeholderEncoders: (Format) -> [AudioEncoderOption]
+        let preferredEncoder: (Format, [AudioEncoderOption]) -> AudioEncoderOption?
+    }
+
+    private static let videoAudioCodecDependencyDescriptor = AudioCodecDependencyDescriptor<
+        VideoOptionsState,
+        VideoFormatOption
+    >(
+        state: StateProxyDescriptor(stateKeyPath: \.videoOptionsState),
+        currentFormat: { $0.selectedOutputFormat },
+        availableEncoders: \.availableAudioEncoders,
+        encoder: \.selectedAudioEncoder,
+        audioMode: \.selectedAudioMode,
+        bitRate: \.selectedAudioBitRate,
+        supportsAudioTrack: { $0.supportsAudioTrack },
+        includesAutoOption: { _, format in
+            format.avFileType != nil
+        },
+        resolvedEncoders: { format in
+            VideoConversionEngine.availableAudioEncoders(for: format)
+        },
+        placeholderEncoders: { format in
+            ContentViewModelSupport.placeholderVideoAudioEncoders(for: format)
+        },
+        preferredEncoder: { _, options in
+            ContentViewModelSupport.preferredAudioEncoder(from: options)
+        }
+    )
+
+    private static let audioOutputCodecDependencyDescriptor = AudioCodecDependencyDescriptor<
+        AudioOptionsState,
+        AudioFormatOption
+    >(
+        state: StateProxyDescriptor(stateKeyPath: \.audioOptionsState),
+        currentFormat: { $0.selectedAudioOutputFormat },
+        availableEncoders: \.availableAudioOutputEncoders,
+        encoder: \.selectedOutputEncoder,
+        audioMode: nil,
+        bitRate: \.selectedOutputBitRate,
+        supportsAudioTrack: { _ in true },
+        includesAutoOption: { viewModel, format in
+            viewModel.audioSourceURL == nil && format.allowsFFmpegAutomaticAudioCodec
+        },
+        resolvedEncoders: { format in
+            VideoConversionEngine.availableAudioEncoders(for: format)
+        },
+        placeholderEncoders: { format in
+            ContentViewModelSupport.placeholderAudioOutputEncoders(for: format)
+        },
+        preferredEncoder: { format, options in
+            ContentViewModelSupport.preferredAudioOutputEncoder(for: format, from: options)
+        }
+    )
+
     private func setDefaultValueIfNeeded<Value: Equatable>(
         _ value: inout Value,
         when condition: Bool,
@@ -25,55 +89,42 @@ extension ContentViewModel {
         }
     }
 
-    private func normalizeVideoCodecDependencies(
-        in state: inout VideoOptionsState,
-        format: VideoFormatOption
-    ) {
-        setDefaultValueIfNeeded(
-            &state.selectedVideoBitRate,
-            when: !state.selectedVideoEncoder.supportsVideoBitRate,
-            defaultValue: .auto
+    private func resolvedAudioEncoderOptions<State, Format>(
+        _ availableEncoders: [AudioEncoderOption],
+        for format: Format,
+        using descriptor: AudioCodecDependencyDescriptor<State, Format>
+    ) -> [AudioEncoderOption] {
+        resolvedOptions(
+            availableEncoders,
+            autoOption: .auto,
+            includesAutoOption: descriptor.includesAutoOption(self, format)
         )
+    }
 
-        guard format.supportsAudioTrack else {
-            state.selectedAudioEncoder = .auto
-            state.selectedAudioMode = .auto
-            state.selectedAudioBitRate = .auto
+    private func normalizeAudioCodecDependencies<State, Format>(
+        in state: inout State,
+        format: Format,
+        encoderOptions: [AudioEncoderOption],
+        using descriptor: AudioCodecDependencyDescriptor<State, Format>
+    ) {
+        guard descriptor.supportsAudioTrack(format) else {
+            state[keyPath: descriptor.encoder] = .auto
+            if let audioMode = descriptor.audioMode {
+                state[keyPath: audioMode] = .auto
+            }
+            state[keyPath: descriptor.bitRate] = .auto
             return
         }
 
-        setDefaultValueIfNeeded(
-            &state.selectedAudioBitRate,
-            when: !state.selectedAudioEncoder.supportsAudioBitRate,
-            defaultValue: .auto
-        )
-    }
-
-    private func normalizeAudioCodecDependencies(
-        in state: inout AudioOptionsState,
-        encoderOptions: [AudioEncoderOption],
-        preferredOption: ([AudioEncoderOption]) -> AudioEncoderOption?
-    ) {
         applyPreferredOptionIfNeeded(
             in: &state,
-            selection: \.selectedOutputEncoder,
+            selection: descriptor.encoder,
             options: encoderOptions,
-            preferredOption: preferredOption
+            preferredOption: { descriptor.preferredEncoder(format, $0) }
         )
-        setDefaultValueIfNeeded(
-            &state.selectedOutputBitRate,
-            when: !state.selectedOutputEncoder.supportsAudioBitRate,
-            defaultValue: .auto
-        )
-    }
-
-    private func preferredAudioOutputEncoderOption(
-        from options: [AudioEncoderOption]
-    ) -> AudioEncoderOption? {
-        ContentViewModelSupport.preferredAudioOutputEncoder(
-            for: selectedAudioOutputFormat,
-            from: options
-        )
+        if !state[keyPath: descriptor.encoder].supportsAudioBitRate {
+            state[keyPath: descriptor.bitRate] = .auto
+        }
     }
 
     private func preferredOptionIfNeeded<Option: Equatable>(
@@ -85,12 +136,54 @@ extension ContentViewModel {
         return preferredOption(options)
     }
 
+    private func refreshAudioCodecDependencies<State: Equatable, Format>(
+        using descriptor: AudioCodecDependencyDescriptor<State, Format>
+    ) {
+        let format = descriptor.currentFormat(self)
+        let availableEncoders = descriptor.resolvedEncoders(format)
+        let encoderOptions = resolvedAudioEncoderOptions(
+            availableEncoders,
+            for: format,
+            using: descriptor
+        )
+
+        self[keyPath: descriptor.availableEncoders] = availableEncoders
+        updateState(using: descriptor.state) { state in
+            normalizeAudioCodecDependencies(
+                in: &state,
+                format: format,
+                encoderOptions: encoderOptions,
+                using: descriptor
+            )
+        }
+    }
+
+    private func applyPlaceholderAudioCodecDependencies<State: Equatable, Format>(
+        using descriptor: AudioCodecDependencyDescriptor<State, Format>
+    ) {
+        let format = descriptor.currentFormat(self)
+        let availableEncoders = descriptor.placeholderEncoders(format)
+        let encoderOptions = resolvedAudioEncoderOptions(
+            availableEncoders,
+            for: format,
+            using: descriptor
+        )
+
+        self[keyPath: descriptor.availableEncoders] = availableEncoders
+        updateState(using: descriptor.state) { state in
+            normalizeAudioCodecDependencies(
+                in: &state,
+                format: format,
+                encoderOptions: encoderOptions,
+                using: descriptor
+            )
+        }
+    }
+
     func refreshVideoCodecOptions() {
         let format = selectedOutputFormat
         let resolvedVideoEncoders = VideoConversionEngine.availableVideoEncoders(for: format)
-        let resolvedAudioEncoders = format.supportsAudioTrack
-            ? VideoConversionEngine.availableAudioEncoders(for: format)
-            : []
+        let resolvedAudioEncoders = Self.videoAudioCodecDependencyDescriptor.resolvedEncoders(format)
         let resolvedVideoEncoderOptions = resolvedOptions(
             resolvedVideoEncoders,
             autoOption: VideoEncoderOption.auto,
@@ -99,13 +192,16 @@ extension ContentViewModel {
         let resolvedAudioEncoderOptions = format.supportsAudioTrack
             ? resolvedOptions(
                 resolvedAudioEncoders,
-                autoOption: AudioEncoderOption.auto,
-                includesAutoOption: format.avFileType != nil
+                autoOption: .auto,
+                includesAutoOption: Self.videoAudioCodecDependencyDescriptor.includesAutoOption(
+                    self,
+                    format
+                )
             )
             : []
 
         availableVideoEncoders = resolvedVideoEncoders
-        availableAudioEncoders = resolvedAudioEncoders
+        self[keyPath: Self.videoAudioCodecDependencyDescriptor.availableEncoders] = resolvedAudioEncoders
 
         updateState(\.videoOptionsState) { state in
             applyPreferredOptionIfNeeded(
@@ -123,59 +219,72 @@ extension ContentViewModel {
                     preferredOption: ContentViewModelSupport.preferredAudioEncoder(from:)
                 )
             }
-            normalizeVideoCodecDependencies(in: &state, format: format)
+            normalizeAudioCodecDependencies(
+                in: &state,
+                format: format,
+                encoderOptions: resolvedAudioEncoderOptions,
+                using: Self.videoAudioCodecDependencyDescriptor
+            )
+            if !state.selectedVideoEncoder.supportsVideoBitRate {
+                state.selectedVideoBitRate = .auto
+            }
         }
     }
 
     func applyPlaceholderVideoCodecOptions() {
         let format = selectedOutputFormat
         availableVideoEncoders = ContentViewModelSupport.placeholderVideoEncoders(for: format)
-        availableAudioEncoders = ContentViewModelSupport.placeholderVideoAudioEncoders(for: format)
-        normalizeVideoOptionDependencies()
-    }
-
-    func refreshAudioCodecOptions() {
-        let format = selectedAudioOutputFormat
-        let resolvedEncoders = VideoConversionEngine.availableAudioEncoders(for: format)
-        let resolvedEncoderOptions = resolvedOptions(
-            resolvedEncoders,
-            autoOption: AudioEncoderOption.auto,
-            includesAutoOption: audioSourceURL == nil && format.allowsFFmpegAutomaticAudioCodec
-        )
-
-        availableAudioOutputEncoders = resolvedEncoders
-
-        updateState(\.audioOptionsState) { state in
-            normalizeAudioCodecDependencies(
-                in: &state,
-                encoderOptions: resolvedEncoderOptions,
-                preferredOption: { ContentViewModelSupport.preferredAudioOutputEncoder(for: format, from: $0) }
-            )
+        applyPlaceholderAudioCodecDependencies(using: Self.videoAudioCodecDependencyDescriptor)
+        updateState(\.videoOptionsState) { state in
+            if !state.selectedVideoEncoder.supportsVideoBitRate {
+                state.selectedVideoBitRate = .auto
+            }
         }
     }
 
+    func refreshAudioCodecOptions() {
+        refreshAudioCodecDependencies(using: Self.audioOutputCodecDependencyDescriptor)
+    }
+
     func applyPlaceholderAudioCodecOptions() {
-        let format = selectedAudioOutputFormat
-        availableAudioOutputEncoders = ContentViewModelSupport.placeholderAudioOutputEncoders(
-            for: format
-        )
-        normalizeAudioOptionDependencies()
+        applyPlaceholderAudioCodecDependencies(using: Self.audioOutputCodecDependencyDescriptor)
     }
 
     func normalizeVideoOptionDependencies() {
         let format = selectedOutputFormat
+        let encoderOptions = format.supportsAudioTrack
+            ? resolvedAudioEncoderOptions(
+                availableAudioEncoders,
+                for: format,
+                using: Self.videoAudioCodecDependencyDescriptor
+            )
+            : []
         updateState(\.videoOptionsState) { state in
-            normalizeVideoCodecDependencies(in: &state, format: format)
+            normalizeAudioCodecDependencies(
+                in: &state,
+                format: format,
+                encoderOptions: encoderOptions,
+                using: Self.videoAudioCodecDependencyDescriptor
+            )
+            if !state.selectedVideoEncoder.supportsVideoBitRate {
+                state.selectedVideoBitRate = .auto
+            }
         }
     }
 
     func normalizeAudioOptionDependencies() {
-        let encoderOptions = audioOutputEncoderOptions
-        updateState(\.audioOptionsState) { state in
+        let format = Self.audioOutputCodecDependencyDescriptor.currentFormat(self)
+        let encoderOptions = resolvedAudioEncoderOptions(
+            availableAudioOutputEncoders,
+            for: format,
+            using: Self.audioOutputCodecDependencyDescriptor
+        )
+        updateState(using: Self.audioOutputCodecDependencyDescriptor.state) { state in
             normalizeAudioCodecDependencies(
                 in: &state,
+                format: format,
                 encoderOptions: encoderOptions,
-                preferredOption: preferredAudioOutputEncoderOption(from:)
+                using: Self.audioOutputCodecDependencyDescriptor
             )
         }
     }
