@@ -65,15 +65,6 @@ extension ContentViewModel {
         }
     )
 
-    private func setDefaultValueIfNeeded<Value: Equatable>(
-        _ value: inout Value,
-        when condition: Bool,
-        defaultValue: Value
-    ) {
-        guard condition else { return }
-        value = defaultValue
-    }
-
     private func applyPreferredOptionIfNeeded<State, Option: Equatable>(
         in state: inout State,
         selection: WritableKeyPath<State, Option>,
@@ -181,6 +172,25 @@ extension ContentViewModel {
     private func resetVideoBitRateIfNeeded(in state: inout VideoOptionsState) {
         guard !state.selectedVideoEncoder.supportsVideoBitRate else { return }
         state.selectedVideoBitRate = .auto
+    }
+
+    var videoAudioEncoderSelectionOptions: [AudioEncoderOption] {
+        let format = selectedOutputFormat
+        guard format.supportsAudioTrack else { return [] }
+        return resolvedAudioEncoderOptions(
+            availableAudioEncoders,
+            for: format,
+            using: Self.videoAudioCodecDependencyDescriptor
+        )
+    }
+
+    var audioOutputEncoderSelectionOptions: [AudioEncoderOption] {
+        let format = Self.audioOutputCodecDependencyDescriptor.currentFormat(self)
+        return resolvedAudioEncoderOptions(
+            availableAudioOutputEncoders,
+            for: format,
+            using: Self.audioOutputCodecDependencyDescriptor
+        )
     }
 
     func refreshVideoCodecOptions() {

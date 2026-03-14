@@ -6,12 +6,7 @@ extension ContentViewModel {
     }
 
     var audioOutputEncoderOptions: [AudioEncoderOption] {
-        resolvedOptions(
-            availableAudioOutputEncoders,
-            autoOption: AudioEncoderOption.auto,
-            includesAutoOption: audioSourceURL == nil &&
-                selectedAudioOutputFormat.allowsFFmpegAutomaticAudioCodec
-        )
+        audioOutputEncoderSelectionOptions
     }
 
     var shouldShowAudioOutputSampleRateOption: Bool {

@@ -14,14 +14,7 @@ extension ContentViewModel {
     }
 
     var audioEncoderOptions: [AudioEncoderOption] {
-        if !shouldShowAudioSettings {
-            return []
-        }
-        return resolvedOptions(
-            availableAudioEncoders,
-            autoOption: AudioEncoderOption.auto,
-            includesAutoOption: selectedOutputFormat.avFileType != nil
-        )
+        videoAudioEncoderSelectionOptions
     }
 
     var shouldShowVideoEncoderOption: Bool {
