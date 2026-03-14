@@ -20,10 +20,6 @@ extension ContentViewModel {
         return nil
     }
 
-    func compatibilityHintMessage(for kind: MediaKind) -> String? {
-        nonEmptyMessage(kind.compatibilityWarningMessage(in: self))
-    }
-
     func videoFFmpegRequirementMessage() -> String? {
         guard videoEncodingSelectionState.requiresFFmpeg,
               !VideoConversionEngine.isFFmpegAvailable() else {
@@ -88,8 +84,8 @@ extension ContentViewModel {
         firstNonEmptyMessage(
             videoRuntimeState.media.sourceURL != nil ? videoFFmpegRequirementMessage() : nil,
             customVideoBitRateValidationMessage()
-        ) ?? outputSettingsValidationMessage(
-            for: .video,
+        ) ?? MediaKind.video.outputSettingsValidationMessage(
+            in: self,
             formatDescriptor: Self.videoOutputFormatDescriptor,
             unavailableMessage: "Selected container is not available for this source."
         ) {
@@ -161,8 +157,8 @@ extension ContentViewModel {
     }
 
     func imageValidationMessage() -> String? {
-        outputSettingsValidationMessage(
-            for: .image,
+        MediaKind.image.outputSettingsValidationMessage(
+            in: self,
             formatDescriptor: Self.imageOutputFormatDescriptor,
             unavailableMessage: "Selected output format is not available for this source."
         ) {
@@ -211,12 +207,12 @@ extension ContentViewModel {
     }
 
     func audioHintMessage() -> String? {
-        compatibilityHintMessage(for: .audio)
+        MediaKind.audio.compatibilityHintMessage(in: self)
     }
 
     func audioValidationMessage() -> String? {
-        outputSettingsValidationMessage(
-            for: .audio,
+        MediaKind.audio.outputSettingsValidationMessage(
+            in: self,
             formatDescriptor: Self.audioOutputFormatDescriptor,
             unavailableMessage: "Selected output format is not available for this source."
         ) {
@@ -256,23 +252,6 @@ extension ContentViewModel {
             errorMessage: { $0.errorMessage },
             formatNormalizedID: { $0.normalizedID }
         )
-    }
-
-    func outputSettingsValidationMessage<Format>(
-        for kind: MediaKind,
-        formatDescriptor: OutputFormatDescriptor<Format>,
-        unavailableMessage: String,
-        additionalValidation: () -> String? = { nil }
-    ) -> String? {
-        if let compatibilityError = nonEmptyMessage(kind.compatibilityErrorMessage(in: self)) {
-            return compatibilityError
-        }
-
-        if kind.hasSelectedSource(in: self) && !isSelectedOutputFormatAvailable(using: formatDescriptor) {
-            return unavailableMessage
-        }
-
-        return additionalValidation()
     }
 
     func validateOutputFormatAvailability<Capability, Format>(
@@ -348,6 +327,28 @@ extension ContentViewModel {
 }
 
 extension ContentViewModel.MediaKind {
+    func compatibilityHintMessage(in viewModel: ContentViewModel) -> String? {
+        viewModel.nonEmptyMessage(compatibilityWarningMessage(in: viewModel))
+    }
+
+    func outputSettingsValidationMessage<Format>(
+        in viewModel: ContentViewModel,
+        formatDescriptor: ContentViewModel.OutputFormatDescriptor<Format>,
+        unavailableMessage: String,
+        additionalValidation: () -> String? = { nil }
+    ) -> String? {
+        if let compatibilityError = viewModel.nonEmptyMessage(compatibilityErrorMessage(in: viewModel)) {
+            return compatibilityError
+        }
+
+        if hasSelectedSource(in: viewModel) &&
+            !viewModel.isSelectedOutputFormatAvailable(using: formatDescriptor) {
+            return unavailableMessage
+        }
+
+        return additionalValidation()
+    }
+
     private struct ValidationBehavior {
         let validationMessage: (ContentViewModel) -> String?
         let hintMessage: (ContentViewModel) -> String?

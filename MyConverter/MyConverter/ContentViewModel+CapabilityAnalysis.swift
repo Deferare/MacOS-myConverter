@@ -26,38 +26,6 @@ struct AggregatedSourceCapabilities<Capability: Sendable, Format: Sendable>: Sen
 }
 
 extension ContentViewModel {
-    func analyzeSourceCompatibility<Capability: Sendable, Format: Sendable>(
-        for urls: [URL],
-        kind: MediaKind,
-        formatDescriptor: OutputFormatDescriptor<Format>,
-        resolvePreparedCapability: (@Sendable ([URL]) async -> (URL, Capability)?)? = nil,
-        fetchCapabilities: @escaping @Sendable (URL) async -> Capability,
-        availableFormats: @escaping @Sendable (Capability) -> [Format],
-        warningMessage: @escaping @Sendable (Capability) -> String?,
-        errorMessage: @escaping @Sendable (Capability) -> String?,
-        formatNormalizedID: @escaping @Sendable (Format) -> String,
-        deduplicatedAndSorted: @escaping @Sendable ([Format]) -> [Format],
-        noCommonFormatsMessage: String,
-        onCapability: @escaping (URL, Capability) -> Void = { _, _ in },
-        onFormatsResolved: @escaping ([Format]) -> Void
-    ) {
-        analyzeSourceSelection(
-            urls: urls,
-            kind: kind,
-            formatDescriptor: formatDescriptor,
-            resolvePreparedCapability: resolvePreparedCapability,
-            fetchCapabilities: fetchCapabilities,
-            availableFormats: availableFormats,
-            warningMessage: warningMessage,
-            errorMessage: errorMessage,
-            formatNormalizedID: formatNormalizedID,
-            deduplicatedAndSorted: deduplicatedAndSorted,
-            noCommonFormatsMessage: noCommonFormatsMessage,
-            onCapability: onCapability,
-            onFormatsResolved: onFormatsResolved
-        )
-    }
-
     func applyResolvedOutputFormats<Format>(
         _ resolvedFormats: [Format],
         formatDescriptor: OutputFormatDescriptor<Format>,
@@ -154,114 +122,6 @@ extension ContentViewModel {
         return aggregated
     }
 
-    func analyzeSourceSelection<Capability: Sendable, Format: Sendable>(
-        urls: [URL],
-        kind: MediaKind,
-        formatDescriptor: OutputFormatDescriptor<Format>,
-        resolvePreparedCapability: (@Sendable ([URL]) async -> (URL, Capability)?)? = nil,
-        fetchCapabilities: @escaping @Sendable (URL) async -> Capability,
-        availableFormats: @escaping @Sendable (Capability) -> [Format],
-        warningMessage: @escaping @Sendable (Capability) -> String?,
-        errorMessage: @escaping @Sendable (Capability) -> String?,
-        formatNormalizedID: @escaping @Sendable (Format) -> String,
-        deduplicatedAndSorted: @escaping @Sendable ([Format]) -> [Format],
-        noCommonFormatsMessage: String,
-        onCapability: ((URL, Capability) -> Void)? = nil,
-        onFormatsResolved: @escaping ([Format]) -> Void
-    ) {
-        let selection = ContentViewModelSupport.uniqueStandardizedURLs(urls)
-        let expectedSourceIDs = selection.map(sourceIdentifier(for:))
-        guard !selection.isEmpty else {
-            kind.resetSourceAnalysisState(in: self, formatDescriptor: formatDescriptor)
-            return
-        }
-
-        kind.cancelAnalysisTask(in: self)
-        kind.setAnalyzing(true, in: self)
-        kind.setAnalysisTask(Task { [weak self] in
-            guard let self else { return }
-            if let resolvePreparedCapability,
-               let (sourceURL, capability) = await resolvePreparedCapability(selection) {
-                guard !Task.isCancelled else { return }
-                guard kind.selectedSourceIDs(in: self) == expectedSourceIDs else { return }
-
-                onCapability?(sourceURL, capability)
-                let resolvedFormats = deduplicatedAndSorted(availableFormats(capability))
-                let joinedWarnings = ContentViewModelSupport.joinedCapabilityMessages([
-                    warningMessage(capability)
-                ].compactMap { $0 })
-
-                let joinedErrors: String?
-                if let capabilityError = errorMessage(capability) {
-                    joinedErrors = capabilityError
-                } else if selection.count > 1 && resolvedFormats.isEmpty {
-                    joinedErrors = noCommonFormatsMessage
-                } else {
-                    joinedErrors = nil
-                }
-
-                kind.applySourceAnalysisResolution(
-                    in: self,
-                    formatDescriptor: formatDescriptor,
-                    resolvedFormats: resolvedFormats,
-                    warningMessage: joinedWarnings,
-                    errorMessage: joinedErrors
-                )
-
-                onFormatsResolved(resolvedFormats)
-                return
-            }
-
-            let aggregated = await detachedTaskValue(priority: .userInitiated) {
-                await Self.aggregateSourceCapabilities(
-                    for: selection,
-                    fetchCapabilities: fetchCapabilities,
-                    availableFormats: availableFormats,
-                    warningMessage: warningMessage,
-                    errorMessage: errorMessage,
-                    intersect: { lhs, rhs in
-                        ContentViewModelSupport.intersectFormats(
-                            lhs,
-                            rhs,
-                            normalizedID: formatNormalizedID
-                        )
-                    }
-                )
-            }
-
-            guard let aggregated else {
-                return
-            }
-            guard !Task.isCancelled else { return }
-            guard kind.selectedSourceIDs(in: self) == expectedSourceIDs else { return }
-
-            aggregated.orderedResults.forEach { result in
-                onCapability?(result.source, result.capability)
-            }
-
-            let resolvedFormats = deduplicatedAndSorted(aggregated.commonFormats)
-            let joinedWarnings = ContentViewModelSupport.joinedCapabilityMessages(aggregated.warnings)
-            let joinedErrors: String?
-            if let resolvedErrors = ContentViewModelSupport.joinedCapabilityMessages(aggregated.errors) {
-                joinedErrors = resolvedErrors
-            } else if selection.count > 1 && resolvedFormats.isEmpty {
-                joinedErrors = noCommonFormatsMessage
-            } else {
-                joinedErrors = nil
-            }
-
-            kind.applySourceAnalysisResolution(
-                in: self,
-                formatDescriptor: formatDescriptor,
-                resolvedFormats: resolvedFormats,
-                warningMessage: joinedWarnings,
-                errorMessage: joinedErrors
-            )
-
-            onFormatsResolved(resolvedFormats)
-        }, in: self)
-    }
-
 }
 
 extension ContentViewModel.MediaKind {
@@ -290,15 +150,155 @@ extension ContentViewModel.MediaKind {
         )
     }
 
+    func analyzeSourceCompatibility<Capability: Sendable, Format: Sendable>(
+        in viewModel: ContentViewModel,
+        urls: [URL],
+        formatDescriptor: ContentViewModel.OutputFormatDescriptor<Format>,
+        resolvePreparedCapability: (@Sendable ([URL]) async -> (URL, Capability)?)? = nil,
+        fetchCapabilities: @escaping @Sendable (URL) async -> Capability,
+        availableFormats: @escaping @Sendable (Capability) -> [Format],
+        warningMessage: @escaping @Sendable (Capability) -> String?,
+        errorMessage: @escaping @Sendable (Capability) -> String?,
+        formatNormalizedID: @escaping @Sendable (Format) -> String,
+        deduplicatedAndSorted: @escaping @Sendable ([Format]) -> [Format],
+        noCommonFormatsMessage: String,
+        onCapability: @escaping (URL, Capability) -> Void = { _, _ in },
+        onFormatsResolved: @escaping ([Format]) -> Void
+    ) {
+        analyzeSourceSelection(
+            in: viewModel,
+            urls: urls,
+            formatDescriptor: formatDescriptor,
+            resolvePreparedCapability: resolvePreparedCapability,
+            fetchCapabilities: fetchCapabilities,
+            availableFormats: availableFormats,
+            warningMessage: warningMessage,
+            errorMessage: errorMessage,
+            formatNormalizedID: formatNormalizedID,
+            deduplicatedAndSorted: deduplicatedAndSorted,
+            noCommonFormatsMessage: noCommonFormatsMessage,
+            onCapability: onCapability,
+            onFormatsResolved: onFormatsResolved
+        )
+    }
+
+    func analyzeSourceSelection<Capability: Sendable, Format: Sendable>(
+        in viewModel: ContentViewModel,
+        urls: [URL],
+        formatDescriptor: ContentViewModel.OutputFormatDescriptor<Format>,
+        resolvePreparedCapability: (@Sendable ([URL]) async -> (URL, Capability)?)? = nil,
+        fetchCapabilities: @escaping @Sendable (URL) async -> Capability,
+        availableFormats: @escaping @Sendable (Capability) -> [Format],
+        warningMessage: @escaping @Sendable (Capability) -> String?,
+        errorMessage: @escaping @Sendable (Capability) -> String?,
+        formatNormalizedID: @escaping @Sendable (Format) -> String,
+        deduplicatedAndSorted: @escaping @Sendable ([Format]) -> [Format],
+        noCommonFormatsMessage: String,
+        onCapability: ((URL, Capability) -> Void)? = nil,
+        onFormatsResolved: @escaping ([Format]) -> Void
+    ) {
+        let selection = ContentViewModelSupport.uniqueStandardizedURLs(urls)
+        let expectedSourceIDs = selection.map(viewModel.sourceIdentifier(for:))
+        guard !selection.isEmpty else {
+            resetSourceAnalysisState(in: viewModel, formatDescriptor: formatDescriptor)
+            return
+        }
+
+        cancelAnalysisTask(in: viewModel)
+        setAnalyzing(true, in: viewModel)
+        setAnalysisTask(Task { [weak viewModel] in
+            guard let viewModel else { return }
+            if let resolvePreparedCapability,
+               let (sourceURL, capability) = await resolvePreparedCapability(selection) {
+                guard !Task.isCancelled else { return }
+                guard self.selectedSourceIDs(in: viewModel) == expectedSourceIDs else { return }
+
+                onCapability?(sourceURL, capability)
+                let resolvedFormats = deduplicatedAndSorted(availableFormats(capability))
+                let joinedWarnings = ContentViewModelSupport.joinedCapabilityMessages([
+                    warningMessage(capability)
+                ].compactMap { $0 })
+
+                let joinedErrors: String?
+                if let capabilityError = errorMessage(capability) {
+                    joinedErrors = capabilityError
+                } else if selection.count > 1 && resolvedFormats.isEmpty {
+                    joinedErrors = noCommonFormatsMessage
+                } else {
+                    joinedErrors = nil
+                }
+
+                self.applySourceAnalysisResolution(
+                    in: viewModel,
+                    formatDescriptor: formatDescriptor,
+                    resolvedFormats: resolvedFormats,
+                    warningMessage: joinedWarnings,
+                    errorMessage: joinedErrors
+                )
+
+                onFormatsResolved(resolvedFormats)
+                return
+            }
+
+            let aggregated = await detachedTaskValue(priority: .userInitiated) {
+                await ContentViewModel.aggregateSourceCapabilities(
+                    for: selection,
+                    fetchCapabilities: fetchCapabilities,
+                    availableFormats: availableFormats,
+                    warningMessage: warningMessage,
+                    errorMessage: errorMessage,
+                    intersect: { lhs, rhs in
+                        ContentViewModelSupport.intersectFormats(
+                            lhs,
+                            rhs,
+                            normalizedID: formatNormalizedID
+                        )
+                    }
+                )
+            }
+
+            guard let aggregated else {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            guard self.selectedSourceIDs(in: viewModel) == expectedSourceIDs else { return }
+
+            aggregated.orderedResults.forEach { result in
+                onCapability?(result.source, result.capability)
+            }
+
+            let resolvedFormats = deduplicatedAndSorted(aggregated.commonFormats)
+            let joinedWarnings = ContentViewModelSupport.joinedCapabilityMessages(aggregated.warnings)
+            let joinedErrors: String?
+            if let resolvedErrors = ContentViewModelSupport.joinedCapabilityMessages(aggregated.errors) {
+                joinedErrors = resolvedErrors
+            } else if selection.count > 1 && resolvedFormats.isEmpty {
+                joinedErrors = noCommonFormatsMessage
+            } else {
+                joinedErrors = nil
+            }
+
+            self.applySourceAnalysisResolution(
+                in: viewModel,
+                formatDescriptor: formatDescriptor,
+                resolvedFormats: resolvedFormats,
+                warningMessage: joinedWarnings,
+                errorMessage: joinedErrors
+            )
+
+            onFormatsResolved(resolvedFormats)
+        }, in: viewModel)
+    }
+
     private struct SourceAnalysisBehavior {
         let analyzeSelectionCompatibility: (ContentViewModel, [URL]) -> Void
     }
 
     private static let sourceAnalysisBehaviorByKind: [Self: SourceAnalysisBehavior] = [
         .video: SourceAnalysisBehavior { viewModel, urls in
-            viewModel.analyzeSourceCompatibility(
-                for: urls,
-                kind: .video,
+            Self.video.analyzeSourceCompatibility(
+                in: viewModel,
+                urls: urls,
                 formatDescriptor: ContentViewModel.videoOutputFormatDescriptor,
                 resolvePreparedCapability: { selection in
                     guard selection.count == 1,
@@ -339,9 +339,9 @@ extension ContentViewModel.MediaKind {
             var primaryFrameCount = 0
             var primaryHasAlpha = false
 
-            viewModel.analyzeSourceCompatibility(
-                for: urls,
-                kind: .image,
+            Self.image.analyzeSourceCompatibility(
+                in: viewModel,
+                urls: urls,
                 formatDescriptor: ContentViewModel.imageOutputFormatDescriptor,
                 fetchCapabilities: { await ImageConversionEngine.sourceCapabilities(for: $0) },
                 availableFormats: { $0.availableOutputFormats },
@@ -377,9 +377,9 @@ extension ContentViewModel.MediaKind {
             )
         },
         .audio: SourceAnalysisBehavior { viewModel, urls in
-            viewModel.analyzeSourceCompatibility(
-                for: urls,
-                kind: .audio,
+            Self.audio.analyzeSourceCompatibility(
+                in: viewModel,
+                urls: urls,
                 formatDescriptor: ContentViewModel.audioOutputFormatDescriptor,
                 fetchCapabilities: { await VideoConversionEngine.sourceCapabilitiesForAudio(for: $0) },
                 availableFormats: { $0.availableOutputFormats },
