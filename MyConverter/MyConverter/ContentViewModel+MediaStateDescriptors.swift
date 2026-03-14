@@ -132,21 +132,6 @@ extension ContentViewModel {
         pendingSelectionAnalysisTask: \.taskState.pendingAudioSelectionAnalysisTask
     )
 
-    func currentConversionTask(for kind: MediaKind) -> Task<Void, Never>? {
-        let descriptor = kind.mediaStateDescriptor
-        return self[keyPath: descriptor.conversionTask]
-    }
-
-    func setConversionTask(_ task: Task<Void, Never>?, for kind: MediaKind) {
-        let descriptor = kind.mediaStateDescriptor
-        self[keyPath: descriptor.conversionTask] = task
-    }
-
-    func setConversionErrorMessage(_ message: String?, for kind: MediaKind) {
-        let descriptor = kind.mediaStateDescriptor
-        self[keyPath: descriptor.conversionErrorMessage] = message
-    }
-
     func prepareConversionStartState(
         for kind: MediaKind,
         preserveCompletedOutputs: Bool = false

@@ -20,27 +20,26 @@ extension ContentViewModel {
         operation: @escaping @MainActor () async -> Void
     ) {
         let descriptor = kind.mediaStateDescriptor
-        guard currentConversionTask(for: kind) == nil else { return }
+        guard self[keyPath: descriptor.conversionTask] == nil else { return }
         guard !self[keyPath: descriptor.isConverting] else { return }
 
-        setConversionTask(Task { @MainActor [weak self] in
+        self[keyPath: descriptor.conversionTask] = Task { @MainActor [weak self] in
             defer { self?.clearConversionTask(for: kind) }
             await operation()
-        }, for: kind)
+        }
     }
 
     func cancelConversionTask(for kind: MediaKind) {
         #if os(iOS)
         EmbeddedFFmpegBridge.cancelCurrentCommand()
         #endif
-        guard let task = currentConversionTask(for: kind) else { return }
+        let descriptor = kind.mediaStateDescriptor
+        guard let task = self[keyPath: descriptor.conversionTask] else { return }
         task.cancel()
     }
 
     func clearConversionTask(for kind: MediaKind) {
-        setConversionTask(nil, for: kind)
+        let descriptor = kind.mediaStateDescriptor
+        self[keyPath: descriptor.conversionTask] = nil
     }
-}
-
-extension ContentViewModel.MediaKind {
 }
