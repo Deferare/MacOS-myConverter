@@ -125,6 +125,14 @@ extension ContentViewModel {
         )
     }
 
+    func unavailableSelectedAudioEncoderMessage(_ selection: AudioEncodingSelectionState) -> String? {
+        unavailableSelectedOptionMessage(
+            selection.selectedEncoder,
+            in: selection.encoderOptions,
+            named: "audio encoder"
+        )
+    }
+
     private static func makeOutputFormatValidationDescriptor<Capability, Format>(
         _ input: OutputFormatValidationInput<Capability, Format>
     ) -> MediaValidationDescriptor {
@@ -198,18 +206,15 @@ extension ContentViewModel {
                 )
             },
             additionalValidation: { viewModel in
-                viewModel.firstNonEmptyMessage(
+                let audioSettings = viewModel.videoAudioEncodingSelectionState
+                return viewModel.firstNonEmptyMessage(
                     viewModel.unavailableSelectedOptionMessage(
                         viewModel.selectedVideoEncoder,
                         in: viewModel.videoEncoderOptions,
                         named: "video encoder"
                     ),
-                    viewModel.shouldShowAudioSettings
-                        ? viewModel.unavailableSelectedOptionMessage(
-                            viewModel.selectedAudioEncoder,
-                            in: viewModel.audioEncoderOptions,
-                            named: "audio encoder"
-                        )
+                    audioSettings.isEnabled
+                        ? viewModel.unavailableSelectedAudioEncoderMessage(audioSettings)
                         : nil
                 )
             },
@@ -311,10 +316,8 @@ extension ContentViewModel {
             unavailableMessage: "Selected output format is not available for this source.",
             preValidation: { _ in nil },
             additionalValidation: { viewModel in
-                viewModel.unavailableSelectedOptionMessage(
-                    viewModel.selectedAudioOutputEncoder,
-                    in: viewModel.audioOutputEncoderOptions,
-                    named: "audio encoder"
+                viewModel.unavailableSelectedAudioEncoderMessage(
+                    viewModel.audioOutputEncodingSelectionState
                 )
             },
             fetchCapabilities: { await VideoConversionEngine.sourceCapabilitiesForAudio(for: $0) },
