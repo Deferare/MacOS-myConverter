@@ -36,11 +36,6 @@ extension ContentViewModel {
         let postApply: (ContentViewModel) -> Void
     }
 
-    struct SourceSettingsComponents<Settings: Equatable, Persisted: Codable, Format> {
-        let storage: SourceSettingsDescriptor<Settings, Persisted>
-        let flow: SourceSettingsFlowDescriptor<Settings, Persisted, Format>
-    }
-
     static func makeSourceSettingsDescriptor<Settings: Equatable, Persisted: Codable>(
         isApplyingStoredSettings: ReferenceWritableKeyPath<ContentViewModel, Bool>,
         sourceURL: ReferenceWritableKeyPath<ContentViewModel, URL?>,
@@ -94,31 +89,6 @@ extension ContentViewModel {
                 viewModel.ensureSelectedOutputFormatIsAvailable(using: formatDescriptor)
                 refreshDependentOptions(viewModel)
             }
-        )
-    }
-
-    static func makeSourceSettingsComponents<Settings: Equatable, Persisted: Codable, Format>(
-        storage: SourceSettingsDescriptor<Settings, Persisted>,
-        formatDescriptor: OutputFormatDescriptor<Format>,
-        defaultSettings: @escaping () -> Settings,
-        outputFormatID: @escaping (Settings) -> String,
-        normalizeStoredID: @escaping (String) -> String?,
-        buildCurrentSettings: @escaping (ContentViewModel) -> Settings,
-        applyAdditionalSettings: @escaping (ContentViewModel, Settings) -> Void,
-        refreshDependentOptions: @escaping (ContentViewModel) -> Void = { _ in }
-    ) -> SourceSettingsComponents<Settings, Persisted, Format> {
-        SourceSettingsComponents(
-            storage: storage,
-            flow: Self.makeSourceSettingsFlowDescriptor(
-                storage: storage,
-                formatDescriptor: formatDescriptor,
-                defaultSettings: defaultSettings,
-                outputFormatID: outputFormatID,
-                normalizeStoredID: normalizeStoredID,
-                buildCurrentSettings: buildCurrentSettings,
-                applyAdditionalSettings: applyAdditionalSettings,
-                refreshDependentOptions: refreshDependentOptions
-            )
         )
     }
 
@@ -215,17 +185,19 @@ extension ContentViewModel {
         )
     }
 
-    static let videoSourceSettingsComponentsValue = makeSourceSettingsComponents(
-        storage: makeSourceSettingsStorageDescriptor(
-            kind: .video,
-            isApplyingStoredSettings: \.settingsState.isApplyingVideoSettings,
-            sourceURL: \.videoRuntimeState.media.sourceURL,
-            settingsBySourceID: \.settingsState.videoSettingsBySourceID,
-            pendingSaveTask: \.taskState.pendingVideoSettingsSaveTask,
-            storageKey: PersistedSettingsState().videoStorageKey,
-            mapToPersisted: { PersistedVideoConversionSettings(from: $0) },
-            restore: { $0.restoredSettings }
-        ),
+    static let videoSourceSettingsStorageValue = makeSourceSettingsStorageDescriptor(
+        kind: .video,
+        isApplyingStoredSettings: \.settingsState.isApplyingVideoSettings,
+        sourceURL: \.videoRuntimeState.media.sourceURL,
+        settingsBySourceID: \.settingsState.videoSettingsBySourceID,
+        pendingSaveTask: \.taskState.pendingVideoSettingsSaveTask,
+        storageKey: PersistedSettingsState().videoStorageKey,
+        mapToPersisted: { PersistedVideoConversionSettings(from: $0) },
+        restore: { $0.restoredSettings }
+    )
+
+    static let videoSourceSettingsFlowValue = makeSourceSettingsFlowDescriptor(
+        storage: videoSourceSettingsStorageValue,
         formatDescriptor: videoOutputFormatDescriptorValue,
         defaultSettings: { VideoConversionSettings() },
         outputFormatID: { $0.outputFormatID },
@@ -239,17 +211,19 @@ extension ContentViewModel {
         refreshDependentOptions: { $0.refreshVideoCodecOptions() }
     )
 
-    static let imageSourceSettingsComponentsValue = makeSourceSettingsComponents(
-        storage: makeSourceSettingsStorageDescriptor(
-            kind: .image,
-            isApplyingStoredSettings: \.settingsState.isApplyingImageSettings,
-            sourceURL: \.imageRuntimeState.media.sourceURL,
-            settingsBySourceID: \.settingsState.imageSettingsBySourceID,
-            pendingSaveTask: \.taskState.pendingImageSettingsSaveTask,
-            storageKey: PersistedSettingsState().imageStorageKey,
-            mapToPersisted: { PersistedImageConversionSettings(from: $0) },
-            restore: { $0.restoredSettings }
-        ),
+    static let imageSourceSettingsStorageValue = makeSourceSettingsStorageDescriptor(
+        kind: .image,
+        isApplyingStoredSettings: \.settingsState.isApplyingImageSettings,
+        sourceURL: \.imageRuntimeState.media.sourceURL,
+        settingsBySourceID: \.settingsState.imageSettingsBySourceID,
+        pendingSaveTask: \.taskState.pendingImageSettingsSaveTask,
+        storageKey: PersistedSettingsState().imageStorageKey,
+        mapToPersisted: { PersistedImageConversionSettings(from: $0) },
+        restore: { $0.restoredSettings }
+    )
+
+    static let imageSourceSettingsFlowValue = makeSourceSettingsFlowDescriptor(
+        storage: imageSourceSettingsStorageValue,
         formatDescriptor: imageOutputFormatDescriptorValue,
         defaultSettings: { ImageConversionSettings() },
         outputFormatID: { $0.outputFormatID },
@@ -271,17 +245,19 @@ extension ContentViewModel {
         }
     )
 
-    static let audioSourceSettingsComponentsValue = makeSourceSettingsComponents(
-        storage: makeSourceSettingsStorageDescriptor(
-            kind: .audio,
-            isApplyingStoredSettings: \.settingsState.isApplyingAudioSettings,
-            sourceURL: \.audioRuntimeState.media.sourceURL,
-            settingsBySourceID: \.settingsState.audioSettingsBySourceID,
-            pendingSaveTask: \.taskState.pendingAudioSettingsSaveTask,
-            storageKey: PersistedSettingsState().audioStorageKey,
-            mapToPersisted: { PersistedAudioConversionSettings(from: $0) },
-            restore: { $0.restoredSettings }
-        ),
+    static let audioSourceSettingsStorageValue = makeSourceSettingsStorageDescriptor(
+        kind: .audio,
+        isApplyingStoredSettings: \.settingsState.isApplyingAudioSettings,
+        sourceURL: \.audioRuntimeState.media.sourceURL,
+        settingsBySourceID: \.settingsState.audioSettingsBySourceID,
+        pendingSaveTask: \.taskState.pendingAudioSettingsSaveTask,
+        storageKey: PersistedSettingsState().audioStorageKey,
+        mapToPersisted: { PersistedAudioConversionSettings(from: $0) },
+        restore: { $0.restoredSettings }
+    )
+
+    static let audioSourceSettingsFlowValue = makeSourceSettingsFlowDescriptor(
+        storage: audioSourceSettingsStorageValue,
         formatDescriptor: audioOutputFormatDescriptorValue,
         defaultSettings: { AudioConversionSettings() },
         outputFormatID: { $0.outputFormatID },
@@ -350,11 +326,11 @@ extension ContentViewModel {
 
     func loadPersistedSourceSettingsState() {
         settingsState.videoSettingsBySourceID =
-            loadPersistedSourceSettings(using: Self.videoSourceSettingsComponentsValue.storage)
+            loadPersistedSourceSettings(using: Self.videoSourceSettingsStorageValue)
         settingsState.imageSettingsBySourceID =
-            loadPersistedSourceSettings(using: Self.imageSourceSettingsComponentsValue.storage)
+            loadPersistedSourceSettings(using: Self.imageSourceSettingsStorageValue)
         settingsState.audioSettingsBySourceID =
-            loadPersistedSourceSettings(using: Self.audioSourceSettingsComponentsValue.storage)
+            loadPersistedSourceSettings(using: Self.audioSourceSettingsStorageValue)
     }
 
     func persistSourceSettingsIfNeeded<Settings: Equatable>(

@@ -230,17 +230,17 @@ extension ContentViewModel {
             pendingSelectionAnalysisTask: \.taskState.pendingVideoSelectionAnalysisTask
         ),
         applyDefaultSourceSettings: { viewModel in
-            let flow = videoSourceSettingsComponentsValue.flow
+            let flow = videoSourceSettingsFlowValue
             viewModel.applySourceSettings(flow.defaultSettings(), using: flow)
         },
         applyStoredSourceSettings: { viewModel, sourceID in
             viewModel.applySourceSettingsForSource(
                 sourceID: sourceID,
-                using: videoSourceSettingsComponentsValue.flow
+                using: videoSourceSettingsFlowValue
             )
         },
         persistCurrentSourceSettings: { viewModel in
-            viewModel.persistCurrentSourceSettingsIfNeeded(using: videoSourceSettingsComponentsValue.flow)
+            viewModel.persistCurrentSourceSettingsIfNeeded(using: videoSourceSettingsFlowValue)
         },
         warmDefaultCapabilities: makeWarmDefaultCapabilities(
             for: .video,
@@ -282,17 +282,17 @@ extension ContentViewModel {
             pendingSelectionAnalysisTask: \.taskState.pendingImageSelectionAnalysisTask
         ),
         applyDefaultSourceSettings: { viewModel in
-            let flow = imageSourceSettingsComponentsValue.flow
+            let flow = imageSourceSettingsFlowValue
             viewModel.applySourceSettings(flow.defaultSettings(), using: flow)
         },
         applyStoredSourceSettings: { viewModel, sourceID in
             viewModel.applySourceSettingsForSource(
                 sourceID: sourceID,
-                using: imageSourceSettingsComponentsValue.flow
+                using: imageSourceSettingsFlowValue
             )
         },
         persistCurrentSourceSettings: { viewModel in
-            viewModel.persistCurrentSourceSettingsIfNeeded(using: imageSourceSettingsComponentsValue.flow)
+            viewModel.persistCurrentSourceSettingsIfNeeded(using: imageSourceSettingsFlowValue)
         },
         warmDefaultCapabilities: makeWarmDefaultCapabilities(
             for: .image,
@@ -332,17 +332,17 @@ extension ContentViewModel {
             pendingSelectionAnalysisTask: \.taskState.pendingAudioSelectionAnalysisTask
         ),
         applyDefaultSourceSettings: { viewModel in
-            let flow = audioSourceSettingsComponentsValue.flow
+            let flow = audioSourceSettingsFlowValue
             viewModel.applySourceSettings(flow.defaultSettings(), using: flow)
         },
         applyStoredSourceSettings: { viewModel, sourceID in
             viewModel.applySourceSettingsForSource(
                 sourceID: sourceID,
-                using: audioSourceSettingsComponentsValue.flow
+                using: audioSourceSettingsFlowValue
             )
         },
         persistCurrentSourceSettings: { viewModel in
-            viewModel.persistCurrentSourceSettingsIfNeeded(using: audioSourceSettingsComponentsValue.flow)
+            viewModel.persistCurrentSourceSettingsIfNeeded(using: audioSourceSettingsFlowValue)
         },
         warmDefaultCapabilities: makeWarmDefaultCapabilities(
             for: .audio,
