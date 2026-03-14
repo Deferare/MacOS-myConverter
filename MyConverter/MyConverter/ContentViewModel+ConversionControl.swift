@@ -43,15 +43,4 @@ extension ContentViewModel {
 }
 
 extension ContentViewModel.MediaKind {
-    @MainActor
-    func performConversion(in viewModel: ContentViewModel) async {
-        switch self {
-        case .video:
-            await viewModel.performVideoConversion()
-        case .image:
-            await viewModel.performImageConversion()
-        case .audio:
-            await viewModel.performAudioConversion()
-        }
-    }
 }

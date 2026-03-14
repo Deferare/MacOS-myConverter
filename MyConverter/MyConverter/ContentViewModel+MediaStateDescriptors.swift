@@ -213,29 +213,66 @@ extension ContentViewModel {
 }
 
 extension ContentViewModel.MediaKind {
-    private static let mediaStateDescriptorsByKind: [Self: ContentViewModel.MediaStateDescriptor] = [
-        .video: ContentViewModel.videoStateDescriptor,
-        .image: ContentViewModel.imageStateDescriptor,
-        .audio: ContentViewModel.audioStateDescriptor
+    private struct MediaBehavior {
+        let descriptor: ContentViewModel.MediaStateDescriptor
+        let performConversion: @MainActor (ContentViewModel) async -> Void
+        let analyzeSelectedSources: (ContentViewModel, [URL]) -> Void
+        let resetCompatibilityMetadata: (ContentViewModel) -> Void
+    }
+
+    private static let mediaBehaviorByKind: [Self: MediaBehavior] = [
+        .video: MediaBehavior(
+            descriptor: ContentViewModel.videoStateDescriptor,
+            performConversion: { viewModel in
+                await viewModel.performVideoConversion()
+            },
+            analyzeSelectedSources: { viewModel, urls in
+                viewModel.analyzeVideoSourceCompatibility(for: urls)
+            },
+            resetCompatibilityMetadata: { _ in }
+        ),
+        .image: MediaBehavior(
+            descriptor: ContentViewModel.imageStateDescriptor,
+            performConversion: { viewModel in
+                await viewModel.performImageConversion()
+            },
+            analyzeSelectedSources: { viewModel, urls in
+                viewModel.analyzeImageSourceCompatibility(for: urls)
+            },
+            resetCompatibilityMetadata: { viewModel in
+                ContentViewModel.resetImageCompatibilityMetadata(viewModel)
+            }
+        ),
+        .audio: MediaBehavior(
+            descriptor: ContentViewModel.audioStateDescriptor,
+            performConversion: { viewModel in
+                await viewModel.performAudioConversion()
+            },
+            analyzeSelectedSources: { viewModel, urls in
+                viewModel.analyzeAudioSourceCompatibility(for: urls)
+            },
+            resetCompatibilityMetadata: { _ in }
+        )
     ]
 
+    private var mediaBehavior: MediaBehavior {
+        Self.mediaBehaviorByKind[self] ?? Self.mediaBehaviorByKind[.video]!
+    }
+
     var mediaStateDescriptor: ContentViewModel.MediaStateDescriptor {
-        Self.mediaStateDescriptorsByKind[self] ?? ContentViewModel.videoStateDescriptor
+        mediaBehavior.descriptor
+    }
+
+    @MainActor
+    func performConversion(in viewModel: ContentViewModel) async {
+        await mediaBehavior.performConversion(viewModel)
     }
 
     func analyzeSelectedSources(_ urls: [URL], in viewModel: ContentViewModel) {
-        switch self {
-        case .video:
-            viewModel.analyzeVideoSourceCompatibility(for: urls)
-        case .image:
-            viewModel.analyzeImageSourceCompatibility(for: urls)
-        case .audio:
-            viewModel.analyzeAudioSourceCompatibility(for: urls)
-        }
+        mediaBehavior.analyzeSelectedSources(viewModel, urls)
     }
 
     func resetCompatibilityMetadata(in viewModel: ContentViewModel) {
-        guard self == .image else { return }
-        ContentViewModel.resetImageCompatibilityMetadata(viewModel)
+        mediaBehavior.resetCompatibilityMetadata(viewModel)
     }
 }
