@@ -36,60 +36,6 @@ extension ContentViewModel {
         let prepareForResolvedFormats: (ContentViewModel) -> Void
     }
 
-    struct SourceAnalysisDescriptor<Capability: Sendable, Format: Sendable> {
-        let kind: MediaKind
-        let analysisTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>
-        let isAnalyzing: ReferenceWritableKeyPath<ContentViewModel, Bool>
-        let availableFormats: ReferenceWritableKeyPath<ContentViewModel, [Format]>
-        let warningMessage: ReferenceWritableKeyPath<ContentViewModel, String?>
-        let errorMessage: ReferenceWritableKeyPath<ContentViewModel, String?>
-        let resetForEmptySelection: (ContentViewModel) -> Void
-        let fetchCapabilities: @Sendable (URL) async -> Capability
-        let availableFormatsForCapability: @Sendable (Capability) -> [Format]
-        let warningMessageForCapability: @Sendable (Capability) -> String?
-        let errorMessageForCapability: @Sendable (Capability) -> String?
-        let formatNormalizedID: @Sendable (Format) -> String
-        let deduplicatedAndSorted: @Sendable ([Format]) -> [Format]
-        let noCommonFormatsMessage: String
-        let buildSelectionHandlers: (ContentViewModel, [URL]) -> SourceAnalysisSelectionHandlers<Capability, Format>
-    }
-
-    static func makeSourceAnalysisDescriptor<Capability: Sendable, Format: Sendable>(
-        kind: MediaKind,
-        availableFormatsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [Format]>,
-        fetchCapabilities: @escaping @Sendable (URL) async -> Capability,
-        availableFormats: @escaping @Sendable (Capability) -> [Format],
-        warningMessage: @escaping @Sendable (Capability) -> String?,
-        errorMessage: @escaping @Sendable (Capability) -> String?,
-        formatNormalizedID: @escaping @Sendable (Format) -> String,
-        deduplicatedAndSorted: @escaping @Sendable ([Format]) -> [Format],
-        noCommonFormatsMessage: String,
-        buildSelectionHandlers: @escaping (ContentViewModel, [URL]) -> SourceAnalysisSelectionHandlers<Capability, Format>
-    ) -> SourceAnalysisDescriptor<Capability, Format> {
-        let descriptor = Self.mediaStateDescriptor(for: kind)
-        return SourceAnalysisDescriptor(
-            kind: kind,
-            analysisTask: descriptor.analysisTask,
-            isAnalyzing: descriptor.isAnalyzing,
-            availableFormats: availableFormatsKeyPath,
-            warningMessage: descriptor.compatibilityWarningMessage,
-            errorMessage: descriptor.compatibilityErrorMessage,
-            resetForEmptySelection: { viewModel in
-                viewModel.setMediaStateValue(using: descriptor, \.isAnalyzing, to: false)
-                viewModel[keyPath: availableFormatsKeyPath] = []
-                viewModel.resetCompatibilityState(for: kind)
-            },
-            fetchCapabilities: fetchCapabilities,
-            availableFormatsForCapability: availableFormats,
-            warningMessageForCapability: warningMessage,
-            errorMessageForCapability: errorMessage,
-            formatNormalizedID: formatNormalizedID,
-            deduplicatedAndSorted: deduplicatedAndSorted,
-            noCommonFormatsMessage: noCommonFormatsMessage,
-            buildSelectionHandlers: buildSelectionHandlers
-        )
-    }
-
     static func makeResolvedOutputSelectionHandlers<Capability: Sendable, Format: Sendable>(
         persistKind: MediaKind,
         formatDescriptor: OutputFormatDescriptor<Format>,
@@ -156,16 +102,38 @@ extension ContentViewModel {
 
     func analyzeSourceCompatibility<Capability: Sendable, Format: Sendable>(
         for urls: [URL],
-        using descriptor: SourceAnalysisDescriptor<Capability, Format>
+        kind: MediaKind,
+        availableFormatsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [Format]>,
+        fetchCapabilities: @escaping @Sendable (URL) async -> Capability,
+        availableFormats: @escaping @Sendable (Capability) -> [Format],
+        warningMessage: @escaping @Sendable (Capability) -> String?,
+        errorMessage: @escaping @Sendable (Capability) -> String?,
+        formatNormalizedID: @escaping @Sendable (Format) -> String,
+        deduplicatedAndSorted: @escaping @Sendable ([Format]) -> [Format],
+        noCommonFormatsMessage: String,
+        buildSelectionHandlers: (ContentViewModel, [URL]) -> SourceAnalysisSelectionHandlers<Capability, Format>
     ) {
-        let handlers = descriptor.buildSelectionHandlers(self, urls)
+        let descriptor = mediaStateDescriptor(for: kind)
+        let handlers = buildSelectionHandlers(self, urls)
 
         analyzeSourceSelection(
             urls: urls,
-            using: descriptor,
+            kind: kind,
+            analysisTask: descriptor.analysisTask,
+            isAnalyzing: descriptor.isAnalyzing,
+            availableFormatsKeyPath: availableFormatsKeyPath,
+            warningMessageKeyPath: descriptor.compatibilityWarningMessage,
+            errorMessageKeyPath: descriptor.compatibilityErrorMessage,
             selectedSourceIDs: {
-                self.selectedSourceIDs(for: descriptor.kind)
+                self.selectedSourceIDs(for: kind)
             },
+            fetchCapabilities: fetchCapabilities,
+            availableFormats: availableFormats,
+            warningMessage: warningMessage,
+            errorMessage: errorMessage,
+            formatNormalizedID: formatNormalizedID,
+            deduplicatedAndSorted: deduplicatedAndSorted,
+            noCommonFormatsMessage: noCommonFormatsMessage,
             onCapability: handlers.onCapability,
             onFormatsResolved: handlers.onFormatsResolved
         )
@@ -183,16 +151,19 @@ extension ContentViewModel {
         }
     }
 
-    func applySourceAnalysisResolution<Capability: Sendable, Format: Sendable>(
-        using descriptor: SourceAnalysisDescriptor<Capability, Format>,
+    func applySourceAnalysisResolution<Format>(
+        isAnalyzingKeyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
+        availableFormatsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [Format]>,
+        warningMessageKeyPath: ReferenceWritableKeyPath<ContentViewModel, String?>,
+        errorMessageKeyPath: ReferenceWritableKeyPath<ContentViewModel, String?>,
         resolvedFormats: [Format],
         warningMessage: String?,
         errorMessage: String?
     ) {
-        self[keyPath: descriptor.isAnalyzing] = false
-        self[keyPath: descriptor.availableFormats] = resolvedFormats
-        self[keyPath: descriptor.warningMessage] = warningMessage
-        self[keyPath: descriptor.errorMessage] = errorMessage
+        self[keyPath: isAnalyzingKeyPath] = false
+        self[keyPath: availableFormatsKeyPath] = resolvedFormats
+        self[keyPath: warningMessageKeyPath] = warningMessage
+        self[keyPath: errorMessageKeyPath] = errorMessage
     }
 
     nonisolated static func aggregateSourceCapabilities<Capability: Sendable, Format: Sendable>(
@@ -281,23 +252,37 @@ extension ContentViewModel {
 
     func analyzeSourceSelection<Capability: Sendable, Format: Sendable>(
         urls: [URL],
-        using descriptor: SourceAnalysisDescriptor<Capability, Format>,
+        kind: MediaKind,
+        analysisTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>,
+        isAnalyzing: ReferenceWritableKeyPath<ContentViewModel, Bool>,
+        availableFormatsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [Format]>,
+        warningMessageKeyPath: ReferenceWritableKeyPath<ContentViewModel, String?>,
+        errorMessageKeyPath: ReferenceWritableKeyPath<ContentViewModel, String?>,
         selectedSourceIDs: @escaping () -> [String],
+        fetchCapabilities: @escaping @Sendable (URL) async -> Capability,
+        availableFormats: @escaping @Sendable (Capability) -> [Format],
+        warningMessage: @escaping @Sendable (Capability) -> String?,
+        errorMessage: @escaping @Sendable (Capability) -> String?,
+        formatNormalizedID: @escaping @Sendable (Format) -> String,
+        deduplicatedAndSorted: @escaping @Sendable ([Format]) -> [Format],
+        noCommonFormatsMessage: String,
         onCapability: ((URL, Capability) -> Void)? = nil,
         onFormatsResolved: @escaping ([Format]) -> Void
     ) {
         let selection = uniqueStandardizedURLs(urls)
         let expectedSourceIDs = selection.map(sourceIdentifier(for:))
         guard !selection.isEmpty else {
-            descriptor.resetForEmptySelection(self)
+            self[keyPath: isAnalyzing] = false
+            self[keyPath: availableFormatsKeyPath] = []
+            resetCompatibilityState(for: kind)
             return
         }
 
-        cancelTask(at: descriptor.analysisTask)
-        self[keyPath: descriptor.isAnalyzing] = true
-        self[keyPath: descriptor.analysisTask] = Task { [weak self] in
+        cancelTask(at: analysisTask)
+        self[keyPath: isAnalyzing] = true
+        self[keyPath: analysisTask] = Task { [weak self] in
             guard let self else { return }
-            if descriptor.kind == .video,
+            if kind == .video,
                selection.count == 1,
                let sourceURL = selection.first,
                let prepared = await prepareSelectedSingleVideoSelectionIfNeeded(for: sourceURL),
@@ -306,24 +291,25 @@ extension ContentViewModel {
                 guard selectedSourceIDs() == expectedSourceIDs else { return }
 
                 onCapability?(sourceURL, capability)
-                let resolvedFormats = descriptor.deduplicatedAndSorted(
-                    descriptor.availableFormatsForCapability(capability)
-                )
+                let resolvedFormats = deduplicatedAndSorted(availableFormats(capability))
                 let joinedWarnings = joinedCapabilityMessages([
-                    descriptor.warningMessageForCapability(capability)
+                    warningMessage(capability)
                 ].compactMap { $0 })
 
                 let joinedErrors: String?
-                if let capabilityError = descriptor.errorMessageForCapability(capability) {
+                if let capabilityError = errorMessage(capability) {
                     joinedErrors = capabilityError
                 } else if selection.count > 1 && resolvedFormats.isEmpty {
-                    joinedErrors = descriptor.noCommonFormatsMessage
+                    joinedErrors = noCommonFormatsMessage
                 } else {
                     joinedErrors = nil
                 }
 
                 applySourceAnalysisResolution(
-                    using: descriptor,
+                    isAnalyzingKeyPath: isAnalyzing,
+                    availableFormatsKeyPath: availableFormatsKeyPath,
+                    warningMessageKeyPath: warningMessageKeyPath,
+                    errorMessageKeyPath: errorMessageKeyPath,
                     resolvedFormats: resolvedFormats,
                     warningMessage: joinedWarnings,
                     errorMessage: joinedErrors
@@ -336,15 +322,15 @@ extension ContentViewModel {
             let aggregated = await detachedTaskValue(priority: .userInitiated) {
                 await Self.aggregateSourceCapabilities(
                     for: selection,
-                    fetchCapabilities: descriptor.fetchCapabilities,
-                    availableFormats: descriptor.availableFormatsForCapability,
-                    warningMessage: descriptor.warningMessageForCapability,
-                    errorMessage: descriptor.errorMessageForCapability,
+                    fetchCapabilities: fetchCapabilities,
+                    availableFormats: availableFormats,
+                    warningMessage: warningMessage,
+                    errorMessage: errorMessage,
                     intersect: { lhs, rhs in
                         ContentViewModelSupport.intersectFormats(
                             lhs,
                             rhs,
-                            normalizedID: descriptor.formatNormalizedID
+                            normalizedID: formatNormalizedID
                         )
                     }
                 )
@@ -360,19 +346,22 @@ extension ContentViewModel {
                 onCapability?(result.source, result.capability)
             }
 
-            let resolvedFormats = descriptor.deduplicatedAndSorted(aggregated.commonFormats)
+            let resolvedFormats = deduplicatedAndSorted(aggregated.commonFormats)
             let joinedWarnings = self.joinedCapabilityMessages(aggregated.warnings)
             let joinedErrors: String?
             if let resolvedErrors = self.joinedCapabilityMessages(aggregated.errors) {
                 joinedErrors = resolvedErrors
             } else if selection.count > 1 && resolvedFormats.isEmpty {
-                joinedErrors = descriptor.noCommonFormatsMessage
+                joinedErrors = noCommonFormatsMessage
             } else {
                 joinedErrors = nil
             }
 
             self.applySourceAnalysisResolution(
-                using: descriptor,
+                isAnalyzingKeyPath: isAnalyzing,
+                availableFormatsKeyPath: availableFormatsKeyPath,
+                warningMessageKeyPath: warningMessageKeyPath,
+                errorMessageKeyPath: errorMessageKeyPath,
                 resolvedFormats: resolvedFormats,
                 warningMessage: joinedWarnings,
                 errorMessage: joinedErrors
@@ -380,5 +369,65 @@ extension ContentViewModel {
 
             onFormatsResolved(resolvedFormats)
         }
+    }
+
+    func analyzeVideoSourceCompatibility(for urls: [URL]) {
+        analyzeSourceCompatibility(
+            for: urls,
+            kind: .video,
+            availableFormatsKeyPath: \.videoRuntimeState.media.availableOutputFormats,
+            fetchCapabilities: { await VideoConversionEngine.sourceCapabilities(for: $0) },
+            availableFormats: { $0.availableOutputFormats },
+            warningMessage: { $0.warningMessage },
+            errorMessage: { $0.errorMessage },
+            formatNormalizedID: { $0.normalizedID },
+            deduplicatedAndSorted: { VideoFormatOption.deduplicatedAndSorted($0) },
+            noCommonFormatsMessage: "No common output container is available for the selected files.",
+            buildSelectionHandlers: Self.makeResolvedOutputSelectionHandlers(
+                persistKind: .video,
+                formatDescriptor: Self.videoOutputFormatDescriptorValue,
+                postSelectionUpdate: { $0.refreshVideoCodecOptions() }
+            )
+        )
+    }
+
+    func analyzeImageSourceCompatibility(for urls: [URL]) {
+        analyzeSourceCompatibility(
+            for: urls,
+            kind: .image,
+            availableFormatsKeyPath: \.imageRuntimeState.media.availableOutputFormats,
+            fetchCapabilities: { await ImageConversionEngine.sourceCapabilities(for: $0) },
+            availableFormats: { $0.availableOutputFormats },
+            warningMessage: { $0.warningMessage },
+            errorMessage: { $0.errorMessage },
+            formatNormalizedID: { $0.normalizedID },
+            deduplicatedAndSorted: { ImageFormatOption.deduplicatedAndSorted($0) },
+            noCommonFormatsMessage: "No common output format is available for the selected files.",
+            buildSelectionHandlers: Self.makeResolvedOutputSelectionHandlers(
+                persistKind: .image,
+                formatDescriptor: Self.imageOutputFormatDescriptorValue,
+                capabilityObserver: Self.makeImageSourceCapabilityObserver()
+            )
+        )
+    }
+
+    func analyzeAudioSourceCompatibility(for urls: [URL]) {
+        analyzeSourceCompatibility(
+            for: urls,
+            kind: .audio,
+            availableFormatsKeyPath: \.audioRuntimeState.media.availableOutputFormats,
+            fetchCapabilities: { await VideoConversionEngine.sourceCapabilitiesForAudio(for: $0) },
+            availableFormats: { $0.availableOutputFormats },
+            warningMessage: { $0.warningMessage },
+            errorMessage: { $0.errorMessage },
+            formatNormalizedID: { $0.normalizedID },
+            deduplicatedAndSorted: { AudioFormatOption.deduplicatedAndSorted($0) },
+            noCommonFormatsMessage: "No common audio output format is available for the selected files.",
+            buildSelectionHandlers: Self.makeResolvedOutputSelectionHandlers(
+                persistKind: .audio,
+                formatDescriptor: Self.audioOutputFormatDescriptorValue,
+                postSelectionUpdate: { $0.refreshAudioCodecOptions() }
+            )
+        )
     }
 }

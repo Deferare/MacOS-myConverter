@@ -147,10 +147,7 @@ extension ContentViewModel {
         },
         resetCompatibilityMetadata: resetCompatibilityMetadata(_:),
         analyzeSelection: { viewModel, urls in
-            viewModel.analyzeSourceCompatibility(
-                for: urls,
-                using: videoSourceAnalysisDescriptorValue
-            )
+            viewModel.analyzeVideoSourceCompatibility(for: urls)
         }
     )
 
@@ -206,10 +203,7 @@ extension ContentViewModel {
         },
         resetCompatibilityMetadata: resetImageCompatibilityMetadata(_:),
         analyzeSelection: { viewModel, urls in
-            viewModel.analyzeSourceCompatibility(
-                for: urls,
-                using: imageSourceAnalysisDescriptorValue
-            )
+            viewModel.analyzeImageSourceCompatibility(for: urls)
         }
     )
 
@@ -269,10 +263,7 @@ extension ContentViewModel {
         },
         resetCompatibilityMetadata: resetCompatibilityMetadata(_:),
         analyzeSelection: { viewModel, urls in
-            viewModel.analyzeSourceCompatibility(
-                for: urls,
-                using: audioSourceAnalysisDescriptorValue
-            )
+            viewModel.analyzeAudioSourceCompatibility(for: urls)
         }
     )
 
