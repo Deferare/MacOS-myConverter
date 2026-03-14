@@ -22,7 +22,7 @@ extension ContentViewModel {
             let convertedCount = snapshot.convertedURLs.count
 
             isConverting = snapshot.isConverting
-            canConvert = viewModel.canStartConversion(using: snapshot, validationMessage: validationMessage)
+            canConvert = snapshot.canStartConversion(validationMessage: validationMessage)
             self.selectedFileCount = selectedFileCount
             selectedFormatLabel = kind.selectedOutputFormatLabel(in: viewModel)
             self.convertedCount = convertedCount
@@ -85,7 +85,7 @@ extension ContentViewModel {
                 snapshot: snapshot,
                 statusMessage: resolvedStatusMessage,
                 statusLevel: status.level,
-                progressText: viewModel.progressPercentageText(for: snapshot.displayedProgress)
+                progressText: snapshot.progressText
             )
             selectedFileListState = SelectedFileListState(snapshot: snapshot)
         }
@@ -108,33 +108,39 @@ extension ContentViewModel {
         }
     }
 
-    func conversionStatus(
-        using snapshot: MediaStateSnapshot,
-        validationMessage: String?,
-        hintMessage: String? = nil
-    ) -> (message: String, level: ConversionStatusLevel) {
-        buildConversionStatus(
-            isConverting: snapshot.isConverting,
-            currentBatchIndex: snapshot.currentBatchIndex,
-            totalBatchCount: snapshot.totalBatchCount,
-            isAnalyzingSource: snapshot.isAnalyzing,
-            conversionErrorMessage: snapshot.conversionErrorMessage,
-            validationMessage: validationMessage,
-            compatibilityWarningMessage: snapshot.compatibilityWarningMessage,
-            hintMessage: hintMessage
-        )
+}
+
+extension ContentViewModel.MediaKind {
+    func canStartConversion(
+        in viewModel: ContentViewModel,
+        validationMessage: String?
+    ) -> Bool {
+        mediaStateSnapshot(in: viewModel).canStartConversion(validationMessage: validationMessage)
     }
 
-    func buildConversionStatus(
-        isConverting: Bool,
-        currentBatchIndex: Int,
-        totalBatchCount: Int,
-        isAnalyzingSource: Bool,
-        conversionErrorMessage: String?,
+    func converterRenderState(in viewModel: ContentViewModel) -> ContentViewModel.ConverterRenderState {
+        let snapshot = mediaStateSnapshot(in: viewModel)
+        let validationMessage = validationMessage(in: viewModel)
+        let status = snapshot.conversionStatus(
+            validationMessage: validationMessage,
+            hintMessage: hintMessage(in: viewModel)
+        )
+
+        return ContentViewModel.ConverterRenderState(
+            kind: self,
+            viewModel: viewModel,
+            snapshot: snapshot,
+            validationMessage: validationMessage,
+            status: status
+        )
+    }
+}
+
+extension ContentViewModel.MediaStateSnapshot {
+    func conversionStatus(
         validationMessage: String?,
-        compatibilityWarningMessage: String?,
         hintMessage: String? = nil
-    ) -> (message: String, level: ConversionStatusLevel) {
+    ) -> (message: String, level: ContentViewModel.ConversionStatusLevel) {
         if isConverting {
             if totalBatchCount > 1 {
                 let current = max(1, currentBatchIndex)
@@ -143,7 +149,7 @@ extension ContentViewModel {
             return ("Conversion in progress...", .normal)
         }
 
-        if isAnalyzingSource {
+        if isAnalyzing {
             return ("Analyzing source compatibility...", .normal)
         }
 
@@ -166,62 +172,15 @@ extension ContentViewModel {
         return ("Ready", .normal)
     }
 
-    func progressPercentageText(for progress: Double) -> String {
-        let percent = Int((progress * 100).rounded())
+    var progressText: String {
+        let percent = Int((displayedProgress * 100).rounded())
         return "\(max(0, min(percent, 100)))%"
     }
 
-    func canStartConversion(
-        using snapshot: MediaStateSnapshot,
-        validationMessage: String?
-    ) -> Bool {
-        canStartConversion(
-            sourceURL: snapshot.sourceURL,
-            isConverting: snapshot.isConverting,
-            isAnalyzingSource: snapshot.isAnalyzing,
-            validationMessage: validationMessage
-        )
-    }
-
-    func canStartConversion(
-        sourceURL: URL?,
-        isConverting: Bool,
-        isAnalyzingSource: Bool,
-        validationMessage: String?
-    ) -> Bool {
+    func canStartConversion(validationMessage: String?) -> Bool {
         sourceURL != nil &&
             !isConverting &&
-            !isAnalyzingSource &&
+            !isAnalyzing &&
             validationMessage == nil
-    }
-}
-
-extension ContentViewModel.MediaKind {
-    func canStartConversion(
-        in viewModel: ContentViewModel,
-        validationMessage: String?
-    ) -> Bool {
-        viewModel.canStartConversion(
-            using: mediaStateSnapshot(in: viewModel),
-            validationMessage: validationMessage
-        )
-    }
-
-    func converterRenderState(in viewModel: ContentViewModel) -> ContentViewModel.ConverterRenderState {
-        let snapshot = mediaStateSnapshot(in: viewModel)
-        let validationMessage = validationMessage(in: viewModel)
-        let status = viewModel.conversionStatus(
-            using: snapshot,
-            validationMessage: validationMessage,
-            hintMessage: hintMessage(in: viewModel)
-        )
-
-        return ContentViewModel.ConverterRenderState(
-            kind: self,
-            viewModel: viewModel,
-            snapshot: snapshot,
-            validationMessage: validationMessage,
-            status: status
-        )
     }
 }
