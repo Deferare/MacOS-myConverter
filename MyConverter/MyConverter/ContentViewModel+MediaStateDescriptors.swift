@@ -83,17 +83,6 @@ extension ContentViewModel {
         let analyzeSelection: (ContentViewModel, [URL]) -> Void
     }
 
-    static func makeMediaSelectionAnalyzer<Capability: Sendable, Format>(
-        descriptor: @escaping (ContentViewModel) -> SourceAnalysisDescriptor<Capability, Format>
-    ) -> (ContentViewModel, [URL]) -> Void {
-        { viewModel, urls in
-            viewModel.analyzeSourceCompatibility(
-                for: urls,
-                using: descriptor(viewModel)
-            )
-        }
-    }
-
     static func resetImageCompatibilityMetadata(_ viewModel: ContentViewModel) {
         viewModel.updateState(\.imageRuntimeState, value: \.sourceFrameCount, to: 0)
         viewModel.updateState(\.imageRuntimeState, value: \.sourceHasAlpha, to: false)
@@ -133,24 +122,40 @@ extension ContentViewModel {
         persistCurrentSourceSettings: { viewModel in
             viewModel.persistCurrentSourceSettingsIfNeeded(using: videoSourceSettingsFlowValue)
         },
-        warmDefaultCapabilities: makeWarmDefaultCapabilities(
-            for: .video,
-            warmDefaultFormats: VideoConversionEngine.defaultOutputFormats,
-            formatDescriptor: videoOutputFormatDescriptorValue,
-            postApplyWhenWarmed: { $0.refreshVideoCodecOptions() }
-        ),
-        applyPlaceholderCapabilities: makePlaceholderCapabilityApplier(
-            placeholderFormats: ContentViewModelSupport.placeholderVideoFormats,
-            formatDescriptor: videoOutputFormatDescriptorValue,
-            applyAdditionalPlaceholderState: { $0.applyPlaceholderVideoCodecOptions() }
-        ),
+        warmDefaultCapabilities: {
+            let warmedFormats = VideoConversionEngine.defaultOutputFormats()
+            return WarmedDefaultCapability { viewModel in
+                viewModel.applyWarmedOutputFormatsIfIdle(
+                    warmedFormats,
+                    for: .video,
+                    formatDescriptor: videoOutputFormatDescriptorValue,
+                    postApply: {
+                        viewModel.refreshVideoCodecOptions()
+                    }
+                )
+            }
+        },
+        applyPlaceholderCapabilities: { viewModel in
+            videoOutputFormatDescriptorValue.applyAvailableFormats(
+                ContentViewModelSupport.placeholderVideoFormats(),
+                to: viewModel
+            )
+            viewModel.applyPlaceholderVideoCodecOptions()
+        },
         validationMessage: videoValidationDescriptorValue.validationMessage,
         hintMessage: videoValidationDescriptorValue.hintMessage,
         validateSourceOutputSettings: videoValidationDescriptorValue.validateSourceOutputSettings,
         validatePreparedSourceOutputSettings: videoValidationDescriptorValue.validatePreparedSourceOutputSettings,
-        performConversion: makeConversionExecutor(using: videoConversionWorkflowProfile),
+        performConversion: { viewModel in
+            await viewModel.performConversion(using: videoConversionWorkflowProfile)
+        },
         resetCompatibilityMetadata: resetCompatibilityMetadata(_:),
-        analyzeSelection: makeMediaSelectionAnalyzer(descriptor: { _ in videoSourceAnalysisDescriptorValue })
+        analyzeSelection: { viewModel, urls in
+            viewModel.analyzeSourceCompatibility(
+                for: urls,
+                using: videoSourceAnalysisDescriptorValue
+            )
+        }
     )
 
     private static let imageStateDescriptorValue = MediaStateDescriptor(
@@ -184,22 +189,36 @@ extension ContentViewModel {
         persistCurrentSourceSettings: { viewModel in
             viewModel.persistCurrentSourceSettingsIfNeeded(using: imageSourceSettingsFlowValue)
         },
-        warmDefaultCapabilities: makeWarmDefaultCapabilities(
-            for: .image,
-            warmDefaultFormats: ImageConversionEngine.defaultOutputFormats,
-            formatDescriptor: imageOutputFormatDescriptorValue
-        ),
-        applyPlaceholderCapabilities: makePlaceholderCapabilityApplier(
-            placeholderFormats: ContentViewModelSupport.placeholderImageFormats,
-            formatDescriptor: imageOutputFormatDescriptorValue
-        ),
+        warmDefaultCapabilities: {
+            let warmedFormats = ImageConversionEngine.defaultOutputFormats()
+            return WarmedDefaultCapability { viewModel in
+                viewModel.applyWarmedOutputFormatsIfIdle(
+                    warmedFormats,
+                    for: .image,
+                    formatDescriptor: imageOutputFormatDescriptorValue
+                )
+            }
+        },
+        applyPlaceholderCapabilities: { viewModel in
+            imageOutputFormatDescriptorValue.applyAvailableFormats(
+                ContentViewModelSupport.placeholderImageFormats(),
+                to: viewModel
+            )
+        },
         validationMessage: imageValidationDescriptorValue.validationMessage,
         hintMessage: imageValidationDescriptorValue.hintMessage,
         validateSourceOutputSettings: imageValidationDescriptorValue.validateSourceOutputSettings,
         validatePreparedSourceOutputSettings: imageValidationDescriptorValue.validatePreparedSourceOutputSettings,
-        performConversion: makeConversionExecutor(using: imageConversionWorkflowProfile),
+        performConversion: { viewModel in
+            await viewModel.performConversion(using: imageConversionWorkflowProfile)
+        },
         resetCompatibilityMetadata: resetImageCompatibilityMetadata(_:),
-        analyzeSelection: makeMediaSelectionAnalyzer(descriptor: { _ in imageSourceAnalysisDescriptorValue })
+        analyzeSelection: { viewModel, urls in
+            viewModel.analyzeSourceCompatibility(
+                for: urls,
+                using: imageSourceAnalysisDescriptorValue
+            )
+        }
     )
 
     private static let audioStateDescriptorValue = MediaStateDescriptor(
@@ -233,24 +252,40 @@ extension ContentViewModel {
         persistCurrentSourceSettings: { viewModel in
             viewModel.persistCurrentSourceSettingsIfNeeded(using: audioSourceSettingsFlowValue)
         },
-        warmDefaultCapabilities: makeWarmDefaultCapabilities(
-            for: .audio,
-            warmDefaultFormats: VideoConversionEngine.defaultAudioOutputFormats,
-            formatDescriptor: audioOutputFormatDescriptorValue,
-            postApplyWhenWarmed: { $0.refreshAudioCodecOptions() }
-        ),
-        applyPlaceholderCapabilities: makePlaceholderCapabilityApplier(
-            placeholderFormats: ContentViewModelSupport.placeholderAudioFormats,
-            formatDescriptor: audioOutputFormatDescriptorValue,
-            applyAdditionalPlaceholderState: { $0.applyPlaceholderAudioCodecOptions() }
-        ),
+        warmDefaultCapabilities: {
+            let warmedFormats = VideoConversionEngine.defaultAudioOutputFormats()
+            return WarmedDefaultCapability { viewModel in
+                viewModel.applyWarmedOutputFormatsIfIdle(
+                    warmedFormats,
+                    for: .audio,
+                    formatDescriptor: audioOutputFormatDescriptorValue,
+                    postApply: {
+                        viewModel.refreshAudioCodecOptions()
+                    }
+                )
+            }
+        },
+        applyPlaceholderCapabilities: { viewModel in
+            audioOutputFormatDescriptorValue.applyAvailableFormats(
+                ContentViewModelSupport.placeholderAudioFormats(),
+                to: viewModel
+            )
+            viewModel.applyPlaceholderAudioCodecOptions()
+        },
         validationMessage: audioValidationDescriptorValue.validationMessage,
         hintMessage: audioValidationDescriptorValue.hintMessage,
         validateSourceOutputSettings: audioValidationDescriptorValue.validateSourceOutputSettings,
         validatePreparedSourceOutputSettings: audioValidationDescriptorValue.validatePreparedSourceOutputSettings,
-        performConversion: makeConversionExecutor(using: audioConversionWorkflowProfile),
+        performConversion: { viewModel in
+            await viewModel.performConversion(using: audioConversionWorkflowProfile)
+        },
         resetCompatibilityMetadata: resetCompatibilityMetadata(_:),
-        analyzeSelection: makeMediaSelectionAnalyzer(descriptor: { _ in audioSourceAnalysisDescriptorValue })
+        analyzeSelection: { viewModel, urls in
+            viewModel.analyzeSourceCompatibility(
+                for: urls,
+                using: audioSourceAnalysisDescriptorValue
+            )
+        }
     )
 
     func mediaStateValue<Value>(

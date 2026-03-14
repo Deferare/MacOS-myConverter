@@ -5,38 +5,6 @@ extension ContentViewModel {
         let applyIfIdle: @MainActor @Sendable (ContentViewModel) -> Void
     }
 
-    static func makeWarmDefaultCapabilities<Format: Sendable>(
-        for kind: MediaKind,
-        warmDefaultFormats: @escaping @Sendable () -> [Format],
-        formatDescriptor: OutputFormatDescriptor<Format>,
-        postApplyWhenWarmed: @escaping @MainActor @Sendable (ContentViewModel) -> Void = { _ in }
-    ) -> @Sendable () -> WarmedDefaultCapability {
-        {
-            let warmedFormats = warmDefaultFormats()
-            return WarmedDefaultCapability { viewModel in
-                viewModel.applyWarmedOutputFormatsIfIdle(
-                    warmedFormats,
-                    for: kind,
-                    formatDescriptor: formatDescriptor,
-                    postApply: {
-                        postApplyWhenWarmed(viewModel)
-                    }
-                )
-            }
-        }
-    }
-
-    static func makePlaceholderCapabilityApplier<Format>(
-        placeholderFormats: @escaping () -> [Format],
-        formatDescriptor: OutputFormatDescriptor<Format>,
-        applyAdditionalPlaceholderState: @escaping (ContentViewModel) -> Void = { _ in }
-    ) -> (ContentViewModel) -> Void {
-        { viewModel in
-            formatDescriptor.applyAvailableFormats(placeholderFormats(), to: viewModel)
-            applyAdditionalPlaceholderState(viewModel)
-        }
-    }
-
     func applyPlaceholderCapabilityState() {
         MediaKind.allCases.forEach { applyPlaceholderCapabilities(for: $0) }
     }

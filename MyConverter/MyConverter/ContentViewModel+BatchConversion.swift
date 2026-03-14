@@ -27,14 +27,6 @@ extension ContentViewModel {
         ) async throws -> URL
     }
 
-    static func makeConversionExecutor<OutputSettings: Sendable>(
-        using profile: ConversionWorkflowProfile<OutputSettings>
-    ) -> @MainActor (ContentViewModel) async -> Void {
-        { viewModel in
-            await viewModel.performConversion(using: profile)
-        }
-    }
-
     static let videoConversionWorkflowProfile = ConversionWorkflowProfile<VideoOutputSettings>(
         kind: .video,
         fileExtension: { viewModel in
