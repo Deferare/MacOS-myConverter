@@ -142,10 +142,10 @@ extension ContentViewModel {
             )
             viewModel.applyPlaceholderVideoCodecOptions()
         },
-        validationMessage: videoValidationDescriptorValue.validationMessage,
-        hintMessage: videoValidationDescriptorValue.hintMessage,
-        validateSourceOutputSettings: videoValidationDescriptorValue.validateSourceOutputSettings,
-        validatePreparedSourceOutputSettings: videoValidationDescriptorValue.validatePreparedSourceOutputSettings,
+        validationMessage: videoValidationMessageValue,
+        hintMessage: videoHintMessageValue,
+        validateSourceOutputSettings: videoValidateSourceOutputSettingsValue,
+        validatePreparedSourceOutputSettings: videoValidatePreparedSourceOutputSettingsValue,
         performConversion: { viewModel in
             await viewModel.performConversion(using: videoConversionWorkflowProfile)
         },
@@ -205,10 +205,10 @@ extension ContentViewModel {
                 to: viewModel
             )
         },
-        validationMessage: imageValidationDescriptorValue.validationMessage,
-        hintMessage: imageValidationDescriptorValue.hintMessage,
-        validateSourceOutputSettings: imageValidationDescriptorValue.validateSourceOutputSettings,
-        validatePreparedSourceOutputSettings: imageValidationDescriptorValue.validatePreparedSourceOutputSettings,
+        validationMessage: imageValidationMessageValue,
+        hintMessage: imageHintMessageValue,
+        validateSourceOutputSettings: imageValidateSourceOutputSettingsValue,
+        validatePreparedSourceOutputSettings: imageValidatePreparedSourceOutputSettingsValue,
         performConversion: { viewModel in
             await viewModel.performConversion(using: imageConversionWorkflowProfile)
         },
@@ -272,10 +272,10 @@ extension ContentViewModel {
             )
             viewModel.applyPlaceholderAudioCodecOptions()
         },
-        validationMessage: audioValidationDescriptorValue.validationMessage,
-        hintMessage: audioValidationDescriptorValue.hintMessage,
-        validateSourceOutputSettings: audioValidationDescriptorValue.validateSourceOutputSettings,
-        validatePreparedSourceOutputSettings: audioValidationDescriptorValue.validatePreparedSourceOutputSettings,
+        validationMessage: audioValidationMessageValue,
+        hintMessage: audioHintMessageValue,
+        validateSourceOutputSettings: audioValidateSourceOutputSettingsValue,
+        validatePreparedSourceOutputSettings: audioValidatePreparedSourceOutputSettingsValue,
         performConversion: { viewModel in
             await viewModel.performConversion(using: audioConversionWorkflowProfile)
         },
