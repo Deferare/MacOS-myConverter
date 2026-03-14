@@ -173,7 +173,7 @@ extension ContentViewModel.MediaKind {
                 )
             },
             onSingleSourceCompletion: {
-                viewModel.clearPreparedSingleVideoSelection(for: self)
+                self.clearPreparedSingleVideoSelection(in: viewModel)
             }
         )
     }

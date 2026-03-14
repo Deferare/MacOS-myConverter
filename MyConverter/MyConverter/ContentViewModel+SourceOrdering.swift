@@ -1,10 +1,14 @@
 import Foundation
 import SwiftUI
 
-extension ContentViewModel {
-    func moveSelectedSource(from draggedURL: URL, to targetURL: URL, for kind: MediaKind) {
-        guard !kind.isConverting(in: self) else { return }
-        let snapshot = kind.mediaStateSnapshot(in: self)
+extension ContentViewModel.MediaKind {
+    func moveSelectedSource(
+        from draggedURL: URL,
+        to targetURL: URL,
+        in viewModel: ContentViewModel
+    ) {
+        guard !isConverting(in: viewModel) else { return }
+        let snapshot = mediaStateSnapshot(in: viewModel)
         guard let reordered = reorderedURLsByMoving(
             draggedURL,
             to: targetURL,
@@ -13,11 +17,11 @@ extension ContentViewModel {
             return
         }
 
-        kind.assignSelection(reordered, in: self)
-        kind.refreshSelectionAfterPrimarySourceChange(reordered, in: self)
+        assignSelection(reordered, in: viewModel)
+        refreshSelectionAfterPrimarySourceChange(reordered, in: viewModel)
     }
+}
 
-    func reorderedURLsByMoving(_ draggedURL: URL, to targetURL: URL, in urls: [URL]) -> [URL]? {
-        ContentViewModelSupport.reorderedURLsByMoving(draggedURL, to: targetURL, in: urls)
-    }
+private func reorderedURLsByMoving(_ draggedURL: URL, to targetURL: URL, in urls: [URL]) -> [URL]? {
+    ContentViewModelSupport.reorderedURLsByMoving(draggedURL, to: targetURL, in: urls)
 }

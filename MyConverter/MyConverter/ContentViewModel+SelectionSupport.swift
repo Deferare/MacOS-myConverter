@@ -47,7 +47,7 @@ extension ContentViewModel.MediaKind {
         let uniqueURLs = ContentViewModelSupport.uniqueStandardizedURLs(urls)
         guard let primaryURL = uniqueURLs.first else { return }
 
-        viewModel.clearPreparedSingleVideoSelection(for: self)
+        clearPreparedSingleVideoSelection(in: viewModel)
         cancelSelectionAnalysis(in: viewModel)
         assignSelection(uniqueURLs, in: viewModel)
         resetConversionOutputs(in: viewModel)
@@ -67,7 +67,7 @@ extension ContentViewModel.MediaKind {
             return
         }
 
-        viewModel.clearPreparedSingleVideoSelection(for: self)
+        clearPreparedSingleVideoSelection(in: viewModel)
         cancelSelectionAnalysis(in: viewModel)
         resetSelectionCompatibilityState(in: viewModel)
         applyStoredSourceSettings(sourceID: primarySourceID, to: viewModel)

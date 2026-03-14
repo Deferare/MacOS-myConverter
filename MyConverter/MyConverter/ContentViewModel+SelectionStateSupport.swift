@@ -151,7 +151,7 @@ extension ContentViewModel.MediaKind {
         resetBatchState: Bool = false,
         applyDefaultSettings: Bool = false
     ) {
-        viewModel.clearPreparedSingleVideoSelection(for: self)
+        clearPreparedSingleVideoSelection(in: viewModel)
         cancelSelectionAnalysis(in: viewModel)
 
         if resetOutputs {
@@ -167,12 +167,12 @@ extension ContentViewModel.MediaKind {
             applyDefaultSourceSettings(to: viewModel)
         }
 
-        viewModel.markCapabilityBootstrapNeedsRefresh(for: [self])
-        viewModel.scheduleCapabilityBootstrap(for: self)
+        markCapabilityBootstrapNeedsRefresh(in: viewModel)
+        scheduleCapabilityBootstrap(in: viewModel)
     }
 
     func clearSelectedSource(in viewModel: ContentViewModel) {
-        viewModel.clearPreparedSingleVideoSelection(for: self)
+        clearPreparedSingleVideoSelection(in: viewModel)
         cancelSelectionAnalysis(in: viewModel)
         assignSelection([], in: viewModel)
         restoreIdleState(

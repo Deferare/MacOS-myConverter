@@ -23,7 +23,7 @@ struct ContentView: View {
         rootNavigationView
             .task(id: selectedTab) {
                 if let kind = selectedTab.mediaKind {
-                    viewModel.scheduleCapabilityBootstrap(for: kind)
+                    kind.scheduleCapabilityBootstrap(in: viewModel)
                 }
             }
         .fileImporter(
@@ -89,7 +89,7 @@ struct ContentView: View {
                 kind.requestFileImport(in: viewModel)
             },
             onReorder: { draggedURL, targetURL in
-                viewModel.moveSelectedSource(from: draggedURL, to: targetURL, for: kind)
+                kind.moveSelectedSource(from: draggedURL, to: targetURL, in: viewModel)
             },
             onClear: {
                 kind.clearSelectedSource(in: viewModel)

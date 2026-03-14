@@ -220,7 +220,7 @@ struct IPadMediaConverterView: View {
                             isEnabled: !renderState.screenState.isConverting,
                             onMove: { draggedURL, targetURL in
                                 withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
-                                    viewModel.moveSelectedSource(from: draggedURL, to: targetURL, for: kind)
+                                    kind.moveSelectedSource(from: draggedURL, to: targetURL, in: viewModel)
                                 }
                             }
                         )

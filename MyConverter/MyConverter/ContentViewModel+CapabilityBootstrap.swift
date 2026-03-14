@@ -9,10 +9,6 @@ extension ContentViewModel {
         capabilityWarmState.markNeedsWarm(for: uniqueMediaKinds(kinds))
     }
 
-    func scheduleCapabilityBootstrap(for kind: MediaKind) {
-        scheduleCapabilityBootstrap(for: [kind])
-    }
-
     func scheduleCapabilityBootstrap(for kinds: [MediaKind]) {
         let requestedKinds = uniqueMediaKinds(kinds)
         guard !requestedKinds.isEmpty else { return }
@@ -91,6 +87,14 @@ extension ContentViewModel {
 }
 
 extension ContentViewModel.MediaKind {
+    func markCapabilityBootstrapNeedsRefresh(in viewModel: ContentViewModel) {
+        viewModel.markCapabilityBootstrapNeedsRefresh(for: [self])
+    }
+
+    func scheduleCapabilityBootstrap(in viewModel: ContentViewModel) {
+        viewModel.scheduleCapabilityBootstrap(for: [self])
+    }
+
     private struct CapabilityBootstrapBehavior: Sendable {
         let applyPlaceholderCapabilities: @MainActor @Sendable (ContentViewModel) -> Void
         let warmedDefaultCapability: @Sendable () -> ContentViewModel.WarmedDefaultCapability

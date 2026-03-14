@@ -49,7 +49,7 @@ struct IOSRootView: View {
             }
             .task(id: selectedTab) {
                 if let kind = selectedTab.mediaKind {
-                    viewModel.scheduleCapabilityBootstrap(for: kind)
+                    kind.scheduleCapabilityBootstrap(in: viewModel)
                 }
             }
         }

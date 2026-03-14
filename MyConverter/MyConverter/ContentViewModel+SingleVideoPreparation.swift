@@ -58,11 +58,6 @@ extension ContentViewModel {
         selectionPreparationState.preparedSingleVideoSelection = prepared
     }
 
-    func clearPreparedSingleVideoSelection(for kind: MediaKind) {
-        guard kind == .video else { return }
-        clearPreparedSingleVideoSelection()
-    }
-
     func clearPreparedSingleVideoSelection() {
         clearPreparedSingleVideoSelection(
             excludingSourceID: nil,
@@ -116,5 +111,12 @@ extension ContentViewModel {
 
         storePreparedSingleVideoSelection(prepared)
         return prepared
+    }
+}
+
+extension ContentViewModel.MediaKind {
+    func clearPreparedSingleVideoSelection(in viewModel: ContentViewModel) {
+        guard self == .video else { return }
+        viewModel.clearPreparedSingleVideoSelection()
     }
 }
