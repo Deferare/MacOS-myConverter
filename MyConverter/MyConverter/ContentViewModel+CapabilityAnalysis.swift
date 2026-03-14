@@ -26,74 +26,8 @@ struct AggregatedSourceCapabilities<Capability: Sendable, Format: Sendable>: Sen
 }
 
 extension ContentViewModel {
-    struct SourceAnalysisSelectionHandlers<Capability: Sendable, Format: Sendable> {
-        let onCapability: (URL, Capability) -> Void
-        let onFormatsResolved: ([Format]) -> Void
-    }
-
-    struct SourceAnalysisCapabilityObserver<Capability: Sendable> {
-        let onCapability: (URL, Capability) -> Void
-        let prepareForResolvedFormats: (ContentViewModel) -> Void
-    }
-
-    static func makeResolvedOutputSelectionHandlers<Capability: Sendable, Format: Sendable>(
-        persistKind: MediaKind,
-        formatDescriptor: OutputFormatDescriptor<Format>,
-        capabilityObserver: @escaping (
-            ContentViewModel,
-            [URL]
-        ) -> SourceAnalysisCapabilityObserver<Capability> = { _, _ in
-            SourceAnalysisCapabilityObserver(
-                onCapability: { _, _ in },
-                prepareForResolvedFormats: { _ in }
-            )
-        },
-        postSelectionUpdate: @escaping (ContentViewModel) -> Void = { _ in }
-    ) -> (ContentViewModel, [URL]) -> SourceAnalysisSelectionHandlers<Capability, Format> {
-        { viewModel, urls in
-            let observer = capabilityObserver(viewModel, urls)
-            return SourceAnalysisSelectionHandlers(
-                onCapability: observer.onCapability,
-                onFormatsResolved: { resolvedFormats in
-                    observer.prepareForResolvedFormats(viewModel)
-                    viewModel.applyResolvedOutputFormats(
-                        resolvedFormats,
-                        formatDescriptor: formatDescriptor,
-                        postSelectionUpdate: {
-                            postSelectionUpdate(viewModel)
-                        },
-                        persistSettings: {
-                            viewModel.persistCurrentSourceSettingsIfNeeded(for: persistKind)
-                        }
-                    )
-                }
-            )
-        }
-    }
-
     func primarySelectedSourceID(from urls: [URL]) -> String? {
         uniqueStandardizedURLs(urls).first.map(sourceIdentifier(for:))
-    }
-
-    static func makeImageSourceCapabilityObserver()
-        -> (ContentViewModel, [URL]) -> SourceAnalysisCapabilityObserver<ImageSourceCapabilities> {
-        { viewModel, urls in
-            let primarySourceID = viewModel.primarySelectedSourceID(from: urls)
-            var primaryFrameCount = 0
-            var primaryHasAlpha = false
-
-            return SourceAnalysisCapabilityObserver(
-                onCapability: { source, capabilities in
-                    guard viewModel.sourceIdentifier(for: source) == primarySourceID else { return }
-                    primaryFrameCount = capabilities.frameCount
-                    primaryHasAlpha = capabilities.hasAlpha
-                },
-                prepareForResolvedFormats: { resolvedViewModel in
-                    resolvedViewModel.updateState(\.imageRuntimeState, value: \.sourceFrameCount, to: primaryFrameCount)
-                    resolvedViewModel.updateState(\.imageRuntimeState, value: \.sourceHasAlpha, to: primaryHasAlpha)
-                }
-            )
-        }
     }
 
     func selectedSourceIDs(for kind: MediaKind) -> [String] {
@@ -111,10 +45,10 @@ extension ContentViewModel {
         formatNormalizedID: @escaping @Sendable (Format) -> String,
         deduplicatedAndSorted: @escaping @Sendable ([Format]) -> [Format],
         noCommonFormatsMessage: String,
-        buildSelectionHandlers: (ContentViewModel, [URL]) -> SourceAnalysisSelectionHandlers<Capability, Format>
+        onCapability: @escaping (URL, Capability) -> Void = { _, _ in },
+        onFormatsResolved: @escaping ([Format]) -> Void
     ) {
         let descriptor = mediaStateDescriptor(for: kind)
-        let handlers = buildSelectionHandlers(self, urls)
 
         analyzeSourceSelection(
             urls: urls,
@@ -134,8 +68,8 @@ extension ContentViewModel {
             formatNormalizedID: formatNormalizedID,
             deduplicatedAndSorted: deduplicatedAndSorted,
             noCommonFormatsMessage: noCommonFormatsMessage,
-            onCapability: handlers.onCapability,
-            onFormatsResolved: handlers.onFormatsResolved
+            onCapability: onCapability,
+            onFormatsResolved: onFormatsResolved
         )
     }
 
@@ -383,15 +317,26 @@ extension ContentViewModel {
             formatNormalizedID: { $0.normalizedID },
             deduplicatedAndSorted: { VideoFormatOption.deduplicatedAndSorted($0) },
             noCommonFormatsMessage: "No common output container is available for the selected files.",
-            buildSelectionHandlers: Self.makeResolvedOutputSelectionHandlers(
-                persistKind: .video,
-                formatDescriptor: Self.videoOutputFormatDescriptorValue,
-                postSelectionUpdate: { $0.refreshVideoCodecOptions() }
-            )
+            onFormatsResolved: { [self] resolvedFormats in
+                applyResolvedOutputFormats(
+                    resolvedFormats,
+                    formatDescriptor: Self.videoOutputFormatDescriptorValue,
+                    postSelectionUpdate: {
+                        refreshVideoCodecOptions()
+                    },
+                    persistSettings: {
+                        persistCurrentSourceSettingsIfNeeded(for: .video)
+                    }
+                )
+            }
         )
     }
 
     func analyzeImageSourceCompatibility(for urls: [URL]) {
+        let primarySourceID = primarySelectedSourceID(from: urls)
+        var primaryFrameCount = 0
+        var primaryHasAlpha = false
+
         analyzeSourceCompatibility(
             for: urls,
             kind: .image,
@@ -403,11 +348,22 @@ extension ContentViewModel {
             formatNormalizedID: { $0.normalizedID },
             deduplicatedAndSorted: { ImageFormatOption.deduplicatedAndSorted($0) },
             noCommonFormatsMessage: "No common output format is available for the selected files.",
-            buildSelectionHandlers: Self.makeResolvedOutputSelectionHandlers(
-                persistKind: .image,
-                formatDescriptor: Self.imageOutputFormatDescriptorValue,
-                capabilityObserver: Self.makeImageSourceCapabilityObserver()
-            )
+            onCapability: { [self] source, capabilities in
+                guard sourceIdentifier(for: source) == primarySourceID else { return }
+                primaryFrameCount = capabilities.frameCount
+                primaryHasAlpha = capabilities.hasAlpha
+            },
+            onFormatsResolved: { [self] resolvedFormats in
+                updateState(\.imageRuntimeState, value: \.sourceFrameCount, to: primaryFrameCount)
+                updateState(\.imageRuntimeState, value: \.sourceHasAlpha, to: primaryHasAlpha)
+                applyResolvedOutputFormats(
+                    resolvedFormats,
+                    formatDescriptor: Self.imageOutputFormatDescriptorValue,
+                    persistSettings: {
+                        persistCurrentSourceSettingsIfNeeded(for: .image)
+                    }
+                )
+            }
         )
     }
 
@@ -423,11 +379,18 @@ extension ContentViewModel {
             formatNormalizedID: { $0.normalizedID },
             deduplicatedAndSorted: { AudioFormatOption.deduplicatedAndSorted($0) },
             noCommonFormatsMessage: "No common audio output format is available for the selected files.",
-            buildSelectionHandlers: Self.makeResolvedOutputSelectionHandlers(
-                persistKind: .audio,
-                formatDescriptor: Self.audioOutputFormatDescriptorValue,
-                postSelectionUpdate: { $0.refreshAudioCodecOptions() }
-            )
+            onFormatsResolved: { [self] resolvedFormats in
+                applyResolvedOutputFormats(
+                    resolvedFormats,
+                    formatDescriptor: Self.audioOutputFormatDescriptorValue,
+                    postSelectionUpdate: {
+                        refreshAudioCodecOptions()
+                    },
+                    persistSettings: {
+                        persistCurrentSourceSettingsIfNeeded(for: .audio)
+                    }
+                )
+            }
         )
     }
 }
