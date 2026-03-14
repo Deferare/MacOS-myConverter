@@ -37,9 +37,9 @@ enum FFmpegRuntimeError: LocalizedError {
     case unavailable(String)
 
     var errorDescription: String? {
-        switch self {
-        case .unavailable(let message):
+        if case .unavailable(let message) = self {
             return message
         }
+        return nil
     }
 }

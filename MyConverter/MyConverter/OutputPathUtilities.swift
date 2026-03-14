@@ -440,9 +440,9 @@ enum OutputPathUtilities {
 
 extension OutputPathUtilities.SaveOutputError: LocalizedError {
     var errorDescription: String? {
-        switch self {
-        case let .outputSaveFailed(path, message):
+        if case let .outputSaveFailed(path, message) = self {
             return "Failed to save output to \(path): \(message)"
         }
+        return nil
     }
 }

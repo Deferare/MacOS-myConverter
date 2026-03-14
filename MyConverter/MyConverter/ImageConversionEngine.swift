@@ -63,13 +63,27 @@ enum ImageConversionError: LocalizedError {
         case encodingFailed
     }
 
-    private static let errorMessageByKind: [Kind: String] = [
-        .unreadableImage: "Failed to read input image file.",
-        .noFramesFound: "No image frame found in source file.",
-        .invalidSourceDimensions: "Input image has invalid dimensions.",
-        .ffmpegUnavailableForAnimatedOutput: "Animated output requires ffmpeg support for this format.",
-        .ffmpegFailed: "FFmpeg image conversion failed.",
-        .encodingFailed: "Failed to encode image with selected settings."
+    private static let errorMessageProviderByKind: [Kind: (Self) -> String] = [
+        .unreadableImage: { _ in "Failed to read input image file." },
+        .noFramesFound: { _ in "No image frame found in source file." },
+        .invalidSourceDimensions: { _ in "Input image has invalid dimensions." },
+        .unsupportedOutputFormat: { error in
+            guard case let .unsupportedOutputFormat(format) = error else {
+                return "Image output is not supported in this environment."
+            }
+            return "\(format.displayName) output is not supported in this environment."
+        },
+        .ffmpegUnsupportedFormat: { error in
+            guard case let .ffmpegUnsupportedFormat(format) = error else {
+                return "Image output is not supported by the bundled ffmpeg build."
+            }
+            return "\(format.displayName) output is not supported by the bundled ffmpeg build."
+        },
+        .ffmpegUnavailableForAnimatedOutput: { _ in
+            "Animated output requires ffmpeg support for this format."
+        },
+        .ffmpegFailed: { _ in "FFmpeg image conversion failed." },
+        .encodingFailed: { _ in "Failed to encode image with selected settings." }
     ]
 
     private var kind: Kind {
@@ -94,14 +108,7 @@ enum ImageConversionError: LocalizedError {
     }
 
     private var errorMessage: String {
-        switch self {
-        case .unsupportedOutputFormat(let format):
-            return "\(format.displayName) output is not supported in this environment."
-        case .ffmpegUnsupportedFormat(let format):
-            return "\(format.displayName) output is not supported by the bundled ffmpeg build."
-        default:
-            return Self.errorMessageByKind[kind] ?? "Image conversion failed."
-        }
+        Self.errorMessageProviderByKind[kind]?(self) ?? "Image conversion failed."
     }
 
     var errorDescription: String? { errorMessage }
