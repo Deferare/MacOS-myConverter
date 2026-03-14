@@ -6,19 +6,24 @@ extension ImageConversionEngine {
         outputURL: URL,
         outputSettings: ImageOutputSettings,
         allowFallbackOnFailure: Bool,
+        ffmpegContext: FFmpegExecutionContext? = nil,
+        runtimeProvider: any FFmpegRuntimeProviding = DefaultFFmpegRuntimeProvider(),
         onProgress: @escaping ProgressHandler
     ) async throws -> URL? {
-        guard let ffmpegPath = FFmpegBinaryLocator.findPath() else {
+        guard let ffmpegContext = ffmpegContext ?? makeFFmpegExecutionContext(using: runtimeProvider) else {
             return nil
         }
 
-        guard isFFmpegFormatSupported(outputSettings.containerFormat, ffmpegPath: ffmpegPath) else {
+        guard isFFmpegFormatSupported(
+            outputSettings.containerFormat,
+            introspection: ffmpegContext.introspection
+        ) else {
             return nil
         }
 
         do {
             try await runFFmpegConversion(
-                ffmpegPath: ffmpegPath,
+                ffmpegContext: ffmpegContext,
                 inputURL: inputURL,
                 outputURL: outputURL,
                 outputSettings: outputSettings,
@@ -35,29 +40,17 @@ extension ImageConversionEngine {
         }
     }
 
-    nonisolated private static func withStagedFFmpegInput<T>(
-        _ inputURL: URL,
-        operation: (URL) async throws -> T
-    ) async throws -> T {
-        try await FFmpegStagingSupport.withStagedInput(
-            for: inputURL,
-            makeError: { code, message in
-                ImageConversionError.ffmpegFailed(code, message)
-            },
-            operation: operation
-        )
-    }
-
     nonisolated private static func runFFmpegConversion(
-        ffmpegPath: String,
+        ffmpegContext: FFmpegExecutionContext,
         inputURL: URL,
         outputURL: URL,
         outputSettings: ImageOutputSettings,
         onProgress: @escaping ProgressHandler
     ) async throws {
-        let introspection = try inspectFFmpeg(at: ffmpegPath)
         try await withStagedFFmpegInput(inputURL) { stagedInputURL in
-            let selectedCodec = outputSettings.containerFormat.ffmpegEncoderCandidates.first(where: { introspection.encoders.contains($0) })
+            let selectedCodec = outputSettings.containerFormat.ffmpegEncoderCandidates.first(where: {
+                ffmpegContext.introspection.videoEncoders.contains($0)
+            })
 
             if !outputSettings.containerFormat.ffmpegEncoderCandidates.isEmpty &&
                 selectedCodec == nil &&
@@ -66,7 +59,9 @@ extension ImageConversionEngine {
             }
 
             if !outputSettings.containerFormat.ffmpegRequiredMuxers.isEmpty &&
-                !outputSettings.containerFormat.ffmpegRequiredMuxers.contains(where: { introspection.muxers.contains($0) }) {
+                !outputSettings.containerFormat.ffmpegRequiredMuxers.contains(where: {
+                    ffmpegContext.introspection.muxers.contains($0)
+                }) {
                 throw ImageConversionError.ffmpegUnsupportedFormat(outputSettings.containerFormat)
             }
 
@@ -97,7 +92,7 @@ extension ImageConversionEngine {
             appendFFmpegFormatArguments(&args, outputSettings: outputSettings)
 
             if let preferredMuxer = outputSettings.containerFormat.preferredFFmpegMuxer,
-               introspection.muxers.contains(preferredMuxer) {
+               ffmpegContext.introspection.muxers.contains(preferredMuxer) {
                 args.append(contentsOf: ["-f", preferredMuxer])
             }
 
@@ -105,7 +100,18 @@ extension ImageConversionEngine {
 
             try Task.checkCancellation()
             reportProgress(0.05, onProgress: onProgress)
-            let result = try await ProcessCommandRunner.runCommand(path: ffmpegPath, arguments: args)
+            let token = PerformanceSignpost.begin("ImageEncode", message: inputURL.lastPathComponent)
+            let result: FFmpegCommandResult
+            do {
+                result = try await ffmpegContext.runtime.runCommand(
+                    arguments: args,
+                    outputLineHandler: nil
+                )
+                PerformanceSignpost.end("ImageEncode", token: token, message: inputURL.lastPathComponent)
+            } catch {
+                PerformanceSignpost.end("ImageEncode", token: token, message: "failed")
+                throw error
+            }
             try Task.checkCancellation()
 
             guard result.terminationStatus == 0 else {
@@ -116,49 +122,12 @@ extension ImageConversionEngine {
         }
     }
 
-    nonisolated private static func appendFFmpegFormatArguments(
-        _ args: inout [String],
-        outputSettings: ImageOutputSettings
-    ) {
-        let formatID = outputSettings.containerFormat.normalizedID
-        let qualityPercent = Int(((outputSettings.compressionQuality ?? 1.0) * 100).rounded())
-
-        if formatID == "public.png" {
-            if let compressionLevel = outputSettings.pngCompressionLevel {
-                args.append(contentsOf: ["-compression_level", "\(max(0, min(compressionLevel, 9)))"])
-            }
-            return
-        }
-
-        if ["public.jpeg", "public.jpeg-2000", "org.webmproject.webp"].contains(formatID) {
-            if outputSettings.compressionQuality != nil {
-                args.append(contentsOf: ["-q:v", "\(ImageQualityOption.ffmpegQScale(fromPercent: qualityPercent))"])
-            }
-            return
-        }
-
-        if ["public.heic", "public.avif"].contains(formatID) {
-            if outputSettings.compressionQuality != nil {
-                args.append(contentsOf: ["-crf", "\(ImageQualityOption.ffmpegCRF(fromPercent: qualityPercent))"])
-            }
-            args.append(contentsOf: ["-pix_fmt", "yuv420p"])
-            if formatID == "public.heic" {
-                args.append(contentsOf: ["-tag:v", "hvc1"])
-            }
-            return
-        }
-
-        if formatID == "com.compuserve.gif",
-           outputSettings.sourceIsAnimated,
-           outputSettings.preserveAnimation {
-            args.append(contentsOf: ["-loop", "0"])
-        }
-    }
-
-    nonisolated static func reportProgress(_ progress: Double, onProgress: @escaping ProgressHandler) {
-        let clamped = min(max(progress, 0), 1)
-        Task {
-            await onProgress(clamped)
-        }
+    nonisolated static func makeFFmpegExecutionContext(
+        using runtimeProvider: any FFmpegRuntimeProviding = DefaultFFmpegRuntimeProvider()
+    ) -> FFmpegExecutionContext? {
+        FFmpegExecutionContextSupport.makeContext(
+            using: runtimeProvider,
+            inspect: { try inspectFFmpeg(using: $0) }
+        )
     }
 }

@@ -1,4 +1,6 @@
+#if os(macOS)
 import AppKit
+#endif
 import Foundation
 import UniformTypeIdentifiers
 
@@ -9,16 +11,6 @@ extension ContentViewModel {
         applySelection: @escaping @MainActor ([URL]) -> Void
     ) -> Bool {
         handleDroppedFiles(providers: providers, accept: accept, onResolvedURLs: applySelection)
-    }
-
-    func handleDrop(providers: [NSItemProvider], for kind: MediaKind) -> Bool {
-        handleMediaDrop(
-            providers: providers,
-            accept: kind.acceptsInput(_:),
-            applySelection: { [weak self] urls in
-                self?.applySelectedSources(urls, for: kind)
-            }
-        )
     }
 
     func handleDroppedFiles(
@@ -40,12 +32,13 @@ extension ContentViewModel {
             provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
                 defer { group.leave() }
 
-                var finalURL: URL?
-
+                let finalURL: URL?
                 if let data = item as? Data {
                     finalURL = URL(dataRepresentation: data, relativeTo: nil)
                 } else if let url = item as? URL {
                     finalURL = url
+                } else {
+                    finalURL = nil
                 }
 
                 guard let finalURL else { return }
@@ -56,9 +49,9 @@ extension ContentViewModel {
             }
         }
 
-        group.notify(queue: .main) { [weak self] in
-            guard let self else { return }
-            let accepted = self.acceptedInputURLs(resolvedURLs, accept: accept)
+        group.notify(queue: .main) {
+            let accepted = ContentViewModelSupport.uniqueStandardizedURLs(resolvedURLs)
+                .filter(accept)
             guard !accepted.isEmpty else { return }
 
             Task { @MainActor in
@@ -67,5 +60,21 @@ extension ContentViewModel {
         }
 
         return true
+    }
+}
+
+extension ContentViewModel.MediaKind {
+    func handleDrop(
+        providers: [NSItemProvider],
+        in viewModel: ContentViewModel
+    ) -> Bool {
+        viewModel.handleMediaDrop(
+            providers: providers,
+            accept: acceptsInput(_:),
+            applySelection: { [weak viewModel] urls in
+                guard let viewModel else { return }
+                self.applyImportedSources(urls, in: viewModel)
+            }
+        )
     }
 }

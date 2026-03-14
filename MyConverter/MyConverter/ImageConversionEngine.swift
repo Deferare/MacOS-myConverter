@@ -22,64 +22,23 @@ enum ImageConversionEngine {
 
     nonisolated static let introspectionCacheQueue = DispatchQueue(label: "myconverter.image.ffmpeg.introspection.cache")
     nonisolated(unsafe) static var introspectionCache: [String: FFmpegIntrospection] = [:]
-    nonisolated(unsafe) static var introspectionInFlight: [String: InFlightFFmpegIntrospection] = [:]
+    nonisolated(unsafe) static var introspectionInFlight: [String: InFlightGroupedResult<FFmpegIntrospection>] = [:]
     nonisolated static let outputFormatCacheQueue = DispatchQueue(label: "myconverter.image.output.cache")
     nonisolated(unsafe) static var defaultOutputFormatsCache: [String: [ImageFormatOption]] = [:]
     nonisolated(unsafe) static var imageIODestinationTypeCache: Set<String>? = nil
     nonisolated(unsafe) static var imageIOAvailableFormatsCache: [ImageFormatOption]? = nil
     nonisolated static let sourceCapabilityCacheQueue = DispatchQueue(label: "myconverter.image.source.capability.cache")
     nonisolated(unsafe) static var sourceCapabilitiesCache: [String: ImageSourceCapabilities] = [:]
-    nonisolated(unsafe) static var sourceCapabilitiesInFlight: [String: InFlightCapability<ImageSourceCapabilities>] = [:]
+    nonisolated(unsafe) static var sourceCapabilitiesInFlight: [String: InFlightContinuation<ImageSourceCapabilities>] = [:]
 
-    struct FFmpegIntrospection {
-        let encoders: Set<String>
-        let muxers: Set<String>
-        let muxerExtensions: [String: [String]]
-    }
-
-    final class InFlightFFmpegIntrospection: @unchecked Sendable {
-        nonisolated let group: DispatchGroup
-        nonisolated(unsafe) var result: Result<FFmpegIntrospection, Error>?
-
-        nonisolated init() {
-            group = DispatchGroup()
-            group.enter()
-        }
-    }
-
-    final class InFlightCapability<Value>: @unchecked Sendable {
-        nonisolated(unsafe) var result: Value?
-        nonisolated(unsafe) var continuations: [CheckedContinuation<Value, Never>] = []
-
-        nonisolated init() {}
-    }
-
-    struct FFmpegMuxerDescriptor {
-        let name: String
-        let description: String
+    nonisolated static func ffmpegRuntime(
+        using runtimeProvider: any FFmpegRuntimeProviding = DefaultFFmpegRuntimeProvider()
+    ) -> (any FFmpegRuntime)? {
+        runtimeProvider.makeRuntime()
     }
 
     nonisolated static func isFFmpegAvailable() -> Bool {
-        FFmpegBinaryLocator.findPath() != nil
-    }
-
-    nonisolated static func uniqueOutputURL(
-        for sourceURL: URL,
-        format: ImageFormatOption,
-        in outputDirectory: URL
-    ) -> URL {
-        OutputPathUtilities.uniqueOutputURL(
-            for: sourceURL,
-            fileExtension: format.fileExtension,
-            in: outputDirectory
-        )
-    }
-
-    nonisolated static func temporaryOutputURL(for sourceURL: URL, format: ImageFormatOption) -> URL {
-        OutputPathUtilities.temporaryOutputURL(
-            for: sourceURL,
-            fileExtension: format.fileExtension
-        )
+        ffmpegRuntime() != nil
     }
 }
 
@@ -93,24 +52,86 @@ enum ImageConversionError: LocalizedError {
     case ffmpegFailed(Int32, String)
     case encodingFailed
 
-    var errorDescription: String? {
-        switch self {
-        case .unreadableImage:
-            return "Failed to read input image file."
-        case .noFramesFound:
-            return "No image frame found in source file."
-        case .invalidSourceDimensions:
-            return "Input image has invalid dimensions."
-        case .unsupportedOutputFormat(let format):
-            return "\(format.displayName) output is not supported in this environment."
-        case .ffmpegUnsupportedFormat(let format):
-            return "\(format.displayName) output is not supported by the bundled ffmpeg build."
-        case .ffmpegUnavailableForAnimatedOutput:
-            return "Animated output requires ffmpeg support for this format."
-        case .ffmpegFailed:
-            return "FFmpeg image conversion failed."
-        case .encodingFailed:
-            return "Failed to encode image with selected settings."
+    private enum Kind: Hashable {
+        case unreadableImage
+        case noFramesFound
+        case invalidSourceDimensions
+        case unsupportedOutputFormat
+        case ffmpegUnsupportedFormat
+        case ffmpegUnavailableForAnimatedOutput
+        case ffmpegFailed
+        case encodingFailed
+
+        private static let kindMatchers: [(kind: Self, matches: (ImageConversionError) -> Bool)] = [
+            (.unreadableImage, {
+                if case .unreadableImage = $0 { return true }
+                return false
+            }),
+            (.noFramesFound, {
+                if case .noFramesFound = $0 { return true }
+                return false
+            }),
+            (.invalidSourceDimensions, {
+                if case .invalidSourceDimensions = $0 { return true }
+                return false
+            }),
+            (.unsupportedOutputFormat, {
+                if case .unsupportedOutputFormat = $0 { return true }
+                return false
+            }),
+            (.ffmpegUnsupportedFormat, {
+                if case .ffmpegUnsupportedFormat = $0 { return true }
+                return false
+            }),
+            (.ffmpegUnavailableForAnimatedOutput, {
+                if case .ffmpegUnavailableForAnimatedOutput = $0 { return true }
+                return false
+            }),
+            (.ffmpegFailed, {
+                if case .ffmpegFailed = $0 { return true }
+                return false
+            }),
+            (.encodingFailed, {
+                if case .encodingFailed = $0 { return true }
+                return false
+            })
+        ]
+
+        static func resolve(from error: ImageConversionError) -> Self {
+            Self.kindMatchers.first(where: { $0.matches(error) })?.kind ?? .encodingFailed
         }
     }
+
+    private static let errorMessageProviderByKind: [Kind: (Self) -> String] = [
+        .unreadableImage: { _ in "Failed to read input image file." },
+        .noFramesFound: { _ in "No image frame found in source file." },
+        .invalidSourceDimensions: { _ in "Input image has invalid dimensions." },
+        .unsupportedOutputFormat: { error in
+            guard case let .unsupportedOutputFormat(format) = error else {
+                return "Image output is not supported in this environment."
+            }
+            return "\(format.displayName) output is not supported in this environment."
+        },
+        .ffmpegUnsupportedFormat: { error in
+            guard case let .ffmpegUnsupportedFormat(format) = error else {
+                return "Image output is not supported by the bundled ffmpeg build."
+            }
+            return "\(format.displayName) output is not supported by the bundled ffmpeg build."
+        },
+        .ffmpegUnavailableForAnimatedOutput: { _ in
+            "Animated output requires ffmpeg support for this format."
+        },
+        .ffmpegFailed: { _ in "FFmpeg image conversion failed." },
+        .encodingFailed: { _ in "Failed to encode image with selected settings." }
+    ]
+
+    private var kind: Kind {
+        Kind.resolve(from: self)
+    }
+
+    private var errorMessage: String {
+        Self.errorMessageProviderByKind[kind]?(self) ?? "Image conversion failed."
+    }
+
+    var errorDescription: String? { errorMessage }
 }

@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 
 enum ProcessCommandRunner {
@@ -27,3 +28,4 @@ enum ProcessCommandRunner {
         }
     }
 }
+#endif

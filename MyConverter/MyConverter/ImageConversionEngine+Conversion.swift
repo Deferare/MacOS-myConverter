@@ -5,6 +5,7 @@ extension ImageConversionEngine {
         inputURL: URL,
         outputURL: URL,
         outputSettings: ImageOutputSettings,
+        ffmpegContext: FFmpegExecutionContext? = nil,
         onProgress: @escaping ProgressHandler
     ) async throws -> URL {
         try OutputPathUtilities.removeFileIfExists(at: outputURL)
@@ -20,6 +21,7 @@ extension ImageConversionEngine {
             outputURL: outputURL,
             outputSettings: outputSettings,
             allowFallbackOnFailure: imageIOCanEncode,
+            ffmpegContext: ffmpegContext,
             onProgress: onProgress
         ) {
             return ffmpegOutput
@@ -33,13 +35,13 @@ extension ImageConversionEngine {
             throw ImageConversionError.unsupportedOutputFormat(outputSettings.containerFormat)
         }
 
-        return try await Task.detached(priority: .userInitiated) {
+        return try await throwingDetachedTaskValue(priority: .userInitiated) {
             try convertSyncUsingImageIO(
                 inputURL: inputURL,
                 outputURL: outputURL,
                 outputSettings: outputSettings,
                 onProgress: onProgress
             )
-        }.value
+        }
     }
 }

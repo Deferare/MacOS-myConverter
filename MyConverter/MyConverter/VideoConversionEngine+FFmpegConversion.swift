@@ -6,24 +6,30 @@ extension VideoConversionEngine {
         outputURL: URL,
         outputSettings: VideoOutputSettings,
         inputDurationSeconds: Double?,
+        ffmpegContext: FFmpegExecutionContext? = nil,
+        runtimeProvider: any FFmpegRuntimeProviding = DefaultFFmpegRuntimeProvider(),
+        stagedInputLease: FFmpegStagingSupport.StagedInputLease? = nil,
         onProgress: @escaping ProgressHandler
     ) async throws -> Bool {
-        guard let ffmpegPath = FFmpegBinaryLocator.findPath() else {
+        guard let ffmpegContext = ffmpegContext ?? makeFFmpegExecutionContext(using: runtimeProvider) else {
             return false
         }
 
-        guard let introspection = try? inspectFFmpeg(at: ffmpegPath),
-              isFFmpegFormatSupported(outputSettings.containerFormat, introspection: introspection) else {
+        guard isFFmpegFormatSupported(
+            outputSettings.containerFormat,
+            introspection: ffmpegContext.introspection
+        ) else {
             return false
         }
 
         try await convertWithFFmpeg(
-            introspection: introspection,
-            ffmpegPath: ffmpegPath,
+            introspection: ffmpegContext.introspection,
+            runtime: ffmpegContext.runtime,
             inputURL: inputURL,
             outputURL: outputURL,
             outputSettings: outputSettings,
             inputDurationSeconds: inputDurationSeconds,
+            stagedInputLease: stagedInputLease,
             onProgress: onProgress
         )
         return true
@@ -31,15 +37,16 @@ extension VideoConversionEngine {
 
     static func convertWithFFmpeg(
         introspection: FFmpegIntrospection,
-        ffmpegPath: String,
+        runtime: any FFmpegRuntime,
         inputURL: URL,
         outputURL: URL,
         outputSettings: VideoOutputSettings,
         inputDurationSeconds: Double?,
+        stagedInputLease: FFmpegStagingSupport.StagedInputLease? = nil,
         onProgress: @escaping ProgressHandler
     ) async throws {
         try OutputPathUtilities.removeFileIfExists(at: outputURL)
-        try await withStagedFFmpegInput(for: inputURL) { stagedInputURL in
+        try await withStagedFFmpegInput(for: inputURL, stagedInputLease: stagedInputLease) { stagedInputURL in
             let availableVideoCodecs = outputSettings.videoCodecCandidates.filter { introspection.videoEncoders.contains($0) }
             let videoCodecs = codecCandidates(
                 availableCodecs: availableVideoCodecs,
@@ -69,7 +76,7 @@ extension VideoConversionEngine {
                 outputURL: outputURL,
                 operation: { videoCodec, audioCodec in
                     try await runFFmpeg(
-                        ffmpegPath: ffmpegPath,
+                        runtime: runtime,
                         inputURL: stagedInputURL,
                         outputURL: outputURL,
                         outputSettings: outputSettings,
@@ -86,7 +93,7 @@ extension VideoConversionEngine {
 
     static func convertAudioWithFFmpeg(
         introspection: FFmpegIntrospection,
-        ffmpegPath: String,
+        runtime: any FFmpegRuntime,
         inputURL: URL,
         outputURL: URL,
         outputSettings: AudioOutputSettings,
@@ -110,7 +117,7 @@ extension VideoConversionEngine {
                 outputURL: outputURL,
                 operation: { _, audioCodec in
                     try await runAudioFFmpeg(
-                        ffmpegPath: ffmpegPath,
+                        runtime: runtime,
                         inputURL: stagedInputURL,
                         outputURL: outputURL,
                         outputSettings: outputSettings,
@@ -121,98 +128,6 @@ extension VideoConversionEngine {
                 },
                 fallbackErrorMessage: "No supported audio encoder found for selected format."
             )
-        }
-    }
-
-    private static func codecCandidates(
-        availableCodecs: [String],
-        allowAutomatic: Bool
-    ) -> [String?] {
-        if availableCodecs.isEmpty {
-            return allowAutomatic ? [nil] : []
-        }
-        return availableCodecs.map(Optional.init)
-    }
-
-    private static func withStagedFFmpegInput<T>(
-        for inputURL: URL,
-        operation: (URL) async throws -> T
-    ) async throws -> T {
-        try await FFmpegStagingSupport.withStagedInput(
-            for: inputURL,
-            makeError: { code, message in
-                ConversionError.ffmpegFailed(code, message)
-            },
-            operation: operation
-        )
-    }
-
-    private static func codecPairs(
-        videoCodecs: [String?],
-        audioCodecs: [String?]
-    ) -> [(video: String?, audio: String?)] {
-        var pairs: [(video: String?, audio: String?)] = []
-        pairs.reserveCapacity(videoCodecs.count * audioCodecs.count)
-
-        for videoCodec in videoCodecs {
-            for audioCodec in audioCodecs {
-                pairs.append((video: videoCodec, audio: audioCodec))
-            }
-        }
-
-        return pairs
-    }
-
-    private static func audioCodecPairs(_ audioCodecs: [String?]) -> [(video: String?, audio: String?)] {
-        audioCodecs.map { (video: nil, audio: $0) }
-    }
-
-    private static func performFFmpegAttempts(
-        codecPairs: [(video: String?, audio: String?)],
-        outputURL: URL,
-        operation: (String?, String?) async throws -> Void,
-        fallbackErrorMessage: String
-    ) async throws {
-        var lastError: Error?
-        for codecPair in codecPairs {
-            if let error = try await attemptFFmpegOperation(
-                outputURL: outputURL,
-                operation: {
-                    try await operation(codecPair.video, codecPair.audio)
-                }
-            ) {
-                lastError = error
-                continue
-            }
-
-            return
-        }
-
-        throw lastError ?? ConversionError.ffmpegFailed(-1, fallbackErrorMessage)
-    }
-
-    static func stageInputForFFmpeg(_ inputURL: URL) throws -> URL {
-        try FFmpegStagingSupport.stageInputURL(for: inputURL) { code, message in
-            ConversionError.ffmpegFailed(code, message)
-        }
-    }
-
-    private static func attemptFFmpegOperation(
-        outputURL: URL,
-        operation: () async throws -> Void
-    ) async throws -> Error? {
-        try Task.checkCancellation()
-
-        do {
-            try await operation()
-            return nil
-        } catch is CancellationError {
-            throw ConversionError.exportCancelled
-        } catch ConversionError.exportCancelled {
-            throw ConversionError.exportCancelled
-        } catch {
-            try? OutputPathUtilities.removeFileIfExists(at: outputURL)
-            return error
         }
     }
 }

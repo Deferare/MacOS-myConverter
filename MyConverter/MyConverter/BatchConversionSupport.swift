@@ -1,11 +1,4 @@
-import AppKit
 import Foundation
-
-struct PreparedBatchConversionContext {
-    let sourceURLs: [URL]
-    let destinationURLsBySourceID: [String: URL]
-    let stopAccessingBatchDirectory: () -> Void
-}
 
 enum BatchConversionSupport {
     struct PreparedBatchDirectoryAccess {
@@ -19,54 +12,68 @@ enum BatchConversionSupport {
         return ([prefix] + entries).joined(separator: "\n")
     }
 
-    static func prepareContext(
+    nonisolated static func prepareContext(
         sourceURLs: [URL],
         fileExtension: String,
-        outputLabel: String
+        outputDirectoryURL: URL,
+        outputDirectoryAccessURL: URL? = nil
     ) -> PreparedBatchConversionContext? {
-        guard var destinationURLsBySourceID = selectDestinationURLs(
-            for: sourceURLs,
-            fileExtension: fileExtension,
-            outputLabel: outputLabel
-        ) else {
-            return nil
+        var destinationURLsBySourceID: [String: URL] = [:]
+        var allocator = OutputPathUtilities.ReservedOutputAllocator.preloaded(for: outputDirectoryURL)
+        for sourceURL in sourceURLs {
+            let destinationURL = allocator.reserveUniqueOutputURL(
+                forBaseName: OutputPathUtilities.sourceBaseName(for: sourceURL, fallback: "output"),
+                fileExtension: fileExtension
+            )
+            destinationURLsBySourceID[ContentViewModelSupport.sourceIdentifier(for: sourceURL)] =
+                destinationURL
         }
 
         guard let batchAccess = prepareBatchDirectoryAccess(
             sourceURLs: sourceURLs,
-            destinationURLsBySourceID: destinationURLsBySourceID
+            destinationURLsBySourceID: destinationURLsBySourceID,
+            outputDirectoryAccessURL: outputDirectoryAccessURL
         ) else {
             return nil
         }
 
-        destinationURLsBySourceID = batchAccess.destinationURLsBySourceID
-        let stopAccessingBatchDirectory = {
+        let stopAccessingBatchDirectory: @Sendable () -> Void = {
             if batchAccess.shouldStopAccessing, let batchDirectoryURL = batchAccess.batchDirectoryURL {
                 batchDirectoryURL.stopAccessingSecurityScopedResource()
             }
         }
 
-        return PreparedBatchConversionContext(
-            sourceURLs: sourceURLs,
-            destinationURLsBySourceID: destinationURLsBySourceID,
-            stopAccessingBatchDirectory: stopAccessingBatchDirectory
-        )
-    }
+        let preparedSources = sourceURLs.compactMap { sourceURL -> PreparedSourceConversion? in
+            let sourceID = ContentViewModelSupport.sourceIdentifier(for: sourceURL)
+            guard let destinationURL = batchAccess.destinationURLsBySourceID[sourceID] else {
+                return nil
+            }
 
-    static func destinationURL(
-        for sourceURL: URL,
-        in destinationURLsBySourceID: [String: URL],
-        errorCode: Int
-    ) throws -> URL {
-        let sourceID = ContentViewModelSupport.sourceIdentifier(for: sourceURL)
-        guard let destinationURL = destinationURLsBySourceID[sourceID] else {
-            throw NSError(
-                domain: "ContentViewModel",
-                code: errorCode,
-                userInfo: [NSLocalizedDescriptionKey: "Failed to resolve the selected output path."]
+            let preparedWorkingOutput = OutputPathUtilities.prepareWorkingOutput(
+                for: sourceURL,
+                destinationURL: destinationURL
+            )
+
+            return PreparedSourceConversion(
+                sourceURL: sourceURL,
+                sourceID: sourceID,
+                destinationURL: destinationURL,
+                destinationDirectoryAccessURL: batchAccess.batchDirectoryURL ?? outputDirectoryURL,
+                workingOutputURL: preparedWorkingOutput.url,
+                workingOutputStrategy: preparedWorkingOutput.strategy
             )
         }
-        return destinationURL
+
+        guard preparedSources.count == sourceURLs.count else {
+            stopAccessingBatchDirectory()
+            return nil
+        }
+
+        return PreparedBatchConversionContext(
+            preparedSources: preparedSources,
+            outputDirectoryURL: batchAccess.batchDirectoryURL ?? outputDirectoryURL,
+            stopAccessingBatchDirectory: stopAccessingBatchDirectory
+        )
     }
 
     static func cleanupWorkingOutputIfNeeded(_ workingOutputURL: URL) {
@@ -75,13 +82,16 @@ enum BatchConversionSupport {
         }
     }
 
-    static func saveConvertedOutput(from sourceURL: URL, to destinationURL: URL) throws -> URL {
-        let destinationDirectoryURL = destinationURL.deletingLastPathComponent()
-
-        return try SecurityScopedResourceAccess.withAccess(to: destinationURL) {
-            try SecurityScopedResourceAccess.withAccess(to: destinationDirectoryURL) {
-                try VideoConversionEngine.saveConvertedOutput(from: sourceURL, to: destinationURL)
-            }
+    static func savePreparedConvertedOutput(
+        from sourceURL: URL,
+        preparedSource: PreparedSourceConversion
+    ) throws -> URL {
+        return try SecurityScopedResourceAccess.withAccess(to: preparedSource.destinationDirectoryAccessURL) {
+            try OutputPathUtilities.commitPreparedOutput(
+                from: sourceURL,
+                to: preparedSource.destinationURL,
+                strategy: preparedSource.workingOutputStrategy
+            )
         }
     }
 }

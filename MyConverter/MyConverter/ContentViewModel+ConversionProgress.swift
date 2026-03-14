@@ -1,30 +1,12 @@
 import Foundation
 
 extension ContentViewModel {
-    func batchProgressHandler(
-        for kind: MediaKind,
-        index: Int,
-        totalCount: Int
-    ) -> @Sendable (Double) async -> Void {
-        { [weak self] progress in
-            guard let self else { return }
-            await self.updateBatchProgress(
-                for: kind,
-                itemProgress: progress,
-                index: index,
-                totalCount: totalCount
-            )
-        }
-    }
-
     func setProgress(_ rawProgress: Double, at keyPath: ReferenceWritableKeyPath<ContentViewModel, Double>) {
         let clamped = clampedProgress(rawProgress)
         let current = self[keyPath: keyPath]
         guard current != clamped else { return }
-
-        let shouldForceUpdate = clamped == 0 || clamped == 1
-        guard shouldForceUpdate || abs(current - clamped) >= 0.002 else { return }
         self[keyPath: keyPath] = clamped
+        PerformanceSignpost.event("ProgressPublish")
     }
 
     func normalizedBatchProgress(
@@ -36,25 +18,43 @@ extension ContentViewModel {
         let total = Double(max(totalCount, 1))
         return (base + itemProgress) / total
     }
+}
 
-    func setProgress(_ rawProgress: Double, for kind: MediaKind) {
-        let descriptor = mediaStateDescriptor(for: kind)
-        setProgress(rawProgress, at: descriptor.progress)
+extension ContentViewModel.MediaKind {
+    nonisolated
+    func batchProgressHandler(
+        in viewModel: ContentViewModel,
+        index: Int,
+        totalCount: Int
+    ) -> @Sendable (Double) async -> Void {
+        { [weak viewModel] progress in
+            guard let viewModel else { return }
+            await self.updateBatchProgress(
+                in: viewModel,
+                itemProgress: progress,
+                index: index,
+                totalCount: totalCount
+            )
+        }
+    }
+
+    func setProgress(_ rawProgress: Double, in viewModel: ContentViewModel) {
+        viewModel.setProgress(rawProgress, at: mediaStateDescriptor.progress)
     }
 
     func updateBatchProgress(
-        for kind: MediaKind,
+        in viewModel: ContentViewModel,
         itemProgress: Double,
         index: Int,
         totalCount: Int
     ) {
         setProgress(
-            normalizedBatchProgress(
+            viewModel.normalizedBatchProgress(
                 itemProgress: itemProgress,
                 index: index,
                 totalCount: totalCount
             ),
-            for: kind
+            in: viewModel
         )
     }
 }

@@ -2,23 +2,18 @@ import Foundation
 
 extension ContentViewModel {
     var audioOutputFormatOptions: [AudioFormatOption] {
-        availableOutputFormatOptions(using: audioOutputFormatDescriptor())
+        availableOutputFormatOptions(using: Self.audioOutputFormatDescriptor)
     }
 
     var audioOutputEncoderOptions: [AudioEncoderOption] {
-        resolvedOptions(availableAudioOutputEncoders) {
-            if audioSourceURL == nil && selectedAudioOutputFormat.allowsFFmpegAutomaticAudioCodec {
-                return [.auto]
-            }
-            return []
-        }
+        audioOutputEncodingSelectionState.encoderOptions
     }
 
     var shouldShowAudioOutputSampleRateOption: Bool {
-        selectedAudioOutputEncoder.supportsSampleRate
+        audioOptionsState.selectedOutputEncoder.supportsSampleRate
     }
 
     var shouldShowAudioOutputBitRateOption: Bool {
-        selectedAudioOutputEncoder.supportsAudioBitRate
+        audioOptionsState.selectedOutputEncoder.supportsAudioBitRate
     }
 }

@@ -1,20 +1,20 @@
 import Foundation
 
-extension ContentViewModel {
+extension ContentViewModel.MediaKind {
     func applyConversionError(
         _ error: Error,
-        for kind: MediaKind,
+        in viewModel: ContentViewModel,
         logPrefix: String,
         treatExportCancellationAsCancelled: Bool = false,
         includeDebugInfo: Bool = false
     ) {
         if treatExportCancellationAsCancelled, case ConversionError.exportCancelled = error {
-            setConversionErrorMessage(nil, for: kind)
+            setConversionErrorMessage(nil, in: viewModel)
             return
         }
 
         let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-        setConversionErrorMessage(message, for: kind)
+        setConversionErrorMessage(message, in: viewModel)
 
         if includeDebugInfo, let conversionError = error as? ConversionError {
             print("\(logPrefix): \(conversionError.debugInfo)")

@@ -45,7 +45,7 @@ struct DropFileView: View {
     }
 
     var body: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 16) {
             Image(systemName: isDropTargeted ? "arrow.down.circle.fill" : "plus.circle.fill")
                 .font(.system(size: 34, weight: .semibold))
                 .foregroundStyle(.primary)
@@ -59,17 +59,10 @@ struct DropFileView: View {
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(.primary)
 
-                Text(isDropTargeted ? "Release to start conversion setup" : "or click to browse local files")
+                Text(isDropTargeted ? "Release to add the files to this queue" : "Drop files here or click anywhere in this area to browse.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
-
-            Text(isDropTargeted ? "Release to import" : "Browse Files")
-                .font(.subheadline.weight(.semibold))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .glassEffect(decorativeGlass, in: Capsule())
-                .foregroundStyle(.primary)
         }
         .padding(24)
         .frame(maxWidth: .infinity)

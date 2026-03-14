@@ -1,12 +1,12 @@
 import Foundation
 
 extension ContentViewModelSupport {
-    static func labeledCapabilityMessage(_ message: String, for sourceURL: URL, totalCount: Int) -> String {
+    nonisolated static func labeledCapabilityMessage(_ message: String, for sourceURL: URL, totalCount: Int) -> String {
         guard totalCount > 1 else { return message }
         return "\(sourceURL.lastPathComponent): \(message)"
     }
 
-    static func joinedCapabilityMessages(_ messages: [String]) -> String? {
+    nonisolated static func joinedCapabilityMessages(_ messages: [String]) -> String? {
         var seen = Set<String>()
         var uniqueMessages: [String] = []
 
@@ -22,7 +22,7 @@ extension ContentViewModelSupport {
         return uniqueMessages.joined(separator: "\n")
     }
 
-    static func intersectFormats<Format>(
+    nonisolated static func intersectFormats<Format>(
         _ lhs: [Format],
         _ rhs: [Format],
         normalizedID: (Format) -> String
@@ -31,7 +31,7 @@ extension ContentViewModelSupport {
         return lhs.filter { rhsIDs.contains(normalizedID($0)) }
     }
 
-    static func clampedProgress(_ rawProgress: Double) -> Double {
+    nonisolated static func clampedProgress(_ rawProgress: Double) -> Double {
         min(max(rawProgress, 0), 1)
     }
 }

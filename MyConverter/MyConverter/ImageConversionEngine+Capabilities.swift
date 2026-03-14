@@ -3,7 +3,7 @@ import ImageIO
 
 extension ImageConversionEngine {
     nonisolated static func imageIODestinationTypeIdentifiers() -> Set<String> {
-        cachedOutputFormatValue(
+        CachedValueSupport.resolve(
             readCached: { outputFormatCacheQueue.sync(execute: { imageIODestinationTypeCache }) },
             storeCached: { resolved in
                 outputFormatCacheQueue.sync {
@@ -20,18 +20,5 @@ extension ImageConversionEngine {
             return false
         }
         return imageIODestinationTypeIdentifiers().contains(identifier)
-    }
-
-    nonisolated static func cachedOutputFormatValue<Value>(
-        readCached: () -> Value?,
-        storeCached: (Value) -> Void,
-        build: () -> Value
-    ) -> Value {
-        if let cached = readCached() {
-            return cached
-        }
-        let resolved = build()
-        storeCached(resolved)
-        return resolved
     }
 }

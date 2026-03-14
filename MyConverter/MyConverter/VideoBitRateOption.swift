@@ -20,6 +20,6 @@ enum VideoBitRateOption: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     var kbps: Int? {
-        [.auto, .custom].contains(self) ? nil : parsedLeadingInteger(in: rawValue)
+        optionalParsedLeadingInteger(in: rawValue, isEnabled: ![.auto, .custom].contains(self))
     }
 }

@@ -1,64 +1,78 @@
 import Foundation
 
-extension ContentViewModel {
+extension ContentViewModel.MediaKind {
+    func resetCancelledConversionState(in viewModel: ContentViewModel) {
+        setProgress(0, in: viewModel)
+        setConversionErrorMessage(nil, in: viewModel)
+    }
+
+    func performManagedConversionExecution(
+        in viewModel: ContentViewModel,
+        treatExportCancellationAsCancelled: Bool = false,
+        onError: (Error) -> Void,
+        operation: () async throws -> Void
+    ) async {
+        do {
+            defer {
+                setConverting(false, in: viewModel)
+                setCurrentBatchIndex(0, in: viewModel)
+                setTotalBatchCount(0, in: viewModel)
+            }
+            try Task.checkCancellation()
+            try await operation()
+        } catch is CancellationError {
+            resetCancelledConversionState(in: viewModel)
+        } catch ConversionError.exportCancelled where treatExportCancellationAsCancelled {
+            resetCancelledConversionState(in: viewModel)
+        } catch {
+            onError(error)
+        }
+    }
+
     func executeBatchConversion(
-        sourceURLs: [URL],
-        destinationURLsBySourceID: [String: URL],
-        destinationErrorCode: Int,
-        runningKeyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
-        progressKeyPath: ReferenceWritableKeyPath<ContentViewModel, Double>,
-        errorMessageKeyPath: ReferenceWritableKeyPath<ContentViewModel, String?>,
-        currentBatchIndexKeyPath: ReferenceWritableKeyPath<ContentViewModel, Int>,
-        totalBatchCountKeyPath: ReferenceWritableKeyPath<ContentViewModel, Int>,
+        in viewModel: ContentViewModel,
+        preparedSources: [PreparedSourceConversion],
+        batchEnvironment: ContentViewModel.BatchExecutionEnvironment,
         skippedSummaryPrefix: String,
         treatExportCancellationAsCancelled: Bool = false,
-        validate: @escaping (URL) async -> String?,
-        makeWorkingOutputURL: @escaping (URL) -> URL,
-        runConversion: @escaping (URL, URL, Int, Int) async throws -> URL,
+        validate: @escaping (PreparedSourceConversion, ContentViewModel.BatchExecutionEnvironment) async -> String?,
+        runConversion: @escaping (
+            PreparedSourceConversion,
+            ContentViewModel.BatchExecutionEnvironment,
+            Int,
+            Int
+        ) async throws -> URL,
         onSavedOutput: @escaping (URL, URL) -> Void,
         onSourceProcessed: @escaping (URL) -> Void,
         onError: (Error) -> Void
     ) async {
-        self[keyPath: totalBatchCountKeyPath] = sourceURLs.count
-        self[keyPath: currentBatchIndexKeyPath] = 0
+        setTotalBatchCount(preparedSources.count, in: viewModel)
+        setCurrentBatchIndex(0, in: viewModel)
 
-        do {
-            defer {
-                self[keyPath: runningKeyPath] = false
-                self[keyPath: currentBatchIndexKeyPath] = 0
-                self[keyPath: totalBatchCountKeyPath] = 0
-            }
-            try Task.checkCancellation()
-
-            let skippedEntries = try await runBatchConversionLoop(
-                sourceURLs: sourceURLs,
-                destinationURLsBySourceID: destinationURLsBySourceID,
-                destinationErrorCode: destinationErrorCode,
+        await performManagedConversionExecution(
+            in: viewModel,
+            treatExportCancellationAsCancelled: treatExportCancellationAsCancelled,
+            onError: onError
+        ) {
+            let skippedEntries = try await viewModel.runBatchConversionLoop(
+                preparedSources: preparedSources,
+                batchEnvironment: batchEnvironment,
                 validate: validate,
-                makeWorkingOutputURL: makeWorkingOutputURL,
                 runConversion: runConversion,
                 onSavedOutput: onSavedOutput,
                 onSourceProcessed: onSourceProcessed,
                 onBatchIndexChanged: { index in
-                    self[keyPath: currentBatchIndexKeyPath] = index
+                    self.setCurrentBatchIndex(index, in: viewModel)
                 }
             )
 
-            setProgress(1, at: progressKeyPath)
+            self.setProgress(1, in: viewModel)
             if let summary = BatchConversionSupport.skippedFilesSummary(
                 prefix: skippedSummaryPrefix,
                 entries: skippedEntries
             ) {
-                self[keyPath: errorMessageKeyPath] = summary
+                self.setConversionErrorMessage(summary, in: viewModel)
             }
-        } catch is CancellationError {
-            setProgress(0, at: progressKeyPath)
-            self[keyPath: errorMessageKeyPath] = nil
-        } catch ConversionError.exportCancelled where treatExportCancellationAsCancelled {
-            setProgress(0, at: progressKeyPath)
-            self[keyPath: errorMessageKeyPath] = nil
-        } catch {
-            onError(error)
         }
     }
 }

@@ -4,66 +4,28 @@ import ImageIO
 
 extension ImageConversionEngine {
     nonisolated static func sourceCapabilities(for inputURL: URL) async -> ImageSourceCapabilities {
-        let ffmpegPath = FFmpegBinaryLocator.findPath()
-        let cacheKey = makeSourceCapabilityCacheKey(for: inputURL, ffmpegPath: ffmpegPath)
-        if let cached = sourceCapabilityCacheQueue.sync(execute: { sourceCapabilitiesCache[cacheKey] }) {
-            return cached
-        }
-
-        let (inFlight, shouldBuild) = sourceCapabilityCacheQueue.sync {
-            if let existing = sourceCapabilitiesInFlight[cacheKey] {
-                return (existing, false)
-            }
-
-            let created = InFlightCapability<ImageSourceCapabilities>()
-            sourceCapabilitiesInFlight[cacheKey] = created
-            return (created, true)
-        }
-
-        if !shouldBuild {
-            return await awaitSourceCapabilities(inFlight)
-        }
-
-        let resolved = await Task.detached(priority: .userInitiated) {
-            sourceCapabilitiesSync(for: inputURL, ffmpegPath: ffmpegPath)
-        }.value
-
-        var continuations: [CheckedContinuation<ImageSourceCapabilities, Never>] = []
-        sourceCapabilityCacheQueue.sync {
-            sourceCapabilitiesCache[cacheKey] = resolved
-            inFlight.result = resolved
-            continuations = inFlight.continuations
-            inFlight.continuations.removeAll()
-            sourceCapabilitiesInFlight[cacheKey] = nil
-        }
-        for continuation in continuations {
-            continuation.resume(returning: resolved)
-        }
-        return resolved
-    }
-
-    nonisolated private static func awaitSourceCapabilities(
-        _ inFlight: InFlightCapability<ImageSourceCapabilities>
-    ) async -> ImageSourceCapabilities {
-        await withCheckedContinuation { continuation in
-            var resolved: ImageSourceCapabilities?
-
-            sourceCapabilityCacheQueue.sync {
-                if let result = inFlight.result {
-                    resolved = result
-                } else {
-                    inFlight.continuations.append(continuation)
+        let runtime = ffmpegRuntime()
+        let cacheKey = makeSourceCapabilityCacheKey(for: inputURL, runtime: runtime)
+        return await InFlightOperationSupport.loadCachedAsyncValue(
+            cacheKey: cacheKey,
+            on: sourceCapabilityCacheQueue,
+            cachedValue: { sourceCapabilitiesCache[cacheKey] },
+            existingInFlight: { sourceCapabilitiesInFlight[cacheKey] },
+            storeInFlight: { sourceCapabilitiesInFlight[cacheKey] = $0 },
+            build: {
+                await detachedTaskValue(priority: .userInitiated) {
+                    sourceCapabilitiesSync(for: inputURL, runtime: runtime)
                 }
-            }
-
-            if let resolved {
-                continuation.resume(returning: resolved)
-            }
-        }
+            },
+            storeCachedValue: { sourceCapabilitiesCache[cacheKey] = $0 }
+        )
     }
 
-    nonisolated private static func makeSourceCapabilityCacheKey(for inputURL: URL, ffmpegPath: String?) -> String {
-        "\(OutputPathUtilities.fileFingerprint(for: inputURL))|\(ffmpegPath ?? "none")"
+    nonisolated private static func makeSourceCapabilityCacheKey(
+        for inputURL: URL,
+        runtime: (any FFmpegRuntime)?
+    ) -> String {
+        "\(OutputPathUtilities.fileFingerprint(for: inputURL))|\(runtime?.cacheIdentity ?? "none")"
     }
 
     nonisolated private static func makeSourceCapabilities(
@@ -84,13 +46,13 @@ extension ImageConversionEngine {
 
     nonisolated private static func sourceCapabilitiesSync(
         for inputURL: URL,
-        ffmpegPath: String?
+        runtime: (any FFmpegRuntime)?
     ) -> ImageSourceCapabilities {
-        let availableOutputFormats = defaultOutputFormats()
+        let availableOutputFormats = defaultOutputFormats(using: runtime)
 
         guard let source = CGImageSourceCreateWithURL(inputURL as CFURL, nil) else {
-            if let ffmpegPath,
-               ffmpegCanDecodeSource(ffmpegPath: ffmpegPath, inputURL: inputURL) {
+            if let runtime,
+               ffmpegCanDecodeSource(runtime: runtime, inputURL: inputURL) {
                 return makeSourceCapabilities(
                     availableOutputFormats: availableOutputFormats,
                     warningMessage: "Image metadata could not be read by ImageIO. Conversion will rely on ffmpeg.",
@@ -135,7 +97,7 @@ extension ImageConversionEngine {
         var warnings: [String] = []
         if frameCount > 1 {
             warnings.append("Animated image detected.")
-            if ffmpegPath == nil {
+            if runtime == nil {
                 warnings.append("ffmpeg is unavailable, so only the first frame can be exported.")
             }
         }

@@ -2,22 +2,22 @@ import Foundation
 
 extension ContentViewModel {
     var imageSourceIsAnimated: Bool {
-        imageSourceFrameCount > 1
+        imageRuntimeState.sourceFrameCount > 1
     }
 
     var imageOutputFormatOptions: [ImageFormatOption] {
-        availableOutputFormatOptions(using: imageOutputFormatDescriptor())
+        availableOutputFormatOptions(using: Self.imageOutputFormatDescriptor)
     }
 
     var shouldShowImageQualityOption: Bool {
-        selectedImageOutputFormat.supportsCompressionQuality
+        imageOptionsState.selectedOutputFormat.supportsCompressionQuality
     }
 
     var shouldShowPNGCompressionOption: Bool {
-        selectedImageOutputFormat.supportsPNGCompressionLevel
+        imageOptionsState.selectedOutputFormat.supportsPNGCompressionLevel
     }
 
     var shouldShowPreserveAnimationOption: Bool {
-        imageSourceIsAnimated && selectedImageOutputFormat.supportsAnimation
+        imageSourceIsAnimated && imageOptionsState.selectedOutputFormat.supportsAnimation
     }
 }

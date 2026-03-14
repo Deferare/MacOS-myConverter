@@ -1,40 +1,40 @@
 import Foundation
 
-extension ContentViewModel {
-    func startConversion(for kind: MediaKind) {
-        launchConversionTask(for: kind) { [weak self] in
-            await self?.runConversion(for: kind)
-        }
-    }
-
-    func cancelConversion(for kind: MediaKind) {
-        cancelConversionTask(for: kind)
-    }
-
-    func runConversion(for kind: MediaKind) async {
-        await mediaBehaviorDescriptor(for: kind).conversionExecution.execute(self)
-    }
-
+extension ContentViewModel.MediaKind {
     func launchConversionTask(
-        for kind: MediaKind,
+        in viewModel: ContentViewModel,
         operation: @escaping @MainActor () async -> Void
     ) {
-        let descriptor = mediaStateDescriptor(for: kind)
-        guard currentConversionTask(for: kind) == nil else { return }
-        guard !self[keyPath: descriptor.isConverting] else { return }
+        guard conversionTask(in: viewModel) == nil else { return }
+        guard !isConverting(in: viewModel) else { return }
 
-        setConversionTask(Task { @MainActor [weak self] in
-            defer { self?.clearConversionTask(for: kind) }
+        setConversionTask(Task { @MainActor [weak viewModel] in
+            defer { viewModel.map { self.clearConversionTask(in: $0) } }
             await operation()
-        }, for: kind)
+        }, in: viewModel)
     }
 
-    func cancelConversionTask(for kind: MediaKind) {
-        guard let task = currentConversionTask(for: kind) else { return }
+    func cancelConversionTask(in viewModel: ContentViewModel) {
+        #if os(iOS)
+        EmbeddedFFmpegBridge.cancelCurrentCommand()
+        #endif
+        guard let task = conversionTask(in: viewModel) else { return }
         task.cancel()
     }
 
-    func clearConversionTask(for kind: MediaKind) {
-        setConversionTask(nil, for: kind)
+    func clearConversionTask(in viewModel: ContentViewModel) {
+        setConversionTask(nil, in: viewModel)
+    }
+
+    func startConversion(in viewModel: ContentViewModel) {
+        launchConversionTask(in: viewModel) { [weak viewModel] in
+            if let viewModel {
+                await self.performConversion(in: viewModel)
+            }
+        }
+    }
+
+    func cancelConversion(in viewModel: ContentViewModel) {
+        cancelConversionTask(in: viewModel)
     }
 }

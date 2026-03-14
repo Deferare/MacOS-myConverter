@@ -1,12 +1,11 @@
+import Combine
 import Foundation
 
-extension ContentViewModel {
-    func assignSelection(_ urls: [URL], for kind: MediaKind) {
-        let descriptor = mediaStateDescriptor(for: kind)
-        assignPrimaryAndQueuedSources(
-            urls,
-            primaryKeyPath: descriptor.sourceURL,
-            queuedKeyPath: descriptor.queuedSourceURLs
-        )
+extension ContentViewModel.MediaKind {
+    func assignSelection(_ urls: [URL], in viewModel: ContentViewModel) {
+        viewModel.objectWillChange.send()
+        synchronizeSourceSecurityScope(for: urls, in: viewModel)
+        setSourceURL(urls.first, in: viewModel)
+        setQueuedSourceURLs(Array(urls.dropFirst()), in: viewModel)
     }
 }

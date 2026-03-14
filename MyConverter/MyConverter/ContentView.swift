@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @StateObject private var viewModel = ContentViewModel()
@@ -15,21 +16,24 @@ struct ContentView: View {
     @State private var draggedSelectedFileURL: URL?
 
     private var fileDropAreaHeight: CGFloat {
-        360
+        468
     }
 
     var body: some View {
         rootNavigationView
             .task(id: selectedTab) {
-                guard let kind = selectedTab.mediaKind else { return }
-                viewModel.scheduleCapabilityBootstrap(for: kind)
+                if let kind = selectedTab.mediaKind {
+                    kind.scheduleCapabilityBootstrap(in: viewModel)
+                }
             }
-            .fileImporter(
-                isPresented: $viewModel.isImporting,
-                allowedContentTypes: viewModel.preferredImportTypes(for: selectedTab),
-                allowsMultipleSelection: true
-            ) { result in
-                viewModel.handleFileImportResult(result, for: selectedTab)
+        .fileImporter(
+            isPresented: $viewModel.isImporting,
+            allowedContentTypes: selectedTab.mediaKind.map {
+                    $0.preferredImportTypes()
+                } ?? [.item],
+            allowsMultipleSelection: true
+        ) { result in
+                selectedTab.mediaKind?.handleFileImportResult(result, in: viewModel)
             }
     }
 
@@ -70,27 +74,48 @@ struct ContentView: View {
     }
 
     private func mediaDetailView(for kind: ContentViewModel.MediaKind) -> some View {
-        MediaConverterDetailView(
-            viewModel: viewModel,
+        let renderState = kind.converterRenderState(in: viewModel)
+
+        return MediaConverterDetailView(
             kind: kind,
+            renderState: renderState,
             isDropTargeted: dropTargetBinding(for: kind),
             draggedSelectedFileURL: $draggedSelectedFileURL,
-            fileDropAreaHeight: fileDropAreaHeight
+            fileDropAreaHeight: fileDropAreaHeight,
+            onDrop: { providers in
+                kind.handleDrop(providers: providers, in: viewModel)
+            },
+            onImport: {
+                kind.requestFileImport(in: viewModel)
+            },
+            onReorder: { draggedURL, targetURL in
+                kind.moveSelectedSource(from: draggedURL, to: targetURL, in: viewModel)
+            },
+            onClear: {
+                kind.clearSelectedSource(in: viewModel)
+            },
+            onPrimaryAction: {
+                if renderState.screenState.isConverting {
+                    kind.cancelConversion(in: viewModel)
+                } else {
+                    kind.startConversion(in: viewModel)
+                }
+            }
         ) {
-            mediaFormSections(for: kind)
+            mediaFormSections(for: kind, screenState: renderState.screenState)
         }
     }
 
     @ViewBuilder
-    private func mediaFormSections(for kind: ContentViewModel.MediaKind) -> some View {
-        switch kind {
-        case .video:
-            VideoConverterFormSectionView(viewModel: viewModel)
-        case .image:
-            ImageConverterFormSectionView(viewModel: viewModel)
-        case .audio:
-            AudioConverterFormSectionView(viewModel: viewModel)
-        }
+    private func mediaFormSections(
+        for kind: ContentViewModel.MediaKind,
+        screenState: ContentViewModel.ConverterScreenState
+    ) -> some View {
+        MediaSettingsFormContent(
+            kind: kind,
+            isConverting: screenState.isConverting,
+            viewModel: viewModel
+        )
     }
 
 }

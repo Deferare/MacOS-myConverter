@@ -3,21 +3,28 @@ import ImageIO
 
 extension ImageConversionEngine {
     nonisolated static func defaultOutputFormats() -> [ImageFormatOption] {
+        defaultOutputFormats(using: ffmpegRuntime())
+    }
+
+    nonisolated static func defaultOutputFormats(
+        using runtime: (any FFmpegRuntime)?
+    ) -> [ImageFormatOption] {
         let imageIOFormats = imageIOAvailableFormats()
 
-        guard let ffmpegPath = FFmpegBinaryLocator.findPath() else {
+        guard let runtime else {
             return imageIOFormats
         }
 
-        return cachedOutputFormatValue(
-            readCached: { outputFormatCacheQueue.sync(execute: { defaultOutputFormatsCache[ffmpegPath] }) },
+        let cacheKey = runtime.cacheIdentity
+        return CachedValueSupport.resolve(
+            readCached: { outputFormatCacheQueue.sync(execute: { defaultOutputFormatsCache[cacheKey] }) },
             storeCached: { resolved in
                 outputFormatCacheQueue.sync {
-                    defaultOutputFormatsCache[ffmpegPath] = resolved
+                    defaultOutputFormatsCache[cacheKey] = resolved
                 }
             }
         ) {
-            guard let introspection = try? inspectFFmpeg(at: ffmpegPath) else {
+            guard let introspection = try? inspectFFmpeg(using: runtime) else {
                 return imageIOFormats
             }
 
@@ -34,14 +41,6 @@ extension ImageConversionEngine {
         }
     }
 
-    nonisolated static func isFFmpegFormatSupported(_ format: ImageFormatOption, ffmpegPath: String) -> Bool {
-        guard let introspection = try? inspectFFmpeg(at: ffmpegPath) else {
-            return false
-        }
-
-        return isFFmpegFormatSupported(format, introspection: introspection)
-    }
-
     nonisolated private static func mergedFormats(
         primary: [ImageFormatOption],
         secondary: [ImageFormatOption]
@@ -50,19 +49,16 @@ extension ImageConversionEngine {
     }
 
     nonisolated private static func ffmpegDiscoveredFormats(from introspection: FFmpegIntrospection) -> [ImageFormatOption] {
-        var discovered: [ImageFormatOption] = []
-
-        for (muxer, extensions) in introspection.muxerExtensions {
-            for ext in extensions {
-                discovered.append(ImageFormatOption.fromFFmpegExtension(ext, muxer: muxer))
-            }
-        }
-
-        return ImageFormatOption.deduplicatedAndSorted(discovered)
+        ImageFormatOption.deduplicatedAndSorted(
+            FFmpegParsingSupport.discoveredFormats(
+                from: introspection,
+                makeFormat: ImageFormatOption.fromFFmpegExtension(_:muxer:)
+            )
+        )
     }
 
     nonisolated private static func imageIOAvailableFormats() -> [ImageFormatOption] {
-        cachedOutputFormatValue(
+        CachedValueSupport.resolve(
             readCached: { outputFormatCacheQueue.sync(execute: { imageIOAvailableFormatsCache }) },
             storeCached: { resolved in
                 outputFormatCacheQueue.sync {
@@ -85,7 +81,7 @@ extension ImageConversionEngine {
         }
     }
 
-    nonisolated private static func isFFmpegFormatSupported(
+    nonisolated static func isFFmpegFormatSupported(
         _ format: ImageFormatOption,
         introspection: FFmpegIntrospection
     ) -> Bool {
@@ -99,7 +95,7 @@ extension ImageConversionEngine {
             return format.allowsFFmpegAutomaticCodec
         }
 
-        let hasEncoder = format.ffmpegEncoderCandidates.contains { introspection.encoders.contains($0) }
+        let hasEncoder = format.ffmpegEncoderCandidates.contains { introspection.videoEncoders.contains($0) }
         return hasEncoder || format.allowsFFmpegAutomaticCodec
     }
 }

@@ -1,7 +1,12 @@
 import Foundation
 
+protocol MediaRuntimeStateContainer {
+    associatedtype Format: Equatable
+    var media: ContentViewModel.MediaRuntimeState<Format> { get set }
+}
+
 extension ContentViewModel {
-    struct MediaRuntimeState<Format> {
+    struct MediaRuntimeState<Format: Equatable>: Equatable {
         var sourceURL: URL?
         var queuedSourceURLs: [URL] = []
         var convertedURL: URL?
@@ -23,7 +28,7 @@ extension ContentViewModel {
         }
     }
 
-    struct VideoRuntimeState {
+    struct VideoRuntimeState: Equatable {
         var media = MediaRuntimeState(
             availableOutputFormats: ContentViewModelSupport.placeholderVideoFormats()
         )
@@ -35,7 +40,7 @@ extension ContentViewModel {
         )
     }
 
-    struct ImageRuntimeState {
+    struct ImageRuntimeState: Equatable {
         var media = MediaRuntimeState(
             availableOutputFormats: ContentViewModelSupport.placeholderImageFormats()
         )
@@ -43,7 +48,7 @@ extension ContentViewModel {
         var sourceHasAlpha = false
     }
 
-    struct AudioRuntimeState {
+    struct AudioRuntimeState: Equatable {
         var media = MediaRuntimeState(
             availableOutputFormats: ContentViewModelSupport.placeholderAudioFormats()
         )
@@ -52,7 +57,7 @@ extension ContentViewModel {
         )
     }
 
-    struct VideoOptionsState {
+    struct VideoOptionsState: Equatable {
         var selectedOutputFormat: VideoFormatOption = ContentViewModelSupport.defaultVideoFormat()
         var selectedVideoEncoder: VideoEncoderOption = .h264GPU
         var selectedResolution: ResolutionOption = .original
@@ -64,21 +69,28 @@ extension ContentViewModel {
         var selectedAudioMode: AudioModeOption = .auto
         var selectedSampleRate: SampleRateOption = .hz48000
         var selectedAudioBitRate: AudioBitRateOption = .auto
+        var selectedOutputDirectoryURL: URL?
     }
 
-    struct ImageOptionsState {
+    struct ImageOptionsState: Equatable {
         var selectedOutputFormat = ImageFormatOption.fromImageIOTypeIdentifier("public.png")
         var selectedResolution: ResolutionOption = .original
         var selectedQuality: ImageQualityOption = .high
         var selectedPNGCompressionLevel: PNGCompressionLevelOption = .balanced
         var preserveAnimation = true
+        var selectedOutputDirectoryURL: URL?
     }
 
-    struct AudioOptionsState {
+    struct AudioOptionsState: Equatable {
         var selectedOutputFormat: AudioFormatOption = ContentViewModelSupport.defaultAudioFormat()
         var selectedOutputEncoder: AudioEncoderOption = .aac
         var selectedOutputMode: AudioModeOption = .auto
         var selectedOutputSampleRate: SampleRateOption = .hz48000
         var selectedOutputBitRate: AudioBitRateOption = .auto
+        var selectedOutputDirectoryURL: URL?
     }
 }
+
+extension ContentViewModel.VideoRuntimeState: MediaRuntimeStateContainer {}
+extension ContentViewModel.ImageRuntimeState: MediaRuntimeStateContainer {}
+extension ContentViewModel.AudioRuntimeState: MediaRuntimeStateContainer {}

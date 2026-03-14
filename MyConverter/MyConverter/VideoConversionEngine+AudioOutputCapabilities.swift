@@ -4,19 +4,19 @@ extension VideoConversionEngine {
     nonisolated static func defaultAudioOutputFormats() -> [AudioFormatOption] {
         let knownFormats = AudioFormatOption.ffmpegKnownFormats
 
-        guard let ffmpegPath = FFmpegBinaryLocator.findPath() else {
+        guard let runtime = ffmpegRuntime() else {
             return knownFormats
         }
 
-        return cachedCapabilityValue(
-            readCached: { capabilityCacheQueue.sync(execute: { defaultAudioFormatsCache[ffmpegPath] }) },
+        return CachedValueSupport.resolve(
+            readCached: { capabilityCacheQueue.sync(execute: { defaultAudioFormatsCache[runtime.cacheIdentity] }) },
             storeCached: { resolved in
                 capabilityCacheQueue.sync {
-                    defaultAudioFormatsCache[ffmpegPath] = resolved
+                    defaultAudioFormatsCache[runtime.cacheIdentity] = resolved
                 }
             }
         ) {
-            guard let introspection = try? inspectFFmpeg(at: ffmpegPath) else {
+            guard let introspection = ffmpegIntrospection(using: runtime) else {
                 return knownFormats
             }
 
@@ -27,12 +27,12 @@ extension VideoConversionEngine {
     }
 
     nonisolated static func availableAudioEncoders(for format: AudioFormatOption) -> [AudioEncoderOption] {
-        guard let ffmpegPath = FFmpegBinaryLocator.findPath() else {
-            return format.allowsFFmpegAutomaticAudioCodec ? [.auto] : []
+        guard let runtime = ffmpegRuntime() else {
+            return automaticOptionIfEnabled(.auto, enabled: format.allowsFFmpegAutomaticAudioCodec)
         }
 
-        let cacheKey = makeCapabilityCacheKey(path: ffmpegPath, normalizedID: format.normalizedID)
-        return cachedCapabilityValue(
+        let cacheKey = makeCapabilityCacheKey(path: runtime.cacheIdentity, normalizedID: format.normalizedID)
+        return CachedValueSupport.resolve(
             readCached: { capabilityCacheQueue.sync(execute: { audioFormatEncoderOptionsCache[cacheKey] }) },
             storeCached: { resolved in
                 capabilityCacheQueue.sync {
@@ -40,21 +40,16 @@ extension VideoConversionEngine {
                 }
             }
         ) {
-            guard let introspection = try? inspectFFmpeg(at: ffmpegPath),
-                  isFFmpegAudioFormatSupported(format, introspection: introspection) else {
+            guard let introspection = supportedIntrospection(using: runtime, for: format) else {
                 return []
             }
 
-            let explicitOptions = AudioEncoderOption.allCases.filter { option in
-                guard option != .auto else { return false }
-                return option.isCompatible(with: format) &&
-                    option.codecCandidates.contains(where: { introspection.audioEncoders.contains($0) })
-            }
-
-            return resolvedEncoderOptions(
-                explicitOptions: explicitOptions,
+            return availableEncoderOptions(
+                availableEncoders: introspection.audioEncoders,
                 allowsAutomatic: format.allowsFFmpegAutomaticAudioCodec,
-                automaticOption: .auto
+                automaticOption: .auto,
+                isCompatible: { $0.isCompatible(with: format) },
+                codecCandidates: { $0.codecCandidates }
             )
         }
     }

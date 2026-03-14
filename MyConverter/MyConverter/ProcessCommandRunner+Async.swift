@@ -1,3 +1,4 @@
+#if os(macOS)
 import Foundation
 
 extension ProcessCommandRunner {
@@ -129,3 +130,4 @@ extension ProcessCommandRunner {
         return lines
     }
 }
+#endif

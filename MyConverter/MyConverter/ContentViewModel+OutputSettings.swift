@@ -1,98 +1,71 @@
 import Foundation
 
 extension ContentViewModel {
-    func resolvedOptions<Option>(
-        _ options: [Option],
-        fallback: () -> [Option]
-    ) -> [Option] {
-        if !options.isEmpty {
-            return options
-        }
-        return fallback()
-    }
-
-    func optionalValue<Value>(
-        when condition: Bool,
-        _ value: @autoclosure () -> Value?
-    ) -> Value? {
-        condition ? value() : nil
-    }
-
-    func conditionalValues<Value>(
-        when condition: Bool,
-        _ values: @autoclosure () -> [Value]
-    ) -> [Value] {
-        condition ? values() : []
-    }
-
     func resolvedVideoBitRateKbps() throws -> Int? {
-        guard shouldShowVideoBitRateOption else { return nil }
+        let selection = videoEncodingSelectionState
+        guard selection.shouldShowVideoBitRateOption else { return nil }
 
-        switch selectedVideoBitRate {
+        switch selection.selectedVideoBitRate {
         case .auto:
             return nil
         case .custom:
-            guard let custom = normalizedCustomVideoBitRateKbps else {
-                throw ConversionError.invalidCustomVideoBitRate(customVideoBitRate)
+            guard let custom = selection.normalizedCustomVideoBitRateKbps else {
+                throw ConversionError.invalidCustomVideoBitRate(selection.customVideoBitRate)
             }
             return custom
         default:
-            return selectedVideoBitRate.kbps
+            return selection.selectedVideoBitRate.kbps
         }
     }
 
     func buildVideoOutputSettings() throws -> VideoOutputSettings {
+        let selection = videoEncodingSelectionState
+        let audioSettings = resolvedAudioEncodingSettings(selection.audioSettings)
+
         return VideoOutputSettings(
-            containerFormat: selectedOutputFormat,
-            videoCodecCandidates: selectedVideoEncoder.codecCandidates,
-            useHEVCTag: selectedVideoEncoder.usesHEVCCodec,
-            resolution: selectedResolution.dimensions,
-            frameRate: selectedFrameRate.fps,
+            containerFormat: selection.selectedOutputFormat,
+            videoCodecCandidates: selection.selectedVideoEncoder.codecCandidates,
+            useHEVCTag: selection.selectedVideoEncoder.usesHEVCCodec,
+            resolution: selection.selectedResolution.dimensions,
+            frameRate: selection.selectedFrameRate.fps,
             gifPlaybackSpeed: optionalValue(
-                when: shouldShowGIFPlaybackSpeedOption,
-                selectedGIFPlaybackSpeed.multiplier
+                when: selection.shouldShowGIFPlaybackSpeedOption,
+                selection.selectedGIFPlaybackSpeed.multiplier
             ),
             videoBitRateKbps: try resolvedVideoBitRateKbps(),
-            audioCodecCandidates: conditionalValues(
-                when: shouldShowAudioSettings,
-                selectedAudioEncoder.codecCandidates
-            ),
-            audioChannels: optionalValue(when: shouldShowAudioSettings, selectedAudioMode.channelCount),
-            sampleRate: optionalValue(when: shouldShowAudioSampleRateOption, selectedSampleRate.hertz),
-            audioBitRateKbps: optionalValue(when: shouldShowAudioBitRateOption, selectedAudioBitRate.kbps)
+            audioCodecCandidates: audioSettings.codecCandidates,
+            audioChannels: audioSettings.channels,
+            sampleRate: audioSettings.sampleRate,
+            audioBitRateKbps: audioSettings.bitRateKbps
         )
     }
 
     func buildImageOutputSettings() -> ImageOutputSettings {
         return ImageOutputSettings(
-            containerFormat: selectedImageOutputFormat,
-            resolution: selectedImageResolution.dimensions,
+            containerFormat: imageOptionsState.selectedOutputFormat,
+            resolution: imageOptionsState.selectedResolution.dimensions,
             compressionQuality: optionalValue(
-                when: selectedImageOutputFormat.supportsCompressionQuality,
-                selectedImageQuality.compressionQuality
+                when: imageOptionsState.selectedOutputFormat.supportsCompressionQuality,
+                imageOptionsState.selectedQuality.compressionQuality
             ),
             pngCompressionLevel: optionalValue(
-                when: selectedImageOutputFormat.supportsPNGCompressionLevel,
-                selectedPNGCompressionLevel.level
+                when: imageOptionsState.selectedOutputFormat.supportsPNGCompressionLevel,
+                imageOptionsState.selectedPNGCompressionLevel.level
             ),
-            preserveAnimation: preserveImageAnimation,
+            preserveAnimation: imageOptionsState.preserveAnimation,
             sourceIsAnimated: imageSourceIsAnimated
         )
     }
 
     func buildAudioOutputSettings() -> AudioOutputSettings {
-        AudioOutputSettings(
-            containerFormat: selectedAudioOutputFormat,
-            audioCodecCandidates: selectedAudioOutputEncoder.codecCandidates,
-            audioChannels: selectedAudioOutputMode.channelCount,
-            sampleRate: optionalValue(
-                when: shouldShowAudioOutputSampleRateOption,
-                selectedAudioOutputSampleRate.hertz
-            ),
-            audioBitRateKbps: optionalValue(
-                when: shouldShowAudioOutputBitRateOption,
-                selectedAudioOutputBitRate.kbps
-            )
+        let audioSettings = resolvedAudioEncodingSettings(audioOutputEncodingSelectionState)
+
+        return AudioOutputSettings(
+            containerFormat: audioOptionsState.selectedOutputFormat,
+            audioCodecCandidates: audioSettings.codecCandidates,
+            audioChannels: audioSettings.channels,
+            sampleRate: audioSettings.sampleRate,
+            audioBitRateKbps: audioSettings.bitRateKbps
         )
     }
 }
