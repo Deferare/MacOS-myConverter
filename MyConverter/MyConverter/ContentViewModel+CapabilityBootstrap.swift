@@ -175,9 +175,8 @@ extension ContentViewModel.MediaKind {
         formatDescriptor: ContentViewModel.OutputFormatDescriptor<Format>,
         postApply: () -> Void = {}
     ) {
-        let descriptor = mediaStateDescriptor
-        guard viewModel[keyPath: descriptor.sourceURL] == nil,
-              !viewModel[keyPath: descriptor.isAnalyzing] else {
+        guard !hasSelectedSource(in: viewModel),
+              !isAnalyzing(in: viewModel) else {
             return
         }
 

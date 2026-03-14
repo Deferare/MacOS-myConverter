@@ -108,12 +108,11 @@ extension ContentViewModel {
 
 extension ContentViewModel.MediaKind {
     func resetConversionOutputs(in viewModel: ContentViewModel) {
-        let descriptor = mediaStateDescriptor
-        viewModel[keyPath: descriptor.convertedURL] = nil
-        viewModel[keyPath: descriptor.convertedURLs] = []
-        viewModel[keyPath: descriptor.convertedOutputURLsBySourceID] = [:]
-        viewModel[keyPath: descriptor.processedSourceIDs] = []
-        viewModel[keyPath: descriptor.conversionErrorMessage] = nil
+        setConvertedURL(nil, in: viewModel)
+        setConvertedURLs([], in: viewModel)
+        setConvertedOutputURLsBySourceID([:], in: viewModel)
+        setProcessedSourceIDs([], in: viewModel)
+        setConversionErrorMessage(nil, in: viewModel)
     }
 
     func resetCompatibilityState(
@@ -124,9 +123,11 @@ extension ContentViewModel.MediaKind {
             resetCompatibilityMetadata(in: viewModel)
         }
 
-        let descriptor = mediaStateDescriptor
-        viewModel[keyPath: descriptor.compatibilityErrorMessage] = nil
-        viewModel[keyPath: descriptor.compatibilityWarningMessage] = nil
+        setCompatibilityMessages(
+            warningMessage: nil,
+            errorMessage: nil,
+            in: viewModel
+        )
     }
 
     func resetSelectionCompatibilityState(in viewModel: ContentViewModel) {
@@ -137,12 +138,11 @@ extension ContentViewModel.MediaKind {
         in viewModel: ContentViewModel,
         resetBatchState: Bool
     ) {
-        let descriptor = mediaStateDescriptor
-        viewModel[keyPath: descriptor.isAnalyzing] = false
+        setAnalyzing(false, in: viewModel)
 
         guard resetBatchState else { return }
-        viewModel[keyPath: descriptor.currentBatchIndex] = 0
-        viewModel[keyPath: descriptor.totalBatchCount] = 0
+        setCurrentBatchIndex(0, in: viewModel)
+        setTotalBatchCount(0, in: viewModel)
     }
 
     func restoreIdleState(

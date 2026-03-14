@@ -188,12 +188,51 @@ extension ContentViewModel.MediaKind {
         viewModel[keyPath: mediaStateDescriptor.sourceURL]
     }
 
+    func setSourceURL(_ url: URL?, in viewModel: ContentViewModel) {
+        viewModel[keyPath: mediaStateDescriptor.sourceURL] = url
+    }
+
     func queuedSourceURLs(in viewModel: ContentViewModel) -> [URL] {
         viewModel[keyPath: mediaStateDescriptor.queuedSourceURLs]
     }
 
+    func setQueuedSourceURLs(_ urls: [URL], in viewModel: ContentViewModel) {
+        viewModel[keyPath: mediaStateDescriptor.queuedSourceURLs] = urls
+    }
+
+    func convertedURL(in viewModel: ContentViewModel) -> URL? {
+        viewModel[keyPath: mediaStateDescriptor.convertedURL]
+    }
+
+    func setConvertedURL(_ url: URL?, in viewModel: ContentViewModel) {
+        viewModel[keyPath: mediaStateDescriptor.convertedURL] = url
+    }
+
+    func convertedURLs(in viewModel: ContentViewModel) -> [URL] {
+        viewModel[keyPath: mediaStateDescriptor.convertedURLs]
+    }
+
+    func setConvertedURLs(_ urls: [URL], in viewModel: ContentViewModel) {
+        viewModel[keyPath: mediaStateDescriptor.convertedURLs] = urls
+    }
+
     func convertedOutputURLsBySourceID(in viewModel: ContentViewModel) -> [String: URL] {
         viewModel[keyPath: mediaStateDescriptor.convertedOutputURLsBySourceID]
+    }
+
+    func setConvertedOutputURLsBySourceID(
+        _ urlsBySourceID: [String: URL],
+        in viewModel: ContentViewModel
+    ) {
+        viewModel[keyPath: mediaStateDescriptor.convertedOutputURLsBySourceID] = urlsBySourceID
+    }
+
+    func processedSourceIDs(in viewModel: ContentViewModel) -> Set<String> {
+        viewModel[keyPath: mediaStateDescriptor.processedSourceIDs]
+    }
+
+    func setProcessedSourceIDs(_ sourceIDs: Set<String>, in viewModel: ContentViewModel) {
+        viewModel[keyPath: mediaStateDescriptor.processedSourceIDs] = sourceIDs
     }
 
     func selectedSourceIDs(in viewModel: ContentViewModel) -> [String] {
@@ -228,6 +267,14 @@ extension ContentViewModel.MediaKind {
         viewModel[keyPath: mediaStateDescriptor.analysisTask] = task
     }
 
+    func conversionTask(in viewModel: ContentViewModel) -> Task<Void, Never>? {
+        viewModel[keyPath: mediaStateDescriptor.conversionTask]
+    }
+
+    func setConversionTask(_ task: Task<Void, Never>?, in viewModel: ContentViewModel) {
+        viewModel[keyPath: mediaStateDescriptor.conversionTask] = task
+    }
+
     func cancelAnalysisTask(in viewModel: ContentViewModel) {
         viewModel.cancelTask(at: mediaStateDescriptor.analysisTask)
     }
@@ -240,8 +287,20 @@ extension ContentViewModel.MediaKind {
         viewModel[keyPath: mediaStateDescriptor.currentBatchIndex] = index
     }
 
+    func currentBatchIndex(in viewModel: ContentViewModel) -> Int {
+        viewModel[keyPath: mediaStateDescriptor.currentBatchIndex]
+    }
+
     func setTotalBatchCount(_ count: Int, in viewModel: ContentViewModel) {
         viewModel[keyPath: mediaStateDescriptor.totalBatchCount] = count
+    }
+
+    func totalBatchCount(in viewModel: ContentViewModel) -> Int {
+        viewModel[keyPath: mediaStateDescriptor.totalBatchCount]
+    }
+
+    func conversionErrorMessage(in viewModel: ContentViewModel) -> String? {
+        viewModel[keyPath: mediaStateDescriptor.conversionErrorMessage]
     }
 
     func setConversionErrorMessage(_ message: String?, in viewModel: ContentViewModel) {
@@ -270,16 +329,15 @@ extension ContentViewModel.MediaKind {
         in viewModel: ContentViewModel,
         preserveCompletedOutputs: Bool = false
     ) {
-        let descriptor = mediaStateDescriptor
-        viewModel[keyPath: descriptor.isConverting] = true
+        setConverting(true, in: viewModel)
         if !preserveCompletedOutputs {
-            viewModel[keyPath: descriptor.convertedURL] = nil
-            viewModel[keyPath: descriptor.convertedURLs] = []
-            viewModel[keyPath: descriptor.convertedOutputURLsBySourceID] = [:]
+            setConvertedURL(nil, in: viewModel)
+            setConvertedURLs([], in: viewModel)
+            setConvertedOutputURLsBySourceID([:], in: viewModel)
         }
-        viewModel[keyPath: descriptor.processedSourceIDs] = []
-        viewModel[keyPath: descriptor.conversionErrorMessage] = nil
-        viewModel[keyPath: descriptor.progress] = 0
+        setProcessedSourceIDs([], in: viewModel)
+        setConversionErrorMessage(nil, in: viewModel)
+        setProgress(0, in: viewModel)
     }
 
     func appendConvertedOutput(
@@ -287,24 +345,22 @@ extension ContentViewModel.MediaKind {
         from sourceURL: URL,
         in viewModel: ContentViewModel
     ) {
-        let descriptor = mediaStateDescriptor
         let sourceID = viewModel.sourceIdentifier(for: sourceURL)
-        viewModel[keyPath: descriptor.convertedURL] = outputURL
+        setConvertedURL(outputURL, in: viewModel)
 
-        var convertedURLs = viewModel[keyPath: descriptor.convertedURLs]
+        var convertedURLs = convertedURLs(in: viewModel)
         convertedURLs.append(outputURL)
-        viewModel[keyPath: descriptor.convertedURLs] = convertedURLs
+        setConvertedURLs(convertedURLs, in: viewModel)
 
-        var convertedOutputURLsBySourceID = viewModel[keyPath: descriptor.convertedOutputURLsBySourceID]
+        var convertedOutputURLsBySourceID = convertedOutputURLsBySourceID(in: viewModel)
         convertedOutputURLsBySourceID[sourceID] = outputURL
-        viewModel[keyPath: descriptor.convertedOutputURLsBySourceID] = convertedOutputURLsBySourceID
+        setConvertedOutputURLsBySourceID(convertedOutputURLsBySourceID, in: viewModel)
     }
 
     func markProcessedSource(_ sourceURL: URL, in viewModel: ContentViewModel) {
-        let descriptor = mediaStateDescriptor
-        var processedSourceIDs = viewModel[keyPath: descriptor.processedSourceIDs]
+        var processedSourceIDs = processedSourceIDs(in: viewModel)
         processedSourceIDs.insert(viewModel.sourceIdentifier(for: sourceURL))
-        viewModel[keyPath: descriptor.processedSourceIDs] = processedSourceIDs
+        setProcessedSourceIDs(processedSourceIDs, in: viewModel)
     }
 
     func analyzeSelectedSources(_ urls: [URL], in viewModel: ContentViewModel) {
@@ -316,21 +372,19 @@ extension ContentViewModel.MediaKind {
     }
 
     func mediaStateSnapshot(in viewModel: ContentViewModel) -> ContentViewModel.MediaStateSnapshot {
-        let descriptor = mediaStateDescriptor
-
         return ContentViewModel.MediaStateSnapshot(
-            sourceURL: viewModel[keyPath: descriptor.sourceURL],
-            queuedSourceURLs: viewModel[keyPath: descriptor.queuedSourceURLs],
-            convertedURLs: viewModel[keyPath: descriptor.convertedURLs],
-            convertedOutputURLsBySourceID: viewModel[keyPath: descriptor.convertedOutputURLsBySourceID],
-            processedSourceIDs: viewModel[keyPath: descriptor.processedSourceIDs],
-            conversionErrorMessage: viewModel[keyPath: descriptor.conversionErrorMessage],
-            compatibilityWarningMessage: viewModel[keyPath: descriptor.compatibilityWarningMessage],
-            isAnalyzing: viewModel[keyPath: descriptor.isAnalyzing],
-            isConverting: viewModel[keyPath: descriptor.isConverting],
-            progress: viewModel[keyPath: descriptor.progress],
-            currentBatchIndex: viewModel[keyPath: descriptor.currentBatchIndex],
-            totalBatchCount: viewModel[keyPath: descriptor.totalBatchCount]
+            sourceURL: sourceURL(in: viewModel),
+            queuedSourceURLs: queuedSourceURLs(in: viewModel),
+            convertedURLs: convertedURLs(in: viewModel),
+            convertedOutputURLsBySourceID: convertedOutputURLsBySourceID(in: viewModel),
+            processedSourceIDs: processedSourceIDs(in: viewModel),
+            conversionErrorMessage: conversionErrorMessage(in: viewModel),
+            compatibilityWarningMessage: compatibilityWarningMessage(in: viewModel),
+            isAnalyzing: isAnalyzing(in: viewModel),
+            isConverting: isConverting(in: viewModel),
+            progress: viewModel[keyPath: mediaStateDescriptor.progress],
+            currentBatchIndex: currentBatchIndex(in: viewModel),
+            totalBatchCount: totalBatchCount(in: viewModel)
         )
     }
 }

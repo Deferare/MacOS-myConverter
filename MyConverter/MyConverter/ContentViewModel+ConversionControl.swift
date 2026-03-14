@@ -5,27 +5,25 @@ extension ContentViewModel.MediaKind {
         in viewModel: ContentViewModel,
         operation: @escaping @MainActor () async -> Void
     ) {
-        let descriptor = mediaStateDescriptor
-        guard viewModel[keyPath: descriptor.conversionTask] == nil else { return }
-        guard !viewModel[keyPath: descriptor.isConverting] else { return }
+        guard conversionTask(in: viewModel) == nil else { return }
+        guard !isConverting(in: viewModel) else { return }
 
-        viewModel[keyPath: descriptor.conversionTask] = Task { @MainActor [weak viewModel] in
+        setConversionTask(Task { @MainActor [weak viewModel] in
             defer { viewModel.map { self.clearConversionTask(in: $0) } }
             await operation()
-        }
+        }, in: viewModel)
     }
 
     func cancelConversionTask(in viewModel: ContentViewModel) {
         #if os(iOS)
         EmbeddedFFmpegBridge.cancelCurrentCommand()
         #endif
-        let descriptor = mediaStateDescriptor
-        guard let task = viewModel[keyPath: descriptor.conversionTask] else { return }
+        guard let task = conversionTask(in: viewModel) else { return }
         task.cancel()
     }
 
     func clearConversionTask(in viewModel: ContentViewModel) {
-        viewModel[keyPath: mediaStateDescriptor.conversionTask] = nil
+        setConversionTask(nil, in: viewModel)
     }
 
     func startConversion(in viewModel: ContentViewModel) {
