@@ -330,7 +330,7 @@ extension ContentViewModel.MediaKind {
                         resolvedFormats,
                         formatDescriptor: ContentViewModel.videoOutputFormatDescriptor,
                         postSelectionUpdate: {
-                            viewModel.refreshVideoCodecOptions()
+                            Self.video.refreshCodecOptions(in: viewModel)
                         },
                         persistSettings: {
                             viewModel.persistCurrentSourceSettingsIfNeeded(for: .video)
@@ -398,7 +398,7 @@ extension ContentViewModel.MediaKind {
                         resolvedFormats,
                         formatDescriptor: ContentViewModel.audioOutputFormatDescriptor,
                         postSelectionUpdate: {
-                            viewModel.refreshAudioCodecOptions()
+                            Self.audio.refreshCodecOptions(in: viewModel)
                         },
                         persistSettings: {
                             viewModel.persistCurrentSourceSettingsIfNeeded(for: .audio)

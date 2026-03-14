@@ -101,7 +101,7 @@ extension ContentViewModel {
             },
             postApply: {
                 ensureSelectedOutputFormatIsAvailable(using: Self.videoOutputFormatDescriptor)
-                refreshVideoCodecOptions()
+                MediaKind.video.refreshCodecOptions(in: self)
             }
         )
     }
@@ -208,7 +208,7 @@ extension ContentViewModel {
             },
             postApply: {
                 ensureSelectedOutputFormatIsAvailable(using: Self.audioOutputFormatDescriptor)
-                refreshAudioCodecOptions()
+                MediaKind.audio.refreshCodecOptions(in: self)
             }
         )
     }

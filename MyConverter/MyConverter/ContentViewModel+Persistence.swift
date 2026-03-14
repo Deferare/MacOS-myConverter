@@ -38,25 +38,25 @@ extension ContentViewModel {
         static let videoFormatChange = DeferredPersistenceAction(
             kind: .video,
             taskKeyPath: \.taskState.pendingVideoFormatChangeTask,
-            apply: { $0.refreshVideoCodecOptions() }
+            apply: { MediaKind.video.refreshCodecOptions(in: $0) }
         )
 
         static let videoOptionNormalization = DeferredPersistenceAction(
             kind: .video,
             taskKeyPath: \.taskState.pendingVideoOptionNormalizationTask,
-            apply: { $0.normalizeVideoOptionDependencies() }
+            apply: { MediaKind.video.normalizeOptionDependencies(in: $0) }
         )
 
         static let audioFormatChange = DeferredPersistenceAction(
             kind: .audio,
             taskKeyPath: \.taskState.pendingAudioFormatChangeTask,
-            apply: { $0.refreshAudioCodecOptions() }
+            apply: { MediaKind.audio.refreshCodecOptions(in: $0) }
         )
 
         static let audioOptionNormalization = DeferredPersistenceAction(
             kind: .audio,
             taskKeyPath: \.taskState.pendingAudioOptionNormalizationTask,
-            apply: { $0.normalizeAudioOptionDependencies() }
+            apply: { MediaKind.audio.normalizeOptionDependencies(in: $0) }
         )
     }
 

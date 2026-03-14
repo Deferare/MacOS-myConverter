@@ -135,7 +135,7 @@ extension ContentViewModel.MediaKind {
                     ContentViewModelSupport.placeholderVideoFormats(),
                     using: ContentViewModel.videoOutputFormatDescriptor
                 )
-                viewModel.applyPlaceholderVideoCodecOptions()
+                Self.video.applyPlaceholderCodecOptions(to: viewModel)
             },
             warmedDefaultCapability: {
                 let warmedFormats = VideoConversionEngine.defaultOutputFormats()
@@ -145,7 +145,7 @@ extension ContentViewModel.MediaKind {
                         for: .video,
                         formatDescriptor: ContentViewModel.videoOutputFormatDescriptor,
                         postApply: {
-                            viewModel.refreshVideoCodecOptions()
+                            Self.video.refreshCodecOptions(in: viewModel)
                         }
                     )
                 }
@@ -175,7 +175,7 @@ extension ContentViewModel.MediaKind {
                     ContentViewModelSupport.placeholderAudioFormats(),
                     using: ContentViewModel.audioOutputFormatDescriptor
                 )
-                viewModel.applyPlaceholderAudioCodecOptions()
+                Self.audio.applyPlaceholderCodecOptions(to: viewModel)
             },
             warmedDefaultCapability: {
                 let warmedFormats = VideoConversionEngine.defaultAudioOutputFormats()
@@ -185,7 +185,7 @@ extension ContentViewModel.MediaKind {
                         for: .audio,
                         formatDescriptor: ContentViewModel.audioOutputFormatDescriptor,
                         postApply: {
-                            viewModel.refreshAudioCodecOptions()
+                            Self.audio.refreshCodecOptions(in: viewModel)
                         }
                     )
                 }
