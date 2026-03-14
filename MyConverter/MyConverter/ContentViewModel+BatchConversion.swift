@@ -18,7 +18,7 @@ extension ContentViewModel {
         ) async throws -> URL
     ) async {
         let descriptor = kind.mediaStateDescriptor
-        let validationMessage = validationMessage(for: kind)
+        let validationMessage = kind.validationMessage(in: self)
         let canConvert = canStartConversion(for: kind, validationMessage: validationMessage)
 
         await performMediaBatchConversion(
@@ -45,8 +45,8 @@ extension ContentViewModel {
             prepareBatchEnvironment: prepareBatchEnvironment,
             prepareSingleSourceEnvironment: prepareSingleSourceEnvironment,
             validate: { preparedSource, environment in
-                await self.validatePreparedSourceOutputSettings(
-                    for: kind,
+                await kind.validatePreparedSourceOutputSettings(
+                    in: self,
                     source: preparedSource,
                     environment: environment
                 )

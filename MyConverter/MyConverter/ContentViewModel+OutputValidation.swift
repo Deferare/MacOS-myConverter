@@ -259,30 +259,6 @@ extension ContentViewModel {
         )
     }
 
-    func validationMessage(for kind: MediaKind) -> String? {
-        kind.validationMessage(in: self)
-    }
-
-    func hintMessage(for kind: MediaKind) -> String? {
-        kind.hintMessage(in: self)
-    }
-
-    func validateSourceOutputSettings(for kind: MediaKind, sourceURL: URL) async -> String? {
-        await kind.validateSourceOutputSettings(in: self, sourceURL: sourceURL)
-    }
-
-    func validatePreparedSourceOutputSettings(
-        for kind: MediaKind,
-        source: PreparedSourceConversion,
-        environment: BatchExecutionEnvironment
-    ) async -> String? {
-        await kind.validatePreparedSourceOutputSettings(
-            in: self,
-            source: source,
-            environment: environment
-        )
-    }
-
     func outputSettingsValidationMessage<Format>(
         for kind: MediaKind,
         formatDescriptor: OutputFormatDescriptor<Format>,

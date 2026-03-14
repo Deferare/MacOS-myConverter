@@ -120,10 +120,10 @@ extension ContentViewModel {
         resetCompatibilityState(for: kind)
         clearActivityState(for: kind, resetBatchState: resetBatchState)
 
-        applyPlaceholderCapabilities(for: kind)
+        kind.applyPlaceholderCapabilities(to: self)
 
         if applyDefaultSettings {
-            applyDefaultSourceSettings(for: kind)
+            kind.applyDefaultSourceSettings(to: self)
         }
 
         markCapabilityBootstrapNeedsRefresh(for: [kind])

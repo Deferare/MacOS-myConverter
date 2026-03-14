@@ -63,7 +63,7 @@ extension ContentViewModel {
     func scheduleDeferredPersistenceAction(_ action: DeferredPersistenceAction) {
         scheduleDeferredTask(action.taskKeyPath) { viewModel in
             action.apply(to: viewModel)
-            viewModel.persistCurrentSourceSettingsIfNeeded(for: action.kind)
+            action.kind.persistCurrentSourceSettingsIfNeeded(in: viewModel)
         }
     }
 }

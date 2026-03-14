@@ -137,11 +137,11 @@ extension ContentViewModel {
 
     func converterRenderState(for kind: MediaKind) -> ConverterRenderState {
         let snapshot = mediaStateSnapshot(for: kind)
-        let validationMessage = validationMessage(for: kind)
+        let validationMessage = kind.validationMessage(in: self)
         let status = conversionStatus(
             using: snapshot,
             validationMessage: validationMessage,
-            hintMessage: hintMessage(for: kind)
+            hintMessage: kind.hintMessage(in: self)
         )
 
         return ConverterRenderState(

@@ -45,7 +45,7 @@ extension ContentViewModel {
 
         let descriptor = kind.mediaStateDescriptor
         self[keyPath: descriptor.isAnalyzing] = true
-        applyPlaceholderCapabilities(for: kind)
+        kind.applyPlaceholderCapabilities(to: self)
         scheduleDebouncedTask(
             descriptor.pendingSelectionAnalysisTask,
             delayNanoseconds: Self.selectionAnalysisDebounceNanoseconds
@@ -72,7 +72,10 @@ extension ContentViewModel {
         assignSelection(uniqueURLs, for: kind)
         resetConversionOutputs(for: kind)
         resetSelectionCompatibilityState(for: kind)
-        applyStoredSourceSettings(for: sourceIdentifier(for: primaryURL), for: kind)
+        kind.applyStoredSourceSettings(
+            sourceID: sourceIdentifier(for: primaryURL),
+            to: self
+        )
         scheduleSelectedSourceAnalysis(uniqueURLs, for: kind)
     }
 
@@ -98,7 +101,7 @@ extension ContentViewModel {
         clearPreparedSingleVideoSelection(for: kind)
         cancelSelectionAnalysis(for: kind)
         resetSelectionCompatibilityState(for: kind)
-        applyStoredSourceSettings(for: primarySourceID, for: kind)
+        kind.applyStoredSourceSettings(sourceID: primarySourceID, to: self)
         scheduleSelectedSourceAnalysis(urls, for: kind)
     }
 

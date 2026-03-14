@@ -35,7 +35,7 @@ extension ContentViewModel {
             shouldShowImageQualityOption = viewModel.shouldShowImageQualityOption
             shouldShowPNGCompressionOption = viewModel.shouldShowPNGCompressionOption
             shouldShowPreserveAnimationOption = viewModel.shouldShowPreserveAnimationOption
-            hintMessage = viewModel.hintMessage(for: .image)
+            hintMessage = ContentViewModel.MediaKind.image.hintMessage(in: viewModel)
         }
     }
 
@@ -51,7 +51,7 @@ extension ContentViewModel {
             selectedOutputFormat = viewModel.audioOptionsState.selectedOutputFormat
             audioSettings = viewModel.audioOutputEncodingSelectionState
             outputFormatOptions = viewModel.audioOutputFormatOptions
-            hintMessage = viewModel.hintMessage(for: .audio)
+            hintMessage = ContentViewModel.MediaKind.audio.hintMessage(in: viewModel)
         }
     }
 

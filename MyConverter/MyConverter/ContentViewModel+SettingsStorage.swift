@@ -384,17 +384,6 @@ extension ContentViewModel {
         return decoded.mapValues(restore)
     }
 
-    func applyDefaultSourceSettings(for kind: MediaKind) {
-        kind.applyDefaultSourceSettings(to: self)
-    }
-
-    func applyStoredSourceSettings(for sourceID: String, for kind: MediaKind) {
-        kind.applyStoredSourceSettings(sourceID: sourceID, to: self)
-    }
-
-    func persistCurrentSourceSettingsIfNeeded(for kind: MediaKind) {
-        kind.persistCurrentSourceSettingsIfNeeded(in: self)
-    }
 }
 
 extension ContentViewModel.MediaKind {

@@ -6,7 +6,7 @@ extension ContentViewModel {
     }
 
     func applyPlaceholderCapabilityState() {
-        MediaKind.allCases.forEach { applyPlaceholderCapabilities(for: $0) }
+        MediaKind.allCases.forEach { $0.applyPlaceholderCapabilities(to: self) }
     }
 
     func applyWarmedOutputFormatsIfIdle<Format>(
@@ -26,10 +26,6 @@ extension ContentViewModel {
             using: formatDescriptor,
             postApply: postApply
         )
-    }
-
-    func applyPlaceholderCapabilities(for kind: MediaKind) {
-        kind.applyPlaceholderCapabilities(to: self)
     }
 
     func markCapabilityBootstrapNeedsRefresh(for kinds: [MediaKind]) {
