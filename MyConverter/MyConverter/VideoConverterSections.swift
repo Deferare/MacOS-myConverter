@@ -15,10 +15,11 @@ struct VideoConverterFormSectionView: View, Equatable {
 
     var body: some View {
         let _ = PerformanceSignpost.event("VideoFormRender")
-        let showsPlaybackSpeed = state.shouldShowGIFPlaybackSpeedOption
-        let showsVideoBitRate = state.shouldShowVideoBitRateOption
-        let showsCustomVideoBitRate = showsVideoBitRate && state.selectedVideoBitRate == .custom
-        let showsAudioSettings = state.shouldShowAudioSettings
+        let settings = state.settings
+        let showsPlaybackSpeed = settings.shouldShowGIFPlaybackSpeedOption
+        let showsVideoBitRate = settings.shouldShowVideoBitRateOption
+        let showsCustomVideoBitRate = showsVideoBitRate && settings.selectedVideoBitRate == .custom
+        let showsAudioSettings = settings.shouldShowAudioSettings
 
         ConverterFormSections(
             isConverting: state.isConverting
@@ -26,17 +27,17 @@ struct VideoConverterFormSectionView: View, Equatable {
             MenuPicker(
                 "Output Format",
                 selection: viewModel.binding(to: \.videoOptionsState.selectedOutputFormat),
-                options: state.outputFormatOptions,
+                options: settings.outputFormatOptions,
                 disabledWhenEmpty: true,
                 showsDivider: true,
                 label: { "\($0.displayName) (.\($0.fileExtension))" }
             )
 
-            if state.shouldShowVideoEncoderOption {
+            if settings.shouldShowVideoEncoderOption {
                 MenuPicker(
                     "Video Encoder",
                     selection: viewModel.binding(to: \.videoOptionsState.selectedVideoEncoder),
-                    options: state.videoEncoderOptions,
+                    options: settings.videoEncoderOptions,
                     disabledWhenEmpty: true,
                     showsDivider: true,
                     label: { $0.rawValue }
@@ -59,7 +60,7 @@ struct VideoConverterFormSectionView: View, Equatable {
                 label: { $0.rawValue }
             )
 
-            if state.shouldShowGIFPlaybackSpeedOption {
+            if settings.shouldShowGIFPlaybackSpeedOption {
                 MenuPicker(
                     "Playback Speed",
                     selection: viewModel.binding(to: \.videoOptionsState.selectedGIFPlaybackSpeed),
@@ -69,7 +70,7 @@ struct VideoConverterFormSectionView: View, Equatable {
                 )
             }
 
-            if state.shouldShowVideoBitRateOption {
+            if settings.shouldShowVideoBitRateOption {
                 MenuPicker(
                     "Video Bit Rate",
                     selection: viewModel.binding(to: \.videoOptionsState.selectedVideoBitRate),
@@ -79,7 +80,7 @@ struct VideoConverterFormSectionView: View, Equatable {
                 )
             }
 
-            if state.shouldShowVideoBitRateOption && state.selectedVideoBitRate == .custom {
+            if settings.shouldShowVideoBitRateOption && settings.selectedVideoBitRate == .custom {
                 ConverterTextFieldRow(
                     "Custom Video Bit Rate",
                     prompt: "Custom Kbps (e.g. 5000)",
@@ -88,11 +89,11 @@ struct VideoConverterFormSectionView: View, Equatable {
                 )
             }
 
-            if state.shouldShowAudioSettings {
+            if settings.shouldShowAudioSettings {
                 MenuPicker(
                     "Audio Encoder",
                     selection: viewModel.binding(to: \.videoOptionsState.selectedAudioEncoder),
-                    options: state.audioSettings.encoderOptions,
+                    options: settings.audioSettings.encoderOptions,
                     disabledWhenEmpty: true,
                     showsDivider: true,
                     label: { $0.rawValue }
@@ -102,8 +103,8 @@ struct VideoConverterFormSectionView: View, Equatable {
                     modeSelection: viewModel.binding(to: \.videoOptionsState.selectedAudioMode),
                     sampleRateSelection: viewModel.binding(to: \.videoOptionsState.selectedSampleRate),
                     bitRateSelection: viewModel.binding(to: \.videoOptionsState.selectedAudioBitRate),
-                    showSampleRate: state.audioSettings.shouldShowSampleRateOption,
-                    showBitRate: state.audioSettings.shouldShowBitRateOption,
+                    showSampleRate: settings.audioSettings.shouldShowSampleRateOption,
+                    showBitRate: settings.audioSettings.shouldShowBitRateOption,
                     showsDividerOnLastRow: false
                 )
             }

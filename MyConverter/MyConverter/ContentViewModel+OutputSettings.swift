@@ -12,6 +12,66 @@ extension ContentViewModel {
         let shouldShowBitRateOption: Bool
     }
 
+    struct VideoEncodingSelectionState: Equatable {
+        let selectedOutputFormat: VideoFormatOption
+        let selectedVideoEncoder: VideoEncoderOption
+        let selectedResolution: ResolutionOption
+        let selectedFrameRate: FrameRateOption
+        let selectedGIFPlaybackSpeed: GIFPlaybackSpeedOption
+        let selectedVideoBitRate: VideoBitRateOption
+        let customVideoBitRate: String
+        let audioSettings: AudioEncodingSelectionState
+        let outputFormatOptions: [VideoFormatOption]
+        let videoEncoderOptions: [VideoEncoderOption]
+        let shouldShowVideoEncoderOption: Bool
+        let shouldShowGIFPlaybackSpeedOption: Bool
+        let shouldShowVideoBitRateOption: Bool
+
+        var shouldShowAudioSettings: Bool {
+            audioSettings.isEnabled
+        }
+
+        var normalizedCustomVideoBitRateKbps: Int? {
+            let trimmed = customVideoBitRate.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return nil }
+
+            let sanitized = trimmed.replacingOccurrences(of: ",", with: "")
+            guard let value = Int(sanitized), value > 0 else { return nil }
+            return value
+        }
+
+        var requiresFFmpeg: Bool {
+            if selectedOutputFormat.avFileType == nil {
+                return true
+            }
+            if selectedOutputFormat.usesGIFPalettePipeline {
+                return true
+            }
+            if selectedVideoEncoder != .auto {
+                return true
+            }
+            if selectedResolution != .original || selectedFrameRate != .original {
+                return true
+            }
+            if shouldShowVideoBitRateOption && selectedVideoBitRate != .auto {
+                return true
+            }
+            if !audioSettings.isEnabled {
+                return false
+            }
+            if audioSettings.selectedEncoder != .auto {
+                return true
+            }
+            if audioSettings.selectedMode != .auto {
+                return true
+            }
+            if audioSettings.shouldShowBitRateOption && audioSettings.selectedBitRate != .auto {
+                return true
+            }
+            return false
+        }
+    }
+
     private struct ResolvedAudioEncodingSettings {
         let codecCandidates: [String]
         let channels: Int?
@@ -81,6 +141,34 @@ extension ContentViewModel {
         )
     }
 
+    var videoEncodingSelectionState: VideoEncodingSelectionState {
+        let options = videoOptionsState
+        let audioSettings = videoAudioEncodingSelectionState
+        let outputFormatOptions = availableOutputFormatOptions(using: Self.videoOutputFormatDescriptorValue)
+        let videoEncoderOptions = resolvedOptions(
+            videoRuntimeState.availableVideoEncoders,
+            autoOption: VideoEncoderOption.auto,
+            includesAutoOption: options.selectedOutputFormat.avFileType != nil
+        )
+
+        return VideoEncodingSelectionState(
+            selectedOutputFormat: options.selectedOutputFormat,
+            selectedVideoEncoder: options.selectedVideoEncoder,
+            selectedResolution: options.selectedResolution,
+            selectedFrameRate: options.selectedFrameRate,
+            selectedGIFPlaybackSpeed: options.selectedGIFPlaybackSpeed,
+            selectedVideoBitRate: options.selectedVideoBitRate,
+            customVideoBitRate: options.customVideoBitRate,
+            audioSettings: audioSettings,
+            outputFormatOptions: outputFormatOptions,
+            videoEncoderOptions: videoEncoderOptions,
+            shouldShowVideoEncoderOption: options.selectedOutputFormat.supportsVideoEncoderSelection
+                && videoEncoderOptions.count > 1,
+            shouldShowGIFPlaybackSpeedOption: options.selectedOutputFormat.usesGIFPalettePipeline,
+            shouldShowVideoBitRateOption: options.selectedVideoEncoder.supportsVideoBitRate
+        )
+    }
+
     private func resolvedAudioEncodingSettings(
         _ selection: AudioEncodingSelectionState
     ) -> ResolvedAudioEncodingSettings {
@@ -93,34 +181,35 @@ extension ContentViewModel {
     }
 
     func resolvedVideoBitRateKbps() throws -> Int? {
-        guard shouldShowVideoBitRateOption else { return nil }
+        let selection = videoEncodingSelectionState
+        guard selection.shouldShowVideoBitRateOption else { return nil }
 
-        switch videoOptionsState.selectedVideoBitRate {
+        switch selection.selectedVideoBitRate {
         case .auto:
             return nil
         case .custom:
-            guard let custom = normalizedCustomVideoBitRateKbps else {
-                throw ConversionError.invalidCustomVideoBitRate(videoOptionsState.customVideoBitRate)
+            guard let custom = selection.normalizedCustomVideoBitRateKbps else {
+                throw ConversionError.invalidCustomVideoBitRate(selection.customVideoBitRate)
             }
             return custom
         default:
-            return videoOptionsState.selectedVideoBitRate.kbps
+            return selection.selectedVideoBitRate.kbps
         }
     }
 
     func buildVideoOutputSettings() throws -> VideoOutputSettings {
-        let options = videoOptionsState
-        let audioSettings = resolvedAudioEncodingSettings(videoAudioEncodingSelectionState)
+        let selection = videoEncodingSelectionState
+        let audioSettings = resolvedAudioEncodingSettings(selection.audioSettings)
 
         return VideoOutputSettings(
-            containerFormat: options.selectedOutputFormat,
-            videoCodecCandidates: options.selectedVideoEncoder.codecCandidates,
-            useHEVCTag: options.selectedVideoEncoder.usesHEVCCodec,
-            resolution: options.selectedResolution.dimensions,
-            frameRate: options.selectedFrameRate.fps,
+            containerFormat: selection.selectedOutputFormat,
+            videoCodecCandidates: selection.selectedVideoEncoder.codecCandidates,
+            useHEVCTag: selection.selectedVideoEncoder.usesHEVCCodec,
+            resolution: selection.selectedResolution.dimensions,
+            frameRate: selection.selectedFrameRate.fps,
             gifPlaybackSpeed: optionalValue(
-                when: shouldShowGIFPlaybackSpeedOption,
-                options.selectedGIFPlaybackSpeed.multiplier
+                when: selection.shouldShowGIFPlaybackSpeedOption,
+                selection.selectedGIFPlaybackSpeed.multiplier
             ),
             videoBitRateKbps: try resolvedVideoBitRateKbps(),
             audioCodecCandidates: audioSettings.codecCandidates,

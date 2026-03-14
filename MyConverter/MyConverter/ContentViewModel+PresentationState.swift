@@ -3,37 +3,11 @@ import SwiftUI
 extension ContentViewModel {
     struct VideoFormPresentationState: Equatable {
         let isConverting: Bool
-        let selectedOutputFormat: VideoFormatOption
-        let selectedVideoEncoder: VideoEncoderOption
-        let selectedResolution: ResolutionOption
-        let selectedFrameRate: FrameRateOption
-        let selectedGIFPlaybackSpeed: GIFPlaybackSpeedOption
-        let selectedVideoBitRate: VideoBitRateOption
-        let customVideoBitRate: String
-        let audioSettings: AudioEncodingSelectionState
-        let outputFormatOptions: [VideoFormatOption]
-        let videoEncoderOptions: [VideoEncoderOption]
-        let shouldShowVideoEncoderOption: Bool
-        let shouldShowAudioSettings: Bool
-        let shouldShowGIFPlaybackSpeedOption: Bool
-        let shouldShowVideoBitRateOption: Bool
+        let settings: VideoEncodingSelectionState
 
         init(viewModel: ContentViewModel) {
             isConverting = viewModel.videoRuntimeState.media.isConverting
-            selectedOutputFormat = viewModel.videoOptionsState.selectedOutputFormat
-            selectedVideoEncoder = viewModel.videoOptionsState.selectedVideoEncoder
-            selectedResolution = viewModel.videoOptionsState.selectedResolution
-            selectedFrameRate = viewModel.videoOptionsState.selectedFrameRate
-            selectedGIFPlaybackSpeed = viewModel.videoOptionsState.selectedGIFPlaybackSpeed
-            selectedVideoBitRate = viewModel.videoOptionsState.selectedVideoBitRate
-            customVideoBitRate = viewModel.videoOptionsState.customVideoBitRate
-            audioSettings = viewModel.videoAudioEncodingSelectionState
-            outputFormatOptions = viewModel.outputFormatOptions
-            videoEncoderOptions = viewModel.videoEncoderOptions
-            shouldShowVideoEncoderOption = viewModel.shouldShowVideoEncoderOption
-            shouldShowAudioSettings = viewModel.shouldShowAudioSettings
-            shouldShowGIFPlaybackSpeedOption = viewModel.shouldShowGIFPlaybackSpeedOption
-            shouldShowVideoBitRateOption = viewModel.shouldShowVideoBitRateOption
+            settings = viewModel.videoEncodingSelectionState
         }
     }
 

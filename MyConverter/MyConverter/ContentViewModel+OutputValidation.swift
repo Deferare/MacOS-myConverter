@@ -75,7 +75,7 @@ extension ContentViewModel {
     }
 
     func videoFFmpegRequirementMessage() -> String? {
-        guard requiresFFmpegForCurrentVideoSettings,
+        guard videoEncodingSelectionState.requiresFFmpeg,
               !VideoConversionEngine.isFFmpegAvailable() else {
             return nil
         }
@@ -84,9 +84,10 @@ extension ContentViewModel {
     }
 
     func customVideoBitRateValidationMessage() -> String? {
-        guard shouldShowVideoBitRateOption,
-              videoOptionsState.selectedVideoBitRate == .custom,
-              normalizedCustomVideoBitRateKbps == nil else {
+        let selection = videoEncodingSelectionState
+        guard selection.shouldShowVideoBitRateOption,
+              selection.selectedVideoBitRate == .custom,
+              selection.normalizedCustomVideoBitRateKbps == nil else {
             return nil
         }
 
@@ -206,15 +207,15 @@ extension ContentViewModel {
                 )
             },
             additionalValidation: { viewModel in
-                let audioSettings = viewModel.videoAudioEncodingSelectionState
+                let selection = viewModel.videoEncodingSelectionState
                 return viewModel.firstNonEmptyMessage(
                     viewModel.unavailableSelectedOptionMessage(
-                        viewModel.videoOptionsState.selectedVideoEncoder,
-                        in: viewModel.videoEncoderOptions,
+                        selection.selectedVideoEncoder,
+                        in: selection.videoEncoderOptions,
                         named: "video encoder"
                     ),
-                    audioSettings.isEnabled
-                        ? viewModel.unavailableSelectedAudioEncoderMessage(audioSettings)
+                    selection.audioSettings.isEnabled
+                        ? viewModel.unavailableSelectedAudioEncoderMessage(selection.audioSettings)
                         : nil
                 )
             },
