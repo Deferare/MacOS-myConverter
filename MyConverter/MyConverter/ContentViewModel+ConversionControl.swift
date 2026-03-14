@@ -1,20 +1,6 @@
 import Foundation
 
 extension ContentViewModel {
-    func startConversion(for kind: MediaKind) {
-        launchConversionTask(for: kind) { [weak self] in
-            await self?.runConversion(for: kind)
-        }
-    }
-
-    func cancelConversion(for kind: MediaKind) {
-        cancelConversionTask(for: kind)
-    }
-
-    func runConversion(for kind: MediaKind) async {
-        await kind.performConversion(in: self)
-    }
-
     func launchConversionTask(
         for kind: MediaKind,
         operation: @escaping @MainActor () async -> Void
@@ -41,5 +27,19 @@ extension ContentViewModel {
     func clearConversionTask(for kind: MediaKind) {
         let descriptor = kind.mediaStateDescriptor
         self[keyPath: descriptor.conversionTask] = nil
+    }
+}
+
+extension ContentViewModel.MediaKind {
+    func startConversion(in viewModel: ContentViewModel) {
+        viewModel.launchConversionTask(for: self) { [weak viewModel] in
+            if let viewModel {
+                await self.performConversion(in: viewModel)
+            }
+        }
+    }
+
+    func cancelConversion(in viewModel: ContentViewModel) {
+        viewModel.cancelConversionTask(for: self)
     }
 }

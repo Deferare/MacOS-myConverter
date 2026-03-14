@@ -101,7 +101,7 @@ extension ContentViewModel {
             .filter { sourceIdentifier(for: $0) != processedID }
         assignSelection(remainingSources, for: kind)
         guard !remainingSources.isEmpty else {
-            restoreIdleMediaState(for: kind)
+            kind.restoreIdleState(in: self)
             return
         }
     }

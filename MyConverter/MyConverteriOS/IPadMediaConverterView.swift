@@ -17,7 +17,7 @@ struct IPadMediaConverterView: View {
     @State private var draggedSelectedFileURL: URL?
 
     private var renderState: ContentViewModel.ConverterRenderState {
-        viewModel.converterRenderState(for: kind)
+        kind.converterRenderState(in: viewModel)
     }
 
     private var toolbarUtilityTint: Color {
@@ -304,7 +304,7 @@ struct IPadMediaConverterView: View {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 if !renderState.screenState.isConverting {
                     Button {
-                        viewModel.clearSelectedSource(for: kind)
+                        kind.clearSelectedSource(in: viewModel)
                     } label: {
                         Image(systemName: "trash")
                             .foregroundStyle(toolbarUtilityTint)
@@ -319,9 +319,9 @@ struct IPadMediaConverterView: View {
 
                 Button {
                     if renderState.screenState.isConverting {
-                        viewModel.cancelConversion(for: kind)
+                        kind.cancelConversion(in: viewModel)
                     } else {
-                        viewModel.startConversion(for: kind)
+                        kind.startConversion(in: viewModel)
                     }
                 } label: {
                     Text(renderState.screenState.primaryActionTitle)

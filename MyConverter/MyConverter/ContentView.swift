@@ -74,7 +74,7 @@ struct ContentView: View {
     }
 
     private func mediaDetailView(for kind: ContentViewModel.MediaKind) -> some View {
-        let renderState = viewModel.converterRenderState(for: kind)
+        let renderState = kind.converterRenderState(in: viewModel)
 
         return MediaConverterDetailView(
             kind: kind,
@@ -92,13 +92,13 @@ struct ContentView: View {
                 viewModel.moveSelectedSource(from: draggedURL, to: targetURL, for: kind)
             },
             onClear: {
-                viewModel.clearSelectedSource(for: kind)
+                kind.clearSelectedSource(in: viewModel)
             },
             onPrimaryAction: {
                 if renderState.screenState.isConverting {
-                    viewModel.cancelConversion(for: kind)
+                    kind.cancelConversion(in: viewModel)
                 } else {
-                    viewModel.startConversion(for: kind)
+                    kind.startConversion(in: viewModel)
                 }
             }
         ) {

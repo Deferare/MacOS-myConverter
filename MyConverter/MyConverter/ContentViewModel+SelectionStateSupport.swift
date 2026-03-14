@@ -104,44 +104,6 @@ extension ContentViewModel {
         self[keyPath: keyPath] = nil
     }
 
-    func restoreIdleMediaState(
-        for kind: MediaKind,
-        resetOutputs: Bool = false,
-        resetBatchState: Bool = false,
-        applyDefaultSettings: Bool = false
-    ) {
-        clearPreparedSingleVideoSelection(for: kind)
-        cancelSelectionAnalysis(for: kind)
-
-        if resetOutputs {
-            resetConversionOutputs(for: kind)
-        }
-
-        resetCompatibilityState(for: kind)
-        clearActivityState(for: kind, resetBatchState: resetBatchState)
-
-        kind.applyPlaceholderCapabilities(to: self)
-
-        if applyDefaultSettings {
-            kind.applyDefaultSourceSettings(to: self)
-        }
-
-        markCapabilityBootstrapNeedsRefresh(for: [kind])
-        scheduleCapabilityBootstrap(for: kind)
-    }
-
-    func clearSelectedSource(for kind: MediaKind) {
-        clearPreparedSingleVideoSelection(for: kind)
-        cancelSelectionAnalysis(for: kind)
-        assignSelection([], for: kind)
-        restoreIdleMediaState(
-            for: kind,
-            resetOutputs: true,
-            resetBatchState: true,
-            applyDefaultSettings: true
-        )
-    }
-
     func resetConversionOutputs(for kind: MediaKind) {
         let descriptor = kind.mediaStateDescriptor
         self[keyPath: descriptor.convertedURL] = nil
@@ -172,5 +134,45 @@ extension ContentViewModel {
         guard resetBatchState else { return }
         self[keyPath: descriptor.currentBatchIndex] = 0
         self[keyPath: descriptor.totalBatchCount] = 0
+    }
+}
+
+extension ContentViewModel.MediaKind {
+    func restoreIdleState(
+        in viewModel: ContentViewModel,
+        resetOutputs: Bool = false,
+        resetBatchState: Bool = false,
+        applyDefaultSettings: Bool = false
+    ) {
+        viewModel.clearPreparedSingleVideoSelection(for: self)
+        viewModel.cancelSelectionAnalysis(for: self)
+
+        if resetOutputs {
+            viewModel.resetConversionOutputs(for: self)
+        }
+
+        viewModel.resetCompatibilityState(for: self)
+        viewModel.clearActivityState(for: self, resetBatchState: resetBatchState)
+
+        applyPlaceholderCapabilities(to: viewModel)
+
+        if applyDefaultSettings {
+            applyDefaultSourceSettings(to: viewModel)
+        }
+
+        viewModel.markCapabilityBootstrapNeedsRefresh(for: [self])
+        viewModel.scheduleCapabilityBootstrap(for: self)
+    }
+
+    func clearSelectedSource(in viewModel: ContentViewModel) {
+        viewModel.clearPreparedSingleVideoSelection(for: self)
+        viewModel.cancelSelectionAnalysis(for: self)
+        viewModel.assignSelection([], for: self)
+        restoreIdleState(
+            in: viewModel,
+            resetOutputs: true,
+            resetBatchState: true,
+            applyDefaultSettings: true
+        )
     }
 }

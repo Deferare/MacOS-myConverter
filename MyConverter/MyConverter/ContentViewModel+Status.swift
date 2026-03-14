@@ -125,34 +125,6 @@ extension ContentViewModel {
         )
     }
 
-    func canStartConversion(
-        for kind: MediaKind,
-        validationMessage: String?
-    ) -> Bool {
-        canStartConversion(
-            using: mediaStateSnapshot(for: kind),
-            validationMessage: validationMessage
-        )
-    }
-
-    func converterRenderState(for kind: MediaKind) -> ConverterRenderState {
-        let snapshot = mediaStateSnapshot(for: kind)
-        let validationMessage = kind.validationMessage(in: self)
-        let status = conversionStatus(
-            using: snapshot,
-            validationMessage: validationMessage,
-            hintMessage: kind.hintMessage(in: self)
-        )
-
-        return ConverterRenderState(
-            kind: kind,
-            viewModel: self,
-            snapshot: snapshot,
-            validationMessage: validationMessage,
-            status: status
-        )
-    }
-
     func buildConversionStatus(
         isConverting: Bool,
         currentBatchIndex: Int,
@@ -222,5 +194,34 @@ extension ContentViewModel {
             !isAnalyzingSource &&
             validationMessage == nil
     }
+}
 
+extension ContentViewModel.MediaKind {
+    func canStartConversion(
+        in viewModel: ContentViewModel,
+        validationMessage: String?
+    ) -> Bool {
+        viewModel.canStartConversion(
+            using: viewModel.mediaStateSnapshot(for: self),
+            validationMessage: validationMessage
+        )
+    }
+
+    func converterRenderState(in viewModel: ContentViewModel) -> ContentViewModel.ConverterRenderState {
+        let snapshot = viewModel.mediaStateSnapshot(for: self)
+        let validationMessage = validationMessage(in: viewModel)
+        let status = viewModel.conversionStatus(
+            using: snapshot,
+            validationMessage: validationMessage,
+            hintMessage: hintMessage(in: viewModel)
+        )
+
+        return ContentViewModel.ConverterRenderState(
+            kind: self,
+            viewModel: viewModel,
+            snapshot: snapshot,
+            validationMessage: validationMessage,
+            status: status
+        )
+    }
 }

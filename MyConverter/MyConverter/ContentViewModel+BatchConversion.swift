@@ -19,7 +19,10 @@ extension ContentViewModel {
     ) async {
         let descriptor = kind.mediaStateDescriptor
         let validationMessage = kind.validationMessage(in: self)
-        let canConvert = canStartConversion(for: kind, validationMessage: validationMessage)
+        let canConvert = kind.canStartConversion(
+            in: self,
+            validationMessage: validationMessage
+        )
 
         await performMediaBatchConversion(
             canConvert: canConvert,
