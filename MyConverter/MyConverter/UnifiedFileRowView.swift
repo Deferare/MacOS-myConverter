@@ -1,5 +1,3 @@
-import AppKit
-import QuickLookThumbnailing
 import SwiftUI
 
 struct UnifiedFileRowView: View, Equatable {
@@ -149,10 +147,6 @@ struct UnifiedFileRowView: View, Equatable {
         .white.opacity(0.06)
     }
 
-    private func statusGlass(_ color: Color) -> Glass {
-        Glass.regular.tint(color).interactive(false)
-    }
-
     private func cancelCompletionAccessoryReveal() {
         completionAccessoryRevealTask?.cancel()
         completionAccessoryRevealTask = nil
@@ -212,9 +206,11 @@ struct UnifiedFileRowView: View, Equatable {
                 .fixedSize(horizontal: true, vertical: false)
                 .layoutPriority(1)
 
-            FileThumbnailView(
+            UnifiedFileRowThumbnailView(
                 sourceURL: sourceURL,
-                size: CGSize(width: Metrics.thumbnailWidth, height: Metrics.thumbnailHeight)
+                size: CGSize(width: Metrics.thumbnailWidth, height: Metrics.thumbnailHeight),
+                cornerRadius: Metrics.thumbnailCornerRadius,
+                borderOpacity: Metrics.thumbnailBorderOpacity
             )
             .fixedSize()
 
@@ -241,10 +237,17 @@ struct UnifiedFileRowView: View, Equatable {
     private var outputSection: some View {
         HStack(spacing: Metrics.outputSectionSpacing) {
             if let outputURL = displayedCompletedOutputURL {
-                completedActionsView(outputURL)
+                UnifiedFileRowCompletedActionsView(
+                    url: outputURL,
+                    spacing: Metrics.outputSectionSpacing,
+                    buttonHeight: Metrics.completedActionHeight,
+                    labelColor: actionLabelColor,
+                    fillColor: actionButtonFillColor,
+                    borderColor: actionButtonBorderColor
+                )
                     .transition(completedActionsTransition)
             } else if case .skipped = rowStatus {
-                statusPlaceholderView("Skipped", color: .orange)
+                UnifiedFileRowStatusPlaceholderView(title: "Skipped", color: .orange)
             }
         }
         .padding(.leading, outputSectionLeadingPadding)
@@ -259,54 +262,6 @@ struct UnifiedFileRowView: View, Equatable {
         case .pending, .converting:
             return 0
         }
-    }
-
-    private func completedActionsView(_ url: URL) -> some View {
-        HStack(spacing: Metrics.outputSectionSpacing) {
-            Button {
-                NSWorkspace.shared.activateFileViewerSelecting([url])
-            } label: {
-                Label("Show in Finder", systemImage: "folder")
-                    .labelStyle(.iconOnly)
-                    .foregroundStyle(actionLabelColor)
-                    .frame(width: 38, height: Metrics.completedActionHeight)
-                    .background(actionButtonBackground)
-            }
-            .buttonStyle(HoverScaleButtonStyle())
-            .help("Show in Finder")
-
-            Button {
-                NSWorkspace.shared.open(url)
-            } label: {
-                Text("Open")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(actionLabelColor)
-                    .padding(.horizontal, 18)
-                    .frame(height: Metrics.completedActionHeight)
-                    .background(actionButtonBackground)
-            }
-            .buttonStyle(HoverScaleButtonStyle())
-        }
-        .fixedSize(horizontal: true, vertical: false)
-    }
-
-    private var actionButtonBackground: some View {
-        RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .fill(actionButtonFillColor)
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(actionButtonBorderColor, lineWidth: 1)
-            )
-    }
-
-    private func statusPlaceholderView(_ title: String, color: Color) -> some View {
-        Text(title)
-            .font(.caption.weight(.medium))
-            .foregroundStyle(color)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .glassEffect(statusGlass(color), in: Capsule())
-            .fixedSize(horizontal: true, vertical: false)
     }
 
     // MARK: - Background
@@ -326,150 +281,5 @@ struct UnifiedFileRowView: View, Equatable {
 
     private var rowBorderColor: Color {
         .white.opacity(0.10)
-    }
-}
-
-private struct HoverScaleButtonStyle: ButtonStyle {
-    @State private var isHovered = false
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.94 : (isHovered ? 1.04 : 1.0))
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
-            .animation(.spring(response: 0.2, dampingFraction: 0.8), value: configuration.isPressed)
-            .onHover { hovering in
-                withAnimation {
-                    isHovered = hovering
-                }
-            }
-    }
-}
-
-private struct FileThumbnailView: View {
-    let sourceURL: URL
-    let size: CGSize
-
-    @State private var thumbnailImage: NSImage?
-
-    init(sourceURL: URL, size: CGSize) {
-        self.sourceURL = sourceURL
-        self.size = size
-        _thumbnailImage = State(
-            initialValue: FileThumbnailGenerator.fallbackIcon(for: sourceURL, size: size)
-        )
-    }
-
-    var body: some View {
-        Group {
-            if let thumbnailImage {
-                Image(nsImage: thumbnailImage)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                placeholderThumbnail
-            }
-        }
-        .frame(width: size.width, height: size.height)
-        .clipShape(
-            RoundedRectangle(
-                cornerRadius: UnifiedFileRowView.Metrics.thumbnailCornerRadius,
-                style: .continuous
-            )
-        )
-        .overlay(
-            RoundedRectangle(
-                cornerRadius: UnifiedFileRowView.Metrics.thumbnailCornerRadius,
-                style: .continuous
-            )
-            .stroke(.white.opacity(UnifiedFileRowView.Metrics.thumbnailBorderOpacity), lineWidth: 1)
-        )
-        .task(id: sourceURL.path) {
-            loadThumbnail()
-        }
-    }
-
-    private var placeholderThumbnail: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: UnifiedFileRowView.Metrics.thumbnailCornerRadius, style: .continuous)
-                .fill(.white.opacity(0.05))
-
-            Image(systemName: "doc")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private func loadThumbnail() {
-        if let cachedThumbnail = FileThumbnailGenerator.cachedThumbnail(for: sourceURL) {
-            thumbnailImage = cachedThumbnail
-            return
-        }
-
-        let sourcePath = sourceURL.path
-        FileThumbnailGenerator.generateThumbnail(for: sourceURL, size: size) { image in
-            guard sourceURL.path == sourcePath else { return }
-            thumbnailImage = image
-        }
-    }
-}
-
-private enum FileThumbnailGenerator {
-    private static let cache = NSCache<NSString, NSImage>()
-
-    static func cachedThumbnail(for url: URL) -> NSImage? {
-        cache.object(forKey: cacheKey(for: url))
-    }
-
-    static func generateThumbnail(
-        for url: URL,
-        size: CGSize,
-        completion: @escaping (NSImage) -> Void
-    ) {
-        let cacheKey = cacheKey(for: url)
-        if let cachedImage = cache.object(forKey: cacheKey) {
-            completion(cachedImage)
-            return
-        }
-
-        let pointSize = NSSize(width: size.width, height: size.height)
-        let scale = NSScreen.main?.backingScaleFactor ?? 2
-        let request = QLThumbnailGenerator.Request(
-            fileAt: url,
-            size: size,
-            scale: scale,
-            representationTypes: .thumbnail
-        )
-        let shouldStopAccessing = url.startAccessingSecurityScopedResource()
-
-        QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { representation, _ in
-            defer {
-                if shouldStopAccessing {
-                    url.stopAccessingSecurityScopedResource()
-                }
-            }
-
-            let image: NSImage
-            if let cgImage = representation?.cgImage {
-                image = NSImage(cgImage: cgImage, size: pointSize)
-            } else {
-                image = fallbackIcon(for: url, size: size)
-            }
-
-            cache.setObject(image, forKey: cacheKey)
-
-            DispatchQueue.main.async {
-                completion(image)
-            }
-        }
-    }
-
-    static func fallbackIcon(for url: URL, size: CGSize) -> NSImage {
-        let image = NSWorkspace.shared.icon(forFile: url.path)
-        image.size = NSSize(width: size.width, height: size.height)
-        return image
-    }
-
-    private static func cacheKey(for url: URL) -> NSString {
-        url.path as NSString
     }
 }
