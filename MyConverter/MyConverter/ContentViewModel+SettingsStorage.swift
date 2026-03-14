@@ -36,12 +36,6 @@ extension ContentViewModel {
         let postApply: (ContentViewModel) -> Void
     }
 
-    struct SourceSettingsActions {
-        let applyDefault: (ContentViewModel) -> Void
-        let applyForSourceID: (ContentViewModel, String) -> Void
-        let persistCurrent: (ContentViewModel) -> Void
-    }
-
     struct SourceSettingsComponents<Settings: Equatable, Persisted: Codable, Format> {
         let storage: SourceSettingsDescriptor<Settings, Persisted>
         let flow: SourceSettingsFlowDescriptor<Settings, Persisted, Format>
@@ -125,26 +119,6 @@ extension ContentViewModel {
                 applyAdditionalSettings: applyAdditionalSettings,
                 refreshDependentOptions: refreshDependentOptions
             )
-        )
-    }
-
-    static func makeSourceSettingsActions<Settings: Equatable, Persisted: Codable, Format>(
-        using descriptor: @escaping (ContentViewModel) -> SourceSettingsFlowDescriptor<Settings, Persisted, Format>
-    ) -> SourceSettingsActions {
-        SourceSettingsActions(
-            applyDefault: { viewModel in
-                let flow = descriptor(viewModel)
-                viewModel.applySourceSettings(flow.defaultSettings(), using: flow)
-            },
-            applyForSourceID: { viewModel, sourceID in
-                viewModel.applySourceSettingsForSource(
-                    sourceID: sourceID,
-                    using: descriptor(viewModel)
-                )
-            },
-            persistCurrent: { viewModel in
-                viewModel.persistCurrentSourceSettingsIfNeeded(using: descriptor(viewModel))
-            }
         )
     }
 
@@ -526,14 +500,17 @@ extension ContentViewModel {
     }
 
     func applyDefaultSourceSettings(for kind: MediaKind) {
-        mediaStateDescriptor(for: kind).sourceSettingsActions.applyDefault(self)
+        let descriptor = mediaStateDescriptor(for: kind)
+        descriptor.applyDefaultSourceSettings(self)
     }
 
     func applyStoredSourceSettings(for sourceID: String, for kind: MediaKind) {
-        mediaStateDescriptor(for: kind).sourceSettingsActions.applyForSourceID(self, sourceID)
+        let descriptor = mediaStateDescriptor(for: kind)
+        descriptor.applyStoredSourceSettings(self, sourceID)
     }
 
     func persistCurrentSourceSettingsIfNeeded(for kind: MediaKind) {
-        mediaStateDescriptor(for: kind).sourceSettingsActions.persistCurrent(self)
+        let descriptor = mediaStateDescriptor(for: kind)
+        descriptor.persistCurrentSourceSettings(self)
     }
 }

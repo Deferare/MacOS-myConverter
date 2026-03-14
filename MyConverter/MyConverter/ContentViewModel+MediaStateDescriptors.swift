@@ -88,7 +88,9 @@ extension ContentViewModel {
         let analysisTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>
         let conversionTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>
         let pendingSelectionAnalysisTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>
-        let sourceSettingsActions: SourceSettingsActions
+        let applyDefaultSourceSettings: (ContentViewModel) -> Void
+        let applyStoredSourceSettings: (ContentViewModel, String) -> Void
+        let persistCurrentSourceSettings: (ContentViewModel) -> Void
         let capabilityBootstrap: CapabilityBootstrapDescriptor
         let validation: MediaValidationDescriptor
         let conversionExecution: ConversionExecutionDescriptor
@@ -99,7 +101,9 @@ extension ContentViewModel {
     static func makeMediaStateDescriptor(
         state: MediaStateKeyPaths,
         tasks: MediaTaskKeyPaths,
-        sourceSettingsActions: SourceSettingsActions,
+        applyDefaultSourceSettings: @escaping (ContentViewModel) -> Void,
+        applyStoredSourceSettings: @escaping (ContentViewModel, String) -> Void,
+        persistCurrentSourceSettings: @escaping (ContentViewModel) -> Void,
         capabilityBootstrap: CapabilityBootstrapDescriptor,
         validation: MediaValidationDescriptor,
         conversionExecution: ConversionExecutionDescriptor,
@@ -124,7 +128,9 @@ extension ContentViewModel {
             analysisTask: tasks.analysisTask,
             conversionTask: tasks.conversionTask,
             pendingSelectionAnalysisTask: tasks.pendingSelectionAnalysisTask,
-            sourceSettingsActions: sourceSettingsActions,
+            applyDefaultSourceSettings: applyDefaultSourceSettings,
+            applyStoredSourceSettings: applyStoredSourceSettings,
+            persistCurrentSourceSettings: persistCurrentSourceSettings,
             capabilityBootstrap: capabilityBootstrap,
             validation: validation,
             conversionExecution: conversionExecution,
@@ -220,7 +226,19 @@ extension ContentViewModel {
             conversionTask: \.taskState.conversionTask,
             pendingSelectionAnalysisTask: \.taskState.pendingVideoSelectionAnalysisTask
         ),
-        sourceSettingsActions: makeSourceSettingsActions(using: { _ in videoSourceSettingsComponentsValue.flow }),
+        applyDefaultSourceSettings: { viewModel in
+            let flow = videoSourceSettingsComponentsValue.flow
+            viewModel.applySourceSettings(flow.defaultSettings(), using: flow)
+        },
+        applyStoredSourceSettings: { viewModel, sourceID in
+            viewModel.applySourceSettingsForSource(
+                sourceID: sourceID,
+                using: videoSourceSettingsComponentsValue.flow
+            )
+        },
+        persistCurrentSourceSettings: { viewModel in
+            viewModel.persistCurrentSourceSettingsIfNeeded(using: videoSourceSettingsComponentsValue.flow)
+        },
         capabilityBootstrap: videoCapabilityBootstrapDescriptorValue,
         validation: videoValidationDescriptorValue,
         conversionExecution: makeConversionExecutionDescriptor(using: videoConversionWorkflowProfile),
@@ -250,7 +268,19 @@ extension ContentViewModel {
             conversionTask: \.taskState.imageConversionTask,
             pendingSelectionAnalysisTask: \.taskState.pendingImageSelectionAnalysisTask
         ),
-        sourceSettingsActions: makeSourceSettingsActions(using: { _ in imageSourceSettingsComponentsValue.flow }),
+        applyDefaultSourceSettings: { viewModel in
+            let flow = imageSourceSettingsComponentsValue.flow
+            viewModel.applySourceSettings(flow.defaultSettings(), using: flow)
+        },
+        applyStoredSourceSettings: { viewModel, sourceID in
+            viewModel.applySourceSettingsForSource(
+                sourceID: sourceID,
+                using: imageSourceSettingsComponentsValue.flow
+            )
+        },
+        persistCurrentSourceSettings: { viewModel in
+            viewModel.persistCurrentSourceSettingsIfNeeded(using: imageSourceSettingsComponentsValue.flow)
+        },
         capabilityBootstrap: imageCapabilityBootstrapDescriptorValue,
         validation: imageValidationDescriptorValue,
         conversionExecution: makeConversionExecutionDescriptor(using: imageConversionWorkflowProfile),
@@ -280,7 +310,19 @@ extension ContentViewModel {
             conversionTask: \.taskState.audioConversionTask,
             pendingSelectionAnalysisTask: \.taskState.pendingAudioSelectionAnalysisTask
         ),
-        sourceSettingsActions: makeSourceSettingsActions(using: { _ in audioSourceSettingsComponentsValue.flow }),
+        applyDefaultSourceSettings: { viewModel in
+            let flow = audioSourceSettingsComponentsValue.flow
+            viewModel.applySourceSettings(flow.defaultSettings(), using: flow)
+        },
+        applyStoredSourceSettings: { viewModel, sourceID in
+            viewModel.applySourceSettingsForSource(
+                sourceID: sourceID,
+                using: audioSourceSettingsComponentsValue.flow
+            )
+        },
+        persistCurrentSourceSettings: { viewModel in
+            viewModel.persistCurrentSourceSettingsIfNeeded(using: audioSourceSettingsComponentsValue.flow)
+        },
         capabilityBootstrap: audioCapabilityBootstrapDescriptorValue,
         validation: audioValidationDescriptorValue,
         conversionExecution: makeConversionExecutionDescriptor(using: audioConversionWorkflowProfile),
