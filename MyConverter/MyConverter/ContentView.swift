@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @StateObject private var viewModel = ContentViewModel()
@@ -21,11 +22,15 @@ struct ContentView: View {
     var body: some View {
         rootNavigationView
             .task(id: selectedTab) {
-                viewModel.scheduleCapabilityBootstrap(for: selectedTab)
+                if let kind = selectedTab.mediaKind {
+                    viewModel.scheduleCapabilityBootstrap(for: kind)
+                }
             }
             .fileImporter(
                 isPresented: $viewModel.isImporting,
-                allowedContentTypes: viewModel.preferredImportTypes(for: selectedTab),
+                allowedContentTypes: selectedTab.mediaKind.map {
+                    viewModel.preferredImportTypes(for: $0)
+                } ?? [.item],
                 allowsMultipleSelection: true
             ) { result in
                 viewModel.handleFileImportResult(result, for: selectedTab)

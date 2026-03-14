@@ -124,7 +124,9 @@ struct IPadMediaConverterView: View {
             }
         } else {
             Button {
-                viewModel.requestImport(for: kind)
+                if let source = kind.defaultImportSource {
+                    viewModel.startImport(from: source, for: kind)
+                }
             } label: {
                 label()
             }

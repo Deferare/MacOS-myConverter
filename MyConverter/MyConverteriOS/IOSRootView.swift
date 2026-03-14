@@ -48,7 +48,9 @@ struct IOSRootView: View {
                 }
             }
             .task(id: selectedTab) {
-                viewModel.scheduleCapabilityBootstrap(for: selectedTab)
+                if let kind = selectedTab.mediaKind {
+                    viewModel.scheduleCapabilityBootstrap(for: kind)
+                }
             }
         }
         .fileImporter(

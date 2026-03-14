@@ -5,10 +5,6 @@ extension ContentViewModel {
         let applyIfIdle: @MainActor @Sendable (ContentViewModel) -> Void
     }
 
-    func applyPlaceholderCapabilityState() {
-        MediaKind.allCases.forEach { $0.applyPlaceholderCapabilities(to: self) }
-    }
-
     func applyWarmedOutputFormatsIfIdle<Format>(
         _ warmedFormats: [Format],
         for kind: MediaKind,
@@ -34,11 +30,6 @@ extension ContentViewModel {
 
     func scheduleCapabilityBootstrap(for kind: MediaKind) {
         scheduleCapabilityBootstrap(for: [kind])
-    }
-
-    func scheduleCapabilityBootstrap(for selectedTab: ConverterTab) {
-        guard let kind = selectedTab.mediaKind else { return }
-        scheduleCapabilityBootstrap(for: kind)
     }
 
     func scheduleCapabilityBootstrap(for kinds: [MediaKind]) {

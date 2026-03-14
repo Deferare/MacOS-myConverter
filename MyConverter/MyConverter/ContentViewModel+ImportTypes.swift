@@ -175,6 +175,10 @@ extension ContentViewModel.MediaKind {
         metadata.availableImportSources
     }
 
+    var defaultImportSource: ContentViewModel.ImportSource? {
+        availableImportSources.first(where: { $0 == .files }) ?? availableImportSources.first
+    }
+
     var photoLibraryFilter: ContentViewModel.IOSPhotoLibraryFilter {
         metadata.photoLibraryFilter
     }
@@ -193,11 +197,6 @@ extension ContentViewModel {
 
     func preferredImportTypes(for kind: MediaKind) -> [UTType] {
         kind.preferredImportTypes(mkvType: Self.mkvImportType)
-    }
-
-    func preferredImportTypes(for selectedTab: ConverterTab) -> [UTType] {
-        guard let kind = selectedTab.mediaKind else { return [.item] }
-        return preferredImportTypes(for: kind)
     }
 
     func requestFileImport() {
@@ -231,18 +230,6 @@ extension ContentViewModel {
     var activePhotoLibraryImportRequest: ImportRequest? {
         guard let activeImportRequest, activeImportRequest.source == .photoLibrary else { return nil }
         return activeImportRequest
-    }
-
-    func requestImport(for kind: MediaKind) {
-        let importSources = kind.availableImportSources
-        guard let fallbackSource = importSources.first(where: { $0 == .files })
-            ?? importSources.first else {
-            return
-        }
-
-        activeImportRequest = nil
-        isImporting = false
-        startImport(from: fallbackSource, for: kind)
     }
 
     func startImport(from source: ImportSource, for kind: MediaKind) {

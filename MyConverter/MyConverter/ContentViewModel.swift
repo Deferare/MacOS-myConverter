@@ -72,7 +72,7 @@ final class ContentViewModel: ObservableObject {
     init(services: PlatformServices) {
         self.services = services
         loadPersistedSourceSettingsState()
-        applyPlaceholderCapabilityState()
+        MediaKind.allCases.forEach { $0.applyPlaceholderCapabilities(to: self) }
     }
 
     convenience init() {
