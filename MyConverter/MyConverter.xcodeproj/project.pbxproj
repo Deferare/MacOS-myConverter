@@ -44,7 +44,6 @@
 				Assets.xcassets,
 				ContentView.swift,
 				ConverterViewComponents.swift,
-				FileSelectionComponents.swift,
 				FileSelectionDropView.swift,
 				MyConverterApp.swift,
 				SidebarView.swift,
