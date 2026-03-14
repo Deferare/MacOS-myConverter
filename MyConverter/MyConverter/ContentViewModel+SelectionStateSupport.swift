@@ -152,11 +152,11 @@ extension ContentViewModel {
     }
 
     func resetCompatibilityState(for kind: MediaKind, resetMetadata: Bool = true) {
-        let descriptor = mediaStateDescriptor(for: kind)
         if resetMetadata {
-            descriptor.resetCompatibilityMetadata(self)
+            resetCompatibilityMetadata(for: kind)
         }
 
+        let descriptor = mediaStateDescriptor(for: kind)
         self[keyPath: descriptor.compatibilityErrorMessage] = nil
         self[keyPath: descriptor.compatibilityWarningMessage] = nil
     }

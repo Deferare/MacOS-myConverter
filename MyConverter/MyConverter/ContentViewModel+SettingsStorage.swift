@@ -385,17 +385,35 @@ extension ContentViewModel {
     }
 
     func applyDefaultSourceSettings(for kind: MediaKind) {
-        let descriptor = mediaStateDescriptor(for: kind)
-        descriptor.applyDefaultSourceSettings(self)
+        switch kind {
+        case .video:
+            applyVideoSourceSettings(VideoConversionSettings())
+        case .image:
+            applyImageSourceSettings(ImageConversionSettings())
+        case .audio:
+            applyAudioSourceSettings(AudioConversionSettings())
+        }
     }
 
     func applyStoredSourceSettings(for sourceID: String, for kind: MediaKind) {
-        let descriptor = mediaStateDescriptor(for: kind)
-        descriptor.applyStoredSourceSettings(self, sourceID)
+        switch kind {
+        case .video:
+            applyStoredVideoSourceSettings(for: sourceID)
+        case .image:
+            applyStoredImageSourceSettings(for: sourceID)
+        case .audio:
+            applyStoredAudioSourceSettings(for: sourceID)
+        }
     }
 
     func persistCurrentSourceSettingsIfNeeded(for kind: MediaKind) {
-        let descriptor = mediaStateDescriptor(for: kind)
-        descriptor.persistCurrentSourceSettings(self)
+        switch kind {
+        case .video:
+            persistCurrentVideoSourceSettingsIfNeeded()
+        case .image:
+            persistCurrentImageSourceSettingsIfNeeded()
+        case .audio:
+            persistCurrentAudioSourceSettingsIfNeeded()
+        }
     }
 }

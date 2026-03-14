@@ -248,18 +248,36 @@ extension ContentViewModel {
     }
 
     func validationMessage(for kind: MediaKind) -> String? {
-        mediaStateDescriptor(for: kind).validationMessage(self)
+        switch kind {
+        case .video:
+            videoValidationMessage()
+        case .image:
+            imageValidationMessage()
+        case .audio:
+            audioValidationMessage()
+        }
     }
 
     func hintMessage(for kind: MediaKind) -> String? {
-        mediaStateDescriptor(for: kind).hintMessage(self)
+        switch kind {
+        case .video:
+            nil
+        case .image:
+            imageHintMessage()
+        case .audio:
+            audioHintMessage()
+        }
     }
 
     func validateSourceOutputSettings(for kind: MediaKind, sourceURL: URL) async -> String? {
-        await mediaStateDescriptor(for: kind).validateSourceOutputSettings(
-            self,
-            sourceURL
-        )
+        switch kind {
+        case .video:
+            await validateVideoSourceOutputSettings(sourceURL)
+        case .image:
+            await validateImageSourceOutputSettings(sourceURL)
+        case .audio:
+            await validateAudioSourceOutputSettings(sourceURL)
+        }
     }
 
     func validatePreparedSourceOutputSettings(
@@ -267,11 +285,23 @@ extension ContentViewModel {
         source: PreparedSourceConversion,
         environment: BatchExecutionEnvironment
     ) async -> String? {
-        await mediaStateDescriptor(for: kind).validatePreparedSourceOutputSettings(
-            self,
-            source,
-            environment
-        )
+        switch kind {
+        case .video:
+            await validatePreparedVideoSourceOutputSettings(
+                source: source,
+                environment: environment
+            )
+        case .image:
+            await validatePreparedImageSourceOutputSettings(
+                source: source,
+                environment: environment
+            )
+        case .audio:
+            await validatePreparedAudioSourceOutputSettings(
+                source: source,
+                environment: environment
+            )
+        }
     }
 
     func outputSettingsValidationMessage<Format>(

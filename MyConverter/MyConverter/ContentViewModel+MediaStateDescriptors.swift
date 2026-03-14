@@ -65,30 +65,11 @@ extension ContentViewModel {
         let analysisTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>
         let conversionTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>
         let pendingSelectionAnalysisTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>
-        let applyDefaultSourceSettings: (ContentViewModel) -> Void
-        let applyStoredSourceSettings: (ContentViewModel, String) -> Void
-        let persistCurrentSourceSettings: (ContentViewModel) -> Void
-        let warmDefaultCapabilities: @Sendable () -> WarmedDefaultCapability
-        let applyPlaceholderCapabilities: (ContentViewModel) -> Void
-        let validationMessage: (ContentViewModel) -> String?
-        let hintMessage: (ContentViewModel) -> String?
-        let validateSourceOutputSettings: (ContentViewModel, URL) async -> String?
-        let validatePreparedSourceOutputSettings: (
-            ContentViewModel,
-            PreparedSourceConversion,
-            BatchExecutionEnvironment
-        ) async -> String?
-        let performConversion: @MainActor (ContentViewModel) async -> Void
-        let resetCompatibilityMetadata: (ContentViewModel) -> Void
-        let analyzeSelection: (ContentViewModel, [URL]) -> Void
     }
 
     static func resetImageCompatibilityMetadata(_ viewModel: ContentViewModel) {
         viewModel.updateState(\.imageRuntimeState, value: \.sourceFrameCount, to: 0)
         viewModel.updateState(\.imageRuntimeState, value: \.sourceHasAlpha, to: false)
-    }
-
-    static func resetCompatibilityMetadata(_: ContentViewModel) {
     }
 
     private static let videoStateDescriptorValue = MediaStateDescriptor(
@@ -108,54 +89,7 @@ extension ContentViewModel {
         totalBatchCount: \.videoRuntimeState.media.totalBatchCount,
         analysisTask: \.taskState.sourceAnalysisTask,
         conversionTask: \.taskState.conversionTask,
-        pendingSelectionAnalysisTask: \.taskState.pendingVideoSelectionAnalysisTask,
-        applyDefaultSourceSettings: { viewModel in
-            viewModel.applyVideoSourceSettings(VideoConversionSettings())
-        },
-        applyStoredSourceSettings: { viewModel, sourceID in
-            viewModel.applyStoredVideoSourceSettings(for: sourceID)
-        },
-        persistCurrentSourceSettings: { viewModel in
-            viewModel.persistCurrentVideoSourceSettingsIfNeeded()
-        },
-        warmDefaultCapabilities: {
-            let warmedFormats = VideoConversionEngine.defaultOutputFormats()
-            return WarmedDefaultCapability { viewModel in
-                viewModel.applyWarmedOutputFormatsIfIdle(
-                    warmedFormats,
-                    for: .video,
-                    formatDescriptor: videoOutputFormatDescriptorValue,
-                    postApply: {
-                        viewModel.refreshVideoCodecOptions()
-                    }
-                )
-            }
-        },
-        applyPlaceholderCapabilities: { viewModel in
-            videoOutputFormatDescriptorValue.applyAvailableFormats(
-                ContentViewModelSupport.placeholderVideoFormats(),
-                to: viewModel
-            )
-            viewModel.applyPlaceholderVideoCodecOptions()
-        },
-        validationMessage: { $0.videoValidationMessage() },
-        hintMessage: { _ in nil },
-        validateSourceOutputSettings: { viewModel, sourceURL in
-            await viewModel.validateVideoSourceOutputSettings(sourceURL)
-        },
-        validatePreparedSourceOutputSettings: { viewModel, source, environment in
-            await viewModel.validatePreparedVideoSourceOutputSettings(
-                source: source,
-                environment: environment
-            )
-        },
-        performConversion: { viewModel in
-            await viewModel.performVideoConversion()
-        },
-        resetCompatibilityMetadata: resetCompatibilityMetadata(_:),
-        analyzeSelection: { viewModel, urls in
-            viewModel.analyzeVideoSourceCompatibility(for: urls)
-        }
+        pendingSelectionAnalysisTask: \.taskState.pendingVideoSelectionAnalysisTask
     )
 
     private static let imageStateDescriptorValue = MediaStateDescriptor(
@@ -175,50 +109,7 @@ extension ContentViewModel {
         totalBatchCount: \.imageRuntimeState.media.totalBatchCount,
         analysisTask: \.taskState.imageSourceAnalysisTask,
         conversionTask: \.taskState.imageConversionTask,
-        pendingSelectionAnalysisTask: \.taskState.pendingImageSelectionAnalysisTask,
-        applyDefaultSourceSettings: { viewModel in
-            viewModel.applyImageSourceSettings(ImageConversionSettings())
-        },
-        applyStoredSourceSettings: { viewModel, sourceID in
-            viewModel.applyStoredImageSourceSettings(for: sourceID)
-        },
-        persistCurrentSourceSettings: { viewModel in
-            viewModel.persistCurrentImageSourceSettingsIfNeeded()
-        },
-        warmDefaultCapabilities: {
-            let warmedFormats = ImageConversionEngine.defaultOutputFormats()
-            return WarmedDefaultCapability { viewModel in
-                viewModel.applyWarmedOutputFormatsIfIdle(
-                    warmedFormats,
-                    for: .image,
-                    formatDescriptor: imageOutputFormatDescriptorValue
-                )
-            }
-        },
-        applyPlaceholderCapabilities: { viewModel in
-            imageOutputFormatDescriptorValue.applyAvailableFormats(
-                ContentViewModelSupport.placeholderImageFormats(),
-                to: viewModel
-            )
-        },
-        validationMessage: { $0.imageValidationMessage() },
-        hintMessage: { $0.imageHintMessage() },
-        validateSourceOutputSettings: { viewModel, sourceURL in
-            await viewModel.validateImageSourceOutputSettings(sourceURL)
-        },
-        validatePreparedSourceOutputSettings: { viewModel, source, environment in
-            await viewModel.validatePreparedImageSourceOutputSettings(
-                source: source,
-                environment: environment
-            )
-        },
-        performConversion: { viewModel in
-            await viewModel.performImageConversion()
-        },
-        resetCompatibilityMetadata: resetImageCompatibilityMetadata(_:),
-        analyzeSelection: { viewModel, urls in
-            viewModel.analyzeImageSourceCompatibility(for: urls)
-        }
+        pendingSelectionAnalysisTask: \.taskState.pendingImageSelectionAnalysisTask
     )
 
     private static let audioStateDescriptorValue = MediaStateDescriptor(
@@ -238,54 +129,7 @@ extension ContentViewModel {
         totalBatchCount: \.audioRuntimeState.media.totalBatchCount,
         analysisTask: \.taskState.audioSourceAnalysisTask,
         conversionTask: \.taskState.audioConversionTask,
-        pendingSelectionAnalysisTask: \.taskState.pendingAudioSelectionAnalysisTask,
-        applyDefaultSourceSettings: { viewModel in
-            viewModel.applyAudioSourceSettings(AudioConversionSettings())
-        },
-        applyStoredSourceSettings: { viewModel, sourceID in
-            viewModel.applyStoredAudioSourceSettings(for: sourceID)
-        },
-        persistCurrentSourceSettings: { viewModel in
-            viewModel.persistCurrentAudioSourceSettingsIfNeeded()
-        },
-        warmDefaultCapabilities: {
-            let warmedFormats = VideoConversionEngine.defaultAudioOutputFormats()
-            return WarmedDefaultCapability { viewModel in
-                viewModel.applyWarmedOutputFormatsIfIdle(
-                    warmedFormats,
-                    for: .audio,
-                    formatDescriptor: audioOutputFormatDescriptorValue,
-                    postApply: {
-                        viewModel.refreshAudioCodecOptions()
-                    }
-                )
-            }
-        },
-        applyPlaceholderCapabilities: { viewModel in
-            audioOutputFormatDescriptorValue.applyAvailableFormats(
-                ContentViewModelSupport.placeholderAudioFormats(),
-                to: viewModel
-            )
-            viewModel.applyPlaceholderAudioCodecOptions()
-        },
-        validationMessage: { $0.audioValidationMessage() },
-        hintMessage: { $0.audioHintMessage() },
-        validateSourceOutputSettings: { viewModel, sourceURL in
-            await viewModel.validateAudioSourceOutputSettings(sourceURL)
-        },
-        validatePreparedSourceOutputSettings: { viewModel, source, environment in
-            await viewModel.validatePreparedAudioSourceOutputSettings(
-                source: source,
-                environment: environment
-            )
-        },
-        performConversion: { viewModel in
-            await viewModel.performAudioConversion()
-        },
-        resetCompatibilityMetadata: resetCompatibilityMetadata(_:),
-        analyzeSelection: { viewModel, urls in
-            viewModel.analyzeAudioSourceCompatibility(for: urls)
-        }
+        pendingSelectionAnalysisTask: \.taskState.pendingAudioSelectionAnalysisTask
     )
 
     func currentConversionTask(for kind: MediaKind) -> Task<Void, Never>? {
@@ -349,7 +193,19 @@ extension ContentViewModel {
     }
 
     func analyzeSelectedSources(_ urls: [URL], for kind: MediaKind) {
-        mediaStateDescriptor(for: kind).analyzeSelection(self, urls)
+        switch kind {
+        case .video:
+            analyzeVideoSourceCompatibility(for: urls)
+        case .image:
+            analyzeImageSourceCompatibility(for: urls)
+        case .audio:
+            analyzeAudioSourceCompatibility(for: urls)
+        }
+    }
+
+    func resetCompatibilityMetadata(for kind: MediaKind) {
+        guard kind == .image else { return }
+        Self.resetImageCompatibilityMetadata(self)
     }
 
     func mediaStateSnapshot(for kind: MediaKind) -> MediaStateSnapshot {

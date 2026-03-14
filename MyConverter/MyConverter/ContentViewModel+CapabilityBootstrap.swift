@@ -25,7 +25,25 @@ extension ContentViewModel {
     }
 
     func applyPlaceholderCapabilities(for kind: MediaKind) {
-        mediaStateDescriptor(for: kind).applyPlaceholderCapabilities(self)
+        switch kind {
+        case .video:
+            Self.videoOutputFormatDescriptorValue.applyAvailableFormats(
+                ContentViewModelSupport.placeholderVideoFormats(),
+                to: self
+            )
+            applyPlaceholderVideoCodecOptions()
+        case .image:
+            Self.imageOutputFormatDescriptorValue.applyAvailableFormats(
+                ContentViewModelSupport.placeholderImageFormats(),
+                to: self
+            )
+        case .audio:
+            Self.audioOutputFormatDescriptorValue.applyAvailableFormats(
+                ContentViewModelSupport.placeholderAudioFormats(),
+                to: self
+            )
+            applyPlaceholderAudioCodecOptions()
+        }
     }
 
     func markCapabilityBootstrapNeedsRefresh(for kinds: [MediaKind]) {
@@ -93,17 +111,14 @@ extension ContentViewModel {
     private func warmDefaultCapabilities(
         for kinds: [MediaKind]
     ) async -> [WarmedDefaultCapability] {
-        let warmers = kinds.map {
-            mediaStateDescriptor(for: $0).warmDefaultCapabilities
-        }
         return await detachedTaskValue(priority: .userInitiated) {
             await withTaskGroup(
                 of: WarmedDefaultCapability.self,
                 returning: [WarmedDefaultCapability].self
             ) { group in
-                for warm in warmers {
+                for kind in kinds {
                     group.addTask {
-                        warm()
+                        Self.warmedDefaultCapability(for: kind)
                     }
                 }
 
@@ -118,5 +133,43 @@ extension ContentViewModel {
 
     private func pendingKindsDescription(for kinds: [MediaKind]) -> String {
         kinds.map(\.rawValue).joined(separator: ",")
+    }
+
+    nonisolated private static func warmedDefaultCapability(for kind: MediaKind) -> WarmedDefaultCapability {
+        switch kind {
+        case .video:
+            let warmedFormats = VideoConversionEngine.defaultOutputFormats()
+            return WarmedDefaultCapability { viewModel in
+                viewModel.applyWarmedOutputFormatsIfIdle(
+                    warmedFormats,
+                    for: .video,
+                    formatDescriptor: Self.videoOutputFormatDescriptorValue,
+                    postApply: {
+                        viewModel.refreshVideoCodecOptions()
+                    }
+                )
+            }
+        case .image:
+            let warmedFormats = ImageConversionEngine.defaultOutputFormats()
+            return WarmedDefaultCapability { viewModel in
+                viewModel.applyWarmedOutputFormatsIfIdle(
+                    warmedFormats,
+                    for: .image,
+                    formatDescriptor: Self.imageOutputFormatDescriptorValue
+                )
+            }
+        case .audio:
+            let warmedFormats = VideoConversionEngine.defaultAudioOutputFormats()
+            return WarmedDefaultCapability { viewModel in
+                viewModel.applyWarmedOutputFormatsIfIdle(
+                    warmedFormats,
+                    for: .audio,
+                    formatDescriptor: Self.audioOutputFormatDescriptorValue,
+                    postApply: {
+                        viewModel.refreshAudioCodecOptions()
+                    }
+                )
+            }
+        }
     }
 }
