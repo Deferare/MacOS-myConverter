@@ -200,7 +200,7 @@ extension ContentViewModel {
     }
 
     func selectedSourceIDs(for kind: MediaKind) -> [String] {
-        selectedSourceURLs(for: kind).map(sourceIdentifier(for:))
+        mediaStateSnapshot(for: kind).selectedSourceURLs.map(sourceIdentifier(for:))
     }
 
     func analyzeSourceCompatibility<Capability: Sendable, Format: Sendable>(

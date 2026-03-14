@@ -34,6 +34,22 @@ extension ContentViewModel {
         let currentBatchIndex: Int
         let currentItemProgress: Double
 
+        init(
+            selectedURLs: [URL],
+            outputURLsBySourceID: [String: URL],
+            processedSourceIDs: Set<String>,
+            isConverting: Bool,
+            currentBatchIndex: Int,
+            currentItemProgress: Double
+        ) {
+            self.selectedURLs = selectedURLs
+            self.outputURLsBySourceID = outputURLsBySourceID
+            self.processedSourceIDs = processedSourceIDs
+            self.isConverting = isConverting
+            self.currentBatchIndex = currentBatchIndex
+            self.currentItemProgress = currentItemProgress
+        }
+
         func rowStatus(for url: URL) -> RowStatus {
             rowStatus(forSourceID: ContentViewModelSupport.sourceIdentifier(for: url))
         }
@@ -74,60 +90,17 @@ extension ContentViewModel {
 
             return ContentViewModelSupport.sourceIdentifier(for: activeBatchSourceURLs[remainingIndex])
         }
-    }
 
-    func selectedSourceURLs(using snapshot: MediaStateSnapshot) -> [URL] {
-        guard let sourceURL = snapshot.sourceURL else { return [] }
-        return [sourceURL] + snapshot.queuedSourceURLs
-    }
-
-    func selectedSourceURLs(for kind: MediaKind) -> [URL] {
-        selectedSourceURLs(using: mediaStateSnapshot(for: kind))
-    }
-
-    func selectedFileCount(for kind: MediaKind) -> Int {
-        let snapshot = mediaStateSnapshot(for: kind)
-        guard snapshot.sourceURL != nil else { return 0 }
-        return snapshot.queuedSourceURLs.count + 1
-    }
-
-    func displayedProgress(for snapshot: MediaStateSnapshot) -> Double {
-        return displayedProgress(
-            isConverting: snapshot.isConverting,
-            rawProgress: snapshot.progress
-        )
-    }
-
-    func displayedProgress(for kind: MediaKind) -> Double {
-        displayedProgress(for: mediaStateSnapshot(for: kind))
-    }
-
-    func selectedFileListState(using snapshot: MediaStateSnapshot) -> SelectedFileListState {
-        SelectedFileListState(
-            selectedURLs: selectedSourceURLs(using: snapshot),
-            outputURLsBySourceID: snapshot.convertedOutputURLsBySourceID,
-            processedSourceIDs: snapshot.processedSourceIDs,
-            isConverting: snapshot.isConverting,
-            currentBatchIndex: snapshot.currentBatchIndex,
-            currentItemProgress: currentBatchItemProgress(using: snapshot)
-        )
-    }
-
-    func selectedFileListState(for kind: MediaKind) -> SelectedFileListState {
-        selectedFileListState(using: mediaStateSnapshot(for: kind))
-    }
-
-    func currentBatchItemProgress(using snapshot: MediaStateSnapshot) -> Double {
-        guard snapshot.isConverting,
-              snapshot.currentBatchIndex > 0,
-              snapshot.totalBatchCount > 0 else {
-            return 0
+        init(snapshot: ContentViewModel.MediaStateSnapshot) {
+            self.init(
+                selectedURLs: snapshot.selectedSourceURLs,
+                outputURLsBySourceID: snapshot.convertedOutputURLsBySourceID,
+                processedSourceIDs: snapshot.processedSourceIDs,
+                isConverting: snapshot.isConverting,
+                currentBatchIndex: snapshot.currentBatchIndex,
+                currentItemProgress: snapshot.currentBatchItemProgress
+            )
         }
-
-        let completedBatchCount = Double(snapshot.currentBatchIndex - 1)
-        let totalBatchCount = Double(max(snapshot.totalBatchCount, 1))
-        let itemProgress = (snapshot.progress * totalBatchCount) - completedBatchCount
-        return clampedProgress(itemProgress)
     }
 
     func cancelTask(at keyPath: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>) {

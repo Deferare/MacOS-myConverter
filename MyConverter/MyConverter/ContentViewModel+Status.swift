@@ -62,9 +62,9 @@ extension ContentViewModel {
             validationMessage: validationMessage,
             hintMessage: hintMessage
         )
-        let selectedFileCount = snapshot.sourceURL == nil ? 0 : snapshot.queuedSourceURLs.count + 1
+        let selectedFileCount = snapshot.selectedFileCount
         let convertedCount = snapshot.convertedURLs.count
-        let progress = displayedProgress(for: snapshot)
+        let progress = snapshot.displayedProgress
         let statusMessage: String
 
         if selectedFileCount == 0 {
@@ -102,7 +102,7 @@ extension ContentViewModel {
                 progressText: progressPercentageText(for: progress),
                 isConverting: snapshot.isConverting
             ),
-            selectedFileListState: selectedFileListState(using: snapshot)
+            selectedFileListState: SelectedFileListState(snapshot: snapshot)
         )
     }
 
@@ -145,11 +145,6 @@ extension ContentViewModel {
         }
 
         return ("Ready", .normal)
-    }
-
-    func displayedProgress(isConverting: Bool, rawProgress: Double) -> Double {
-        let progress = isConverting ? rawProgress : 0
-        return progress < 0.01 ? 0 : progress
     }
 
     func progressPercentageText(for progress: Double) -> String {

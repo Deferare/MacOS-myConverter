@@ -44,14 +44,15 @@ extension ContentViewModel {
 
     @discardableResult
     func chooseOutputDirectory(for kind: MediaKind) async -> Bool {
+        let snapshot = mediaStateSnapshot(for: kind)
         let suggestedDirectory = selectedOutputDirectoryURL(for: kind)
-            ?? selectedSourceURLs(for: kind).first?.deletingLastPathComponent()
+            ?? snapshot.selectedSourceURLs.first?.deletingLastPathComponent()
             ?? defaultSuggestedOutputDirectory
 
         guard let handle = await services.outputDestinationCoordinator.chooseOutputDestination(
             suggestedDirectory: suggestedDirectory,
             outputLabel: kind.conversionMetadata.outputLabel,
-            fileCount: max(selectedFileCount(for: kind), 1)
+            fileCount: max(snapshot.selectedFileCount, 1)
         ) else {
             return false
         }

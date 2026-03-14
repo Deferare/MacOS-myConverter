@@ -104,7 +104,9 @@ extension ContentViewModel {
 
     func removeProcessedSource(_ processedURL: URL, for kind: MediaKind) {
         let processedID = sourceIdentifier(for: processedURL)
-        let remainingSources = selectedSourceURLs(for: kind).filter { sourceIdentifier(for: $0) != processedID }
+        let remainingSources = mediaStateSnapshot(for: kind)
+            .selectedSourceURLs
+            .filter { sourceIdentifier(for: $0) != processedID }
         assignSelection(remainingSources, for: kind)
         guard !remainingSources.isEmpty else {
             restoreIdleMediaState(for: kind)

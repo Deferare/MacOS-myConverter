@@ -147,33 +147,21 @@ struct ConverterDetailContainer<InputArea: View, FormSections: View>: View {
 
 struct ConverterInputArea: View {
     let isDropTargeted: Bool
-    let selectedURLs: [URL]
-    let outputURLsBySourceID: [String: URL]
-    let processedSourceIDs: Set<String>
-    let isConverting: Bool
-    let currentBatchIndex: Int
-    let currentItemProgress: Double
+    let state: ContentViewModel.SelectedFileListState
     let dropPlaceholder: String
     let fileDropAreaHeight: CGFloat
     let inputHeaderState: ContentViewModel.ConverterInputHeaderState
-    let themeTint: Color
     @Binding var draggedSelectedFileURL: URL?
     let onImport: () -> Void
     let onReorder: (_ draggedURL: URL, _ targetURL: URL) -> Void
 
     var body: some View {
         UnifiedFileListView(
-            sourceURLs: selectedURLs,
-            outputURLsBySourceID: outputURLsBySourceID,
-            processedSourceIDs: processedSourceIDs,
+            state: state,
             dropPlaceholder: dropPlaceholder,
-            isConverting: isConverting,
-            currentBatchIndex: currentBatchIndex,
-            currentItemProgress: currentItemProgress,
             fileDropAreaHeight: fileDropAreaHeight,
             isDropTargeted: isDropTargeted,
             inputHeaderState: inputHeaderState,
-            themeTint: themeTint,
             draggedSelectedFileURL: $draggedSelectedFileURL,
             onImport: onImport,
             onReorder: onReorder
@@ -206,16 +194,10 @@ struct MediaConverterInputSectionView: View, Equatable {
 
         ConverterInputArea(
             isDropTargeted: isDropTargeted,
-            selectedURLs: state.selectedURLs,
-            outputURLsBySourceID: state.outputURLsBySourceID,
-            processedSourceIDs: state.processedSourceIDs,
-            isConverting: state.isConverting,
-            currentBatchIndex: state.currentBatchIndex,
-            currentItemProgress: state.currentItemProgress,
+            state: state,
             dropPlaceholder: "Drop Files Here",
             fileDropAreaHeight: fileDropAreaHeight,
             inputHeaderState: inputHeaderState,
-            themeTint: kind.liquidGlassTint,
             draggedSelectedFileURL: $draggedSelectedFileURL,
             onImport: onImport,
             onReorder: onReorder

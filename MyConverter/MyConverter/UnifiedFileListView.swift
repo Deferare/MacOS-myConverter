@@ -20,17 +20,11 @@ struct UnifiedFileListView: View {
         static let headerHeight: CGFloat = 56
     }
 
-    let sourceURLs: [URL]
-    let outputURLsBySourceID: [String: URL]
-    let processedSourceIDs: Set<String>
+    let state: ContentViewModel.SelectedFileListState
     let dropPlaceholder: String
-    let isConverting: Bool
-    let currentBatchIndex: Int
-    let currentItemProgress: Double
     let fileDropAreaHeight: CGFloat
     let isDropTargeted: Bool
     let inputHeaderState: ContentViewModel.ConverterInputHeaderState
-    let themeTint: Color
     @Binding var draggedSelectedFileURL: URL?
     let onImport: () -> Void
     let onReorder: (_ draggedURL: URL, _ targetURL: URL) -> Void
@@ -39,7 +33,7 @@ struct UnifiedFileListView: View {
 
     var body: some View {
         Group {
-            if sourceURLs.isEmpty {
+            if state.selectedURLs.isEmpty {
                 DropFileView(
                     isDropTargeted: isDropTargeted,
                     placeholder: dropPlaceholder,
@@ -77,7 +71,7 @@ struct UnifiedFileListView: View {
                         .equatable()
                         .transition(.identity)
                         .onDrag {
-                            guard !isConverting else {
+                            guard !state.isConverting else {
                                 return NSItemProvider()
                             }
                             draggedSelectedFileURL = row.url
@@ -89,7 +83,7 @@ struct UnifiedFileListView: View {
                                 targetURL: row.url,
                                 availableURLPaths: availableURLPaths,
                                 draggedURL: $draggedSelectedFileURL,
-                                isEnabled: !isConverting,
+                                isEnabled: !state.isConverting,
                                 onMove: { draggedURL, targetURL in
                                     withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
                                         onReorder(draggedURL, targetURL)
@@ -111,11 +105,11 @@ struct UnifiedFileListView: View {
     }
 
     private func makeRowDescriptors() -> [RowDescriptor] {
-        sourceURLs.enumerated().map { index, url in
+        state.selectedURLs.enumerated().map { index, url in
             return RowDescriptor(
                 url: url,
                 order: index + 1,
-                rowStatus: selectedFileListState.rowStatus(for: url)
+                rowStatus: state.rowStatus(for: url)
             )
         }
     }
@@ -176,17 +170,6 @@ struct UnifiedFileListView: View {
 
     private var statusColor: Color {
         inputHeaderState.statusLevel.color
-    }
-
-    private var selectedFileListState: ContentViewModel.SelectedFileListState {
-        ContentViewModel.SelectedFileListState(
-            selectedURLs: sourceURLs,
-            outputURLsBySourceID: outputURLsBySourceID,
-            processedSourceIDs: processedSourceIDs,
-            isConverting: isConverting,
-            currentBatchIndex: currentBatchIndex,
-            currentItemProgress: currentItemProgress
-        )
     }
 
     private var maximumScrollHeight: CGFloat {

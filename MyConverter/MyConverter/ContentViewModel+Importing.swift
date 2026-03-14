@@ -19,7 +19,7 @@ extension ContentViewModel {
         #endif
         guard !effectiveURLs.isEmpty else { return }
 
-        let existingSelection = selectedSourceURLs(for: kind)
+        let existingSelection = mediaStateSnapshot(for: kind).selectedSourceURLs
         let mergedSelection = uniqueStandardizedURLs(existingSelection + effectiveURLs)
         applySelectedSources(mergedSelection, for: kind)
     }
