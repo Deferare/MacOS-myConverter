@@ -5,20 +5,6 @@ import StoreKit
 
 @MainActor
 final class DonationStore: ObservableObject {
-    private static let supportProducts: [(id: String, amountText: String)] = [
-        ("com.deferare.MyConverter.donation.1", "$1"),
-        ("com.deferare.MyConverter.donation.3", "$3"),
-        ("com.deferare.MyConverter.donation.5", "$5")
-    ]
-    static let productIDs: [String] = supportProducts.map(\.id)
-    private static let amountTextByProductID = Dictionary(
-        uniqueKeysWithValues: supportProducts.map { ($0.id, $0.amountText) }
-    )
-    private static let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier ?? "com.deferare.MyConverter",
-        category: "DonationStore"
-    )
-
     @Published private(set) var products: [Product] = []
     @Published private(set) var isLoadingProducts = false
     @Published private(set) var purchasingProductID: String?
@@ -105,19 +91,6 @@ final class DonationStore: ObservableObject {
         }
     }
 
-    func suggestedAmountText(for productID: String) -> String {
-        Self.amountTextByProductID[productID] ?? "Support"
-    }
-
-    private static func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
-        switch result {
-        case .verified(let safe):
-            return safe
-        case .unverified:
-            throw DonationStoreError.failedVerification
-        }
-    }
-
     private func observeTransactions() async {
         await consume(Transaction.unfinished)
 
@@ -157,21 +130,5 @@ final class DonationStore: ObservableObject {
             statusMessage = "Thank you for your support. It helps keep the app free."
             statusIsError = false
         }
-    }
-
-    private enum DonationStoreError: LocalizedError {
-        case failedVerification
-
-        var errorDescription: String? {
-            "Purchase verification failed."
-        }
-    }
-
-    private static var appBundleID: String {
-        Bundle.main.bundleIdentifier ?? "unknown.bundle.id"
-    }
-
-    private static var requestedProductIDs: String {
-        productIDs.joined(separator: ",")
     }
 }
