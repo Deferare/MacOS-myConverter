@@ -21,26 +21,30 @@ extension ContentViewModel {
             return
         }
 
-        formatDescriptor.applyAvailableFormats(warmedFormats, to: self, postApply: postApply)
+        applyAvailableOutputFormats(
+            warmedFormats,
+            using: formatDescriptor,
+            postApply: postApply
+        )
     }
 
     func applyPlaceholderCapabilities(for kind: MediaKind) {
         switch kind {
         case .video:
-            Self.videoOutputFormatDescriptorValue.applyAvailableFormats(
+            applyAvailableOutputFormats(
                 ContentViewModelSupport.placeholderVideoFormats(),
-                to: self
+                using: Self.videoOutputFormatDescriptorValue
             )
             applyPlaceholderVideoCodecOptions()
         case .image:
-            Self.imageOutputFormatDescriptorValue.applyAvailableFormats(
+            applyAvailableOutputFormats(
                 ContentViewModelSupport.placeholderImageFormats(),
-                to: self
+                using: Self.imageOutputFormatDescriptorValue
             )
         case .audio:
-            Self.audioOutputFormatDescriptorValue.applyAvailableFormats(
+            applyAvailableOutputFormats(
                 ContentViewModelSupport.placeholderAudioFormats(),
-                to: self
+                using: Self.audioOutputFormatDescriptorValue
             )
             applyPlaceholderAudioCodecOptions()
         }

@@ -53,102 +53,120 @@ extension ContentViewModel {
         formatFileExtension: { $0.fileExtension },
         preferredSelection: AudioFormatOption.defaultSelection(from:)
     )
-}
 
-extension ContentViewModel.OutputFormatDescriptor {
-    func value<Value>(
-        in viewModel: ContentViewModel,
-        _ keyPath: KeyPath<Self, ReferenceWritableKeyPath<ContentViewModel, Value>>
+    func outputFormatValue<Format, Value>(
+        using descriptor: OutputFormatDescriptor<Format>,
+        _ keyPath: KeyPath<OutputFormatDescriptor<Format>, ReferenceWritableKeyPath<ContentViewModel, Value>>
     ) -> Value {
-        viewModel[keyPath: self[keyPath: keyPath]]
+        self[keyPath: descriptor[keyPath: keyPath]]
     }
 
-    func selectedFormatValue(in viewModel: ContentViewModel) -> Format {
-        value(in: viewModel, \.selectedFormat)
+    func selectedOutputFormat<Format>(
+        using descriptor: OutputFormatDescriptor<Format>
+    ) -> Format {
+        outputFormatValue(using: descriptor, \.selectedFormat)
     }
 
-    func availableOptions(in viewModel: ContentViewModel) -> [Format] {
-        let sourceURL = value(in: viewModel, \.sourceURL)
-        let availableFormats = value(in: viewModel, \.availableFormats)
+    func availableOutputFormatOptions<Format>(
+        using descriptor: OutputFormatDescriptor<Format>
+    ) -> [Format] {
+        let sourceURL = outputFormatValue(using: descriptor, \.sourceURL)
+        let availableFormats = outputFormatValue(using: descriptor, \.availableFormats)
         if sourceURL == nil && availableFormats.isEmpty {
-            return placeholderFormats()
+            return descriptor.placeholderFormats()
         }
         return availableFormats
     }
 
-    func isSelectedFormatAvailable(in viewModel: ContentViewModel) -> Bool {
-        let selectedFormat = selectedFormatValue(in: viewModel)
-        return value(in: viewModel, \.availableFormats).contains {
-            formatNormalizedID($0) == formatNormalizedID(selectedFormat)
+    func isSelectedOutputFormatAvailable<Format>(
+        using descriptor: OutputFormatDescriptor<Format>
+    ) -> Bool {
+        let selectedFormat = selectedOutputFormat(using: descriptor)
+        return outputFormatValue(using: descriptor, \.availableFormats).contains {
+            descriptor.formatNormalizedID($0) == descriptor.formatNormalizedID(selectedFormat)
         }
     }
 
-    func selectedFormatNormalizedID(in viewModel: ContentViewModel) -> String {
-        formatNormalizedID(selectedFormatValue(in: viewModel))
+    func selectedOutputFormatNormalizedID<Format>(
+        using descriptor: OutputFormatDescriptor<Format>
+    ) -> String {
+        descriptor.formatNormalizedID(selectedOutputFormat(using: descriptor))
     }
 
-    func selectedFormatDisplayName(in viewModel: ContentViewModel) -> String {
-        formatDisplayName(selectedFormatValue(in: viewModel))
+    func selectedOutputFormatDisplayName<Format>(
+        using descriptor: OutputFormatDescriptor<Format>
+    ) -> String {
+        descriptor.formatDisplayName(selectedOutputFormat(using: descriptor))
     }
 
-    func selectedFormatFileExtension(in viewModel: ContentViewModel) -> String {
-        formatFileExtension(selectedFormatValue(in: viewModel))
+    func selectedOutputFormatFileExtension<Format>(
+        using descriptor: OutputFormatDescriptor<Format>
+    ) -> String {
+        descriptor.formatFileExtension(selectedOutputFormat(using: descriptor))
     }
 
-    func selectedFormatLabel(in viewModel: ContentViewModel) -> String {
-        "\(selectedFormatDisplayName(in: viewModel)) (.\(selectedFormatFileExtension(in: viewModel)))"
+    func selectedOutputFormatLabel<Format>(
+        using descriptor: OutputFormatDescriptor<Format>
+    ) -> String {
+        "\(selectedOutputFormatDisplayName(using: descriptor)) (.\(selectedOutputFormatFileExtension(using: descriptor)))"
     }
 
-    func ensureSelectedFormatIsAvailable(in viewModel: ContentViewModel) {
-        let options = availableOptions(in: viewModel)
+    func ensureSelectedOutputFormatIsAvailable<Format>(
+        using descriptor: OutputFormatDescriptor<Format>
+    ) {
+        let options = availableOutputFormatOptions(using: descriptor)
         guard !options.isEmpty else { return }
-        let current = selectedFormatValue(in: viewModel)
-        guard !options.contains(where: { formatNormalizedID($0) == formatNormalizedID(current) }),
-              let preferred = preferredSelection(options) else {
+        let current = selectedOutputFormat(using: descriptor)
+        guard !options.contains(where: {
+            descriptor.formatNormalizedID($0) == descriptor.formatNormalizedID(current)
+        }),
+        let preferred = descriptor.preferredSelection(options) else {
             return
         }
-        viewModel[keyPath: selectedFormat] = preferred
+        self[keyPath: descriptor.selectedFormat] = preferred
     }
 
-    func applyAvailableFormats(
+    func applyAvailableOutputFormats<Format>(
         _ formats: [Format],
-        to viewModel: ContentViewModel,
+        using descriptor: OutputFormatDescriptor<Format>,
         postApply: () -> Void = {}
     ) {
         let resolvedSelection: Format?
         if formats.isEmpty {
             resolvedSelection = nil
         } else {
-            let current = selectedFormatValue(in: viewModel)
-            if formats.contains(where: { formatNormalizedID($0) == formatNormalizedID(current) }) {
+            let current = selectedOutputFormat(using: descriptor)
+            if formats.contains(where: {
+                descriptor.formatNormalizedID($0) == descriptor.formatNormalizedID(current)
+            }) {
                 resolvedSelection = current
             } else {
-                resolvedSelection = preferredSelection(formats)
+                resolvedSelection = descriptor.preferredSelection(formats)
             }
         }
 
-        viewModel[keyPath: availableFormats] = formats
+        self[keyPath: descriptor.availableFormats] = formats
         if let selected = resolvedSelection {
-            viewModel[keyPath: selectedFormat] = selected
+            self[keyPath: descriptor.selectedFormat] = selected
         }
 
         postApply()
     }
 
-    func applyStoredSettings(
+    func applyStoredOutputFormatSettings<Format>(
+        using descriptor: OutputFormatDescriptor<Format>,
         applyingFlagKeyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
         storedFormatID: String,
         normalizeStoredID: (String) -> String?,
-        to viewModel: ContentViewModel,
         applyAdditionalSettings: () -> Void,
         postApply: () -> Void
     ) {
-        viewModel.withSettingsApplicationFlag(applyingFlagKeyPath) {
+        withSettingsApplicationFlag(applyingFlagKeyPath) {
             if let normalizedStoredID = normalizeStoredID(storedFormatID),
-               let matchingFormat = availableOptions(in: viewModel).first(
-                    where: { formatNormalizedID($0) == normalizedStoredID }
+               let matchingFormat = availableOutputFormatOptions(using: descriptor).first(
+                    where: { descriptor.formatNormalizedID($0) == normalizedStoredID }
                ) {
-                viewModel[keyPath: selectedFormat] = matchingFormat
+                self[keyPath: descriptor.selectedFormat] = matchingFormat
             }
             applyAdditionalSettings()
         }

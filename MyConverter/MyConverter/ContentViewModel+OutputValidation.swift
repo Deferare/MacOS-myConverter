@@ -115,7 +115,9 @@ extension ContentViewModel {
 
         return await validateOutputFormatAvailability(
             for: sourceURL,
-            selectedFormatNormalizedID: Self.videoOutputFormatDescriptorValue.selectedFormatNormalizedID(in: self),
+            selectedFormatNormalizedID: selectedOutputFormatNormalizedID(
+                using: Self.videoOutputFormatDescriptorValue
+            ),
             unavailableMessage: "Selected container is not available for this source.",
             fetchCapabilities: { await VideoConversionEngine.sourceCapabilities(for: $0) },
             availableFormats: { $0.availableOutputFormats },
@@ -138,7 +140,9 @@ extension ContentViewModel {
 
         return validateCachedOutputFormatAvailability(
             capabilities: cached.sourceCapabilities,
-            selectedFormatNormalizedID: Self.videoOutputFormatDescriptorValue.selectedFormatNormalizedID(in: self),
+            selectedFormatNormalizedID: selectedOutputFormatNormalizedID(
+                using: Self.videoOutputFormatDescriptorValue
+            ),
             unavailableMessage: "Selected container is not available for this source.",
             availableFormats: { $0.availableOutputFormats },
             errorMessage: { $0.errorMessage },
@@ -170,7 +174,9 @@ extension ContentViewModel {
     func validateImageSourceOutputSettings(_ sourceURL: URL) async -> String? {
         await validateOutputFormatAvailability(
             for: sourceURL,
-            selectedFormatNormalizedID: Self.imageOutputFormatDescriptorValue.selectedFormatNormalizedID(in: self),
+            selectedFormatNormalizedID: selectedOutputFormatNormalizedID(
+                using: Self.imageOutputFormatDescriptorValue
+            ),
             unavailableMessage: "Selected output format is not available for this source.",
             fetchCapabilities: { await ImageConversionEngine.sourceCapabilities(for: $0) },
             availableFormats: { $0.availableOutputFormats },
@@ -192,7 +198,9 @@ extension ContentViewModel {
 
         return validateCachedOutputFormatAvailability(
             capabilities: cached,
-            selectedFormatNormalizedID: Self.imageOutputFormatDescriptorValue.selectedFormatNormalizedID(in: self),
+            selectedFormatNormalizedID: selectedOutputFormatNormalizedID(
+                using: Self.imageOutputFormatDescriptorValue
+            ),
             unavailableMessage: "Selected output format is not available for this source.",
             availableFormats: { $0.availableOutputFormats },
             errorMessage: { $0.errorMessage },
@@ -220,7 +228,9 @@ extension ContentViewModel {
     func validateAudioSourceOutputSettings(_ sourceURL: URL) async -> String? {
         await validateOutputFormatAvailability(
             for: sourceURL,
-            selectedFormatNormalizedID: Self.audioOutputFormatDescriptorValue.selectedFormatNormalizedID(in: self),
+            selectedFormatNormalizedID: selectedOutputFormatNormalizedID(
+                using: Self.audioOutputFormatDescriptorValue
+            ),
             unavailableMessage: "Selected output format is not available for this source.",
             fetchCapabilities: { await VideoConversionEngine.sourceCapabilitiesForAudio(for: $0) },
             availableFormats: { $0.availableOutputFormats },
@@ -239,7 +249,9 @@ extension ContentViewModel {
 
         return validateCachedOutputFormatAvailability(
             capabilities: cached,
-            selectedFormatNormalizedID: Self.audioOutputFormatDescriptorValue.selectedFormatNormalizedID(in: self),
+            selectedFormatNormalizedID: selectedOutputFormatNormalizedID(
+                using: Self.audioOutputFormatDescriptorValue
+            ),
             unavailableMessage: "Selected output format is not available for this source.",
             availableFormats: { $0.availableOutputFormats },
             errorMessage: { $0.errorMessage },
@@ -319,7 +331,7 @@ extension ContentViewModel {
         }
 
         if self[keyPath: descriptor.sourceURL] != nil &&
-            !formatDescriptor.isSelectedFormatAvailable(in: self) {
+            !isSelectedOutputFormatAvailable(using: formatDescriptor) {
             return unavailableMessage
         }
 

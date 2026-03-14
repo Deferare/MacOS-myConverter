@@ -79,7 +79,7 @@ extension ContentViewModel {
         postSelectionUpdate: () -> Void = {},
         persistSettings: () -> Void
     ) {
-        formatDescriptor.applyAvailableFormats(resolvedFormats, to: self) {
+        applyAvailableOutputFormats(resolvedFormats, using: formatDescriptor) {
             postSelectionUpdate()
             persistSettings()
         }

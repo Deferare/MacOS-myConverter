@@ -76,7 +76,9 @@ extension ContentViewModel {
     func performVideoConversion() async {
         await performConversion(
             for: .video,
-            fileExtension: Self.videoOutputFormatDescriptorValue.selectedFormatFileExtension(in: self),
+            fileExtension: selectedOutputFormatFileExtension(
+                using: Self.videoOutputFormatDescriptorValue
+            ),
             buildOutputSettings: { try self.buildVideoOutputSettings() },
             prepareBatchEnvironment: { preparedSources, outputSettings in
                 await ContentViewModel.prepareVideoBatchExecutionEnvironment(
@@ -112,7 +114,9 @@ extension ContentViewModel {
     func performImageConversion() async {
         await performConversion(
             for: .image,
-            fileExtension: Self.imageOutputFormatDescriptorValue.selectedFormatFileExtension(in: self),
+            fileExtension: selectedOutputFormatFileExtension(
+                using: Self.imageOutputFormatDescriptorValue
+            ),
             buildOutputSettings: { self.buildImageOutputSettings() },
             prepareBatchEnvironment: { preparedSources, _ in
                 await ContentViewModel.prepareImageBatchExecutionEnvironment(
@@ -139,7 +143,9 @@ extension ContentViewModel {
     func performAudioConversion() async {
         await performConversion(
             for: .audio,
-            fileExtension: Self.audioOutputFormatDescriptorValue.selectedFormatFileExtension(in: self),
+            fileExtension: selectedOutputFormatFileExtension(
+                using: Self.audioOutputFormatDescriptorValue
+            ),
             buildOutputSettings: { self.buildAudioOutputSettings() },
             prepareBatchEnvironment: { preparedSources, _ in
                 await ContentViewModel.prepareAudioBatchExecutionEnvironment(

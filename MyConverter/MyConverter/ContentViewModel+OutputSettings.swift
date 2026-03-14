@@ -144,7 +144,9 @@ extension ContentViewModel {
     var videoEncodingSelectionState: VideoEncodingSelectionState {
         let options = videoOptionsState
         let audioSettings = videoAudioEncodingSelectionState
-        let outputFormatOptions = Self.videoOutputFormatDescriptorValue.availableOptions(in: self)
+        let outputFormatOptions = availableOutputFormatOptions(
+            using: Self.videoOutputFormatDescriptorValue
+        )
         let videoEncoderOptions = resolvedOptions(
             videoRuntimeState.availableVideoEncoders,
             autoOption: VideoEncoderOption.auto,

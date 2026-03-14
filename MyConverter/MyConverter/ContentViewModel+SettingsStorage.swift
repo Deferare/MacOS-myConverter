@@ -91,16 +91,16 @@ extension ContentViewModel {
     }
 
     func applyVideoSourceSettings(_ settings: VideoConversionSettings) {
-        Self.videoOutputFormatDescriptorValue.applyStoredSettings(
+        applyStoredOutputFormatSettings(
+            using: Self.videoOutputFormatDescriptorValue,
             applyingFlagKeyPath: \.settingsState.isApplyingVideoSettings,
             storedFormatID: settings.outputFormatID,
             normalizeStoredID: VideoFormatOption.legacyNormalizedID(from:),
-            to: self,
             applyAdditionalSettings: {
                 Self.applyVideoConversionSettings(settings, to: self)
             },
             postApply: {
-                Self.videoOutputFormatDescriptorValue.ensureSelectedFormatIsAvailable(in: self)
+                ensureSelectedOutputFormatIsAvailable(using: Self.videoOutputFormatDescriptorValue)
                 refreshVideoCodecOptions()
             }
         )
@@ -136,11 +136,11 @@ extension ContentViewModel {
     }
 
     func applyImageSourceSettings(_ settings: ImageConversionSettings) {
-        Self.imageOutputFormatDescriptorValue.applyStoredSettings(
+        applyStoredOutputFormatSettings(
+            using: Self.imageOutputFormatDescriptorValue,
             applyingFlagKeyPath: \.settingsState.isApplyingImageSettings,
             storedFormatID: settings.outputFormatID,
             normalizeStoredID: { $0.lowercased() },
-            to: self,
             applyAdditionalSettings: {
                 imageOptionsState.selectedResolution = settings.resolution
                 imageOptionsState.selectedQuality = settings.quality
@@ -148,7 +148,7 @@ extension ContentViewModel {
                 imageOptionsState.preserveAnimation = settings.preserveAnimation
             },
             postApply: {
-                Self.imageOutputFormatDescriptorValue.ensureSelectedFormatIsAvailable(in: self)
+                ensureSelectedOutputFormatIsAvailable(using: Self.imageOutputFormatDescriptorValue)
             }
         )
     }
@@ -186,11 +186,11 @@ extension ContentViewModel {
     }
 
     func applyAudioSourceSettings(_ settings: AudioConversionSettings) {
-        Self.audioOutputFormatDescriptorValue.applyStoredSettings(
+        applyStoredOutputFormatSettings(
+            using: Self.audioOutputFormatDescriptorValue,
             applyingFlagKeyPath: \.settingsState.isApplyingAudioSettings,
             storedFormatID: settings.outputFormatID,
             normalizeStoredID: { $0.lowercased() },
-            to: self,
             applyAdditionalSettings: {
                 Self.applyStoredAudioEncodingSettings(
                     StoredAudioEncodingSettings(
@@ -207,7 +207,7 @@ extension ContentViewModel {
                 )
             },
             postApply: {
-                Self.audioOutputFormatDescriptorValue.ensureSelectedFormatIsAvailable(in: self)
+                ensureSelectedOutputFormatIsAvailable(using: Self.audioOutputFormatDescriptorValue)
                 refreshAudioCodecOptions()
             }
         )
