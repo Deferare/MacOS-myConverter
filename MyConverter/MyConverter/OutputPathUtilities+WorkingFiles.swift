@@ -55,6 +55,31 @@ extension OutputPathUtilities {
         }
     }
 
+    nonisolated static func saveOutputError(
+        at destinationURL: URL,
+        _ error: Error
+    ) -> SaveOutputError {
+        .outputSaveFailed(
+            path: destinationURL.path,
+            message: error.localizedDescription
+        )
+    }
+
+    nonisolated static func moveItemOrCopyFallback(
+        from sourceURL: URL,
+        to destinationURL: URL,
+        using fileManager: FileManager = .default
+    ) throws -> URL {
+        do {
+            try fileManager.moveItem(at: sourceURL, to: destinationURL)
+            return destinationURL
+        } catch {
+            try fileManager.copyItem(at: sourceURL, to: destinationURL)
+            try? fileManager.removeItem(at: sourceURL)
+            return destinationURL
+        }
+    }
+
     nonisolated static func saveConvertedOutput(from sourceURL: URL, to destinationURL: URL) throws -> URL {
         if sourceURL.path == destinationURL.path {
             return destinationURL
@@ -69,47 +94,29 @@ extension OutputPathUtilities {
 
         coordinator.coordinate(writingItemAt: destinationURL, options: [], error: &coordinationError) { coordinatedDestinationURL in
             do {
-                try FileManager.default.moveItem(at: sourceURL, to: coordinatedDestinationURL)
+                _ = try moveItemOrCopyFallback(
+                    from: sourceURL,
+                    to: coordinatedDestinationURL
+                )
             } catch {
-                do {
-                    try FileManager.default.copyItem(at: sourceURL, to: coordinatedDestinationURL)
-                    try? FileManager.default.removeItem(at: sourceURL)
-                } catch {
-                    fileOperationError = error
-                }
+                fileOperationError = error
             }
         }
 
         if let coordinationError {
-            throw SaveOutputError.outputSaveFailed(
-                path: destinationURL.path,
-                message: coordinationError.localizedDescription
-            )
+            throw saveOutputError(at: destinationURL, coordinationError)
         }
 
         if let fileOperationError {
-            throw SaveOutputError.outputSaveFailed(
-                path: destinationURL.path,
-                message: fileOperationError.localizedDescription
-            )
+            throw saveOutputError(at: destinationURL, fileOperationError)
         }
 
         return destinationURL
         #else
         do {
-            try FileManager.default.moveItem(at: sourceURL, to: destinationURL)
-            return destinationURL
+            return try moveItemOrCopyFallback(from: sourceURL, to: destinationURL)
         } catch {
-            do {
-                try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
-                try? FileManager.default.removeItem(at: sourceURL)
-                return destinationURL
-            } catch {
-                throw SaveOutputError.outputSaveFailed(
-                    path: destinationURL.path,
-                    message: error.localizedDescription
-                )
-            }
+            throw saveOutputError(at: destinationURL, error)
         }
         #endif
     }

@@ -419,21 +419,18 @@ enum OutputPathUtilities {
                 )
                 return replaced ?? destinationURL
             } catch {
-                throw SaveOutputError.outputSaveFailed(
-                    path: destinationURL.path,
-                    message: error.localizedDescription
-                )
+                throw saveOutputError(at: destinationURL, error)
             }
         }
 
         do {
-            try fileManager.moveItem(at: sourceURL, to: destinationURL)
-            return destinationURL
-        } catch {
-            throw SaveOutputError.outputSaveFailed(
-                path: destinationURL.path,
-                message: error.localizedDescription
+            return try moveItemOrCopyFallback(
+                from: sourceURL,
+                to: destinationURL,
+                using: fileManager
             )
+        } catch {
+            throw saveOutputError(at: destinationURL, error)
         }
     }
 }
