@@ -145,34 +145,8 @@ struct ConverterDetailContainer<InputArea: View, FormSections: View>: View {
     }
 }
 
-struct ConverterInputArea: View {
-    let isDropTargeted: Bool
-    let state: ContentViewModel.SelectedFileListState
-    let dropPlaceholder: String
-    let fileDropAreaHeight: CGFloat
-    let inputHeaderState: ContentViewModel.ConverterInputHeaderState
-    @Binding var draggedSelectedFileURL: URL?
-    let onImport: () -> Void
-    let onReorder: (_ draggedURL: URL, _ targetURL: URL) -> Void
-
-    var body: some View {
-        UnifiedFileListView(
-            state: state,
-            dropPlaceholder: dropPlaceholder,
-            fileDropAreaHeight: fileDropAreaHeight,
-            isDropTargeted: isDropTargeted,
-            inputHeaderState: inputHeaderState,
-            draggedSelectedFileURL: $draggedSelectedFileURL,
-            onImport: onImport,
-            onReorder: onReorder
-        )
-    }
-}
-
 struct MediaConverterInputSectionView: View, Equatable {
-    let kind: ContentViewModel.MediaKind
-    let state: ContentViewModel.SelectedFileListState
-    let inputHeaderState: ContentViewModel.ConverterInputHeaderState
+    let renderState: ContentViewModel.ConverterRenderState
     let isDropTargeted: Bool
     @Binding var draggedSelectedFileURL: URL?
     let fileDropAreaHeight: CGFloat
@@ -182,9 +156,7 @@ struct MediaConverterInputSectionView: View, Equatable {
     private let fileSelectionAnimation: Animation = .easeOut(duration: 0.22)
 
     static func == (lhs: MediaConverterInputSectionView, rhs: MediaConverterInputSectionView) -> Bool {
-        lhs.kind == rhs.kind &&
-            lhs.state == rhs.state &&
-            lhs.inputHeaderState == rhs.inputHeaderState &&
+        lhs.renderState == rhs.renderState &&
             lhs.isDropTargeted == rhs.isDropTargeted &&
             lhs.fileDropAreaHeight == rhs.fileDropAreaHeight
     }
@@ -192,26 +164,24 @@ struct MediaConverterInputSectionView: View, Equatable {
     var body: some View {
         let _ = PerformanceSignpost.event("InputSectionRender")
 
-        ConverterInputArea(
-            isDropTargeted: isDropTargeted,
-            state: state,
+        UnifiedFileListView(
+            state: renderState.selectedFileListState,
             dropPlaceholder: "Drop Files Here",
             fileDropAreaHeight: fileDropAreaHeight,
-            inputHeaderState: inputHeaderState,
+            isDropTargeted: isDropTargeted,
+            inputHeaderState: renderState.inputHeaderState,
             draggedSelectedFileURL: $draggedSelectedFileURL,
             onImport: onImport,
             onReorder: onReorder
         )
-        .animation(fileSelectionAnimation, value: state.selectedURLs.count)
+        .animation(fileSelectionAnimation, value: renderState.selectedFileListState.selectedURLs.count)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isDropTargeted)
     }
 }
 
 struct MediaConverterDetailView<FormSections: View>: View {
     let kind: ContentViewModel.MediaKind
-    let screenState: ContentViewModel.ConverterScreenState
-    let inputHeaderState: ContentViewModel.ConverterInputHeaderState
-    let selectedFileListState: ContentViewModel.SelectedFileListState
+    let renderState: ContentViewModel.ConverterRenderState
     @Binding var isDropTargeted: Bool
     @Binding var draggedSelectedFileURL: URL?
     let fileDropAreaHeight: CGFloat
@@ -229,9 +199,7 @@ struct MediaConverterDetailView<FormSections: View>: View {
 
     init(
         kind: ContentViewModel.MediaKind,
-        screenState: ContentViewModel.ConverterScreenState,
-        inputHeaderState: ContentViewModel.ConverterInputHeaderState,
-        selectedFileListState: ContentViewModel.SelectedFileListState,
+        renderState: ContentViewModel.ConverterRenderState,
         isDropTargeted: Binding<Bool>,
         draggedSelectedFileURL: Binding<URL?>,
         fileDropAreaHeight: CGFloat,
@@ -243,9 +211,7 @@ struct MediaConverterDetailView<FormSections: View>: View {
         @ViewBuilder formSections: () -> FormSections
     ) {
         self.kind = kind
-        self.screenState = screenState
-        self.inputHeaderState = inputHeaderState
-        self.selectedFileListState = selectedFileListState
+        self.renderState = renderState
         _isDropTargeted = isDropTargeted
         _draggedSelectedFileURL = draggedSelectedFileURL
         self.fileDropAreaHeight = fileDropAreaHeight
@@ -264,14 +230,12 @@ struct MediaConverterDetailView<FormSections: View>: View {
                 .ignoresSafeArea()
 
             ConverterDetailContainer(
-                screenState: screenState,
+                screenState: renderState.screenState,
                 isDropTargeted: $isDropTargeted,
                 onDrop: onDrop,
                 inputArea: {
                     MediaConverterInputSectionView(
-                        kind: kind,
-                        state: selectedFileListState,
-                        inputHeaderState: inputHeaderState,
+                        renderState: renderState,
                         isDropTargeted: isDropTargeted,
                         draggedSelectedFileURL: $draggedSelectedFileURL,
                         fileDropAreaHeight: fileDropAreaHeight,
@@ -287,7 +251,7 @@ struct MediaConverterDetailView<FormSections: View>: View {
         }
         .navigationTitle(kind.converterTitle)
         .toolbar {
-            converterToolbar(screenState: screenState)
+            converterToolbar(screenState: renderState.screenState)
         }
         .backgroundExtensionEffect()
         .tint(kind.liquidGlassTint)

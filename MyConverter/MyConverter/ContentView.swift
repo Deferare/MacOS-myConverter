@@ -70,13 +70,10 @@ struct ContentView: View {
 
     private func mediaDetailView(for kind: ContentViewModel.MediaKind) -> some View {
         let renderState = viewModel.converterRenderState(for: kind)
-        let screenState = renderState.screenState
 
         return MediaConverterDetailView(
             kind: kind,
-            screenState: screenState,
-            inputHeaderState: renderState.inputHeaderState,
-            selectedFileListState: renderState.selectedFileListState,
+            renderState: renderState,
             isDropTargeted: dropTargetBinding(for: kind),
             draggedSelectedFileURL: $draggedSelectedFileURL,
             fileDropAreaHeight: fileDropAreaHeight,
@@ -93,14 +90,14 @@ struct ContentView: View {
                 viewModel.clearSelectedSource(for: kind)
             },
             onPrimaryAction: {
-                if screenState.isConverting {
+                if renderState.screenState.isConverting {
                     viewModel.cancelConversion(for: kind)
                 } else {
                     viewModel.startConversion(for: kind)
                 }
             }
         ) {
-            mediaFormSections(for: kind, screenState: screenState)
+            mediaFormSections(for: kind, screenState: renderState.screenState)
         }
     }
 

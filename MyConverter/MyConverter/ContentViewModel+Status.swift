@@ -11,6 +11,28 @@ extension ContentViewModel {
         let showsResults: Bool
         let destinationHint: String
         let primaryActionTitle: String
+
+        init(
+            kind: MediaKind,
+            viewModel: ContentViewModel,
+            snapshot: MediaStateSnapshot,
+            validationMessage: String?
+        ) {
+            let selectedFileCount = snapshot.selectedFileCount
+            let convertedCount = snapshot.convertedURLs.count
+
+            isConverting = snapshot.isConverting
+            canConvert = viewModel.canStartConversion(using: snapshot, validationMessage: validationMessage)
+            self.selectedFileCount = selectedFileCount
+            selectedFormatLabel = kind.descriptor.selectedOutputFormatLabel(viewModel)
+            self.convertedCount = convertedCount
+            showsSettings = selectedFileCount > 0
+            showsResults = convertedCount > 0
+            destinationHint = viewModel.selectedOutputDirectoryURL(for: kind).map {
+                "Selected output folder: \(viewModel.abbreviatedOutputDirectoryPath($0))"
+            } ?? "Select an output folder in Conversion Settings, or choose one after you press Start."
+            primaryActionTitle = snapshot.isConverting ? "Cancel" : "Start"
+        }
     }
 
     struct ConverterInputHeaderState: Equatable {
@@ -18,12 +40,72 @@ extension ContentViewModel {
         let statusLevel: ConversionStatusLevel
         let progressText: String
         let isConverting: Bool
+
+        init(
+            snapshot: MediaStateSnapshot,
+            statusMessage: String,
+            statusLevel: ConversionStatusLevel,
+            progressText: String
+        ) {
+            self.statusMessage = statusMessage
+            self.statusLevel = statusLevel
+            self.progressText = progressText
+            isConverting = snapshot.isConverting
+        }
     }
 
     struct ConverterRenderState: Equatable {
         let screenState: ConverterScreenState
         let inputHeaderState: ConverterInputHeaderState
         let selectedFileListState: SelectedFileListState
+
+        init(
+            kind: MediaKind,
+            viewModel: ContentViewModel,
+            snapshot: MediaStateSnapshot,
+            validationMessage: String?,
+            status: (message: String, level: ConversionStatusLevel)
+        ) {
+            let selectedFileCount = snapshot.selectedFileCount
+            let convertedCount = snapshot.convertedURLs.count
+            let resolvedStatusMessage = Self.resolvedStatusMessage(
+                selectedFileCount: selectedFileCount,
+                convertedCount: convertedCount,
+                isConverting: snapshot.isConverting,
+                status: status
+            )
+
+            screenState = ConverterScreenState(
+                kind: kind,
+                viewModel: viewModel,
+                snapshot: snapshot,
+                validationMessage: validationMessage
+            )
+            inputHeaderState = ConverterInputHeaderState(
+                snapshot: snapshot,
+                statusMessage: resolvedStatusMessage,
+                statusLevel: status.level,
+                progressText: viewModel.progressPercentageText(for: snapshot.displayedProgress)
+            )
+            selectedFileListState = SelectedFileListState(snapshot: snapshot)
+        }
+
+        private static func resolvedStatusMessage(
+            selectedFileCount: Int,
+            convertedCount: Int,
+            isConverting: Bool,
+            status: (message: String, level: ConversionStatusLevel)
+        ) -> String {
+            if selectedFileCount == 0 {
+                return "Import files to begin."
+            }
+
+            if convertedCount > 0 && !isConverting && status.level != .error {
+                return convertedCount == 1 ? "Conversion complete." : "\(convertedCount) files converted."
+            }
+
+            return status.message
+        }
     }
 
     func conversionStatus(
@@ -56,53 +138,18 @@ extension ContentViewModel {
     func converterRenderState(for kind: MediaKind) -> ConverterRenderState {
         let snapshot = mediaStateSnapshot(for: kind)
         let validationMessage = validationMessage(for: kind)
-        let hintMessage = hintMessage(for: kind)
         let status = conversionStatus(
             using: snapshot,
             validationMessage: validationMessage,
-            hintMessage: hintMessage
+            hintMessage: hintMessage(for: kind)
         )
-        let selectedFileCount = snapshot.selectedFileCount
-        let convertedCount = snapshot.convertedURLs.count
-        let progress = snapshot.displayedProgress
-        let statusMessage: String
-
-        if selectedFileCount == 0 {
-            statusMessage = "Import files to begin."
-        } else if convertedCount > 0 && !snapshot.isConverting && status.level != .error {
-            statusMessage = convertedCount == 1 ? "Conversion complete." : "\(convertedCount) files converted."
-        } else {
-            statusMessage = status.message
-        }
-
-        let primaryActionTitle: String
-        if snapshot.isConverting {
-            primaryActionTitle = "Cancel"
-        } else {
-            primaryActionTitle = "Start"
-        }
 
         return ConverterRenderState(
-            screenState: ConverterScreenState(
-                isConverting: snapshot.isConverting,
-                canConvert: canStartConversion(using: snapshot, validationMessage: validationMessage),
-                selectedFileCount: selectedFileCount,
-                selectedFormatLabel: kind.descriptor.selectedOutputFormatLabel(self),
-                convertedCount: convertedCount,
-                showsSettings: selectedFileCount > 0,
-                showsResults: convertedCount > 0,
-                destinationHint: selectedOutputDirectoryURL(for: kind).map {
-                    "Selected output folder: \(abbreviatedOutputDirectoryPath($0))"
-                } ?? "Select an output folder in Conversion Settings, or choose one after you press Start.",
-                primaryActionTitle: primaryActionTitle
-            ),
-            inputHeaderState: ConverterInputHeaderState(
-                statusMessage: statusMessage,
-                statusLevel: status.level,
-                progressText: progressPercentageText(for: progress),
-                isConverting: snapshot.isConverting
-            ),
-            selectedFileListState: SelectedFileListState(snapshot: snapshot)
+            kind: kind,
+            viewModel: self,
+            snapshot: snapshot,
+            validationMessage: validationMessage,
+            status: status
         )
     }
 
