@@ -6,6 +6,13 @@ private let persistedSettingsSaveQueue = DispatchQueue(
 )
 
 extension ContentViewModel {
+    private struct StoredAudioEncodingSettings {
+        let encoder: AudioEncoderOption
+        let mode: AudioModeOption
+        let sampleRate: SampleRateOption
+        let bitRate: AudioBitRateOption
+    }
+
     struct SourceSettingsDescriptor<Settings: Equatable, Persisted: Codable> {
         let isApplyingStoredSettings: ReferenceWritableKeyPath<ContentViewModel, Bool>
         let sourceURL: ReferenceWritableKeyPath<ContentViewModel, URL?>
@@ -165,6 +172,31 @@ extension ContentViewModel {
         )
     }
 
+    private static func storedAudioEncodingSettings(
+        from selection: AudioEncodingSelectionState
+    ) -> StoredAudioEncodingSettings {
+        StoredAudioEncodingSettings(
+            encoder: selection.selectedEncoder,
+            mode: selection.selectedMode,
+            sampleRate: selection.selectedSampleRate,
+            bitRate: selection.selectedBitRate
+        )
+    }
+
+    private static func applyStoredAudioEncodingSettings(
+        _ settings: StoredAudioEncodingSettings,
+        to viewModel: ContentViewModel,
+        encoder: ReferenceWritableKeyPath<ContentViewModel, AudioEncoderOption>,
+        mode: ReferenceWritableKeyPath<ContentViewModel, AudioModeOption>,
+        sampleRate: ReferenceWritableKeyPath<ContentViewModel, SampleRateOption>,
+        bitRate: ReferenceWritableKeyPath<ContentViewModel, AudioBitRateOption>
+    ) {
+        viewModel[keyPath: encoder] = settings.encoder
+        viewModel[keyPath: mode] = settings.mode
+        viewModel[keyPath: sampleRate] = settings.sampleRate
+        viewModel[keyPath: bitRate] = settings.bitRate
+    }
+
     static let videoSourceSettingsComponentsValue = makeSourceSettingsComponents(
         storage: makeSourceSettingsStorageDescriptor(
             kind: .video,
@@ -181,7 +213,10 @@ extension ContentViewModel {
         outputFormatID: { $0.outputFormatID },
         normalizeStoredID: VideoFormatOption.legacyNormalizedID(from:),
         buildCurrentSettings: { viewModel in
-            VideoConversionSettings(
+            let audioSettings = storedAudioEncodingSettings(
+                from: viewModel.videoAudioEncodingSelectionState
+            )
+            return VideoConversionSettings(
                 outputFormatID: viewModel.selectedOutputFormat.id,
                 videoEncoder: viewModel.selectedVideoEncoder,
                 resolution: viewModel.selectedResolution,
@@ -189,10 +224,10 @@ extension ContentViewModel {
                 gifPlaybackSpeed: viewModel.selectedGIFPlaybackSpeed,
                 videoBitRate: viewModel.selectedVideoBitRate,
                 customVideoBitRate: viewModel.customVideoBitRate,
-                audioEncoder: viewModel.selectedAudioEncoder,
-                audioMode: viewModel.selectedAudioMode,
-                sampleRate: viewModel.selectedSampleRate,
-                audioBitRate: viewModel.selectedAudioBitRate
+                audioEncoder: audioSettings.encoder,
+                audioMode: audioSettings.mode,
+                sampleRate: audioSettings.sampleRate,
+                audioBitRate: audioSettings.bitRate
             )
         },
         applyAdditionalSettings: { viewModel, settings in
@@ -202,10 +237,19 @@ extension ContentViewModel {
             viewModel.selectedGIFPlaybackSpeed = settings.gifPlaybackSpeed
             viewModel.selectedVideoBitRate = settings.videoBitRate
             viewModel.customVideoBitRate = settings.customVideoBitRate
-            viewModel.selectedAudioEncoder = settings.audioEncoder
-            viewModel.selectedAudioMode = settings.audioMode
-            viewModel.selectedSampleRate = settings.sampleRate
-            viewModel.selectedAudioBitRate = settings.audioBitRate
+            applyStoredAudioEncodingSettings(
+                StoredAudioEncodingSettings(
+                    encoder: settings.audioEncoder,
+                    mode: settings.audioMode,
+                    sampleRate: settings.sampleRate,
+                    bitRate: settings.audioBitRate
+                ),
+                to: viewModel,
+                encoder: \.selectedAudioEncoder,
+                mode: \.selectedAudioMode,
+                sampleRate: \.selectedSampleRate,
+                bitRate: \.selectedAudioBitRate
+            )
         },
         refreshDependentOptions: { $0.refreshVideoCodecOptions() }
     )
@@ -258,19 +302,31 @@ extension ContentViewModel {
         outputFormatID: { $0.outputFormatID },
         normalizeStoredID: { $0.lowercased() },
         buildCurrentSettings: { viewModel in
-            AudioConversionSettings(
+            let audioSettings = storedAudioEncodingSettings(
+                from: viewModel.audioOutputEncodingSelectionState
+            )
+            return AudioConversionSettings(
                 outputFormatID: viewModel.selectedAudioOutputFormat.id,
-                audioEncoder: viewModel.selectedAudioOutputEncoder,
-                audioMode: viewModel.selectedAudioOutputMode,
-                sampleRate: viewModel.selectedAudioOutputSampleRate,
-                audioBitRate: viewModel.selectedAudioOutputBitRate
+                audioEncoder: audioSettings.encoder,
+                audioMode: audioSettings.mode,
+                sampleRate: audioSettings.sampleRate,
+                audioBitRate: audioSettings.bitRate
             )
         },
         applyAdditionalSettings: { viewModel, settings in
-            viewModel.selectedAudioOutputEncoder = settings.audioEncoder
-            viewModel.selectedAudioOutputMode = settings.audioMode
-            viewModel.selectedAudioOutputSampleRate = settings.sampleRate
-            viewModel.selectedAudioOutputBitRate = settings.audioBitRate
+            applyStoredAudioEncodingSettings(
+                StoredAudioEncodingSettings(
+                    encoder: settings.audioEncoder,
+                    mode: settings.audioMode,
+                    sampleRate: settings.sampleRate,
+                    bitRate: settings.audioBitRate
+                ),
+                to: viewModel,
+                encoder: \.selectedAudioOutputEncoder,
+                mode: \.selectedAudioOutputMode,
+                sampleRate: \.selectedAudioOutputSampleRate,
+                bitRate: \.selectedAudioOutputBitRate
+            )
         },
         refreshDependentOptions: { $0.refreshAudioCodecOptions() }
     )
