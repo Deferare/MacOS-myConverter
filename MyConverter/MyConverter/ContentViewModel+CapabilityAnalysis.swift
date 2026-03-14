@@ -294,92 +294,115 @@ extension ContentViewModel {
         }
     }
 
-    func analyzeVideoSourceCompatibility(for urls: [URL]) {
-        analyzeSourceCompatibility(
-            for: urls,
-            kind: .video,
-            formatDescriptor: Self.videoOutputFormatDescriptor,
-            fetchCapabilities: { await VideoConversionEngine.sourceCapabilities(for: $0) },
-            availableFormats: { $0.availableOutputFormats },
-            warningMessage: { $0.warningMessage },
-            errorMessage: { $0.errorMessage },
-            formatNormalizedID: { $0.normalizedID },
-            deduplicatedAndSorted: { VideoFormatOption.deduplicatedAndSorted($0) },
-            noCommonFormatsMessage: "No common output container is available for the selected files.",
-            onFormatsResolved: { [self] resolvedFormats in
-                applyResolvedOutputFormats(
-                    resolvedFormats,
-                    formatDescriptor: Self.videoOutputFormatDescriptor,
-                    postSelectionUpdate: {
-                        refreshVideoCodecOptions()
-                    },
-                    persistSettings: {
-                        persistCurrentSourceSettingsIfNeeded(for: .video)
-                    }
-                )
-            }
-        )
+}
+
+extension ContentViewModel.MediaKind {
+    private struct SourceAnalysisBehavior {
+        let analyzeSelectionCompatibility: (ContentViewModel, [URL]) -> Void
     }
 
-    func analyzeImageSourceCompatibility(for urls: [URL]) {
-        let primarySourceID = primarySelectedSourceID(from: urls)
-        var primaryFrameCount = 0
-        var primaryHasAlpha = false
+    private static let sourceAnalysisBehaviorByKind: [Self: SourceAnalysisBehavior] = [
+        .video: SourceAnalysisBehavior { viewModel, urls in
+            viewModel.analyzeSourceCompatibility(
+                for: urls,
+                kind: .video,
+                formatDescriptor: ContentViewModel.videoOutputFormatDescriptor,
+                fetchCapabilities: { await VideoConversionEngine.sourceCapabilities(for: $0) },
+                availableFormats: { $0.availableOutputFormats },
+                warningMessage: { $0.warningMessage },
+                errorMessage: { $0.errorMessage },
+                formatNormalizedID: { $0.normalizedID },
+                deduplicatedAndSorted: { VideoFormatOption.deduplicatedAndSorted($0) },
+                noCommonFormatsMessage: "No common output container is available for the selected files.",
+                onFormatsResolved: { resolvedFormats in
+                    viewModel.applyResolvedOutputFormats(
+                        resolvedFormats,
+                        formatDescriptor: ContentViewModel.videoOutputFormatDescriptor,
+                        postSelectionUpdate: {
+                            viewModel.refreshVideoCodecOptions()
+                        },
+                        persistSettings: {
+                            viewModel.persistCurrentSourceSettingsIfNeeded(for: .video)
+                        }
+                    )
+                }
+            )
+        },
+        .image: SourceAnalysisBehavior { viewModel, urls in
+            let primarySourceID = viewModel.primarySelectedSourceID(from: urls)
+            var primaryFrameCount = 0
+            var primaryHasAlpha = false
 
-        analyzeSourceCompatibility(
-            for: urls,
-            kind: .image,
-            formatDescriptor: Self.imageOutputFormatDescriptor,
-            fetchCapabilities: { await ImageConversionEngine.sourceCapabilities(for: $0) },
-            availableFormats: { $0.availableOutputFormats },
-            warningMessage: { $0.warningMessage },
-            errorMessage: { $0.errorMessage },
-            formatNormalizedID: { $0.normalizedID },
-            deduplicatedAndSorted: { ImageFormatOption.deduplicatedAndSorted($0) },
-            noCommonFormatsMessage: "No common output format is available for the selected files.",
-            onCapability: { [self] source, capabilities in
-                guard sourceIdentifier(for: source) == primarySourceID else { return }
-                primaryFrameCount = capabilities.frameCount
-                primaryHasAlpha = capabilities.hasAlpha
-            },
-            onFormatsResolved: { [self] resolvedFormats in
-                updateState(\.imageRuntimeState, value: \.sourceFrameCount, to: primaryFrameCount)
-                updateState(\.imageRuntimeState, value: \.sourceHasAlpha, to: primaryHasAlpha)
-                applyResolvedOutputFormats(
-                    resolvedFormats,
-                    formatDescriptor: Self.imageOutputFormatDescriptor,
-                    persistSettings: {
-                        persistCurrentSourceSettingsIfNeeded(for: .image)
-                    }
-                )
-            }
-        )
+            viewModel.analyzeSourceCompatibility(
+                for: urls,
+                kind: .image,
+                formatDescriptor: ContentViewModel.imageOutputFormatDescriptor,
+                fetchCapabilities: { await ImageConversionEngine.sourceCapabilities(for: $0) },
+                availableFormats: { $0.availableOutputFormats },
+                warningMessage: { $0.warningMessage },
+                errorMessage: { $0.errorMessage },
+                formatNormalizedID: { $0.normalizedID },
+                deduplicatedAndSorted: { ImageFormatOption.deduplicatedAndSorted($0) },
+                noCommonFormatsMessage: "No common output format is available for the selected files.",
+                onCapability: { source, capabilities in
+                    guard viewModel.sourceIdentifier(for: source) == primarySourceID else { return }
+                    primaryFrameCount = capabilities.frameCount
+                    primaryHasAlpha = capabilities.hasAlpha
+                },
+                onFormatsResolved: { resolvedFormats in
+                    viewModel.updateState(
+                        \.imageRuntimeState,
+                        value: \.sourceFrameCount,
+                        to: primaryFrameCount
+                    )
+                    viewModel.updateState(
+                        \.imageRuntimeState,
+                        value: \.sourceHasAlpha,
+                        to: primaryHasAlpha
+                    )
+                    viewModel.applyResolvedOutputFormats(
+                        resolvedFormats,
+                        formatDescriptor: ContentViewModel.imageOutputFormatDescriptor,
+                        persistSettings: {
+                            viewModel.persistCurrentSourceSettingsIfNeeded(for: .image)
+                        }
+                    )
+                }
+            )
+        },
+        .audio: SourceAnalysisBehavior { viewModel, urls in
+            viewModel.analyzeSourceCompatibility(
+                for: urls,
+                kind: .audio,
+                formatDescriptor: ContentViewModel.audioOutputFormatDescriptor,
+                fetchCapabilities: { await VideoConversionEngine.sourceCapabilitiesForAudio(for: $0) },
+                availableFormats: { $0.availableOutputFormats },
+                warningMessage: { $0.warningMessage },
+                errorMessage: { $0.errorMessage },
+                formatNormalizedID: { $0.normalizedID },
+                deduplicatedAndSorted: { AudioFormatOption.deduplicatedAndSorted($0) },
+                noCommonFormatsMessage: "No common audio output format is available for the selected files.",
+                onFormatsResolved: { resolvedFormats in
+                    viewModel.applyResolvedOutputFormats(
+                        resolvedFormats,
+                        formatDescriptor: ContentViewModel.audioOutputFormatDescriptor,
+                        postSelectionUpdate: {
+                            viewModel.refreshAudioCodecOptions()
+                        },
+                        persistSettings: {
+                            viewModel.persistCurrentSourceSettingsIfNeeded(for: .audio)
+                        }
+                    )
+                }
+            )
+        }
+    ]
+
+    private var sourceAnalysisBehavior: SourceAnalysisBehavior {
+        Self.sourceAnalysisBehaviorByKind[self] ?? Self.sourceAnalysisBehaviorByKind[.video]!
     }
 
-    func analyzeAudioSourceCompatibility(for urls: [URL]) {
-        analyzeSourceCompatibility(
-            for: urls,
-            kind: .audio,
-            formatDescriptor: Self.audioOutputFormatDescriptor,
-            fetchCapabilities: { await VideoConversionEngine.sourceCapabilitiesForAudio(for: $0) },
-            availableFormats: { $0.availableOutputFormats },
-            warningMessage: { $0.warningMessage },
-            errorMessage: { $0.errorMessage },
-            formatNormalizedID: { $0.normalizedID },
-            deduplicatedAndSorted: { AudioFormatOption.deduplicatedAndSorted($0) },
-            noCommonFormatsMessage: "No common audio output format is available for the selected files.",
-            onFormatsResolved: { [self] resolvedFormats in
-                applyResolvedOutputFormats(
-                    resolvedFormats,
-                    formatDescriptor: Self.audioOutputFormatDescriptor,
-                    postSelectionUpdate: {
-                        refreshAudioCodecOptions()
-                    },
-                    persistSettings: {
-                        persistCurrentSourceSettingsIfNeeded(for: .audio)
-                    }
-                )
-            }
-        )
+    func analyzeSelectionCompatibility(in viewModel: ContentViewModel, urls: [URL]) {
+        sourceAnalysisBehavior.analyzeSelectionCompatibility(viewModel, urls)
     }
 }

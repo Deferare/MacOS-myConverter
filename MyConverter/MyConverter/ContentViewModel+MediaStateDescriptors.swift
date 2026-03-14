@@ -185,7 +185,7 @@ extension ContentViewModel {
     }
 
     func analyzeSelectedSources(_ urls: [URL], for kind: MediaKind) {
-        kind.analyzeSelectedSources(urls, in: self)
+        kind.analyzeSelectionCompatibility(in: self, urls: urls)
     }
 
     func resetCompatibilityMetadata(for kind: MediaKind) {
@@ -227,7 +227,7 @@ extension ContentViewModel.MediaKind {
                 await viewModel.performVideoConversion()
             },
             analyzeSelectedSources: { viewModel, urls in
-                viewModel.analyzeVideoSourceCompatibility(for: urls)
+                Self.video.analyzeSelectionCompatibility(in: viewModel, urls: urls)
             },
             resetCompatibilityMetadata: { _ in }
         ),
@@ -237,7 +237,7 @@ extension ContentViewModel.MediaKind {
                 await viewModel.performImageConversion()
             },
             analyzeSelectedSources: { viewModel, urls in
-                viewModel.analyzeImageSourceCompatibility(for: urls)
+                Self.image.analyzeSelectionCompatibility(in: viewModel, urls: urls)
             },
             resetCompatibilityMetadata: { viewModel in
                 ContentViewModel.resetImageCompatibilityMetadata(viewModel)
@@ -249,7 +249,7 @@ extension ContentViewModel.MediaKind {
                 await viewModel.performAudioConversion()
             },
             analyzeSelectedSources: { viewModel, urls in
-                viewModel.analyzeAudioSourceCompatibility(for: urls)
+                Self.audio.analyzeSelectionCompatibility(in: viewModel, urls: urls)
             },
             resetCompatibilityMetadata: { _ in }
         )
