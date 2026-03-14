@@ -7,23 +7,69 @@ struct SelectedFileRowStatusAppearance {
 }
 
 extension ContentViewModel.SelectedFileListState.RowStatus {
-    var showsProgressBar: Bool {
-        if case .converting = self {
-            return true
+    private enum Kind: Hashable {
+        case pending
+        case converting
+        case completed
+        case skipped
+
+        private static let appearanceByKind: [Self: SelectedFileRowStatusAppearance] = [
+            .pending: SelectedFileRowStatusAppearance(
+                symbolName: "circle.dashed",
+                color: .secondary.opacity(0.45)
+            ),
+            .converting: SelectedFileRowStatusAppearance(
+                symbolName: "circle.fill",
+                color: .accentColor
+            ),
+            .completed: SelectedFileRowStatusAppearance(
+                symbolName: "checkmark.circle.fill",
+                color: .green
+            ),
+            .skipped: SelectedFileRowStatusAppearance(
+                symbolName: "exclamationmark.triangle.fill",
+                color: .orange
+            )
+        ]
+
+        private static let progressByKind: [Self: Double] = [
+            .pending: 0,
+            .completed: 1,
+            .skipped: 1
+        ]
+
+        var appearance: SelectedFileRowStatusAppearance {
+            Self.appearanceByKind[self] ?? Self.appearanceByKind[.pending]!
         }
 
-        return false
+        var defaultProgressValue: Double {
+            Self.progressByKind[self] ?? 0
+        }
+    }
+
+    private var kind: Kind {
+        switch self {
+        case .pending:
+            .pending
+        case .converting:
+            .converting
+        case .completed:
+            .completed
+        case .skipped:
+            .skipped
+        }
+    }
+
+    var showsProgressBar: Bool {
+        kind == .converting
     }
 
     var progressValue: Double {
-        switch self {
-        case .pending:
-            return 0
-        case .converting(let progress):
+        if case .converting(let progress) = self {
             return progress
-        case .completed, .skipped:
-            return 1
         }
+
+        return kind.defaultProgressValue
     }
 
     var completedOutputURL: URL? {
@@ -35,27 +81,6 @@ extension ContentViewModel.SelectedFileListState.RowStatus {
     }
 
     var statusAppearance: SelectedFileRowStatusAppearance {
-        switch self {
-        case .pending:
-            return SelectedFileRowStatusAppearance(
-                symbolName: "circle.dashed",
-                color: .secondary.opacity(0.45)
-            )
-        case .converting:
-            return SelectedFileRowStatusAppearance(
-                symbolName: "circle.fill",
-                color: .accentColor
-            )
-        case .completed:
-            return SelectedFileRowStatusAppearance(
-                symbolName: "checkmark.circle.fill",
-                color: .green
-            )
-        case .skipped:
-            return SelectedFileRowStatusAppearance(
-                symbolName: "exclamationmark.triangle.fill",
-                color: .orange
-            )
-        }
+        kind.appearance
     }
 }

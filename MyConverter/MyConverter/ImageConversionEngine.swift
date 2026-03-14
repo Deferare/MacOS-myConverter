@@ -52,24 +52,55 @@ enum ImageConversionError: LocalizedError {
     case ffmpegFailed(Int32, String)
     case encodingFailed
 
-    private var errorMessage: String {
+    private enum Kind: Hashable {
+        case unreadableImage
+        case noFramesFound
+        case invalidSourceDimensions
+        case unsupportedOutputFormat
+        case ffmpegUnsupportedFormat
+        case ffmpegUnavailableForAnimatedOutput
+        case ffmpegFailed
+        case encodingFailed
+    }
+
+    private static let errorMessageByKind: [Kind: String] = [
+        .unreadableImage: "Failed to read input image file.",
+        .noFramesFound: "No image frame found in source file.",
+        .invalidSourceDimensions: "Input image has invalid dimensions.",
+        .ffmpegUnavailableForAnimatedOutput: "Animated output requires ffmpeg support for this format.",
+        .ffmpegFailed: "FFmpeg image conversion failed.",
+        .encodingFailed: "Failed to encode image with selected settings."
+    ]
+
+    private var kind: Kind {
         switch self {
         case .unreadableImage:
-            return "Failed to read input image file."
+            .unreadableImage
         case .noFramesFound:
-            return "No image frame found in source file."
+            .noFramesFound
         case .invalidSourceDimensions:
-            return "Input image has invalid dimensions."
+            .invalidSourceDimensions
+        case .unsupportedOutputFormat:
+            .unsupportedOutputFormat
+        case .ffmpegUnsupportedFormat:
+            .ffmpegUnsupportedFormat
+        case .ffmpegUnavailableForAnimatedOutput:
+            .ffmpegUnavailableForAnimatedOutput
+        case .ffmpegFailed:
+            .ffmpegFailed
+        case .encodingFailed:
+            .encodingFailed
+        }
+    }
+
+    private var errorMessage: String {
+        switch self {
         case .unsupportedOutputFormat(let format):
             return "\(format.displayName) output is not supported in this environment."
         case .ffmpegUnsupportedFormat(let format):
             return "\(format.displayName) output is not supported by the bundled ffmpeg build."
-        case .ffmpegUnavailableForAnimatedOutput:
-            return "Animated output requires ffmpeg support for this format."
-        case .ffmpegFailed:
-            return "FFmpeg image conversion failed."
-        case .encodingFailed:
-            return "Failed to encode image with selected settings."
+        default:
+            return Self.errorMessageByKind[kind] ?? "Image conversion failed."
         }
     }
 

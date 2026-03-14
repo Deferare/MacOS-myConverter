@@ -1,14 +1,15 @@
 import SwiftUI
 
+extension ContentViewModel.ConversionStatusLevel: Hashable {}
+
 extension ContentViewModel.ConversionStatusLevel {
+    private static let colorByLevel: [Self: Color] = [
+        .normal: .secondary,
+        .warning: .orange,
+        .error: .red
+    ]
+
     var color: Color {
-        switch self {
-        case .normal:
-            return .secondary
-        case .warning:
-            return .orange
-        case .error:
-            return .red
-        }
+        Self.colorByLevel[self] ?? .secondary
     }
 }
