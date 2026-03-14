@@ -52,11 +52,11 @@ extension ContentViewModel {
 
         init(viewModel: ContentViewModel) {
             isConverting = viewModel.imageRuntimeState.media.isConverting
-            selectedOutputFormat = viewModel.selectedImageOutputFormat
-            selectedResolution = viewModel.selectedImageResolution
-            selectedQuality = viewModel.selectedImageQuality
-            selectedPNGCompressionLevel = viewModel.selectedPNGCompressionLevel
-            preserveAnimation = viewModel.preserveImageAnimation
+            selectedOutputFormat = viewModel.imageOptionsState.selectedOutputFormat
+            selectedResolution = viewModel.imageOptionsState.selectedResolution
+            selectedQuality = viewModel.imageOptionsState.selectedQuality
+            selectedPNGCompressionLevel = viewModel.imageOptionsState.selectedPNGCompressionLevel
+            preserveAnimation = viewModel.imageOptionsState.preserveAnimation
             outputFormatOptions = viewModel.imageOutputFormatOptions
             shouldShowImageQualityOption = viewModel.shouldShowImageQualityOption
             shouldShowPNGCompressionOption = viewModel.shouldShowPNGCompressionOption
@@ -74,7 +74,7 @@ extension ContentViewModel {
 
         init(viewModel: ContentViewModel) {
             isConverting = viewModel.audioRuntimeState.media.isConverting
-            selectedOutputFormat = viewModel.selectedAudioOutputFormat
+            selectedOutputFormat = viewModel.audioOptionsState.selectedOutputFormat
             audioSettings = viewModel.audioOutputEncodingSelectionState
             outputFormatOptions = viewModel.audioOutputFormatOptions
             hintMessage = viewModel.hintMessage(for: .audio)

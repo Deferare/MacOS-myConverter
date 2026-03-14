@@ -25,7 +25,7 @@ struct ImageConverterFormSectionView: View, Equatable {
         ) {
             MenuPicker(
                 "Output Format",
-                selection: viewModel.binding(to: \.selectedImageOutputFormat),
+                selection: viewModel.binding(to: \.imageOptionsState.selectedOutputFormat),
                 options: state.outputFormatOptions,
                 disabledWhenEmpty: true,
                 showsDivider: true,
@@ -34,7 +34,7 @@ struct ImageConverterFormSectionView: View, Equatable {
 
             MenuPicker(
                 "Resolution",
-                selection: viewModel.binding(to: \.selectedImageResolution),
+                selection: viewModel.binding(to: \.imageOptionsState.selectedResolution),
                 options: Array(ResolutionOption.allCases),
                 showsDivider: showsQuality || showsPNGCompression || showsPreserveAnimation || showsHint,
                 label: { $0.rawValue }
@@ -43,7 +43,7 @@ struct ImageConverterFormSectionView: View, Equatable {
             if state.shouldShowImageQualityOption {
                 MenuPicker(
                     "Quality",
-                    selection: viewModel.binding(to: \.selectedImageQuality),
+                    selection: viewModel.binding(to: \.imageOptionsState.selectedQuality),
                     options: Array(ImageQualityOption.allCases),
                     showsDivider: showsPNGCompression || showsPreserveAnimation || showsHint,
                     label: { $0.rawValue }
@@ -53,7 +53,7 @@ struct ImageConverterFormSectionView: View, Equatable {
             if state.shouldShowPNGCompressionOption {
                 MenuPicker(
                     "PNG Compression",
-                    selection: viewModel.binding(to: \.selectedPNGCompressionLevel),
+                    selection: viewModel.binding(to: \.imageOptionsState.selectedPNGCompressionLevel),
                     options: Array(PNGCompressionLevelOption.allCases),
                     showsDivider: showsPreserveAnimation || showsHint,
                     label: { $0.rawValue }
@@ -64,7 +64,7 @@ struct ImageConverterFormSectionView: View, Equatable {
                 ConverterToggleRow(
                     "Preserve Animation",
                     showsDivider: showsHint,
-                    isOn: viewModel.binding(to: \.preserveImageAnimation)
+                    isOn: viewModel.binding(to: \.imageOptionsState.preserveAnimation)
                 )
             }
 

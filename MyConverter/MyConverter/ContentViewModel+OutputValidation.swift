@@ -95,8 +95,8 @@ extension ContentViewModel {
 
     func imageAnimationExportValidationMessage(isAnimated: Bool) -> String? {
         guard isAnimated,
-              preserveImageAnimation,
-              selectedImageOutputFormat.supportsAnimation,
+              imageOptionsState.preserveAnimation,
+              imageOptionsState.selectedOutputFormat.supportsAnimation,
               !ImageConversionEngine.isFFmpegAvailable() else {
             return nil
         }
@@ -255,7 +255,7 @@ extension ContentViewModel {
             kind: .image,
             hintMessage: { viewModel in
                 viewModel.firstNonEmptyMessage(
-                    viewModel.imageSourceIsAnimated && !viewModel.selectedImageOutputFormat.supportsAnimation
+                    viewModel.imageSourceIsAnimated && !viewModel.imageOptionsState.selectedOutputFormat.supportsAnimation
                         ? "This format exports only the first frame for animated sources."
                         : nil,
                     viewModel.shouldShowPreserveAnimationOption && !ImageConversionEngine.isFFmpegAvailable()

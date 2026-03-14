@@ -45,7 +45,7 @@ extension ContentViewModel {
         AudioFormatOption
     >(
         state: StateProxyDescriptor(stateKeyPath: \.audioOptionsState),
-        currentFormat: { $0.selectedAudioOutputFormat },
+        currentFormat: { $0.audioOptionsState.selectedOutputFormat },
         availableEncoders: \.audioRuntimeState.availableOutputEncoders,
         encoder: \.selectedOutputEncoder,
         audioMode: nil,

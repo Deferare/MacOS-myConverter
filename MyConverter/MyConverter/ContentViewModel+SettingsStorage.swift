@@ -271,18 +271,18 @@ extension ContentViewModel {
         normalizeStoredID: { $0.lowercased() },
         buildCurrentSettings: { viewModel in
             ImageConversionSettings(
-                outputFormatID: viewModel.selectedImageOutputFormat.id,
-                resolution: viewModel.selectedImageResolution,
-                quality: viewModel.selectedImageQuality,
-                pngCompressionLevel: viewModel.selectedPNGCompressionLevel,
-                preserveAnimation: viewModel.preserveImageAnimation
+                outputFormatID: viewModel.imageOptionsState.selectedOutputFormat.id,
+                resolution: viewModel.imageOptionsState.selectedResolution,
+                quality: viewModel.imageOptionsState.selectedQuality,
+                pngCompressionLevel: viewModel.imageOptionsState.selectedPNGCompressionLevel,
+                preserveAnimation: viewModel.imageOptionsState.preserveAnimation
             )
         },
         applyAdditionalSettings: { viewModel, settings in
-            viewModel.selectedImageResolution = settings.resolution
-            viewModel.selectedImageQuality = settings.quality
-            viewModel.selectedPNGCompressionLevel = settings.pngCompressionLevel
-            viewModel.preserveImageAnimation = settings.preserveAnimation
+            viewModel.imageOptionsState.selectedResolution = settings.resolution
+            viewModel.imageOptionsState.selectedQuality = settings.quality
+            viewModel.imageOptionsState.selectedPNGCompressionLevel = settings.pngCompressionLevel
+            viewModel.imageOptionsState.preserveAnimation = settings.preserveAnimation
         }
     )
 
@@ -306,7 +306,7 @@ extension ContentViewModel {
                 from: viewModel.audioOutputEncodingSelectionState
             )
             return AudioConversionSettings(
-                outputFormatID: viewModel.selectedAudioOutputFormat.id,
+                outputFormatID: viewModel.audioOptionsState.selectedOutputFormat.id,
                 audioEncoder: audioSettings.encoder,
                 audioMode: audioSettings.mode,
                 sampleRate: audioSettings.sampleRate,
@@ -322,10 +322,10 @@ extension ContentViewModel {
                     bitRate: settings.audioBitRate
                 ),
                 to: viewModel,
-                encoder: \.selectedAudioOutputEncoder,
-                mode: \.selectedAudioOutputMode,
-                sampleRate: \.selectedAudioOutputSampleRate,
-                bitRate: \.selectedAudioOutputBitRate
+                encoder: \.audioOptionsState.selectedOutputEncoder,
+                mode: \.audioOptionsState.selectedOutputMode,
+                sampleRate: \.audioOptionsState.selectedOutputSampleRate,
+                bitRate: \.audioOptionsState.selectedOutputBitRate
             )
         },
         refreshDependentOptions: { $0.refreshAudioCodecOptions() }

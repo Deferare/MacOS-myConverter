@@ -10,10 +10,10 @@ extension ContentViewModel {
     }
 
     var shouldShowAudioOutputSampleRateOption: Bool {
-        audioOutputEncodingSelectionState.shouldShowSampleRateOption
+        audioOptionsState.selectedOutputEncoder.supportsSampleRate
     }
 
     var shouldShowAudioOutputBitRateOption: Bool {
-        audioOutputEncodingSelectionState.shouldShowBitRateOption
+        audioOptionsState.selectedOutputEncoder.supportsAudioBitRate
     }
 }

@@ -16,16 +16,6 @@ extension ContentViewModel {
         persistKind: .video
     )
 
-    private static let imageOptionsDescriptor = OptionStateDescriptor(
-        state: StateProxyDescriptor(stateKeyPath: \.imageOptionsState),
-        persistKind: .image
-    )
-
-    private static let audioOptionsDescriptor = OptionStateDescriptor(
-        state: StateProxyDescriptor(stateKeyPath: \.audioOptionsState),
-        persistKind: .audio
-    )
-
     private func optionValue<State, Value>(
         in descriptor: OptionStateDescriptor<State>,
         _ valueKeyPath: KeyPath<State, Value>
@@ -136,72 +126,6 @@ extension ContentViewModel {
     var selectedAudioBitRate: AudioBitRateOption {
         get { optionValue(in: Self.videoOptionsDescriptor, \.selectedAudioBitRate) }
         set { setOutputAffectingOption(in: Self.videoOptionsDescriptor, \.selectedAudioBitRate, to: newValue, persistence: .persist) }
-    }
-
-    // Image options
-    var selectedImageOutputFormat: ImageFormatOption {
-        get { optionValue(in: Self.imageOptionsDescriptor, \.selectedOutputFormat) }
-        set { setOutputAffectingOption(in: Self.imageOptionsDescriptor, \.selectedOutputFormat, to: newValue, persistence: .persist) }
-    }
-
-    var selectedImageResolution: ResolutionOption {
-        get { optionValue(in: Self.imageOptionsDescriptor, \.selectedResolution) }
-        set { setOutputAffectingOption(in: Self.imageOptionsDescriptor, \.selectedResolution, to: newValue, persistence: .persist) }
-    }
-
-    var selectedImageQuality: ImageQualityOption {
-        get { optionValue(in: Self.imageOptionsDescriptor, \.selectedQuality) }
-        set { setOutputAffectingOption(in: Self.imageOptionsDescriptor, \.selectedQuality, to: newValue, persistence: .persist) }
-    }
-
-    var selectedPNGCompressionLevel: PNGCompressionLevelOption {
-        get { optionValue(in: Self.imageOptionsDescriptor, \.selectedPNGCompressionLevel) }
-        set { setOutputAffectingOption(in: Self.imageOptionsDescriptor, \.selectedPNGCompressionLevel, to: newValue, persistence: .persist) }
-    }
-
-    var preserveImageAnimation: Bool {
-        get { optionValue(in: Self.imageOptionsDescriptor, \.preserveAnimation) }
-        set { setOutputAffectingOption(in: Self.imageOptionsDescriptor, \.preserveAnimation, to: newValue, persistence: .persist) }
-    }
-
-    // Audio options
-    var selectedAudioOutputFormat: AudioFormatOption {
-        get { optionValue(in: Self.audioOptionsDescriptor, \.selectedOutputFormat) }
-        set {
-            setOutputAffectingOption(
-                in: Self.audioOptionsDescriptor,
-                \.selectedOutputFormat,
-                to: newValue,
-                persistence: .deferred(.audioFormatChange)
-            )
-        }
-    }
-
-    var selectedAudioOutputEncoder: AudioEncoderOption {
-        get { optionValue(in: Self.audioOptionsDescriptor, \.selectedOutputEncoder) }
-        set {
-            setOutputAffectingOption(
-                in: Self.audioOptionsDescriptor,
-                \.selectedOutputEncoder,
-                to: newValue,
-                persistence: .deferred(.audioOptionNormalization)
-            )
-        }
-    }
-
-    var selectedAudioOutputMode: AudioModeOption {
-        get { optionValue(in: Self.audioOptionsDescriptor, \.selectedOutputMode) }
-        set { setOutputAffectingOption(in: Self.audioOptionsDescriptor, \.selectedOutputMode, to: newValue, persistence: .persist) }
-    }
-
-    var selectedAudioOutputSampleRate: SampleRateOption {
-        get { optionValue(in: Self.audioOptionsDescriptor, \.selectedOutputSampleRate) }
-        set { setOutputAffectingOption(in: Self.audioOptionsDescriptor, \.selectedOutputSampleRate, to: newValue, persistence: .persist) }
-    }
-
-    var selectedAudioOutputBitRate: AudioBitRateOption {
-        get { optionValue(in: Self.audioOptionsDescriptor, \.selectedOutputBitRate) }
-        set { setOutputAffectingOption(in: Self.audioOptionsDescriptor, \.selectedOutputBitRate, to: newValue, persistence: .persist) }
     }
 
 }

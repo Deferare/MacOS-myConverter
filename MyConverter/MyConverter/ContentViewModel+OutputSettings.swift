@@ -70,13 +70,13 @@ extension ContentViewModel {
     var audioOutputEncodingSelectionState: AudioEncodingSelectionState {
         AudioEncodingSelectionState(
             isEnabled: true,
-            selectedEncoder: selectedAudioOutputEncoder,
-            selectedMode: selectedAudioOutputMode,
-            selectedSampleRate: selectedAudioOutputSampleRate,
-            selectedBitRate: selectedAudioOutputBitRate,
+            selectedEncoder: audioOptionsState.selectedOutputEncoder,
+            selectedMode: audioOptionsState.selectedOutputMode,
+            selectedSampleRate: audioOptionsState.selectedOutputSampleRate,
+            selectedBitRate: audioOptionsState.selectedOutputBitRate,
             encoderOptions: audioOutputEncoderSelectionOptions,
-            shouldShowSampleRateOption: selectedAudioOutputEncoder.supportsSampleRate,
-            shouldShowBitRateOption: selectedAudioOutputEncoder.supportsAudioBitRate
+            shouldShowSampleRateOption: audioOptionsState.selectedOutputEncoder.supportsSampleRate,
+            shouldShowBitRateOption: audioOptionsState.selectedOutputEncoder.supportsAudioBitRate
         )
     }
 
@@ -130,17 +130,17 @@ extension ContentViewModel {
 
     func buildImageOutputSettings() -> ImageOutputSettings {
         return ImageOutputSettings(
-            containerFormat: selectedImageOutputFormat,
-            resolution: selectedImageResolution.dimensions,
+            containerFormat: imageOptionsState.selectedOutputFormat,
+            resolution: imageOptionsState.selectedResolution.dimensions,
             compressionQuality: optionalValue(
-                when: selectedImageOutputFormat.supportsCompressionQuality,
-                selectedImageQuality.compressionQuality
+                when: imageOptionsState.selectedOutputFormat.supportsCompressionQuality,
+                imageOptionsState.selectedQuality.compressionQuality
             ),
             pngCompressionLevel: optionalValue(
-                when: selectedImageOutputFormat.supportsPNGCompressionLevel,
-                selectedPNGCompressionLevel.level
+                when: imageOptionsState.selectedOutputFormat.supportsPNGCompressionLevel,
+                imageOptionsState.selectedPNGCompressionLevel.level
             ),
-            preserveAnimation: preserveImageAnimation,
+            preserveAnimation: imageOptionsState.preserveAnimation,
             sourceIsAnimated: imageSourceIsAnimated
         )
     }
@@ -149,7 +149,7 @@ extension ContentViewModel {
         let audioSettings = resolvedAudioEncodingSettings(audioOutputEncodingSelectionState)
 
         return AudioOutputSettings(
-            containerFormat: selectedAudioOutputFormat,
+            containerFormat: audioOptionsState.selectedOutputFormat,
             audioCodecCandidates: audioSettings.codecCandidates,
             audioChannels: audioSettings.channels,
             sampleRate: audioSettings.sampleRate,

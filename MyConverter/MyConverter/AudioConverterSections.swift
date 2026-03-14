@@ -21,7 +21,7 @@ struct AudioConverterFormSectionView: View, Equatable {
         ) {
             MenuPicker(
                 "Output Format",
-                selection: viewModel.binding(to: \.selectedAudioOutputFormat),
+                selection: viewModel.binding(to: \.audioOptionsState.selectedOutputFormat),
                 options: state.outputFormatOptions,
                 disabledWhenEmpty: true,
                 showsDivider: true,
@@ -30,7 +30,7 @@ struct AudioConverterFormSectionView: View, Equatable {
 
             MenuPicker(
                 "Audio Encoder",
-                selection: viewModel.binding(to: \.selectedAudioOutputEncoder),
+                selection: viewModel.binding(to: \.audioOptionsState.selectedOutputEncoder),
                 options: state.audioSettings.encoderOptions,
                 disabledWhenEmpty: true,
                 showsDivider: true,
@@ -38,9 +38,9 @@ struct AudioConverterFormSectionView: View, Equatable {
             )
 
             AudioModeAndRatePickers(
-                modeSelection: viewModel.binding(to: \.selectedAudioOutputMode),
-                sampleRateSelection: viewModel.binding(to: \.selectedAudioOutputSampleRate),
-                bitRateSelection: viewModel.binding(to: \.selectedAudioOutputBitRate),
+                modeSelection: viewModel.binding(to: \.audioOptionsState.selectedOutputMode),
+                sampleRateSelection: viewModel.binding(to: \.audioOptionsState.selectedOutputSampleRate),
+                bitRateSelection: viewModel.binding(to: \.audioOptionsState.selectedOutputBitRate),
                 showSampleRate: state.audioSettings.shouldShowSampleRateOption,
                 showBitRate: state.audioSettings.shouldShowBitRateOption,
                 showsDividerOnLastRow: state.hintMessage != nil

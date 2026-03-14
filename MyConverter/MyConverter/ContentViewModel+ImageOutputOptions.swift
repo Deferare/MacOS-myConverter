@@ -10,14 +10,14 @@ extension ContentViewModel {
     }
 
     var shouldShowImageQualityOption: Bool {
-        selectedImageOutputFormat.supportsCompressionQuality
+        imageOptionsState.selectedOutputFormat.supportsCompressionQuality
     }
 
     var shouldShowPNGCompressionOption: Bool {
-        selectedImageOutputFormat.supportsPNGCompressionLevel
+        imageOptionsState.selectedOutputFormat.supportsPNGCompressionLevel
     }
 
     var shouldShowPreserveAnimationOption: Bool {
-        imageSourceIsAnimated && selectedImageOutputFormat.supportsAnimation
+        imageSourceIsAnimated && imageOptionsState.selectedOutputFormat.supportsAnimation
     }
 }
