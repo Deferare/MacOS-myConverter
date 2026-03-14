@@ -378,40 +378,76 @@ extension ContentViewModel {
 }
 
 extension ContentViewModel.MediaKind {
+    private struct ValidationBehavior {
+        let validationMessage: (ContentViewModel) -> String?
+        let hintMessage: (ContentViewModel) -> String?
+        let validateSourceOutputSettings: (ContentViewModel, URL) async -> String?
+        let validatePreparedSourceOutputSettings: (
+            ContentViewModel,
+            PreparedSourceConversion,
+            ContentViewModel.BatchExecutionEnvironment
+        ) async -> String?
+    }
+
+    private static let validationBehaviorByKind: [Self: ValidationBehavior] = [
+        .video: ValidationBehavior(
+            validationMessage: { $0.videoValidationMessage() },
+            hintMessage: { _ in nil },
+            validateSourceOutputSettings: { viewModel, sourceURL in
+                await viewModel.validateVideoSourceOutputSettings(sourceURL)
+            },
+            validatePreparedSourceOutputSettings: { viewModel, source, environment in
+                await viewModel.validatePreparedVideoSourceOutputSettings(
+                    source: source,
+                    environment: environment
+                )
+            }
+        ),
+        .image: ValidationBehavior(
+            validationMessage: { $0.imageValidationMessage() },
+            hintMessage: { $0.imageHintMessage() },
+            validateSourceOutputSettings: { viewModel, sourceURL in
+                await viewModel.validateImageSourceOutputSettings(sourceURL)
+            },
+            validatePreparedSourceOutputSettings: { viewModel, source, environment in
+                await viewModel.validatePreparedImageSourceOutputSettings(
+                    source: source,
+                    environment: environment
+                )
+            }
+        ),
+        .audio: ValidationBehavior(
+            validationMessage: { $0.audioValidationMessage() },
+            hintMessage: { $0.audioHintMessage() },
+            validateSourceOutputSettings: { viewModel, sourceURL in
+                await viewModel.validateAudioSourceOutputSettings(sourceURL)
+            },
+            validatePreparedSourceOutputSettings: { viewModel, source, environment in
+                await viewModel.validatePreparedAudioSourceOutputSettings(
+                    source: source,
+                    environment: environment
+                )
+            }
+        )
+    ]
+
+    private var validationBehavior: ValidationBehavior {
+        Self.validationBehaviorByKind[self] ?? Self.validationBehaviorByKind[.video]!
+    }
+
     func validationMessage(in viewModel: ContentViewModel) -> String? {
-        switch self {
-        case .video:
-            viewModel.videoValidationMessage()
-        case .image:
-            viewModel.imageValidationMessage()
-        case .audio:
-            viewModel.audioValidationMessage()
-        }
+        validationBehavior.validationMessage(viewModel)
     }
 
     func hintMessage(in viewModel: ContentViewModel) -> String? {
-        switch self {
-        case .video:
-            nil
-        case .image:
-            viewModel.imageHintMessage()
-        case .audio:
-            viewModel.audioHintMessage()
-        }
+        validationBehavior.hintMessage(viewModel)
     }
 
     func validateSourceOutputSettings(
         in viewModel: ContentViewModel,
         sourceURL: URL
     ) async -> String? {
-        switch self {
-        case .video:
-            await viewModel.validateVideoSourceOutputSettings(sourceURL)
-        case .image:
-            await viewModel.validateImageSourceOutputSettings(sourceURL)
-        case .audio:
-            await viewModel.validateAudioSourceOutputSettings(sourceURL)
-        }
+        await validationBehavior.validateSourceOutputSettings(viewModel, sourceURL)
     }
 
     func validatePreparedSourceOutputSettings(
@@ -419,22 +455,10 @@ extension ContentViewModel.MediaKind {
         source: PreparedSourceConversion,
         environment: ContentViewModel.BatchExecutionEnvironment
     ) async -> String? {
-        switch self {
-        case .video:
-            await viewModel.validatePreparedVideoSourceOutputSettings(
-                source: source,
-                environment: environment
-            )
-        case .image:
-            await viewModel.validatePreparedImageSourceOutputSettings(
-                source: source,
-                environment: environment
-            )
-        case .audio:
-            await viewModel.validatePreparedAudioSourceOutputSettings(
-                source: source,
-                environment: environment
-            )
-        }
+        await validationBehavior.validatePreparedSourceOutputSettings(
+            viewModel,
+            source,
+            environment
+        )
     }
 }
