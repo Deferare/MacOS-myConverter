@@ -2,41 +2,30 @@ import Foundation
 
 extension ContentViewModel {
     func resetCancelledConversionState(
-        progressKeyPath: ReferenceWritableKeyPath<ContentViewModel, Double>,
-        errorMessageKeyPath: ReferenceWritableKeyPath<ContentViewModel, String?>
+        using descriptor: MediaStateDescriptor
     ) {
-        setProgress(0, at: progressKeyPath)
-        self[keyPath: errorMessageKeyPath] = nil
+        setProgress(0, at: descriptor.progress)
+        self[keyPath: descriptor.conversionErrorMessage] = nil
     }
 
     func performManagedConversionExecution(
-        runningKeyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
-        progressKeyPath: ReferenceWritableKeyPath<ContentViewModel, Double>,
-        errorMessageKeyPath: ReferenceWritableKeyPath<ContentViewModel, String?>,
-        currentBatchIndexKeyPath: ReferenceWritableKeyPath<ContentViewModel, Int>,
-        totalBatchCountKeyPath: ReferenceWritableKeyPath<ContentViewModel, Int>,
+        using descriptor: MediaStateDescriptor,
         treatExportCancellationAsCancelled: Bool = false,
         onError: (Error) -> Void,
         operation: () async throws -> Void
     ) async {
         do {
             defer {
-                self[keyPath: runningKeyPath] = false
-                self[keyPath: currentBatchIndexKeyPath] = 0
-                self[keyPath: totalBatchCountKeyPath] = 0
+                self[keyPath: descriptor.isConverting] = false
+                self[keyPath: descriptor.currentBatchIndex] = 0
+                self[keyPath: descriptor.totalBatchCount] = 0
             }
             try Task.checkCancellation()
             try await operation()
         } catch is CancellationError {
-            resetCancelledConversionState(
-                progressKeyPath: progressKeyPath,
-                errorMessageKeyPath: errorMessageKeyPath
-            )
+            resetCancelledConversionState(using: descriptor)
         } catch ConversionError.exportCancelled where treatExportCancellationAsCancelled {
-            resetCancelledConversionState(
-                progressKeyPath: progressKeyPath,
-                errorMessageKeyPath: errorMessageKeyPath
-            )
+            resetCancelledConversionState(using: descriptor)
         } catch {
             onError(error)
         }
@@ -45,11 +34,7 @@ extension ContentViewModel {
     func executeBatchConversion(
         preparedSources: [PreparedSourceConversion],
         batchEnvironment: BatchExecutionEnvironment,
-        runningKeyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
-        progressKeyPath: ReferenceWritableKeyPath<ContentViewModel, Double>,
-        errorMessageKeyPath: ReferenceWritableKeyPath<ContentViewModel, String?>,
-        currentBatchIndexKeyPath: ReferenceWritableKeyPath<ContentViewModel, Int>,
-        totalBatchCountKeyPath: ReferenceWritableKeyPath<ContentViewModel, Int>,
+        using descriptor: MediaStateDescriptor,
         skippedSummaryPrefix: String,
         treatExportCancellationAsCancelled: Bool = false,
         validate: @escaping (PreparedSourceConversion, BatchExecutionEnvironment) async -> String?,
@@ -58,15 +43,11 @@ extension ContentViewModel {
         onSourceProcessed: @escaping (URL) -> Void,
         onError: (Error) -> Void
     ) async {
-        self[keyPath: totalBatchCountKeyPath] = preparedSources.count
-        self[keyPath: currentBatchIndexKeyPath] = 0
+        self[keyPath: descriptor.totalBatchCount] = preparedSources.count
+        self[keyPath: descriptor.currentBatchIndex] = 0
 
         await performManagedConversionExecution(
-            runningKeyPath: runningKeyPath,
-            progressKeyPath: progressKeyPath,
-            errorMessageKeyPath: errorMessageKeyPath,
-            currentBatchIndexKeyPath: currentBatchIndexKeyPath,
-            totalBatchCountKeyPath: totalBatchCountKeyPath,
+            using: descriptor,
             treatExportCancellationAsCancelled: treatExportCancellationAsCancelled,
             onError: onError
         ) {
@@ -78,16 +59,16 @@ extension ContentViewModel {
                 onSavedOutput: onSavedOutput,
                 onSourceProcessed: onSourceProcessed,
                 onBatchIndexChanged: { index in
-                    self[keyPath: currentBatchIndexKeyPath] = index
+                    self[keyPath: descriptor.currentBatchIndex] = index
                 }
             )
 
-            setProgress(1, at: progressKeyPath)
+            setProgress(1, at: descriptor.progress)
             if let summary = BatchConversionSupport.skippedFilesSummary(
                 prefix: skippedSummaryPrefix,
                 entries: skippedEntries
             ) {
-                self[keyPath: errorMessageKeyPath] = summary
+                self[keyPath: descriptor.conversionErrorMessage] = summary
             }
         }
     }

@@ -1,4 +1,4 @@
-enum AudioEncoderOption: String, CaseIterable, Identifiable {
+enum AudioEncoderOption: String, CaseIterable, Identifiable, Sendable {
     case auto = "Auto"
     case aac = "AAC"
     case opus = "Opus"
@@ -9,15 +9,15 @@ enum AudioEncoderOption: String, CaseIterable, Identifiable {
 
     nonisolated var id: String { rawValue }
 
-    private struct Profile {
+    private struct Profile: Sendable {
         let codecCandidates: [String]
         let supportsSampleRate: Bool
         let supportsAudioBitRate: Bool
-        let isVideoCompatible: (VideoFormatOption) -> Bool
-        let isAudioCompatible: (AudioFormatOption) -> Bool
+        let isVideoCompatible: @Sendable (VideoFormatOption) -> Bool
+        let isAudioCompatible: @Sendable (AudioFormatOption) -> Bool
     }
 
-    private static let profiles: [Self: Profile] = [
+    nonisolated private static let profiles: [Self: Profile] = [
         .auto: Profile(
             codecCandidates: [],
             supportsSampleRate: false,
@@ -138,7 +138,7 @@ enum AudioEncoderOption: String, CaseIterable, Identifiable {
         )
     ]
 
-    private var profile: Profile {
+    nonisolated private var profile: Profile {
         Self.profiles[self] ?? Self.profiles[.auto]!
     }
 

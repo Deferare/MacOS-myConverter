@@ -1,4 +1,4 @@
-enum VideoEncoderOption: String, CaseIterable, Identifiable {
+enum VideoEncoderOption: String, CaseIterable, Identifiable, Sendable {
     case auto = "Auto"
     case h265CPU = "H.265(CPU)"
     case h265GPU = "H.265(GPU)"
@@ -13,14 +13,14 @@ enum VideoEncoderOption: String, CaseIterable, Identifiable {
 
     nonisolated var id: String { rawValue }
 
-    private struct Profile {
+    private struct Profile: Sendable {
         let codecCandidates: [String]
         let usesHEVCCodec: Bool
         let supportsVideoBitRate: Bool
-        let isCompatible: (VideoFormatOption) -> Bool
+        let isCompatible: @Sendable (VideoFormatOption) -> Bool
     }
 
-    private static let profiles: [Self: Profile] = [
+    nonisolated private static let profiles: [Self: Profile] = [
         .auto: Profile(
             codecCandidates: [],
             usesHEVCCodec: false,
@@ -133,7 +133,7 @@ enum VideoEncoderOption: String, CaseIterable, Identifiable {
         )
     ]
 
-    private var profile: Profile {
+    nonisolated private var profile: Profile {
         Self.profiles[self] ?? Self.profiles[.auto]!
     }
 

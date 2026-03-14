@@ -154,6 +154,7 @@ extension ContentViewModel {
 
         await performMediaBatchConversion(
             canConvert: canConvert,
+            descriptor: descriptor,
             primarySourceURL: mediaStateValue(using: descriptor, \.sourceURL),
             queuedSourceURLs: mediaStateValue(using: descriptor, \.queuedSourceURLs),
             existingOutputURLsBySourceID: mediaStateValue(
@@ -165,11 +166,6 @@ extension ContentViewModel {
             outputLabel: metadata.outputLabel,
             preferredOutputDestination: selectedOutputDestinationHandle(for: kind),
             preferredOutputDirectory: selectedOutputDirectoryURL(for: kind),
-            runningKeyPath: descriptor.isConverting,
-            progressKeyPath: descriptor.progress,
-            errorMessageKeyPath: descriptor.conversionErrorMessage,
-            currentBatchIndexKeyPath: descriptor.currentBatchIndex,
-            totalBatchCountKeyPath: descriptor.totalBatchCount,
             skippedSummaryPrefix: metadata.skippedSummaryPrefix,
             treatExportCancellationAsCancelled: metadata.treatExportCancellationAsCancelled,
             startState: { outputDirectoryURL, preserveCompletedOutputs in
@@ -224,6 +220,7 @@ extension ContentViewModel {
 
     func performMediaBatchConversion<OutputSettings: Sendable>(
         canConvert: Bool,
+        descriptor: MediaStateDescriptor,
         primarySourceURL: URL?,
         queuedSourceURLs: [URL],
         existingOutputURLsBySourceID: [String: URL],
@@ -232,11 +229,6 @@ extension ContentViewModel {
         outputLabel: String,
         preferredOutputDestination: OutputDestinationHandle?,
         preferredOutputDirectory: URL?,
-        runningKeyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
-        progressKeyPath: ReferenceWritableKeyPath<ContentViewModel, Double>,
-        errorMessageKeyPath: ReferenceWritableKeyPath<ContentViewModel, String?>,
-        currentBatchIndexKeyPath: ReferenceWritableKeyPath<ContentViewModel, Int>,
-        totalBatchCountKeyPath: ReferenceWritableKeyPath<ContentViewModel, Int>,
         skippedSummaryPrefix: String,
         treatExportCancellationAsCancelled: Bool = false,
         startState: (URL, Bool) -> Void,
@@ -322,11 +314,7 @@ extension ContentViewModel {
                 preparedSource: preparedSource,
                 outputSettings: outputSettings,
                 prepareSingleSourceEnvironment: prepareSingleSourceEnvironment,
-                runningKeyPath: runningKeyPath,
-                progressKeyPath: progressKeyPath,
-                errorMessageKeyPath: errorMessageKeyPath,
-                currentBatchIndexKeyPath: currentBatchIndexKeyPath,
-                totalBatchCountKeyPath: totalBatchCountKeyPath,
+                using: descriptor,
                 skippedSummaryPrefix: skippedSummaryPrefix,
                 treatExportCancellationAsCancelled: treatExportCancellationAsCancelled,
                 validate: validate,
@@ -347,11 +335,7 @@ extension ContentViewModel {
         await executeBatchConversion(
             preparedSources: batchContext.preparedSources,
             batchEnvironment: batchEnvironment,
-            runningKeyPath: runningKeyPath,
-            progressKeyPath: progressKeyPath,
-            errorMessageKeyPath: errorMessageKeyPath,
-            currentBatchIndexKeyPath: currentBatchIndexKeyPath,
-            totalBatchCountKeyPath: totalBatchCountKeyPath,
+            using: descriptor,
             skippedSummaryPrefix: skippedSummaryPrefix,
             treatExportCancellationAsCancelled: treatExportCancellationAsCancelled,
             validate: validate,
@@ -371,11 +355,7 @@ extension ContentViewModel {
             PreparedSourceConversion,
             OutputSettings
         ) async -> BatchExecutionEnvironment,
-        runningKeyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
-        progressKeyPath: ReferenceWritableKeyPath<ContentViewModel, Double>,
-        errorMessageKeyPath: ReferenceWritableKeyPath<ContentViewModel, String?>,
-        currentBatchIndexKeyPath: ReferenceWritableKeyPath<ContentViewModel, Int>,
-        totalBatchCountKeyPath: ReferenceWritableKeyPath<ContentViewModel, Int>,
+        using descriptor: MediaStateDescriptor,
         skippedSummaryPrefix: String,
         treatExportCancellationAsCancelled: Bool = false,
         validate: @escaping (PreparedSourceConversion, BatchExecutionEnvironment) async -> String?,
@@ -384,15 +364,11 @@ extension ContentViewModel {
         onSourceProcessed: @escaping (URL) -> Void,
         onError: (Error) -> Void
     ) async {
-        self[keyPath: totalBatchCountKeyPath] = 1
-        self[keyPath: currentBatchIndexKeyPath] = 1
+        self[keyPath: descriptor.totalBatchCount] = 1
+        self[keyPath: descriptor.currentBatchIndex] = 1
 
         await performManagedConversionExecution(
-            runningKeyPath: runningKeyPath,
-            progressKeyPath: progressKeyPath,
-            errorMessageKeyPath: errorMessageKeyPath,
-            currentBatchIndexKeyPath: currentBatchIndexKeyPath,
-            totalBatchCountKeyPath: totalBatchCountKeyPath,
+            using: descriptor,
             treatExportCancellationAsCancelled: treatExportCancellationAsCancelled,
             onError: onError
         ) {
@@ -416,10 +392,10 @@ extension ContentViewModel {
                 }
             )
 
-            setProgress(1, at: progressKeyPath)
+            setProgress(1, at: descriptor.progress)
             if let entry = result.skippedEntry {
                 onSourceProcessed(preparedSource.sourceURL)
-                self[keyPath: errorMessageKeyPath] = BatchConversionSupport.skippedFilesSummary(
+                self[keyPath: descriptor.conversionErrorMessage] = BatchConversionSupport.skippedFilesSummary(
                     prefix: skippedSummaryPrefix,
                     entries: [entry]
                 )
