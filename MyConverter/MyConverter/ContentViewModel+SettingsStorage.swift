@@ -92,7 +92,7 @@ extension ContentViewModel {
 
     func applyVideoSourceSettings(_ settings: VideoConversionSettings) {
         applyStoredOutputFormatSettings(
-            using: Self.videoOutputFormatDescriptorValue,
+            using: Self.videoOutputFormatDescriptor,
             applyingFlagKeyPath: \.settingsState.isApplyingVideoSettings,
             storedFormatID: settings.outputFormatID,
             normalizeStoredID: VideoFormatOption.legacyNormalizedID(from:),
@@ -100,7 +100,7 @@ extension ContentViewModel {
                 Self.applyVideoConversionSettings(settings, to: self)
             },
             postApply: {
-                ensureSelectedOutputFormatIsAvailable(using: Self.videoOutputFormatDescriptorValue)
+                ensureSelectedOutputFormatIsAvailable(using: Self.videoOutputFormatDescriptor)
                 refreshVideoCodecOptions()
             }
         )
@@ -137,7 +137,7 @@ extension ContentViewModel {
 
     func applyImageSourceSettings(_ settings: ImageConversionSettings) {
         applyStoredOutputFormatSettings(
-            using: Self.imageOutputFormatDescriptorValue,
+            using: Self.imageOutputFormatDescriptor,
             applyingFlagKeyPath: \.settingsState.isApplyingImageSettings,
             storedFormatID: settings.outputFormatID,
             normalizeStoredID: { $0.lowercased() },
@@ -148,7 +148,7 @@ extension ContentViewModel {
                 imageOptionsState.preserveAnimation = settings.preserveAnimation
             },
             postApply: {
-                ensureSelectedOutputFormatIsAvailable(using: Self.imageOutputFormatDescriptorValue)
+                ensureSelectedOutputFormatIsAvailable(using: Self.imageOutputFormatDescriptor)
             }
         )
     }
@@ -187,7 +187,7 @@ extension ContentViewModel {
 
     func applyAudioSourceSettings(_ settings: AudioConversionSettings) {
         applyStoredOutputFormatSettings(
-            using: Self.audioOutputFormatDescriptorValue,
+            using: Self.audioOutputFormatDescriptor,
             applyingFlagKeyPath: \.settingsState.isApplyingAudioSettings,
             storedFormatID: settings.outputFormatID,
             normalizeStoredID: { $0.lowercased() },
@@ -207,7 +207,7 @@ extension ContentViewModel {
                 )
             },
             postApply: {
-                ensureSelectedOutputFormatIsAvailable(using: Self.audioOutputFormatDescriptorValue)
+                ensureSelectedOutputFormatIsAvailable(using: Self.audioOutputFormatDescriptor)
                 refreshAudioCodecOptions()
             }
         )

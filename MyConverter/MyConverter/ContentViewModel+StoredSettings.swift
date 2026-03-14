@@ -21,7 +21,7 @@ extension ContentViewModel {
         operation()
     }
 
-    static let videoOutputFormatDescriptorValue = OutputFormatDescriptor(
+    static let videoOutputFormatDescriptor = OutputFormatDescriptor(
         sourceURL: \.videoRuntimeState.media.sourceURL,
         availableFormats: \.videoRuntimeState.media.availableOutputFormats,
         selectedFormat: \.videoOptionsState.selectedOutputFormat,
@@ -32,7 +32,7 @@ extension ContentViewModel {
         preferredSelection: VideoFormatOption.defaultSelection(from:)
     )
 
-    static let imageOutputFormatDescriptorValue = OutputFormatDescriptor(
+    static let imageOutputFormatDescriptor = OutputFormatDescriptor(
         sourceURL: \.imageRuntimeState.media.sourceURL,
         availableFormats: \.imageRuntimeState.media.availableOutputFormats,
         selectedFormat: \.imageOptionsState.selectedOutputFormat,
@@ -43,7 +43,7 @@ extension ContentViewModel {
         preferredSelection: { $0.first }
     )
 
-    static let audioOutputFormatDescriptorValue = OutputFormatDescriptor(
+    static let audioOutputFormatDescriptor = OutputFormatDescriptor(
         sourceURL: \.audioRuntimeState.media.sourceURL,
         availableFormats: \.audioRuntimeState.media.availableOutputFormats,
         selectedFormat: \.audioOptionsState.selectedOutputFormat,

@@ -91,7 +91,7 @@ extension ContentViewModel {
             customVideoBitRateValidationMessage()
         ) ?? outputSettingsValidationMessage(
             for: .video,
-            formatDescriptor: Self.videoOutputFormatDescriptorValue,
+            formatDescriptor: Self.videoOutputFormatDescriptor,
             unavailableMessage: "Selected container is not available for this source."
         ) {
             let selection = videoEncodingSelectionState
@@ -116,13 +116,13 @@ extension ContentViewModel {
         return await validateOutputFormatAvailability(
             for: sourceURL,
             selectedFormatNormalizedID: selectedOutputFormatNormalizedID(
-                using: Self.videoOutputFormatDescriptorValue
+                using: Self.videoOutputFormatDescriptor
             ),
             unavailableMessage: "Selected container is not available for this source.",
             fetchCapabilities: { await VideoConversionEngine.sourceCapabilities(for: $0) },
             availableFormats: { $0.availableOutputFormats },
             errorMessage: { $0.errorMessage },
-            formatNormalizedID: Self.videoOutputFormatDescriptorValue.formatNormalizedID
+            formatNormalizedID: Self.videoOutputFormatDescriptor.formatNormalizedID
         )
     }
 
@@ -141,7 +141,7 @@ extension ContentViewModel {
         return validateCachedOutputFormatAvailability(
             capabilities: cached.sourceCapabilities,
             selectedFormatNormalizedID: selectedOutputFormatNormalizedID(
-                using: Self.videoOutputFormatDescriptorValue
+                using: Self.videoOutputFormatDescriptor
             ),
             unavailableMessage: "Selected container is not available for this source.",
             availableFormats: { $0.availableOutputFormats },
@@ -164,7 +164,7 @@ extension ContentViewModel {
     func imageValidationMessage() -> String? {
         outputSettingsValidationMessage(
             for: .image,
-            formatDescriptor: Self.imageOutputFormatDescriptorValue,
+            formatDescriptor: Self.imageOutputFormatDescriptor,
             unavailableMessage: "Selected output format is not available for this source."
         ) {
             imageAnimationExportValidationMessage(isAnimated: imageSourceIsAnimated)
@@ -175,13 +175,13 @@ extension ContentViewModel {
         await validateOutputFormatAvailability(
             for: sourceURL,
             selectedFormatNormalizedID: selectedOutputFormatNormalizedID(
-                using: Self.imageOutputFormatDescriptorValue
+                using: Self.imageOutputFormatDescriptor
             ),
             unavailableMessage: "Selected output format is not available for this source.",
             fetchCapabilities: { await ImageConversionEngine.sourceCapabilities(for: $0) },
             availableFormats: { $0.availableOutputFormats },
             errorMessage: { $0.errorMessage },
-            formatNormalizedID: Self.imageOutputFormatDescriptorValue.formatNormalizedID,
+            formatNormalizedID: Self.imageOutputFormatDescriptor.formatNormalizedID,
             additionalValidation: { capabilities in
                 imageAnimationExportValidationMessage(isAnimated: capabilities.frameCount > 1)
             }
@@ -199,7 +199,7 @@ extension ContentViewModel {
         return validateCachedOutputFormatAvailability(
             capabilities: cached,
             selectedFormatNormalizedID: selectedOutputFormatNormalizedID(
-                using: Self.imageOutputFormatDescriptorValue
+                using: Self.imageOutputFormatDescriptor
             ),
             unavailableMessage: "Selected output format is not available for this source.",
             availableFormats: { $0.availableOutputFormats },
@@ -218,7 +218,7 @@ extension ContentViewModel {
     func audioValidationMessage() -> String? {
         outputSettingsValidationMessage(
             for: .audio,
-            formatDescriptor: Self.audioOutputFormatDescriptorValue,
+            formatDescriptor: Self.audioOutputFormatDescriptor,
             unavailableMessage: "Selected output format is not available for this source."
         ) {
             unavailableSelectedAudioEncoderMessage(audioOutputEncodingSelectionState)
@@ -229,13 +229,13 @@ extension ContentViewModel {
         await validateOutputFormatAvailability(
             for: sourceURL,
             selectedFormatNormalizedID: selectedOutputFormatNormalizedID(
-                using: Self.audioOutputFormatDescriptorValue
+                using: Self.audioOutputFormatDescriptor
             ),
             unavailableMessage: "Selected output format is not available for this source.",
             fetchCapabilities: { await VideoConversionEngine.sourceCapabilitiesForAudio(for: $0) },
             availableFormats: { $0.availableOutputFormats },
             errorMessage: { $0.errorMessage },
-            formatNormalizedID: Self.audioOutputFormatDescriptorValue.formatNormalizedID
+            formatNormalizedID: Self.audioOutputFormatDescriptor.formatNormalizedID
         )
     }
 
@@ -250,7 +250,7 @@ extension ContentViewModel {
         return validateCachedOutputFormatAvailability(
             capabilities: cached,
             selectedFormatNormalizedID: selectedOutputFormatNormalizedID(
-                using: Self.audioOutputFormatDescriptorValue
+                using: Self.audioOutputFormatDescriptor
             ),
             unavailableMessage: "Selected output format is not available for this source.",
             availableFormats: { $0.availableOutputFormats },

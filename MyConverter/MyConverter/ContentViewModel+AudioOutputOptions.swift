@@ -2,7 +2,7 @@ import Foundation
 
 extension ContentViewModel {
     var audioOutputFormatOptions: [AudioFormatOption] {
-        availableOutputFormatOptions(using: Self.audioOutputFormatDescriptorValue)
+        availableOutputFormatOptions(using: Self.audioOutputFormatDescriptor)
     }
 
     var audioOutputEncoderOptions: [AudioEncoderOption] {

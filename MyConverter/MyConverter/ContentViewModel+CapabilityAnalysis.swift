@@ -320,7 +320,7 @@ extension ContentViewModel {
             onFormatsResolved: { [self] resolvedFormats in
                 applyResolvedOutputFormats(
                     resolvedFormats,
-                    formatDescriptor: Self.videoOutputFormatDescriptorValue,
+                    formatDescriptor: Self.videoOutputFormatDescriptor,
                     postSelectionUpdate: {
                         refreshVideoCodecOptions()
                     },
@@ -358,7 +358,7 @@ extension ContentViewModel {
                 updateState(\.imageRuntimeState, value: \.sourceHasAlpha, to: primaryHasAlpha)
                 applyResolvedOutputFormats(
                     resolvedFormats,
-                    formatDescriptor: Self.imageOutputFormatDescriptorValue,
+                    formatDescriptor: Self.imageOutputFormatDescriptor,
                     persistSettings: {
                         persistCurrentSourceSettingsIfNeeded(for: .image)
                     }
@@ -382,7 +382,7 @@ extension ContentViewModel {
             onFormatsResolved: { [self] resolvedFormats in
                 applyResolvedOutputFormats(
                     resolvedFormats,
-                    formatDescriptor: Self.audioOutputFormatDescriptorValue,
+                    formatDescriptor: Self.audioOutputFormatDescriptor,
                     postSelectionUpdate: {
                         refreshAudioCodecOptions()
                     },

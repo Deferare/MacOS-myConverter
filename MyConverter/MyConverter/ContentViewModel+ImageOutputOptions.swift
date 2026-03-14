@@ -6,7 +6,7 @@ extension ContentViewModel {
     }
 
     var imageOutputFormatOptions: [ImageFormatOption] {
-        availableOutputFormatOptions(using: Self.imageOutputFormatDescriptorValue)
+        availableOutputFormatOptions(using: Self.imageOutputFormatDescriptor)
     }
 
     var shouldShowImageQualityOption: Bool {

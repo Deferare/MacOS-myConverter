@@ -72,7 +72,7 @@ extension ContentViewModel {
         viewModel.updateState(\.imageRuntimeState, value: \.sourceHasAlpha, to: false)
     }
 
-    private static let videoStateDescriptorValue = MediaStateDescriptor(
+    private static let videoStateDescriptor = MediaStateDescriptor(
         sourceURL: \.videoRuntimeState.media.sourceURL,
         queuedSourceURLs: \.videoRuntimeState.media.queuedSourceURLs,
         convertedURL: \.videoRuntimeState.media.convertedURL,
@@ -92,7 +92,7 @@ extension ContentViewModel {
         pendingSelectionAnalysisTask: \.taskState.pendingVideoSelectionAnalysisTask
     )
 
-    private static let imageStateDescriptorValue = MediaStateDescriptor(
+    private static let imageStateDescriptor = MediaStateDescriptor(
         sourceURL: \.imageRuntimeState.media.sourceURL,
         queuedSourceURLs: \.imageRuntimeState.media.queuedSourceURLs,
         convertedURL: \.imageRuntimeState.media.convertedURL,
@@ -112,7 +112,7 @@ extension ContentViewModel {
         pendingSelectionAnalysisTask: \.taskState.pendingImageSelectionAnalysisTask
     )
 
-    private static let audioStateDescriptorValue = MediaStateDescriptor(
+    private static let audioStateDescriptor = MediaStateDescriptor(
         sourceURL: \.audioRuntimeState.media.sourceURL,
         queuedSourceURLs: \.audioRuntimeState.media.queuedSourceURLs,
         convertedURL: \.audioRuntimeState.media.convertedURL,
@@ -230,12 +230,12 @@ extension ContentViewModel {
 
 private extension ContentViewModel.MediaKind {
     private static let mediaStateDescriptorsByKind: [Self: ContentViewModel.MediaStateDescriptor] = [
-        .video: ContentViewModel.videoStateDescriptorValue,
-        .image: ContentViewModel.imageStateDescriptorValue,
-        .audio: ContentViewModel.audioStateDescriptorValue
+        .video: ContentViewModel.videoStateDescriptor,
+        .image: ContentViewModel.imageStateDescriptor,
+        .audio: ContentViewModel.audioStateDescriptor
     ]
 
     var mediaStateDescriptor: ContentViewModel.MediaStateDescriptor {
-        Self.mediaStateDescriptorsByKind[self] ?? ContentViewModel.videoStateDescriptorValue
+        Self.mediaStateDescriptorsByKind[self] ?? ContentViewModel.videoStateDescriptor
     }
 }

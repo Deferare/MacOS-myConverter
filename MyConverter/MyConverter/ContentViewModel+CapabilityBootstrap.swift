@@ -33,18 +33,18 @@ extension ContentViewModel {
         case .video:
             applyAvailableOutputFormats(
                 ContentViewModelSupport.placeholderVideoFormats(),
-                using: Self.videoOutputFormatDescriptorValue
+                using: Self.videoOutputFormatDescriptor
             )
             applyPlaceholderVideoCodecOptions()
         case .image:
             applyAvailableOutputFormats(
                 ContentViewModelSupport.placeholderImageFormats(),
-                using: Self.imageOutputFormatDescriptorValue
+                using: Self.imageOutputFormatDescriptor
             )
         case .audio:
             applyAvailableOutputFormats(
                 ContentViewModelSupport.placeholderAudioFormats(),
-                using: Self.audioOutputFormatDescriptorValue
+                using: Self.audioOutputFormatDescriptor
             )
             applyPlaceholderAudioCodecOptions()
         }
@@ -147,7 +147,7 @@ extension ContentViewModel {
                 viewModel.applyWarmedOutputFormatsIfIdle(
                     warmedFormats,
                     for: .video,
-                    formatDescriptor: Self.videoOutputFormatDescriptorValue,
+                    formatDescriptor: Self.videoOutputFormatDescriptor,
                     postApply: {
                         viewModel.refreshVideoCodecOptions()
                     }
@@ -159,7 +159,7 @@ extension ContentViewModel {
                 viewModel.applyWarmedOutputFormatsIfIdle(
                     warmedFormats,
                     for: .image,
-                    formatDescriptor: Self.imageOutputFormatDescriptorValue
+                    formatDescriptor: Self.imageOutputFormatDescriptor
                 )
             }
         case .audio:
@@ -168,7 +168,7 @@ extension ContentViewModel {
                 viewModel.applyWarmedOutputFormatsIfIdle(
                     warmedFormats,
                     for: .audio,
-                    formatDescriptor: Self.audioOutputFormatDescriptorValue,
+                    formatDescriptor: Self.audioOutputFormatDescriptor,
                     postApply: {
                         viewModel.refreshAudioCodecOptions()
                     }

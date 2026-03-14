@@ -77,7 +77,7 @@ extension ContentViewModel {
         await performConversion(
             for: .video,
             fileExtension: selectedOutputFormatFileExtension(
-                using: Self.videoOutputFormatDescriptorValue
+                using: Self.videoOutputFormatDescriptor
             ),
             buildOutputSettings: { try self.buildVideoOutputSettings() },
             prepareBatchEnvironment: { preparedSources, outputSettings in
@@ -115,7 +115,7 @@ extension ContentViewModel {
         await performConversion(
             for: .image,
             fileExtension: selectedOutputFormatFileExtension(
-                using: Self.imageOutputFormatDescriptorValue
+                using: Self.imageOutputFormatDescriptor
             ),
             buildOutputSettings: { self.buildImageOutputSettings() },
             prepareBatchEnvironment: { preparedSources, _ in
@@ -144,7 +144,7 @@ extension ContentViewModel {
         await performConversion(
             for: .audio,
             fileExtension: selectedOutputFormatFileExtension(
-                using: Self.audioOutputFormatDescriptorValue
+                using: Self.audioOutputFormatDescriptor
             ),
             buildOutputSettings: { self.buildAudioOutputSettings() },
             prepareBatchEnvironment: { preparedSources, _ in
