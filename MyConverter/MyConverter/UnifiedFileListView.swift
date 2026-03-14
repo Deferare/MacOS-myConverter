@@ -3,23 +3,6 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct UnifiedFileListView: View {
-    private struct RowDescriptor: Identifiable {
-        let url: URL
-        let order: Int
-        let rowStatus: ContentViewModel.SelectedFileListState.RowStatus
-
-        var id: String {
-            url.path
-        }
-    }
-
-    private enum Metrics {
-        static let containerSpacing: CGFloat = 14
-        static let rowSpacing: CGFloat = 8
-        static let contentPadding: CGFloat = 20
-        static let headerHeight: CGFloat = 56
-    }
-
     let state: ContentViewModel.SelectedFileListState
     let dropPlaceholder: String
     let fileDropAreaHeight: CGFloat
@@ -53,15 +36,19 @@ struct UnifiedFileListView: View {
     private var populatedListView: some View {
         let rowDescriptors = makeRowDescriptors()
         let availableURLPaths = Set(rowDescriptors.map(\.url.path))
-        let maxScrollHeight = maximumScrollHeight
-        let visibleRowsHeight = min(totalRowsHeight(for: rowDescriptors), maxScrollHeight)
-        let populatedListHeight = totalPopulatedHeight(for: rowDescriptors)
+        let layout = UnifiedFileListLayout(
+            fileDropAreaHeight: fileDropAreaHeight,
+            rowDescriptors: rowDescriptors
+        )
 
-        return VStack(alignment: .leading, spacing: 14) {
-            headerBar
+        return VStack(alignment: .leading, spacing: UnifiedFileListLayout.containerSpacing) {
+            UnifiedFileListHeaderView(
+                inputHeaderState: inputHeaderState,
+                isDropTargeted: isDropTargeted
+            )
 
             ScrollView(.vertical, showsIndicators: true) {
-                LazyVStack(spacing: Metrics.rowSpacing) {
+                LazyVStack(spacing: UnifiedFileListLayout.rowSpacing) {
                     ForEach(rowDescriptors) { row in
                         UnifiedFileRowView(
                             sourceURL: row.url,
@@ -95,104 +82,22 @@ struct UnifiedFileListView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(height: visibleRowsHeight)
+            .frame(height: layout.visibleRowsHeight)
         }
-        .padding(Metrics.contentPadding)
+        .padding(UnifiedFileListLayout.contentPadding)
         .frame(maxWidth: .infinity)
-        .frame(height: populatedListHeight)
+        .frame(height: layout.populatedListHeight)
         .background(ConverterInputAreaBackground(isDropTargeted: isDropTargeted, usesDashedBorder: false))
         .clipShape(RoundedRectangle(cornerRadius: 24))
     }
 
-    private func makeRowDescriptors() -> [RowDescriptor] {
+    private func makeRowDescriptors() -> [UnifiedFileListRowDescriptor] {
         state.selectedURLs.enumerated().map { index, url in
-            return RowDescriptor(
+            return UnifiedFileListRowDescriptor(
                 url: url,
                 order: index + 1,
                 rowStatus: state.rowStatus(for: url)
             )
         }
-    }
-
-    // MARK: - Header
-
-    private var headerBar: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                Text("Files")
-                    .font(.headline)
-
-                Spacer()
-            }
-
-            headerDetailRow
-        }
-    }
-
-    @ViewBuilder
-    private var headerDetailRow: some View {
-        if inputHeaderState.isConverting {
-            HStack(spacing: 12) {
-                statusMessageView
-
-                Spacer()
-
-                Text(inputHeaderState.progressText)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-            }
-        } else {
-            HStack(spacing: 12) {
-                statusMessageView
-
-                Spacer()
-
-                Text(isDropTargeted ? "Release to add files" : "Drag to reorder or drop more files here.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    private var statusMessageView: some View {
-        HStack(spacing: 8) {
-            Circle()
-                .fill(statusColor)
-                .frame(width: 8, height: 8)
-
-            Text(inputHeaderState.statusMessage)
-                .font(.subheadline)
-                .foregroundStyle(statusColor)
-                .lineLimit(1)
-                .truncationMode(.tail)
-        }
-    }
-
-    private var statusColor: Color {
-        inputHeaderState.statusLevel.color
-    }
-
-    private var maximumScrollHeight: CGFloat {
-        max(
-            0,
-            fileDropAreaHeight - (Metrics.contentPadding * 2) - Metrics.headerHeight - Metrics.containerSpacing
-        )
-    }
-
-    private func totalRowsHeight(for rowDescriptors: [RowDescriptor]) -> CGFloat {
-        guard !rowDescriptors.isEmpty else {
-            return 0
-        }
-
-        let rowHeights = rowDescriptors.map { descriptor in
-            UnifiedFileRowView.estimatedHeight(for: descriptor.rowStatus)
-        }
-
-        return rowHeights.reduce(0, +) + (CGFloat(rowDescriptors.count - 1) * Metrics.rowSpacing)
-    }
-
-    private func totalPopulatedHeight(for rowDescriptors: [RowDescriptor]) -> CGFloat {
-        let contentHeight = Metrics.headerHeight + Metrics.containerSpacing + min(totalRowsHeight(for: rowDescriptors), maximumScrollHeight)
-        return min(fileDropAreaHeight, (Metrics.contentPadding * 2) + contentHeight)
     }
 }
