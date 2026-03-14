@@ -20,12 +20,14 @@ enum BatchConversionSupport {
     ) -> PreparedBatchConversionContext? {
         var destinationURLsBySourceID: [String: URL] = [:]
         var allocator = OutputPathUtilities.ReservedOutputAllocator.preloaded(for: outputDirectoryURL)
-        assignAutoBatchDestinations(
-            for: sourceURLs[...],
-            fileExtension: fileExtension,
-            allocator: &allocator,
-            destinationsBySourceID: &destinationURLsBySourceID
-        )
+        for sourceURL in sourceURLs {
+            let destinationURL = allocator.reserveUniqueOutputURL(
+                forBaseName: OutputPathUtilities.sourceBaseName(for: sourceURL, fallback: "output"),
+                fileExtension: fileExtension
+            )
+            destinationURLsBySourceID[ContentViewModelSupport.sourceIdentifier(for: sourceURL)] =
+                destinationURL
+        }
 
         guard let batchAccess = prepareBatchDirectoryAccess(
             sourceURLs: sourceURLs,

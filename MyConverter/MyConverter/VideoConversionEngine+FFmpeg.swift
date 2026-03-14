@@ -1,6 +1,10 @@
 import Foundation
 
 extension VideoConversionEngine {
+    nonisolated static func isFFmpegAvailable() -> Bool {
+        ffmpegRuntime() != nil
+    }
+
     static func convertAudio(
         inputURL: URL,
         outputURL: URL,
