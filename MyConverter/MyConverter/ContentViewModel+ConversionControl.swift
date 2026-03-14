@@ -12,7 +12,7 @@ extension ContentViewModel {
     }
 
     func runConversion(for kind: MediaKind) async {
-        await mediaStateDescriptor(for: kind).conversionExecution.execute(self)
+        await mediaStateDescriptor(for: kind).performConversion(self)
     }
 
     func launchConversionTask(

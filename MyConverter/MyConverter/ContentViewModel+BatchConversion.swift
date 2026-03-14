@@ -27,12 +27,10 @@ extension ContentViewModel {
         ) async throws -> URL
     }
 
-    struct ConversionExecutionDescriptor {
-        let execute: @MainActor (ContentViewModel) async -> Void
-    }
-
-    static func makeConversionExecutionDescriptor<OutputSettings: Sendable>(using profile: ConversionWorkflowProfile<OutputSettings>) -> ConversionExecutionDescriptor {
-        ConversionExecutionDescriptor { viewModel in
+    static func makeConversionExecutor<OutputSettings: Sendable>(
+        using profile: ConversionWorkflowProfile<OutputSettings>
+    ) -> @MainActor (ContentViewModel) async -> Void {
+        { viewModel in
             await viewModel.performConversion(using: profile)
         }
     }

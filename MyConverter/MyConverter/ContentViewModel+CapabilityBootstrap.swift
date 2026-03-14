@@ -5,67 +5,40 @@ extension ContentViewModel {
         let applyIfIdle: @MainActor @Sendable (ContentViewModel) -> Void
     }
 
-    struct CapabilityBootstrapDescriptor {
-        let warmDefaultCapabilities: @Sendable () -> WarmedDefaultCapability
-        let applyPlaceholder: (ContentViewModel) -> Void
-    }
-
-    static func makeCapabilityBootstrapDescriptor<Format: Sendable>(
+    static func makeWarmDefaultCapabilities<Format: Sendable>(
         for kind: MediaKind,
         warmDefaultFormats: @escaping @Sendable () -> [Format],
-        placeholderFormats: @escaping () -> [Format],
         formatDescriptor: OutputFormatDescriptor<Format>,
-        applyAdditionalPlaceholderState: @escaping (ContentViewModel) -> Void = { _ in },
         postApplyWhenWarmed: @escaping @MainActor @Sendable (ContentViewModel) -> Void = { _ in }
-    ) -> CapabilityBootstrapDescriptor {
-        CapabilityBootstrapDescriptor(
-            warmDefaultCapabilities: {
-                let warmedFormats = warmDefaultFormats()
-                return WarmedDefaultCapability { viewModel in
-                    viewModel.applyWarmedOutputFormatsIfIdle(
-                        warmedFormats,
-                        for: kind,
-                        formatDescriptor: formatDescriptor,
-                        postApply: {
-                            postApplyWhenWarmed(viewModel)
-                        }
-                    )
-                }
-            },
-            applyPlaceholder: { viewModel in
-                viewModel.applyAvailableOutputFormats(
-                    placeholderFormats(),
-                    using: formatDescriptor
+    ) -> @Sendable () -> WarmedDefaultCapability {
+        {
+            let warmedFormats = warmDefaultFormats()
+            return WarmedDefaultCapability { viewModel in
+                viewModel.applyWarmedOutputFormatsIfIdle(
+                    warmedFormats,
+                    for: kind,
+                    formatDescriptor: formatDescriptor,
+                    postApply: {
+                        postApplyWhenWarmed(viewModel)
+                    }
                 )
-                applyAdditionalPlaceholderState(viewModel)
             }
-        )
+        }
     }
 
-    static let videoCapabilityBootstrapDescriptorValue = makeCapabilityBootstrapDescriptor(
-        for: .video,
-        warmDefaultFormats: VideoConversionEngine.defaultOutputFormats,
-        placeholderFormats: ContentViewModelSupport.placeholderVideoFormats,
-        formatDescriptor: videoOutputFormatDescriptorValue,
-        applyAdditionalPlaceholderState: { $0.applyPlaceholderVideoCodecOptions() },
-        postApplyWhenWarmed: { $0.refreshVideoCodecOptions() }
-    )
-
-    static let imageCapabilityBootstrapDescriptorValue = makeCapabilityBootstrapDescriptor(
-        for: .image,
-        warmDefaultFormats: ImageConversionEngine.defaultOutputFormats,
-        placeholderFormats: ContentViewModelSupport.placeholderImageFormats,
-        formatDescriptor: imageOutputFormatDescriptorValue
-    )
-
-    static let audioCapabilityBootstrapDescriptorValue = makeCapabilityBootstrapDescriptor(
-        for: .audio,
-        warmDefaultFormats: VideoConversionEngine.defaultAudioOutputFormats,
-        placeholderFormats: ContentViewModelSupport.placeholderAudioFormats,
-        formatDescriptor: audioOutputFormatDescriptorValue,
-        applyAdditionalPlaceholderState: { $0.applyPlaceholderAudioCodecOptions() },
-        postApplyWhenWarmed: { $0.refreshAudioCodecOptions() }
-    )
+    static func makePlaceholderCapabilityApplier<Format>(
+        placeholderFormats: @escaping () -> [Format],
+        formatDescriptor: OutputFormatDescriptor<Format>,
+        applyAdditionalPlaceholderState: @escaping (ContentViewModel) -> Void = { _ in }
+    ) -> (ContentViewModel) -> Void {
+        { viewModel in
+            viewModel.applyAvailableOutputFormats(
+                placeholderFormats(),
+                using: formatDescriptor
+            )
+            applyAdditionalPlaceholderState(viewModel)
+        }
+    }
 
     func applyPlaceholderCapabilityState() {
         MediaKind.allCases.forEach { applyPlaceholderCapabilities(for: $0) }
@@ -87,7 +60,7 @@ extension ContentViewModel {
     }
 
     func applyPlaceholderCapabilities(for kind: MediaKind) {
-        mediaStateDescriptor(for: kind).capabilityBootstrap.applyPlaceholder(self)
+        mediaStateDescriptor(for: kind).applyPlaceholderCapabilities(self)
     }
 
     func markCapabilityBootstrapNeedsRefresh(for kinds: [MediaKind]) {
@@ -156,7 +129,7 @@ extension ContentViewModel {
         for kinds: [MediaKind]
     ) async -> [WarmedDefaultCapability] {
         let warmers = kinds.map {
-            mediaStateDescriptor(for: $0).capabilityBootstrap.warmDefaultCapabilities
+            mediaStateDescriptor(for: $0).warmDefaultCapabilities
         }
         return await detachedTaskValue(priority: .userInitiated) {
             await withTaskGroup(

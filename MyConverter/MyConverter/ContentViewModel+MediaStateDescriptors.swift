@@ -91,9 +91,10 @@ extension ContentViewModel {
         let applyDefaultSourceSettings: (ContentViewModel) -> Void
         let applyStoredSourceSettings: (ContentViewModel, String) -> Void
         let persistCurrentSourceSettings: (ContentViewModel) -> Void
-        let capabilityBootstrap: CapabilityBootstrapDescriptor
+        let warmDefaultCapabilities: @Sendable () -> WarmedDefaultCapability
+        let applyPlaceholderCapabilities: (ContentViewModel) -> Void
         let validation: MediaValidationDescriptor
-        let conversionExecution: ConversionExecutionDescriptor
+        let performConversion: @MainActor (ContentViewModel) async -> Void
         let resetCompatibilityMetadata: (ContentViewModel) -> Void
         let analyzeSelection: (ContentViewModel, [URL]) -> Void
     }
@@ -104,9 +105,10 @@ extension ContentViewModel {
         applyDefaultSourceSettings: @escaping (ContentViewModel) -> Void,
         applyStoredSourceSettings: @escaping (ContentViewModel, String) -> Void,
         persistCurrentSourceSettings: @escaping (ContentViewModel) -> Void,
-        capabilityBootstrap: CapabilityBootstrapDescriptor,
+        warmDefaultCapabilities: @escaping @Sendable () -> WarmedDefaultCapability,
+        applyPlaceholderCapabilities: @escaping (ContentViewModel) -> Void,
         validation: MediaValidationDescriptor,
-        conversionExecution: ConversionExecutionDescriptor,
+        performConversion: @escaping @MainActor (ContentViewModel) async -> Void,
         resetCompatibilityMetadata: @escaping (ContentViewModel) -> Void,
         analyzeSelection: @escaping (ContentViewModel, [URL]) -> Void
     ) -> MediaStateDescriptor {
@@ -131,9 +133,10 @@ extension ContentViewModel {
             applyDefaultSourceSettings: applyDefaultSourceSettings,
             applyStoredSourceSettings: applyStoredSourceSettings,
             persistCurrentSourceSettings: persistCurrentSourceSettings,
-            capabilityBootstrap: capabilityBootstrap,
+            warmDefaultCapabilities: warmDefaultCapabilities,
+            applyPlaceholderCapabilities: applyPlaceholderCapabilities,
             validation: validation,
-            conversionExecution: conversionExecution,
+            performConversion: performConversion,
             resetCompatibilityMetadata: resetCompatibilityMetadata,
             analyzeSelection: analyzeSelection
         )
@@ -239,9 +242,19 @@ extension ContentViewModel {
         persistCurrentSourceSettings: { viewModel in
             viewModel.persistCurrentSourceSettingsIfNeeded(using: videoSourceSettingsComponentsValue.flow)
         },
-        capabilityBootstrap: videoCapabilityBootstrapDescriptorValue,
+        warmDefaultCapabilities: makeWarmDefaultCapabilities(
+            for: .video,
+            warmDefaultFormats: VideoConversionEngine.defaultOutputFormats,
+            formatDescriptor: videoOutputFormatDescriptorValue,
+            postApplyWhenWarmed: { $0.refreshVideoCodecOptions() }
+        ),
+        applyPlaceholderCapabilities: makePlaceholderCapabilityApplier(
+            placeholderFormats: ContentViewModelSupport.placeholderVideoFormats,
+            formatDescriptor: videoOutputFormatDescriptorValue,
+            applyAdditionalPlaceholderState: { $0.applyPlaceholderVideoCodecOptions() }
+        ),
         validation: videoValidationDescriptorValue,
-        conversionExecution: makeConversionExecutionDescriptor(using: videoConversionWorkflowProfile),
+        performConversion: makeConversionExecutor(using: videoConversionWorkflowProfile),
         resetCompatibilityMetadata: resetCompatibilityMetadata(_:),
         analyzeSelection: makeMediaSelectionAnalyzer(descriptor: { _ in videoSourceAnalysisDescriptorValue })
     )
@@ -281,9 +294,17 @@ extension ContentViewModel {
         persistCurrentSourceSettings: { viewModel in
             viewModel.persistCurrentSourceSettingsIfNeeded(using: imageSourceSettingsComponentsValue.flow)
         },
-        capabilityBootstrap: imageCapabilityBootstrapDescriptorValue,
+        warmDefaultCapabilities: makeWarmDefaultCapabilities(
+            for: .image,
+            warmDefaultFormats: ImageConversionEngine.defaultOutputFormats,
+            formatDescriptor: imageOutputFormatDescriptorValue
+        ),
+        applyPlaceholderCapabilities: makePlaceholderCapabilityApplier(
+            placeholderFormats: ContentViewModelSupport.placeholderImageFormats,
+            formatDescriptor: imageOutputFormatDescriptorValue
+        ),
         validation: imageValidationDescriptorValue,
-        conversionExecution: makeConversionExecutionDescriptor(using: imageConversionWorkflowProfile),
+        performConversion: makeConversionExecutor(using: imageConversionWorkflowProfile),
         resetCompatibilityMetadata: resetImageCompatibilityMetadata(_:),
         analyzeSelection: makeMediaSelectionAnalyzer(descriptor: { _ in imageSourceAnalysisDescriptorValue })
     )
@@ -323,9 +344,19 @@ extension ContentViewModel {
         persistCurrentSourceSettings: { viewModel in
             viewModel.persistCurrentSourceSettingsIfNeeded(using: audioSourceSettingsComponentsValue.flow)
         },
-        capabilityBootstrap: audioCapabilityBootstrapDescriptorValue,
+        warmDefaultCapabilities: makeWarmDefaultCapabilities(
+            for: .audio,
+            warmDefaultFormats: VideoConversionEngine.defaultAudioOutputFormats,
+            formatDescriptor: audioOutputFormatDescriptorValue,
+            postApplyWhenWarmed: { $0.refreshAudioCodecOptions() }
+        ),
+        applyPlaceholderCapabilities: makePlaceholderCapabilityApplier(
+            placeholderFormats: ContentViewModelSupport.placeholderAudioFormats,
+            formatDescriptor: audioOutputFormatDescriptorValue,
+            applyAdditionalPlaceholderState: { $0.applyPlaceholderAudioCodecOptions() }
+        ),
         validation: audioValidationDescriptorValue,
-        conversionExecution: makeConversionExecutionDescriptor(using: audioConversionWorkflowProfile),
+        performConversion: makeConversionExecutor(using: audioConversionWorkflowProfile),
         resetCompatibilityMetadata: resetCompatibilityMetadata(_:),
         analyzeSelection: makeMediaSelectionAnalyzer(descriptor: { _ in audioSourceAnalysisDescriptorValue })
     )
