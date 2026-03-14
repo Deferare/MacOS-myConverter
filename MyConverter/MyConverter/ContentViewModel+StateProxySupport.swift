@@ -32,17 +32,10 @@ extension ContentViewModel {
     }
 
     func stateValue<State, Value>(
-        in stateKeyPath: KeyPath<ContentViewModel, State>,
-        at valueKeyPath: KeyPath<State, Value>
-    ) -> Value {
-        self[keyPath: stateKeyPath][keyPath: valueKeyPath]
-    }
-
-    func stateValue<State, Value>(
         using descriptor: StateProxyDescriptor<State>,
         at valueKeyPath: KeyPath<State, Value>
     ) -> Value {
-        stateValue(in: descriptor.stateKeyPath, at: valueKeyPath)
+        self[keyPath: descriptor.stateKeyPath][keyPath: valueKeyPath]
     }
 
     func updateState<State, Value>(

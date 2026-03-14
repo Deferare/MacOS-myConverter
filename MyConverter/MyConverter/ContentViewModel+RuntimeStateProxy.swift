@@ -13,21 +13,6 @@ extension ContentViewModel {
         stateKeyPath: \.audioRuntimeState
     )
 
-    private func runtimeValue<State, Value>(
-        using descriptor: StateProxyDescriptor<State>,
-        _ valueKeyPath: KeyPath<State, Value>
-    ) -> Value {
-        stateValue(using: descriptor, at: valueKeyPath)
-    }
-
-    private func setRuntimeValue<State, Value: Equatable>(
-        using descriptor: StateProxyDescriptor<State>,
-        _ valueKeyPath: WritableKeyPath<State, Value>,
-        to newValue: Value
-    ) {
-        updateState(using: descriptor, value: valueKeyPath, to: newValue)
-    }
-
     private func mediaRuntimeValue<State: MediaRuntimeStateContainer, Value>(
         using descriptor: StateProxyDescriptor<State>,
         _ valueKeyPath: KeyPath<MediaRuntimeState<State.Format>, Value>
@@ -123,13 +108,13 @@ extension ContentViewModel {
     }
 
     var availableVideoEncoders: [VideoEncoderOption] {
-        get { runtimeValue(using: Self.videoRuntimeStateDescriptor, \.availableVideoEncoders) }
-        set { setRuntimeValue(using: Self.videoRuntimeStateDescriptor, \.availableVideoEncoders, to: newValue) }
+        get { stateValue(using: Self.videoRuntimeStateDescriptor, at: \.availableVideoEncoders) }
+        set { updateState(using: Self.videoRuntimeStateDescriptor, value: \.availableVideoEncoders, to: newValue) }
     }
 
     var availableAudioEncoders: [AudioEncoderOption] {
-        get { runtimeValue(using: Self.videoRuntimeStateDescriptor, \.availableAudioEncoders) }
-        set { setRuntimeValue(using: Self.videoRuntimeStateDescriptor, \.availableAudioEncoders, to: newValue) }
+        get { stateValue(using: Self.videoRuntimeStateDescriptor, at: \.availableAudioEncoders) }
+        set { updateState(using: Self.videoRuntimeStateDescriptor, value: \.availableAudioEncoders, to: newValue) }
     }
 
     // Image state
@@ -184,13 +169,13 @@ extension ContentViewModel {
     }
 
     var imageSourceFrameCount: Int {
-        get { runtimeValue(using: Self.imageRuntimeStateDescriptor, \.sourceFrameCount) }
-        set { setRuntimeValue(using: Self.imageRuntimeStateDescriptor, \.sourceFrameCount, to: newValue) }
+        get { stateValue(using: Self.imageRuntimeStateDescriptor, at: \.sourceFrameCount) }
+        set { updateState(using: Self.imageRuntimeStateDescriptor, value: \.sourceFrameCount, to: newValue) }
     }
 
     var imageSourceHasAlpha: Bool {
-        get { runtimeValue(using: Self.imageRuntimeStateDescriptor, \.sourceHasAlpha) }
-        set { setRuntimeValue(using: Self.imageRuntimeStateDescriptor, \.sourceHasAlpha, to: newValue) }
+        get { stateValue(using: Self.imageRuntimeStateDescriptor, at: \.sourceHasAlpha) }
+        set { updateState(using: Self.imageRuntimeStateDescriptor, value: \.sourceHasAlpha, to: newValue) }
     }
 
     var isImageConverting: Bool {
@@ -295,7 +280,7 @@ extension ContentViewModel {
     }
 
     var availableAudioOutputEncoders: [AudioEncoderOption] {
-        get { runtimeValue(using: Self.audioRuntimeStateDescriptor, \.availableOutputEncoders) }
-        set { setRuntimeValue(using: Self.audioRuntimeStateDescriptor, \.availableOutputEncoders, to: newValue) }
+        get { stateValue(using: Self.audioRuntimeStateDescriptor, at: \.availableOutputEncoders) }
+        set { updateState(using: Self.audioRuntimeStateDescriptor, value: \.availableOutputEncoders, to: newValue) }
     }
 }
