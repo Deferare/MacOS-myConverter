@@ -22,7 +22,7 @@ extension ContentViewModel {
     }
 
     var shouldShowAudioSettings: Bool {
-        selectedOutputFormat.supportsAudioTrack
+        videoAudioEncodingSelectionState.isEnabled
     }
 
     var shouldShowVideoBitRateOption: Bool {
@@ -34,11 +34,11 @@ extension ContentViewModel {
     }
 
     var shouldShowAudioSampleRateOption: Bool {
-        shouldShowAudioSettings && selectedAudioEncoder.supportsSampleRate
+        videoAudioEncodingSelectionState.shouldShowSampleRateOption
     }
 
     var shouldShowAudioBitRateOption: Bool {
-        shouldShowAudioSettings && selectedAudioEncoder.supportsAudioBitRate
+        videoAudioEncodingSelectionState.shouldShowBitRateOption
     }
 
     var normalizedCustomVideoBitRateKbps: Int? {
@@ -51,6 +51,7 @@ extension ContentViewModel {
     }
 
     var requiresFFmpegForCurrentVideoSettings: Bool {
+        let audioSettings = videoAudioEncodingSelectionState
         if selectedOutputFormat.avFileType == nil {
             return true
         }
@@ -66,16 +67,16 @@ extension ContentViewModel {
         if shouldShowVideoBitRateOption && selectedVideoBitRate != .auto {
             return true
         }
-        if !shouldShowAudioSettings {
+        if !audioSettings.isEnabled {
             return false
         }
-        if selectedAudioEncoder != .auto {
+        if audioSettings.selectedEncoder != .auto {
             return true
         }
-        if selectedAudioMode != .auto {
+        if audioSettings.selectedMode != .auto {
             return true
         }
-        if shouldShowAudioBitRateOption && selectedAudioBitRate != .auto {
+        if audioSettings.shouldShowBitRateOption && audioSettings.selectedBitRate != .auto {
             return true
         }
         return false

@@ -6,14 +6,14 @@ extension ContentViewModel {
     }
 
     var audioOutputEncoderOptions: [AudioEncoderOption] {
-        audioOutputEncoderSelectionOptions
+        audioOutputEncodingSelectionState.encoderOptions
     }
 
     var shouldShowAudioOutputSampleRateOption: Bool {
-        selectedAudioOutputEncoder.supportsSampleRate
+        audioOutputEncodingSelectionState.shouldShowSampleRateOption
     }
 
     var shouldShowAudioOutputBitRateOption: Bool {
-        selectedAudioOutputEncoder.supportsAudioBitRate
+        audioOutputEncodingSelectionState.shouldShowBitRateOption
     }
 }

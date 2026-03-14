@@ -1,6 +1,17 @@
 import Foundation
 
 extension ContentViewModel {
+    struct AudioEncodingSelectionState {
+        let isEnabled: Bool
+        let selectedEncoder: AudioEncoderOption
+        let selectedMode: AudioModeOption
+        let selectedSampleRate: SampleRateOption
+        let selectedBitRate: AudioBitRateOption
+        let encoderOptions: [AudioEncoderOption]
+        let shouldShowSampleRateOption: Bool
+        let shouldShowBitRateOption: Bool
+    }
+
     private struct ResolvedAudioEncodingSettings {
         let codecCandidates: [String]
         let channels: Int?
@@ -42,20 +53,41 @@ extension ContentViewModel {
         condition ? values() : []
     }
 
+    var videoAudioEncodingSelectionState: AudioEncodingSelectionState {
+        let isEnabled = selectedOutputFormat.supportsAudioTrack
+        return AudioEncodingSelectionState(
+            isEnabled: isEnabled,
+            selectedEncoder: selectedAudioEncoder,
+            selectedMode: selectedAudioMode,
+            selectedSampleRate: selectedSampleRate,
+            selectedBitRate: selectedAudioBitRate,
+            encoderOptions: conditionalValues(when: isEnabled, videoAudioEncoderSelectionOptions),
+            shouldShowSampleRateOption: isEnabled && selectedAudioEncoder.supportsSampleRate,
+            shouldShowBitRateOption: isEnabled && selectedAudioEncoder.supportsAudioBitRate
+        )
+    }
+
+    var audioOutputEncodingSelectionState: AudioEncodingSelectionState {
+        AudioEncodingSelectionState(
+            isEnabled: true,
+            selectedEncoder: selectedAudioOutputEncoder,
+            selectedMode: selectedAudioOutputMode,
+            selectedSampleRate: selectedAudioOutputSampleRate,
+            selectedBitRate: selectedAudioOutputBitRate,
+            encoderOptions: audioOutputEncoderSelectionOptions,
+            shouldShowSampleRateOption: selectedAudioOutputEncoder.supportsSampleRate,
+            shouldShowBitRateOption: selectedAudioOutputEncoder.supportsAudioBitRate
+        )
+    }
+
     private func resolvedAudioEncodingSettings(
-        codecCandidates: [String],
-        includeAudio: Bool,
-        channels: Int?,
-        sampleRate: Int?,
-        includeSampleRate: Bool,
-        bitRateKbps: Int?,
-        includeBitRate: Bool
+        _ selection: AudioEncodingSelectionState
     ) -> ResolvedAudioEncodingSettings {
         ResolvedAudioEncodingSettings(
-            codecCandidates: conditionalValues(when: includeAudio, codecCandidates),
-            channels: optionalValue(when: includeAudio, channels),
-            sampleRate: optionalValue(when: includeSampleRate, sampleRate),
-            bitRateKbps: optionalValue(when: includeBitRate, bitRateKbps)
+            codecCandidates: conditionalValues(when: selection.isEnabled, selection.selectedEncoder.codecCandidates),
+            channels: optionalValue(when: selection.isEnabled, selection.selectedMode.channelCount),
+            sampleRate: optionalValue(when: selection.shouldShowSampleRateOption, selection.selectedSampleRate.hertz),
+            bitRateKbps: optionalValue(when: selection.shouldShowBitRateOption, selection.selectedBitRate.kbps)
         )
     }
 
@@ -76,15 +108,7 @@ extension ContentViewModel {
     }
 
     func buildVideoOutputSettings() throws -> VideoOutputSettings {
-        let audioSettings = resolvedAudioEncodingSettings(
-            codecCandidates: selectedAudioEncoder.codecCandidates,
-            includeAudio: shouldShowAudioSettings,
-            channels: selectedAudioMode.channelCount,
-            sampleRate: selectedSampleRate.hertz,
-            includeSampleRate: shouldShowAudioSampleRateOption,
-            bitRateKbps: selectedAudioBitRate.kbps,
-            includeBitRate: shouldShowAudioBitRateOption
-        )
+        let audioSettings = resolvedAudioEncodingSettings(videoAudioEncodingSelectionState)
 
         return VideoOutputSettings(
             containerFormat: selectedOutputFormat,
@@ -122,15 +146,7 @@ extension ContentViewModel {
     }
 
     func buildAudioOutputSettings() -> AudioOutputSettings {
-        let audioSettings = resolvedAudioEncodingSettings(
-            codecCandidates: selectedAudioOutputEncoder.codecCandidates,
-            includeAudio: true,
-            channels: selectedAudioOutputMode.channelCount,
-            sampleRate: selectedAudioOutputSampleRate.hertz,
-            includeSampleRate: shouldShowAudioOutputSampleRateOption,
-            bitRateKbps: selectedAudioOutputBitRate.kbps,
-            includeBitRate: shouldShowAudioOutputBitRateOption
-        )
+        let audioSettings = resolvedAudioEncodingSettings(audioOutputEncodingSelectionState)
 
         return AudioOutputSettings(
             containerFormat: selectedAudioOutputFormat,
