@@ -36,7 +36,7 @@ extension ContentViewModel {
     }
 
     func setProgress(_ rawProgress: Double, for kind: MediaKind) {
-        let descriptor = mediaStateDescriptor(for: kind)
+        let descriptor = kind.mediaStateDescriptor
         setProgress(rawProgress, at: descriptor.progress)
     }
 

@@ -26,12 +26,12 @@ extension ContentViewModel {
     }
 
     func cancelPendingSelectionAnalysis(for kind: MediaKind) {
-        let descriptor = mediaStateDescriptor(for: kind)
+        let descriptor = kind.mediaStateDescriptor
         cancelTask(at: descriptor.pendingSelectionAnalysisTask)
     }
 
     func cancelSelectionAnalysis(for kind: MediaKind) {
-        let descriptor = mediaStateDescriptor(for: kind)
+        let descriptor = kind.mediaStateDescriptor
         cancelTask(at: descriptor.analysisTask)
         cancelPendingSelectionAnalysis(for: kind)
     }
@@ -43,7 +43,7 @@ extension ContentViewModel {
             return
         }
 
-        let descriptor = mediaStateDescriptor(for: kind)
+        let descriptor = kind.mediaStateDescriptor
         self[keyPath: descriptor.isAnalyzing] = true
         applyPlaceholderCapabilities(for: kind)
         scheduleDebouncedTask(
@@ -90,7 +90,7 @@ extension ContentViewModel {
         guard let primaryURL = urls.first else { return }
 
         let primarySourceID = sourceIdentifier(for: primaryURL)
-        let descriptor = mediaStateDescriptor(for: kind)
+        let descriptor = kind.mediaStateDescriptor
         guard self[keyPath: descriptor.sourceURL].map(sourceIdentifier(for:)) != primarySourceID else {
             return
         }

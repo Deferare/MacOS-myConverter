@@ -26,7 +26,7 @@ extension ContentViewModel {
         for kind: MediaKind,
         operation: @escaping @MainActor () async -> Void
     ) {
-        let descriptor = mediaStateDescriptor(for: kind)
+        let descriptor = kind.mediaStateDescriptor
         guard currentConversionTask(for: kind) == nil else { return }
         guard !self[keyPath: descriptor.isConverting] else { return }
 

@@ -48,7 +48,7 @@ extension ContentViewModel {
         onCapability: @escaping (URL, Capability) -> Void = { _, _ in },
         onFormatsResolved: @escaping ([Format]) -> Void
     ) {
-        let stateDescriptor = mediaStateDescriptor(for: kind)
+        let stateDescriptor = kind.mediaStateDescriptor
 
         analyzeSourceSelection(
             urls: urls,
@@ -89,7 +89,7 @@ extension ContentViewModel {
         warningMessage: String?,
         errorMessage: String?
     ) {
-        let stateDescriptor = mediaStateDescriptor(for: kind)
+        let stateDescriptor = kind.mediaStateDescriptor
         self[keyPath: stateDescriptor.isAnalyzing] = false
         self[keyPath: formatDescriptor.availableFormats] = resolvedFormats
         self[keyPath: stateDescriptor.compatibilityWarningMessage] = warningMessage

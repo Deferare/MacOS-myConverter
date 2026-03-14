@@ -143,7 +143,7 @@ extension ContentViewModel {
     }
 
     func resetConversionOutputs(for kind: MediaKind) {
-        let descriptor = mediaStateDescriptor(for: kind)
+        let descriptor = kind.mediaStateDescriptor
         self[keyPath: descriptor.convertedURL] = nil
         self[keyPath: descriptor.convertedURLs] = []
         self[keyPath: descriptor.convertedOutputURLsBySourceID] = [:]
@@ -156,7 +156,7 @@ extension ContentViewModel {
             resetCompatibilityMetadata(for: kind)
         }
 
-        let descriptor = mediaStateDescriptor(for: kind)
+        let descriptor = kind.mediaStateDescriptor
         self[keyPath: descriptor.compatibilityErrorMessage] = nil
         self[keyPath: descriptor.compatibilityWarningMessage] = nil
     }
@@ -166,7 +166,7 @@ extension ContentViewModel {
     }
 
     private func clearActivityState(for kind: MediaKind, resetBatchState: Bool) {
-        let descriptor = mediaStateDescriptor(for: kind)
+        let descriptor = kind.mediaStateDescriptor
         self[keyPath: descriptor.isAnalyzing] = false
 
         guard resetBatchState else { return }

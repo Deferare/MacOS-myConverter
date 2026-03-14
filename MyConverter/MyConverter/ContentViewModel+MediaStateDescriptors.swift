@@ -133,17 +133,17 @@ extension ContentViewModel {
     )
 
     func currentConversionTask(for kind: MediaKind) -> Task<Void, Never>? {
-        let descriptor = mediaStateDescriptor(for: kind)
+        let descriptor = kind.mediaStateDescriptor
         return self[keyPath: descriptor.conversionTask]
     }
 
     func setConversionTask(_ task: Task<Void, Never>?, for kind: MediaKind) {
-        let descriptor = mediaStateDescriptor(for: kind)
+        let descriptor = kind.mediaStateDescriptor
         self[keyPath: descriptor.conversionTask] = task
     }
 
     func setConversionErrorMessage(_ message: String?, for kind: MediaKind) {
-        let descriptor = mediaStateDescriptor(for: kind)
+        let descriptor = kind.mediaStateDescriptor
         self[keyPath: descriptor.conversionErrorMessage] = message
     }
 
@@ -151,7 +151,7 @@ extension ContentViewModel {
         for kind: MediaKind,
         preserveCompletedOutputs: Bool = false
     ) {
-        let descriptor = mediaStateDescriptor(for: kind)
+        let descriptor = kind.mediaStateDescriptor
         self[keyPath: descriptor.isConverting] = true
         if !preserveCompletedOutputs {
             self[keyPath: descriptor.convertedURL] = nil
@@ -164,7 +164,7 @@ extension ContentViewModel {
     }
 
     func appendConvertedOutput(_ outputURL: URL, from sourceURL: URL, for kind: MediaKind) {
-        let descriptor = mediaStateDescriptor(for: kind)
+        let descriptor = kind.mediaStateDescriptor
         let sourceID = sourceIdentifier(for: sourceURL)
         self[keyPath: descriptor.convertedURL] = outputURL
 
@@ -178,18 +178,10 @@ extension ContentViewModel {
     }
 
     func markProcessedSource(_ sourceURL: URL, for kind: MediaKind) {
-        let descriptor = mediaStateDescriptor(for: kind)
+        let descriptor = kind.mediaStateDescriptor
         var processedSourceIDs = self[keyPath: descriptor.processedSourceIDs]
         processedSourceIDs.insert(sourceIdentifier(for: sourceURL))
         self[keyPath: descriptor.processedSourceIDs] = processedSourceIDs
-    }
-
-    static func mediaStateDescriptor(for kind: MediaKind) -> MediaStateDescriptor {
-        kind.mediaStateDescriptor
-    }
-
-    func mediaStateDescriptor(for kind: MediaKind) -> MediaStateDescriptor {
-        Self.mediaStateDescriptor(for: kind)
     }
 
     func analyzeSelectedSources(_ urls: [URL], for kind: MediaKind) {
@@ -209,7 +201,7 @@ extension ContentViewModel {
     }
 
     func mediaStateSnapshot(for kind: MediaKind) -> MediaStateSnapshot {
-        let descriptor = mediaStateDescriptor(for: kind)
+        let descriptor = kind.mediaStateDescriptor
 
         return MediaStateSnapshot(
             sourceURL: self[keyPath: descriptor.sourceURL],
@@ -228,7 +220,7 @@ extension ContentViewModel {
     }
 }
 
-private extension ContentViewModel.MediaKind {
+extension ContentViewModel.MediaKind {
     private static let mediaStateDescriptorsByKind: [Self: ContentViewModel.MediaStateDescriptor] = [
         .video: ContentViewModel.videoStateDescriptor,
         .image: ContentViewModel.imageStateDescriptor,

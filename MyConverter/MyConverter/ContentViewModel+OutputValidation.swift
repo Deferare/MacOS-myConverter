@@ -21,7 +21,7 @@ extension ContentViewModel {
     }
 
     func compatibilityHintMessage(for kind: MediaKind) -> String? {
-        let descriptor = mediaStateDescriptor(for: kind)
+        let descriptor = kind.mediaStateDescriptor
         return nonEmptyMessage(self[keyPath: descriptor.compatibilityWarningMessage])
     }
 
@@ -322,7 +322,7 @@ extension ContentViewModel {
         unavailableMessage: String,
         additionalValidation: () -> String? = { nil }
     ) -> String? {
-        let descriptor = mediaStateDescriptor(for: kind)
+        let descriptor = kind.mediaStateDescriptor
 
         if let compatibilityError = nonEmptyMessage(
             self[keyPath: descriptor.compatibilityErrorMessage]

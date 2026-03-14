@@ -17,7 +17,7 @@ extension ContentViewModel {
             Int
         ) async throws -> URL
     ) async {
-        let descriptor = mediaStateDescriptor(for: kind)
+        let descriptor = kind.mediaStateDescriptor
         let validationMessage = validationMessage(for: kind)
         let canConvert = canStartConversion(for: kind, validationMessage: validationMessage)
 
