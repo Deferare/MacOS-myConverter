@@ -128,7 +128,7 @@ extension ContentViewModel {
 
     static let imageOutputFormatDescriptorValue = makeOutputFormatDescriptor(
             sourceURL: \.imageSourceURL,
-            availableFormats: \.availableImageOutputFormats,
+            availableFormats: \.imageRuntimeState.media.availableOutputFormats,
             selectedFormat: \.selectedImageOutputFormat,
             placeholderFormats: { ContentViewModelSupport.placeholderImageFormats() },
             formatNormalizedID: { $0.normalizedID },
@@ -139,7 +139,7 @@ extension ContentViewModel {
 
     static let audioOutputFormatDescriptorValue = makeOutputFormatDescriptor(
             sourceURL: \.audioSourceURL,
-            availableFormats: \.availableAudioOutputFormats,
+            availableFormats: \.audioRuntimeState.media.availableOutputFormats,
             selectedFormat: \.selectedAudioOutputFormat,
             placeholderFormats: { ContentViewModelSupport.placeholderAudioFormats() },
             formatNormalizedID: { $0.normalizedID },

@@ -4,7 +4,7 @@ extension ContentViewModel {
     static let imageSourceAnalysisDescriptorValue = makeCapabilitySummaryDescriptor(
         CapabilitySummaryInput(
             kind: .image,
-            availableFormatsKeyPath: \.availableImageOutputFormats,
+            availableFormatsKeyPath: \.imageRuntimeState.media.availableOutputFormats,
             fetchCapabilities: { await ImageConversionEngine.sourceCapabilities(for: $0) },
             availableFormats: { $0.availableOutputFormats },
             warningMessage: { $0.warningMessage },

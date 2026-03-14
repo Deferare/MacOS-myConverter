@@ -92,16 +92,6 @@ extension ContentViewModel {
         set { setMediaRuntimeValue(using: Self.videoRuntimeStateDescriptor, \.conversionProgress, to: newValue) }
     }
 
-    var currentVideoBatchIndex: Int {
-        get { mediaRuntimeValue(using: Self.videoRuntimeStateDescriptor, \.currentBatchIndex) }
-        set { setMediaRuntimeValue(using: Self.videoRuntimeStateDescriptor, \.currentBatchIndex, to: newValue) }
-    }
-
-    var totalVideoBatchCount: Int {
-        get { mediaRuntimeValue(using: Self.videoRuntimeStateDescriptor, \.totalBatchCount) }
-        set { setMediaRuntimeValue(using: Self.videoRuntimeStateDescriptor, \.totalBatchCount, to: newValue) }
-    }
-
     var availableOutputFormats: [VideoFormatOption] {
         get { mediaRuntimeValue(using: Self.videoRuntimeStateDescriptor, \.availableOutputFormats) }
         set { setMediaRuntimeValue(using: Self.videoRuntimeStateDescriptor, \.availableOutputFormats, to: newValue) }
@@ -168,16 +158,6 @@ extension ContentViewModel {
         set { setMediaRuntimeValue(using: Self.imageRuntimeStateDescriptor, \.isAnalyzingSource, to: newValue) }
     }
 
-    var imageSourceFrameCount: Int {
-        get { stateValue(using: Self.imageRuntimeStateDescriptor, at: \.sourceFrameCount) }
-        set { updateState(using: Self.imageRuntimeStateDescriptor, value: \.sourceFrameCount, to: newValue) }
-    }
-
-    var imageSourceHasAlpha: Bool {
-        get { stateValue(using: Self.imageRuntimeStateDescriptor, at: \.sourceHasAlpha) }
-        set { updateState(using: Self.imageRuntimeStateDescriptor, value: \.sourceHasAlpha, to: newValue) }
-    }
-
     var isImageConverting: Bool {
         get { mediaRuntimeValue(using: Self.imageRuntimeStateDescriptor, \.isConverting) }
         set { setMediaRuntimeValue(using: Self.imageRuntimeStateDescriptor, \.isConverting, to: newValue) }
@@ -186,21 +166,6 @@ extension ContentViewModel {
     var imageConversionProgress: Double {
         get { mediaRuntimeValue(using: Self.imageRuntimeStateDescriptor, \.conversionProgress) }
         set { setMediaRuntimeValue(using: Self.imageRuntimeStateDescriptor, \.conversionProgress, to: newValue) }
-    }
-
-    var currentImageBatchIndex: Int {
-        get { mediaRuntimeValue(using: Self.imageRuntimeStateDescriptor, \.currentBatchIndex) }
-        set { setMediaRuntimeValue(using: Self.imageRuntimeStateDescriptor, \.currentBatchIndex, to: newValue) }
-    }
-
-    var totalImageBatchCount: Int {
-        get { mediaRuntimeValue(using: Self.imageRuntimeStateDescriptor, \.totalBatchCount) }
-        set { setMediaRuntimeValue(using: Self.imageRuntimeStateDescriptor, \.totalBatchCount, to: newValue) }
-    }
-
-    var availableImageOutputFormats: [ImageFormatOption] {
-        get { mediaRuntimeValue(using: Self.imageRuntimeStateDescriptor, \.availableOutputFormats) }
-        set { setMediaRuntimeValue(using: Self.imageRuntimeStateDescriptor, \.availableOutputFormats, to: newValue) }
     }
 
     // Audio state
@@ -264,23 +229,4 @@ extension ContentViewModel {
         set { setMediaRuntimeValue(using: Self.audioRuntimeStateDescriptor, \.conversionProgress, to: newValue) }
     }
 
-    var currentAudioBatchIndex: Int {
-        get { mediaRuntimeValue(using: Self.audioRuntimeStateDescriptor, \.currentBatchIndex) }
-        set { setMediaRuntimeValue(using: Self.audioRuntimeStateDescriptor, \.currentBatchIndex, to: newValue) }
-    }
-
-    var totalAudioBatchCount: Int {
-        get { mediaRuntimeValue(using: Self.audioRuntimeStateDescriptor, \.totalBatchCount) }
-        set { setMediaRuntimeValue(using: Self.audioRuntimeStateDescriptor, \.totalBatchCount, to: newValue) }
-    }
-
-    var availableAudioOutputFormats: [AudioFormatOption] {
-        get { mediaRuntimeValue(using: Self.audioRuntimeStateDescriptor, \.availableOutputFormats) }
-        set { setMediaRuntimeValue(using: Self.audioRuntimeStateDescriptor, \.availableOutputFormats, to: newValue) }
-    }
-
-    var availableAudioOutputEncoders: [AudioEncoderOption] {
-        get { stateValue(using: Self.audioRuntimeStateDescriptor, at: \.availableOutputEncoders) }
-        set { updateState(using: Self.audioRuntimeStateDescriptor, value: \.availableOutputEncoders, to: newValue) }
-    }
 }

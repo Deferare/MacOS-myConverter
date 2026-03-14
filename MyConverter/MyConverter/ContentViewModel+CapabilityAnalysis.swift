@@ -192,8 +192,8 @@ extension ContentViewModel {
                     primaryHasAlpha = capabilities.hasAlpha
                 },
                 prepareForResolvedFormats: { resolvedViewModel in
-                    resolvedViewModel.imageSourceFrameCount = primaryFrameCount
-                    resolvedViewModel.imageSourceHasAlpha = primaryHasAlpha
+                    resolvedViewModel.updateState(\.imageRuntimeState, value: \.sourceFrameCount, to: primaryFrameCount)
+                    resolvedViewModel.updateState(\.imageRuntimeState, value: \.sourceHasAlpha, to: primaryHasAlpha)
                 }
             )
         }

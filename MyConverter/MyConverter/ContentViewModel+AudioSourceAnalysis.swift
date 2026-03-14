@@ -4,7 +4,7 @@ extension ContentViewModel {
     static let audioSourceAnalysisDescriptorValue = makeCapabilitySummaryDescriptor(
         CapabilitySummaryInput(
             kind: .audio,
-            availableFormatsKeyPath: \.availableAudioOutputFormats,
+            availableFormatsKeyPath: \.audioRuntimeState.media.availableOutputFormats,
             fetchCapabilities: { await VideoConversionEngine.sourceCapabilitiesForAudio(for: $0) },
             availableFormats: { $0.availableOutputFormats },
             warningMessage: { $0.warningMessage },

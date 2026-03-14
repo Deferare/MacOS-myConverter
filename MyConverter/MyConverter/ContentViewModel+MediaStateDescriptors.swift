@@ -191,8 +191,8 @@ extension ContentViewModel {
     }
 
     static func resetImageCompatibilityMetadata(_ viewModel: ContentViewModel) {
-        viewModel.imageSourceFrameCount = 0
-        viewModel.imageSourceHasAlpha = false
+        viewModel.updateState(\.imageRuntimeState, value: \.sourceFrameCount, to: 0)
+        viewModel.updateState(\.imageRuntimeState, value: \.sourceHasAlpha, to: false)
     }
 
     static func resetCompatibilityMetadata(_: ContentViewModel) {
@@ -212,8 +212,8 @@ extension ContentViewModel {
             isAnalyzing: \.isAnalyzingSource,
             isConverting: \.isConverting,
             progress: \.conversionProgress,
-            currentBatchIndex: \.currentVideoBatchIndex,
-            totalBatchCount: \.totalVideoBatchCount
+            currentBatchIndex: \.videoRuntimeState.media.currentBatchIndex,
+            totalBatchCount: \.videoRuntimeState.media.totalBatchCount
         ),
         tasks: makeMediaTaskKeyPaths(
             analysisTask: \.taskState.sourceAnalysisTask,
@@ -242,8 +242,8 @@ extension ContentViewModel {
             isAnalyzing: \.isAnalyzingImageSource,
             isConverting: \.isImageConverting,
             progress: \.imageConversionProgress,
-            currentBatchIndex: \.currentImageBatchIndex,
-            totalBatchCount: \.totalImageBatchCount
+            currentBatchIndex: \.imageRuntimeState.media.currentBatchIndex,
+            totalBatchCount: \.imageRuntimeState.media.totalBatchCount
         ),
         tasks: makeMediaTaskKeyPaths(
             analysisTask: \.taskState.imageSourceAnalysisTask,
@@ -272,8 +272,8 @@ extension ContentViewModel {
             isAnalyzing: \.isAnalyzingAudioSource,
             isConverting: \.isAudioConverting,
             progress: \.audioConversionProgress,
-            currentBatchIndex: \.currentAudioBatchIndex,
-            totalBatchCount: \.totalAudioBatchCount
+            currentBatchIndex: \.audioRuntimeState.media.currentBatchIndex,
+            totalBatchCount: \.audioRuntimeState.media.totalBatchCount
         ),
         tasks: makeMediaTaskKeyPaths(
             analysisTask: \.taskState.audioSourceAnalysisTask,

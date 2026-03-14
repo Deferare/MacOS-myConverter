@@ -2,7 +2,7 @@ import Foundation
 
 extension ContentViewModel {
     var imageSourceIsAnimated: Bool {
-        imageSourceFrameCount > 1
+        imageRuntimeState.sourceFrameCount > 1
     }
 
     var imageOutputFormatOptions: [ImageFormatOption] {

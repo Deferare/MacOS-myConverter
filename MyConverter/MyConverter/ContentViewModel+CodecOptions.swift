@@ -46,7 +46,7 @@ extension ContentViewModel {
     >(
         state: StateProxyDescriptor(stateKeyPath: \.audioOptionsState),
         currentFormat: { $0.selectedAudioOutputFormat },
-        availableEncoders: \.availableAudioOutputEncoders,
+        availableEncoders: \.audioRuntimeState.availableOutputEncoders,
         encoder: \.selectedOutputEncoder,
         audioMode: nil,
         bitRate: \.selectedOutputBitRate,
@@ -187,7 +187,7 @@ extension ContentViewModel {
     var audioOutputEncoderSelectionOptions: [AudioEncoderOption] {
         let format = Self.audioOutputCodecDependencyDescriptor.currentFormat(self)
         return resolvedAudioEncoderOptions(
-            availableAudioOutputEncoders,
+            audioRuntimeState.availableOutputEncoders,
             for: format,
             using: Self.audioOutputCodecDependencyDescriptor
         )
@@ -282,7 +282,7 @@ extension ContentViewModel {
     func normalizeAudioOptionDependencies() {
         let format = Self.audioOutputCodecDependencyDescriptor.currentFormat(self)
         let encoderOptions = resolvedAudioEncoderOptions(
-            availableAudioOutputEncoders,
+            audioRuntimeState.availableOutputEncoders,
             for: format,
             using: Self.audioOutputCodecDependencyDescriptor
         )
