@@ -4,22 +4,6 @@ import FFmpegSupport
 import Foundation
 
 extension EmbeddedFFmpegBridge {
-    typealias CVoidFunction = @convention(c) () -> Void
-
-    nonisolated static func resolveMutableInt32Symbol(_ name: String) -> UnsafeMutablePointer<Int32>? {
-        guard let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), name) else {
-            return nil
-        }
-        return symbol.assumingMemoryBound(to: Int32.self)
-    }
-
-    nonisolated static func resolveVoidFunction(_ name: String) -> CVoidFunction? {
-        guard let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), name) else {
-            return nil
-        }
-        return unsafeBitCast(symbol, to: CVoidFunction.self)
-    }
-
     nonisolated static func runCapturedCommand(
         arguments: [String],
         outputLineHandler: (@Sendable (String) -> Void)?
@@ -150,23 +134,6 @@ extension EmbeddedFFmpegBridge {
             terminationStatus: Int32(status),
             output: String(decoding: accumulated, as: UTF8.self)
         )
-    }
-
-    nonisolated static func consumeCompleteLines(from buffer: inout Data) -> [String] {
-        var lines: [String] = []
-        let newline = Data([0x0A])
-
-        while let range = buffer.range(of: newline) {
-            let lineData = buffer.subdata(in: buffer.startIndex..<range.lowerBound)
-            let text = String(data: lineData, encoding: .utf8)?
-                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            if !text.isEmpty {
-                lines.append(text)
-            }
-            buffer.removeSubrange(buffer.startIndex..<range.upperBound)
-        }
-
-        return lines
     }
 }
 #endif
