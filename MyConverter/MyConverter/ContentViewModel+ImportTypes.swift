@@ -13,200 +13,178 @@ extension ContentViewModel {
 }
 
 extension ContentViewModel.MediaKind {
-    var sidebarSystemImage: String {
-        switch self {
-        case .video:
-            "film"
-        case .image:
-            "photo"
-        case .audio:
-            "waveform"
-        }
+    private struct Metadata {
+        let sidebarSystemImage: String
+        let outputDirectoryURLKeyPath: ReferenceWritableKeyPath<ContentViewModel, URL?>
+        let selectedOutputFormatLabel: (ContentViewModel) -> String
+        let saveSettingsFailureContext: String
+        let loadSettingsFailureContext: String
+        let outputLabel: String
+        let missingSourceLog: String
+        let destinationErrorCode: Int
+        let skippedSummaryPrefix: String
+        let treatExportCancellationAsCancelled: Bool
+        let errorLogPrefix: String
+        let includeDebugInfo: Bool
+        let acceptsInput: (URL) -> Bool
+        let preferredImportTypes: (UTType?) -> [UTType]
+        let availableImportSources: [ContentViewModel.ImportSource]
+        let photoLibraryFilter: ContentViewModel.IOSPhotoLibraryFilter
+        let preferredPhotoLibraryItemTypeIdentifiers: [String]
+        let temporaryImportFallbackFileExtension: String
     }
 
-    var outputDirectoryURLKeyPath: ReferenceWritableKeyPath<ContentViewModel, URL?> {
-        switch self {
-        case .video:
-            \.videoOptionsState.selectedOutputDirectoryURL
-        case .image:
-            \.imageOptionsState.selectedOutputDirectoryURL
-        case .audio:
-            \.audioOptionsState.selectedOutputDirectoryURL
-        }
-    }
-
-    func selectedOutputFormatLabel(in viewModel: ContentViewModel) -> String {
-        switch self {
-        case .video:
-            viewModel.selectedOutputFormatLabel(using: ContentViewModel.videoOutputFormatDescriptor)
-        case .image:
-            viewModel.selectedOutputFormatLabel(using: ContentViewModel.imageOutputFormatDescriptor)
-        case .audio:
-            viewModel.selectedOutputFormatLabel(using: ContentViewModel.audioOutputFormatDescriptor)
-        }
-    }
-
-    var saveSettingsFailureContext: String {
-        switch self {
-        case .video:
-            "Failed to persist video settings"
-        case .image:
-            "Failed to persist image settings"
-        case .audio:
-            "Failed to persist audio settings"
-        }
-    }
-
-    var loadSettingsFailureContext: String {
-        switch self {
-        case .video:
-            "Failed to load persisted video settings"
-        case .image:
-            "Failed to load persisted image settings"
-        case .audio:
-            "Failed to load persisted audio settings"
-        }
-    }
-
-    var outputLabel: String {
-        switch self {
-        case .video:
-            "Video"
-        case .image:
-            "Image"
-        case .audio:
-            "Audio"
-        }
-    }
-
-    var missingSourceLog: String {
-        switch self {
-        case .video:
-            "No file to convert."
-        case .image:
-            "No image file to convert."
-        case .audio:
-            "No audio file to convert."
-        }
-    }
-
-    var destinationErrorCode: Int {
-        switch self {
-        case .video:
-            -1001
-        case .image:
-            -1002
-        case .audio:
-            -1003
-        }
-    }
-
-    var skippedSummaryPrefix: String {
-        switch self {
-        case .video:
-            "Some video files were skipped:"
-        case .image:
-            "Some image files were skipped:"
-        case .audio:
-            "Some audio files were skipped:"
-        }
-    }
-
-    var treatExportCancellationAsCancelled: Bool {
-        switch self {
-        case .video, .audio:
-            true
-        case .image:
-            false
-        }
-    }
-
-    var errorLogPrefix: String {
-        switch self {
-        case .video:
-            "Conversion failed"
-        case .image:
-            "Image conversion failed"
-        case .audio:
-            "Audio conversion failed"
-        }
-    }
-
-    var includeDebugInfo: Bool {
-        switch self {
-        case .video:
-            true
-        case .image, .audio:
-            false
-        }
-    }
-
-    func acceptsInput(_ url: URL) -> Bool {
-        switch self {
-        case .video:
-            ContentViewModelSupport.isVideoInputURL(url)
-        case .image:
-            ContentViewModelSupport.isImageInputURL(url)
-        case .audio:
-            ContentViewModelSupport.isAudioInputURL(url)
-        }
-    }
-
-    func preferredImportTypes(mkvType: UTType?) -> [UTType] {
-        switch self {
-        case .video:
-            [.movie, .video, mkvType].compactMap { $0 }
-        case .image:
-            [.image]
-        case .audio:
-            [.audio, .movie, .video, .audiovisualContent, mkvType].compactMap { $0 }
-        }
-    }
-
-    var availableImportSources: [ContentViewModel.ImportSource] {
-        switch self {
-        case .video, .image:
-            [.photoLibrary, .files]
-        case .audio:
-            [.files]
-        }
-    }
-
-    var photoLibraryFilter: ContentViewModel.IOSPhotoLibraryFilter {
-        switch self {
-        case .video:
-            .videos
-        case .image:
-            .images
-        case .audio:
-            .none
-        }
-    }
-
-    var preferredPhotoLibraryItemTypeIdentifiers: [String] {
-        switch self {
-        case .video:
-            [
+    private static let metadataByKind: [Self: Metadata] = [
+        .video: Metadata(
+            sidebarSystemImage: "film",
+            outputDirectoryURLKeyPath: \.videoOptionsState.selectedOutputDirectoryURL,
+            selectedOutputFormatLabel: {
+                $0.selectedOutputFormatLabel(using: ContentViewModel.videoOutputFormatDescriptor)
+            },
+            saveSettingsFailureContext: "Failed to persist video settings",
+            loadSettingsFailureContext: "Failed to load persisted video settings",
+            outputLabel: "Video",
+            missingSourceLog: "No file to convert.",
+            destinationErrorCode: -1001,
+            skippedSummaryPrefix: "Some video files were skipped:",
+            treatExportCancellationAsCancelled: true,
+            errorLogPrefix: "Conversion failed",
+            includeDebugInfo: true,
+            acceptsInput: { ContentViewModelSupport.isVideoInputURL($0) },
+            preferredImportTypes: { mkvType in
+                [.movie, .video, mkvType].compactMap { $0 }
+            },
+            availableImportSources: [.photoLibrary, .files],
+            photoLibraryFilter: .videos,
+            preferredPhotoLibraryItemTypeIdentifiers: [
                 UTType.movie.identifier,
                 UTType.video.identifier,
                 UTType.audiovisualContent.identifier
-            ]
-        case .image:
-            [UTType.image.identifier]
-        case .audio:
-            [UTType.audio.identifier]
-        }
+            ],
+            temporaryImportFallbackFileExtension: "mov"
+        ),
+        .image: Metadata(
+            sidebarSystemImage: "photo",
+            outputDirectoryURLKeyPath: \.imageOptionsState.selectedOutputDirectoryURL,
+            selectedOutputFormatLabel: {
+                $0.selectedOutputFormatLabel(using: ContentViewModel.imageOutputFormatDescriptor)
+            },
+            saveSettingsFailureContext: "Failed to persist image settings",
+            loadSettingsFailureContext: "Failed to load persisted image settings",
+            outputLabel: "Image",
+            missingSourceLog: "No image file to convert.",
+            destinationErrorCode: -1002,
+            skippedSummaryPrefix: "Some image files were skipped:",
+            treatExportCancellationAsCancelled: false,
+            errorLogPrefix: "Image conversion failed",
+            includeDebugInfo: false,
+            acceptsInput: { ContentViewModelSupport.isImageInputURL($0) },
+            preferredImportTypes: { _ in [.image] },
+            availableImportSources: [.photoLibrary, .files],
+            photoLibraryFilter: .images,
+            preferredPhotoLibraryItemTypeIdentifiers: [UTType.image.identifier],
+            temporaryImportFallbackFileExtension: "jpg"
+        ),
+        .audio: Metadata(
+            sidebarSystemImage: "waveform",
+            outputDirectoryURLKeyPath: \.audioOptionsState.selectedOutputDirectoryURL,
+            selectedOutputFormatLabel: {
+                $0.selectedOutputFormatLabel(using: ContentViewModel.audioOutputFormatDescriptor)
+            },
+            saveSettingsFailureContext: "Failed to persist audio settings",
+            loadSettingsFailureContext: "Failed to load persisted audio settings",
+            outputLabel: "Audio",
+            missingSourceLog: "No audio file to convert.",
+            destinationErrorCode: -1003,
+            skippedSummaryPrefix: "Some audio files were skipped:",
+            treatExportCancellationAsCancelled: true,
+            errorLogPrefix: "Audio conversion failed",
+            includeDebugInfo: false,
+            acceptsInput: { ContentViewModelSupport.isAudioInputURL($0) },
+            preferredImportTypes: { mkvType in
+                [.audio, .movie, .video, .audiovisualContent, mkvType].compactMap { $0 }
+            },
+            availableImportSources: [.files],
+            photoLibraryFilter: .none,
+            preferredPhotoLibraryItemTypeIdentifiers: [UTType.audio.identifier],
+            temporaryImportFallbackFileExtension: "m4a"
+        )
+    ]
+
+    private var metadata: Metadata {
+        Self.metadataByKind[self] ?? Self.metadataByKind[.video]!
+    }
+
+    var sidebarSystemImage: String {
+        metadata.sidebarSystemImage
+    }
+
+    var outputDirectoryURLKeyPath: ReferenceWritableKeyPath<ContentViewModel, URL?> {
+        metadata.outputDirectoryURLKeyPath
+    }
+
+    func selectedOutputFormatLabel(in viewModel: ContentViewModel) -> String {
+        metadata.selectedOutputFormatLabel(viewModel)
+    }
+
+    var saveSettingsFailureContext: String {
+        metadata.saveSettingsFailureContext
+    }
+
+    var loadSettingsFailureContext: String {
+        metadata.loadSettingsFailureContext
+    }
+
+    var outputLabel: String {
+        metadata.outputLabel
+    }
+
+    var missingSourceLog: String {
+        metadata.missingSourceLog
+    }
+
+    var destinationErrorCode: Int {
+        metadata.destinationErrorCode
+    }
+
+    var skippedSummaryPrefix: String {
+        metadata.skippedSummaryPrefix
+    }
+
+    var treatExportCancellationAsCancelled: Bool {
+        metadata.treatExportCancellationAsCancelled
+    }
+
+    var errorLogPrefix: String {
+        metadata.errorLogPrefix
+    }
+
+    var includeDebugInfo: Bool {
+        metadata.includeDebugInfo
+    }
+
+    func acceptsInput(_ url: URL) -> Bool {
+        metadata.acceptsInput(url)
+    }
+
+    func preferredImportTypes(mkvType: UTType?) -> [UTType] {
+        metadata.preferredImportTypes(mkvType)
+    }
+
+    var availableImportSources: [ContentViewModel.ImportSource] {
+        metadata.availableImportSources
+    }
+
+    var photoLibraryFilter: ContentViewModel.IOSPhotoLibraryFilter {
+        metadata.photoLibraryFilter
+    }
+
+    var preferredPhotoLibraryItemTypeIdentifiers: [String] {
+        metadata.preferredPhotoLibraryItemTypeIdentifiers
     }
 
     var temporaryImportFallbackFileExtension: String {
-        switch self {
-        case .video:
-            "mov"
-        case .image:
-            "jpg"
-        case .audio:
-            "m4a"
-        }
+        metadata.temporaryImportFallbackFileExtension
     }
 }
 
