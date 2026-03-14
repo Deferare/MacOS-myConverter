@@ -37,7 +37,7 @@ extension ContentViewModel {
     func analyzeSourceCompatibility<Capability: Sendable, Format: Sendable>(
         for urls: [URL],
         kind: MediaKind,
-        availableFormatsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [Format]>,
+        formatDescriptor: OutputFormatDescriptor<Format>,
         fetchCapabilities: @escaping @Sendable (URL) async -> Capability,
         availableFormats: @escaping @Sendable (Capability) -> [Format],
         warningMessage: @escaping @Sendable (Capability) -> String?,
@@ -48,16 +48,13 @@ extension ContentViewModel {
         onCapability: @escaping (URL, Capability) -> Void = { _, _ in },
         onFormatsResolved: @escaping ([Format]) -> Void
     ) {
-        let descriptor = mediaStateDescriptor(for: kind)
+        let stateDescriptor = mediaStateDescriptor(for: kind)
 
         analyzeSourceSelection(
             urls: urls,
             kind: kind,
-            analysisTask: descriptor.analysisTask,
-            isAnalyzing: descriptor.isAnalyzing,
-            availableFormatsKeyPath: availableFormatsKeyPath,
-            warningMessageKeyPath: descriptor.compatibilityWarningMessage,
-            errorMessageKeyPath: descriptor.compatibilityErrorMessage,
+            stateDescriptor: stateDescriptor,
+            formatDescriptor: formatDescriptor,
             selectedSourceIDs: {
                 self.selectedSourceIDs(for: kind)
             },
@@ -86,18 +83,17 @@ extension ContentViewModel {
     }
 
     func applySourceAnalysisResolution<Format>(
-        isAnalyzingKeyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
-        availableFormatsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [Format]>,
-        warningMessageKeyPath: ReferenceWritableKeyPath<ContentViewModel, String?>,
-        errorMessageKeyPath: ReferenceWritableKeyPath<ContentViewModel, String?>,
+        for kind: MediaKind,
+        formatDescriptor: OutputFormatDescriptor<Format>,
         resolvedFormats: [Format],
         warningMessage: String?,
         errorMessage: String?
     ) {
-        self[keyPath: isAnalyzingKeyPath] = false
-        self[keyPath: availableFormatsKeyPath] = resolvedFormats
-        self[keyPath: warningMessageKeyPath] = warningMessage
-        self[keyPath: errorMessageKeyPath] = errorMessage
+        let stateDescriptor = mediaStateDescriptor(for: kind)
+        self[keyPath: stateDescriptor.isAnalyzing] = false
+        self[keyPath: formatDescriptor.availableFormats] = resolvedFormats
+        self[keyPath: stateDescriptor.compatibilityWarningMessage] = warningMessage
+        self[keyPath: stateDescriptor.compatibilityErrorMessage] = errorMessage
     }
 
     nonisolated static func aggregateSourceCapabilities<Capability: Sendable, Format: Sendable>(
@@ -187,11 +183,8 @@ extension ContentViewModel {
     func analyzeSourceSelection<Capability: Sendable, Format: Sendable>(
         urls: [URL],
         kind: MediaKind,
-        analysisTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>,
-        isAnalyzing: ReferenceWritableKeyPath<ContentViewModel, Bool>,
-        availableFormatsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [Format]>,
-        warningMessageKeyPath: ReferenceWritableKeyPath<ContentViewModel, String?>,
-        errorMessageKeyPath: ReferenceWritableKeyPath<ContentViewModel, String?>,
+        stateDescriptor: MediaStateDescriptor,
+        formatDescriptor: OutputFormatDescriptor<Format>,
         selectedSourceIDs: @escaping () -> [String],
         fetchCapabilities: @escaping @Sendable (URL) async -> Capability,
         availableFormats: @escaping @Sendable (Capability) -> [Format],
@@ -206,15 +199,15 @@ extension ContentViewModel {
         let selection = uniqueStandardizedURLs(urls)
         let expectedSourceIDs = selection.map(sourceIdentifier(for:))
         guard !selection.isEmpty else {
-            self[keyPath: isAnalyzing] = false
-            self[keyPath: availableFormatsKeyPath] = []
+            self[keyPath: stateDescriptor.isAnalyzing] = false
+            self[keyPath: formatDescriptor.availableFormats] = []
             resetCompatibilityState(for: kind)
             return
         }
 
-        cancelTask(at: analysisTask)
-        self[keyPath: isAnalyzing] = true
-        self[keyPath: analysisTask] = Task { [weak self] in
+        cancelTask(at: stateDescriptor.analysisTask)
+        self[keyPath: stateDescriptor.isAnalyzing] = true
+        self[keyPath: stateDescriptor.analysisTask] = Task { [weak self] in
             guard let self else { return }
             if kind == .video,
                selection.count == 1,
@@ -240,10 +233,8 @@ extension ContentViewModel {
                 }
 
                 applySourceAnalysisResolution(
-                    isAnalyzingKeyPath: isAnalyzing,
-                    availableFormatsKeyPath: availableFormatsKeyPath,
-                    warningMessageKeyPath: warningMessageKeyPath,
-                    errorMessageKeyPath: errorMessageKeyPath,
+                    for: kind,
+                    formatDescriptor: formatDescriptor,
                     resolvedFormats: resolvedFormats,
                     warningMessage: joinedWarnings,
                     errorMessage: joinedErrors
@@ -292,10 +283,8 @@ extension ContentViewModel {
             }
 
             self.applySourceAnalysisResolution(
-                isAnalyzingKeyPath: isAnalyzing,
-                availableFormatsKeyPath: availableFormatsKeyPath,
-                warningMessageKeyPath: warningMessageKeyPath,
-                errorMessageKeyPath: errorMessageKeyPath,
+                for: kind,
+                formatDescriptor: formatDescriptor,
                 resolvedFormats: resolvedFormats,
                 warningMessage: joinedWarnings,
                 errorMessage: joinedErrors
@@ -309,7 +298,7 @@ extension ContentViewModel {
         analyzeSourceCompatibility(
             for: urls,
             kind: .video,
-            availableFormatsKeyPath: \.videoRuntimeState.media.availableOutputFormats,
+            formatDescriptor: Self.videoOutputFormatDescriptor,
             fetchCapabilities: { await VideoConversionEngine.sourceCapabilities(for: $0) },
             availableFormats: { $0.availableOutputFormats },
             warningMessage: { $0.warningMessage },
@@ -340,7 +329,7 @@ extension ContentViewModel {
         analyzeSourceCompatibility(
             for: urls,
             kind: .image,
-            availableFormatsKeyPath: \.imageRuntimeState.media.availableOutputFormats,
+            formatDescriptor: Self.imageOutputFormatDescriptor,
             fetchCapabilities: { await ImageConversionEngine.sourceCapabilities(for: $0) },
             availableFormats: { $0.availableOutputFormats },
             warningMessage: { $0.warningMessage },
@@ -371,7 +360,7 @@ extension ContentViewModel {
         analyzeSourceCompatibility(
             for: urls,
             kind: .audio,
-            availableFormatsKeyPath: \.audioRuntimeState.media.availableOutputFormats,
+            formatDescriptor: Self.audioOutputFormatDescriptor,
             fetchCapabilities: { await VideoConversionEngine.sourceCapabilitiesForAudio(for: $0) },
             availableFormats: { $0.availableOutputFormats },
             warningMessage: { $0.warningMessage },
