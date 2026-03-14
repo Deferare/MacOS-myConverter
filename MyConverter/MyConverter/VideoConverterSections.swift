@@ -92,7 +92,7 @@ struct VideoConverterFormSectionView: View, Equatable {
                 MenuPicker(
                     "Audio Encoder",
                     selection: viewModel.binding(to: \.selectedAudioEncoder),
-                    options: state.audioEncoderOptions,
+                    options: state.audioSettings.encoderOptions,
                     disabledWhenEmpty: true,
                     showsDivider: true,
                     label: { $0.rawValue }
@@ -102,8 +102,8 @@ struct VideoConverterFormSectionView: View, Equatable {
                     modeSelection: viewModel.binding(to: \.selectedAudioMode),
                     sampleRateSelection: viewModel.binding(to: \.selectedSampleRate),
                     bitRateSelection: viewModel.binding(to: \.selectedAudioBitRate),
-                    showSampleRate: state.shouldShowAudioSampleRateOption,
-                    showBitRate: state.shouldShowAudioBitRateOption,
+                    showSampleRate: state.audioSettings.shouldShowSampleRateOption,
+                    showBitRate: state.audioSettings.shouldShowBitRateOption,
                     showsDividerOnLastRow: false
                 )
             }

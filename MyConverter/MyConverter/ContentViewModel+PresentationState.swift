@@ -1,6 +1,40 @@
 import SwiftUI
 
 extension ContentViewModel {
+    struct AudioEncodingPresentationState: Equatable {
+        let selectedEncoder: AudioEncoderOption
+        let selectedMode: AudioModeOption
+        let selectedSampleRate: SampleRateOption
+        let selectedBitRate: AudioBitRateOption
+        let encoderOptions: [AudioEncoderOption]
+        let shouldShowSampleRateOption: Bool
+        let shouldShowBitRateOption: Bool
+
+        static func video(viewModel: ContentViewModel) -> Self {
+            Self(
+                selectedEncoder: viewModel.selectedAudioEncoder,
+                selectedMode: viewModel.selectedAudioMode,
+                selectedSampleRate: viewModel.selectedSampleRate,
+                selectedBitRate: viewModel.selectedAudioBitRate,
+                encoderOptions: viewModel.audioEncoderOptions,
+                shouldShowSampleRateOption: viewModel.shouldShowAudioSampleRateOption,
+                shouldShowBitRateOption: viewModel.shouldShowAudioBitRateOption
+            )
+        }
+
+        static func audioOutput(viewModel: ContentViewModel) -> Self {
+            Self(
+                selectedEncoder: viewModel.selectedAudioOutputEncoder,
+                selectedMode: viewModel.selectedAudioOutputMode,
+                selectedSampleRate: viewModel.selectedAudioOutputSampleRate,
+                selectedBitRate: viewModel.selectedAudioOutputBitRate,
+                encoderOptions: viewModel.audioOutputEncoderOptions,
+                shouldShowSampleRateOption: viewModel.shouldShowAudioOutputSampleRateOption,
+                shouldShowBitRateOption: viewModel.shouldShowAudioOutputBitRateOption
+            )
+        }
+    }
+
     struct VideoFormPresentationState: Equatable {
         let isConverting: Bool
         let selectedOutputFormat: VideoFormatOption
@@ -10,19 +44,13 @@ extension ContentViewModel {
         let selectedGIFPlaybackSpeed: GIFPlaybackSpeedOption
         let selectedVideoBitRate: VideoBitRateOption
         let customVideoBitRate: String
-        let selectedAudioEncoder: AudioEncoderOption
-        let selectedAudioMode: AudioModeOption
-        let selectedSampleRate: SampleRateOption
-        let selectedAudioBitRate: AudioBitRateOption
+        let audioSettings: AudioEncodingPresentationState
         let outputFormatOptions: [VideoFormatOption]
         let videoEncoderOptions: [VideoEncoderOption]
-        let audioEncoderOptions: [AudioEncoderOption]
         let shouldShowVideoEncoderOption: Bool
         let shouldShowAudioSettings: Bool
         let shouldShowGIFPlaybackSpeedOption: Bool
         let shouldShowVideoBitRateOption: Bool
-        let shouldShowAudioSampleRateOption: Bool
-        let shouldShowAudioBitRateOption: Bool
 
         init(viewModel: ContentViewModel) {
             isConverting = viewModel.isConverting
@@ -33,19 +61,13 @@ extension ContentViewModel {
             selectedGIFPlaybackSpeed = viewModel.selectedGIFPlaybackSpeed
             selectedVideoBitRate = viewModel.selectedVideoBitRate
             customVideoBitRate = viewModel.customVideoBitRate
-            selectedAudioEncoder = viewModel.selectedAudioEncoder
-            selectedAudioMode = viewModel.selectedAudioMode
-            selectedSampleRate = viewModel.selectedSampleRate
-            selectedAudioBitRate = viewModel.selectedAudioBitRate
+            audioSettings = .video(viewModel: viewModel)
             outputFormatOptions = viewModel.outputFormatOptions
             videoEncoderOptions = viewModel.videoEncoderOptions
-            audioEncoderOptions = viewModel.audioEncoderOptions
             shouldShowVideoEncoderOption = viewModel.shouldShowVideoEncoderOption
             shouldShowAudioSettings = viewModel.shouldShowAudioSettings
             shouldShowGIFPlaybackSpeedOption = viewModel.shouldShowGIFPlaybackSpeedOption
             shouldShowVideoBitRateOption = viewModel.shouldShowVideoBitRateOption
-            shouldShowAudioSampleRateOption = viewModel.shouldShowAudioSampleRateOption
-            shouldShowAudioBitRateOption = viewModel.shouldShowAudioBitRateOption
         }
     }
 
@@ -80,27 +102,15 @@ extension ContentViewModel {
     struct AudioFormPresentationState: Equatable {
         let isConverting: Bool
         let selectedOutputFormat: AudioFormatOption
-        let selectedOutputEncoder: AudioEncoderOption
-        let selectedOutputMode: AudioModeOption
-        let selectedOutputSampleRate: SampleRateOption
-        let selectedOutputBitRate: AudioBitRateOption
+        let audioSettings: AudioEncodingPresentationState
         let outputFormatOptions: [AudioFormatOption]
-        let audioOutputEncoderOptions: [AudioEncoderOption]
-        let shouldShowAudioOutputSampleRateOption: Bool
-        let shouldShowAudioOutputBitRateOption: Bool
         let hintMessage: String?
 
         init(viewModel: ContentViewModel) {
             isConverting = viewModel.isAudioConverting
             selectedOutputFormat = viewModel.selectedAudioOutputFormat
-            selectedOutputEncoder = viewModel.selectedAudioOutputEncoder
-            selectedOutputMode = viewModel.selectedAudioOutputMode
-            selectedOutputSampleRate = viewModel.selectedAudioOutputSampleRate
-            selectedOutputBitRate = viewModel.selectedAudioOutputBitRate
+            audioSettings = .audioOutput(viewModel: viewModel)
             outputFormatOptions = viewModel.audioOutputFormatOptions
-            audioOutputEncoderOptions = viewModel.audioOutputEncoderOptions
-            shouldShowAudioOutputSampleRateOption = viewModel.shouldShowAudioOutputSampleRateOption
-            shouldShowAudioOutputBitRateOption = viewModel.shouldShowAudioOutputBitRateOption
             hintMessage = viewModel.hintMessage(for: .audio)
         }
     }
