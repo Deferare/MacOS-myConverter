@@ -137,8 +137,8 @@ extension ContentViewModel {
 
                 return await viewModel.validateOutputFormatAvailability(
                     for: sourceURL,
-                    selectedFormatNormalizedID: viewModel.selectedOutputFormatNormalizedID(
-                        using: formatDescriptor
+                    selectedFormatNormalizedID: formatDescriptor.selectedFormatNormalizedID(
+                        in: viewModel
                     ),
                     unavailableMessage: unavailableMessage,
                     fetchCapabilities: fetchCapabilities,
@@ -157,8 +157,8 @@ extension ContentViewModel {
                 case .unavailable:
                     return await viewModel.validateOutputFormatAvailability(
                         for: source.sourceURL,
-                        selectedFormatNormalizedID: viewModel.selectedOutputFormatNormalizedID(
-                            using: formatDescriptor
+                        selectedFormatNormalizedID: formatDescriptor.selectedFormatNormalizedID(
+                            in: viewModel
                         ),
                         unavailableMessage: unavailableMessage,
                         fetchCapabilities: fetchCapabilities,
@@ -214,11 +214,11 @@ extension ContentViewModel {
             }
 
             return .handled(
-                viewModel.validateCachedOutputFormatAvailability(
-                    capabilities: cached.sourceCapabilities,
-                    selectedFormatNormalizedID: viewModel.selectedOutputFormatNormalizedID(
-                        using: descriptor
-                    ),
+                    viewModel.validateCachedOutputFormatAvailability(
+                        capabilities: cached.sourceCapabilities,
+                        selectedFormatNormalizedID: descriptor.selectedFormatNormalizedID(
+                            in: viewModel
+                        ),
                     unavailableMessage: "Selected container is not available for this source.",
                     availableFormats: { $0.availableOutputFormats },
                     errorMessage: { $0.errorMessage },
@@ -263,11 +263,11 @@ extension ContentViewModel {
             }
 
             return .handled(
-                viewModel.validateCachedOutputFormatAvailability(
-                    capabilities: cached,
-                    selectedFormatNormalizedID: viewModel.selectedOutputFormatNormalizedID(
-                        using: descriptor
-                    ),
+                    viewModel.validateCachedOutputFormatAvailability(
+                        capabilities: cached,
+                        selectedFormatNormalizedID: descriptor.selectedFormatNormalizedID(
+                            in: viewModel
+                        ),
                     unavailableMessage: "Selected output format is not available for this source.",
                     availableFormats: { $0.availableOutputFormats },
                     errorMessage: { $0.errorMessage },
@@ -306,11 +306,11 @@ extension ContentViewModel {
             }
 
             return .handled(
-                viewModel.validateCachedOutputFormatAvailability(
-                    capabilities: cached,
-                    selectedFormatNormalizedID: viewModel.selectedOutputFormatNormalizedID(
-                        using: descriptor
-                    ),
+                    viewModel.validateCachedOutputFormatAvailability(
+                        capabilities: cached,
+                        selectedFormatNormalizedID: descriptor.selectedFormatNormalizedID(
+                            in: viewModel
+                        ),
                     unavailableMessage: "Selected output format is not available for this source.",
                     availableFormats: { $0.availableOutputFormats },
                     errorMessage: { $0.errorMessage },
@@ -362,7 +362,7 @@ extension ContentViewModel {
         }
 
         if mediaStateValue(using: descriptor, \.sourceURL) != nil &&
-            !isSelectedOutputFormatAvailable(using: formatDescriptor) {
+            !formatDescriptor.isSelectedFormatAvailable(in: self) {
             return unavailableMessage
         }
 

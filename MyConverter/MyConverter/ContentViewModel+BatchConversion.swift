@@ -38,7 +38,7 @@ extension ContentViewModel {
     static let videoConversionWorkflowProfile = ConversionWorkflowProfile<VideoOutputSettings>(
         kind: .video,
         fileExtension: { viewModel in
-            viewModel.selectedOutputFormatFileExtension(using: videoOutputFormatDescriptorValue)
+            videoOutputFormatDescriptorValue.selectedFormatFileExtension(in: viewModel)
         },
         buildOutputSettings: { try $0.buildVideoOutputSettings() },
         prepareBatchEnvironment: { viewModel, preparedSources, outputSettings in
@@ -74,7 +74,7 @@ extension ContentViewModel {
     static let imageConversionWorkflowProfile = ConversionWorkflowProfile<ImageOutputSettings>(
         kind: .image,
         fileExtension: { viewModel in
-            viewModel.selectedOutputFormatFileExtension(using: imageOutputFormatDescriptorValue)
+            imageOutputFormatDescriptorValue.selectedFormatFileExtension(in: viewModel)
         },
         buildOutputSettings: { $0.buildImageOutputSettings() },
         prepareBatchEnvironment: { viewModel, preparedSources, _ in
@@ -102,7 +102,7 @@ extension ContentViewModel {
     static let audioConversionWorkflowProfile = ConversionWorkflowProfile<AudioOutputSettings>(
         kind: .audio,
         fileExtension: { viewModel in
-            viewModel.selectedOutputFormatFileExtension(using: audioOutputFormatDescriptorValue)
+            audioOutputFormatDescriptorValue.selectedFormatFileExtension(in: viewModel)
         },
         buildOutputSettings: { $0.buildAudioOutputSettings() },
         prepareBatchEnvironment: { viewModel, preparedSources, _ in

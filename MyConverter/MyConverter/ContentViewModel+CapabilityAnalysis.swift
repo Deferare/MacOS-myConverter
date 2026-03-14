@@ -177,7 +177,7 @@ extension ContentViewModel {
         postSelectionUpdate: () -> Void = {},
         persistSettings: () -> Void
     ) {
-        let selectedFormat = outputFormatValue(using: formatDescriptor, \.selectedFormat)
+        let selectedFormat = formatDescriptor.selectedFormatValue(in: self)
         let resolvedSelection = resolvedSelectedFormat(
             current: selectedFormat,
             options: resolvedFormats,

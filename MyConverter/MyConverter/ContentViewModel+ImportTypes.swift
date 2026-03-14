@@ -106,11 +106,11 @@ extension ContentViewModel.MediaKind {
     func selectedOutputFormatLabel(in viewModel: ContentViewModel) -> String {
         switch self {
         case .video:
-            viewModel.selectedOutputFormatLabel(using: ContentViewModel.videoOutputFormatDescriptorValue)
+            ContentViewModel.videoOutputFormatDescriptorValue.selectedFormatLabel(in: viewModel)
         case .image:
-            viewModel.selectedOutputFormatLabel(using: ContentViewModel.imageOutputFormatDescriptorValue)
+            ContentViewModel.imageOutputFormatDescriptorValue.selectedFormatLabel(in: viewModel)
         case .audio:
-            viewModel.selectedOutputFormatLabel(using: ContentViewModel.audioOutputFormatDescriptorValue)
+            ContentViewModel.audioOutputFormatDescriptorValue.selectedFormatLabel(in: viewModel)
         }
     }
 

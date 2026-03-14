@@ -86,7 +86,7 @@ extension ContentViewModel {
             buildCurrentSettings: buildCurrentSettings,
             applyAdditionalSettings: applyAdditionalSettings,
             postApply: { viewModel in
-                viewModel.ensureSelectedOutputFormatIsAvailable(using: formatDescriptor)
+                formatDescriptor.ensureSelectedFormatIsAvailable(in: viewModel)
                 refreshDependentOptions(viewModel)
             }
         )

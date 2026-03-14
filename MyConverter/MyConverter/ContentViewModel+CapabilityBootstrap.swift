@@ -32,10 +32,7 @@ extension ContentViewModel {
         applyAdditionalPlaceholderState: @escaping (ContentViewModel) -> Void = { _ in }
     ) -> (ContentViewModel) -> Void {
         { viewModel in
-            viewModel.applyAvailableOutputFormats(
-                placeholderFormats(),
-                using: formatDescriptor
-            )
+            formatDescriptor.applyAvailableFormats(placeholderFormats(), to: viewModel)
             applyAdditionalPlaceholderState(viewModel)
         }
     }
@@ -56,7 +53,7 @@ extension ContentViewModel {
             return
         }
 
-        applyAvailableOutputFormats(warmedFormats, using: formatDescriptor, postApply: postApply)
+        formatDescriptor.applyAvailableFormats(warmedFormats, to: self, postApply: postApply)
     }
 
     func applyPlaceholderCapabilities(for kind: MediaKind) {
