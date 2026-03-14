@@ -28,7 +28,7 @@ extension ContentViewModel {
             self.convertedCount = convertedCount
             showsSettings = selectedFileCount > 0
             showsResults = convertedCount > 0
-            destinationHint = viewModel.selectedOutputDirectoryURL(for: kind).map {
+            destinationHint = kind.selectedOutputDirectoryURL(in: viewModel).map {
                 "Selected output folder: \(viewModel.abbreviatedOutputDirectoryPath($0))"
             } ?? "Select an output folder in Conversion Settings, or choose one after you press Start."
             primaryActionTitle = snapshot.isConverting ? "Cancel" : "Start"

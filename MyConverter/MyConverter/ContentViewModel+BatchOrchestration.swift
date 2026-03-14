@@ -10,58 +10,63 @@ extension ContentViewModel {
         #endif
     }
 
-    func selectedOutputDestinationHandle(for kind: MediaKind) -> OutputDestinationHandle? {
-        if let handle = securityScopeState.outputDestinationHandleByKind[kind] {
+    func abbreviatedOutputDirectoryPath(_ url: URL) -> String {
+        (url.path as NSString).abbreviatingWithTildeInPath
+    }
+}
+
+extension ContentViewModel.MediaKind {
+    func selectedOutputDestinationHandle(in viewModel: ContentViewModel) -> OutputDestinationHandle? {
+        if let handle = viewModel.securityScopeState.outputDestinationHandleByKind[self] {
             return handle
         }
-        return selectedOutputDirectoryURL(for: kind).map { OutputDestinationHandle(url: $0) }
+        return selectedOutputDirectoryURL(in: viewModel).map { OutputDestinationHandle(url: $0) }
     }
 
-    func setSelectedOutputDestinationHandle(_ handle: OutputDestinationHandle?, for kind: MediaKind) {
-        securityScopeState.outputDestinationHandleByKind[kind] = handle
-        setSelectedOutputDirectoryURL(handle?.url, for: kind)
+    func setSelectedOutputDestinationHandle(
+        _ handle: OutputDestinationHandle?,
+        in viewModel: ContentViewModel
+    ) {
+        viewModel.securityScopeState.outputDestinationHandleByKind[self] = handle
+        setSelectedOutputDirectoryURL(handle?.url, in: viewModel)
     }
 
-    func selectedOutputDirectoryURL(for kind: MediaKind) -> URL? {
-        if let handle = securityScopeState.outputDestinationHandleByKind[kind] {
+    func selectedOutputDirectoryURL(in viewModel: ContentViewModel) -> URL? {
+        if let handle = viewModel.securityScopeState.outputDestinationHandleByKind[self] {
             return handle.url
         }
-        return self[keyPath: kind.outputDirectoryURLKeyPath]
+        return viewModel[keyPath: outputDirectoryURLKeyPath]
     }
 
-    func setSelectedOutputDirectoryURL(_ url: URL?, for kind: MediaKind) {
-        let previousHandle = securityScopeState.outputDestinationHandleByKind[kind]
+    func setSelectedOutputDirectoryURL(_ url: URL?, in viewModel: ContentViewModel) {
+        let previousHandle = viewModel.securityScopeState.outputDestinationHandleByKind[self]
         if previousHandle?.url.path != url?.path {
-            securityScopeState.outputDestinationHandleByKind[kind] = nil
+            viewModel.securityScopeState.outputDestinationHandleByKind[self] = nil
         }
-        synchronizeOutputDirectorySecurityScope(for: url, kind: kind)
-        self[keyPath: kind.outputDirectoryURLKeyPath] = url
+        viewModel.synchronizeOutputDirectorySecurityScope(for: url, kind: self)
+        viewModel[keyPath: outputDirectoryURLKeyPath] = url
     }
 
-    func hasSelectedOutputDirectory(for kind: MediaKind) -> Bool {
-        selectedOutputDirectoryURL(for: kind) != nil
+    func hasSelectedOutputDirectory(in viewModel: ContentViewModel) -> Bool {
+        selectedOutputDirectoryURL(in: viewModel) != nil
     }
 
     @discardableResult
-    func chooseOutputDirectory(for kind: MediaKind) async -> Bool {
-        let snapshot = mediaStateSnapshot(for: kind)
-        let suggestedDirectory = selectedOutputDirectoryURL(for: kind)
+    func chooseOutputDirectory(in viewModel: ContentViewModel) async -> Bool {
+        let snapshot = viewModel.mediaStateSnapshot(for: self)
+        let suggestedDirectory = selectedOutputDirectoryURL(in: viewModel)
             ?? snapshot.selectedSourceURLs.first?.deletingLastPathComponent()
-            ?? defaultSuggestedOutputDirectory
+            ?? viewModel.defaultSuggestedOutputDirectory
 
-        guard let handle = await services.outputDestinationCoordinator.chooseOutputDestination(
+        guard let handle = await viewModel.services.outputDestinationCoordinator.chooseOutputDestination(
             suggestedDirectory: suggestedDirectory,
-            outputLabel: kind.outputLabel,
+            outputLabel: outputLabel,
             fileCount: max(snapshot.selectedFileCount, 1)
         ) else {
             return false
         }
 
-        setSelectedOutputDestinationHandle(handle, for: kind)
+        setSelectedOutputDestinationHandle(handle, in: viewModel)
         return true
-    }
-
-    func abbreviatedOutputDirectoryPath(_ url: URL) -> String {
-        (url.path as NSString).abbreviatingWithTildeInPath
     }
 }

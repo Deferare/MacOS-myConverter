@@ -30,12 +30,12 @@ extension ContentViewModel {
             missingSourceLog: kind.missingSourceLog,
             fileExtension: fileExtension,
             outputLabel: kind.outputLabel,
-            preferredOutputDestination: selectedOutputDestinationHandle(for: kind),
-            preferredOutputDirectory: selectedOutputDirectoryURL(for: kind),
+            preferredOutputDestination: kind.selectedOutputDestinationHandle(in: self),
+            preferredOutputDirectory: kind.selectedOutputDirectoryURL(in: self),
             skippedSummaryPrefix: kind.skippedSummaryPrefix,
             treatExportCancellationAsCancelled: kind.treatExportCancellationAsCancelled,
             startState: { outputDirectoryURL, preserveCompletedOutputs in
-                self.setSelectedOutputDirectoryURL(outputDirectoryURL, for: kind)
+                kind.setSelectedOutputDirectoryURL(outputDirectoryURL, in: self)
                 self.prepareConversionStartState(
                     for: kind,
                     preserveCompletedOutputs: preserveCompletedOutputs

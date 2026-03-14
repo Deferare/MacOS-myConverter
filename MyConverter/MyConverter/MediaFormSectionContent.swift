@@ -21,15 +21,15 @@ struct MediaSettingsFormContent: View {
 
     var body: some View {
         OutputFolderSelectionRow(
-            pathText: viewModel.selectedOutputDirectoryURL(for: kind).map {
+            pathText: kind.selectedOutputDirectoryURL(in: viewModel).map {
                 viewModel.abbreviatedOutputDirectoryPath($0)
             } ?? "No folder selected",
-            hasSelection: viewModel.hasSelectedOutputDirectory(for: kind),
+            hasSelection: kind.hasSelectedOutputDirectory(in: viewModel),
             tint: kind.liquidGlassTint,
             isDisabled: isConverting,
             onChoose: {
                 Task {
-                    await viewModel.chooseOutputDirectory(for: kind)
+                    await kind.chooseOutputDirectory(in: viewModel)
                 }
             }
         )
