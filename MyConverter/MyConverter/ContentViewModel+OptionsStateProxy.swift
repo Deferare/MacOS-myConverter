@@ -138,11 +138,6 @@ extension ContentViewModel {
         set { setOutputAffectingOption(in: Self.videoOptionsDescriptor, \.selectedAudioBitRate, to: newValue, persistence: .persist) }
     }
 
-    var selectedVideoOutputDirectoryURL: URL? {
-        get { optionValue(in: Self.videoOptionsDescriptor, \.selectedOutputDirectoryURL) }
-        set { setOutputAffectingOption(in: Self.videoOptionsDescriptor, \.selectedOutputDirectoryURL, to: newValue) }
-    }
-
     // Image options
     var selectedImageOutputFormat: ImageFormatOption {
         get { optionValue(in: Self.imageOptionsDescriptor, \.selectedOutputFormat) }
@@ -167,11 +162,6 @@ extension ContentViewModel {
     var preserveImageAnimation: Bool {
         get { optionValue(in: Self.imageOptionsDescriptor, \.preserveAnimation) }
         set { setOutputAffectingOption(in: Self.imageOptionsDescriptor, \.preserveAnimation, to: newValue, persistence: .persist) }
-    }
-
-    var selectedImageOutputDirectoryURL: URL? {
-        get { optionValue(in: Self.imageOptionsDescriptor, \.selectedOutputDirectoryURL) }
-        set { setOutputAffectingOption(in: Self.imageOptionsDescriptor, \.selectedOutputDirectoryURL, to: newValue) }
     }
 
     // Audio options
@@ -214,8 +204,4 @@ extension ContentViewModel {
         set { setOutputAffectingOption(in: Self.audioOptionsDescriptor, \.selectedOutputBitRate, to: newValue, persistence: .persist) }
     }
 
-    var selectedAudioOutputDirectoryURL: URL? {
-        get { optionValue(in: Self.audioOptionsDescriptor, \.selectedOutputDirectoryURL) }
-        set { setOutputAffectingOption(in: Self.audioOptionsDescriptor, \.selectedOutputDirectoryURL, to: newValue) }
-    }
 }

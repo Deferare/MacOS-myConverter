@@ -62,21 +62,6 @@ extension ContentViewModel {
         set { setMediaRuntimeValue(using: Self.videoRuntimeStateDescriptor, \.processedSourceIDs, to: newValue) }
     }
 
-    var conversionErrorMessage: String? {
-        get { mediaRuntimeValue(using: Self.videoRuntimeStateDescriptor, \.conversionErrorMessage) }
-        set { setMediaRuntimeValue(using: Self.videoRuntimeStateDescriptor, \.conversionErrorMessage, to: newValue) }
-    }
-
-    var sourceCompatibilityErrorMessage: String? {
-        get { mediaRuntimeValue(using: Self.videoRuntimeStateDescriptor, \.sourceCompatibilityErrorMessage) }
-        set { setMediaRuntimeValue(using: Self.videoRuntimeStateDescriptor, \.sourceCompatibilityErrorMessage, to: newValue) }
-    }
-
-    var sourceCompatibilityWarningMessage: String? {
-        get { mediaRuntimeValue(using: Self.videoRuntimeStateDescriptor, \.sourceCompatibilityWarningMessage) }
-        set { setMediaRuntimeValue(using: Self.videoRuntimeStateDescriptor, \.sourceCompatibilityWarningMessage, to: newValue) }
-    }
-
     var isAnalyzingSource: Bool {
         get { mediaRuntimeValue(using: Self.videoRuntimeStateDescriptor, \.isAnalyzingSource) }
         set { setMediaRuntimeValue(using: Self.videoRuntimeStateDescriptor, \.isAnalyzingSource, to: newValue) }
@@ -95,16 +80,6 @@ extension ContentViewModel {
     var availableOutputFormats: [VideoFormatOption] {
         get { mediaRuntimeValue(using: Self.videoRuntimeStateDescriptor, \.availableOutputFormats) }
         set { setMediaRuntimeValue(using: Self.videoRuntimeStateDescriptor, \.availableOutputFormats, to: newValue) }
-    }
-
-    var availableVideoEncoders: [VideoEncoderOption] {
-        get { stateValue(using: Self.videoRuntimeStateDescriptor, at: \.availableVideoEncoders) }
-        set { updateState(using: Self.videoRuntimeStateDescriptor, value: \.availableVideoEncoders, to: newValue) }
-    }
-
-    var availableAudioEncoders: [AudioEncoderOption] {
-        get { stateValue(using: Self.videoRuntimeStateDescriptor, at: \.availableAudioEncoders) }
-        set { updateState(using: Self.videoRuntimeStateDescriptor, value: \.availableAudioEncoders, to: newValue) }
     }
 
     // Image state
@@ -136,21 +111,6 @@ extension ContentViewModel {
     var processedImageSourceIDs: Set<String> {
         get { mediaRuntimeValue(using: Self.imageRuntimeStateDescriptor, \.processedSourceIDs) }
         set { setMediaRuntimeValue(using: Self.imageRuntimeStateDescriptor, \.processedSourceIDs, to: newValue) }
-    }
-
-    var imageConversionErrorMessage: String? {
-        get { mediaRuntimeValue(using: Self.imageRuntimeStateDescriptor, \.conversionErrorMessage) }
-        set { setMediaRuntimeValue(using: Self.imageRuntimeStateDescriptor, \.conversionErrorMessage, to: newValue) }
-    }
-
-    var imageSourceCompatibilityErrorMessage: String? {
-        get { mediaRuntimeValue(using: Self.imageRuntimeStateDescriptor, \.sourceCompatibilityErrorMessage) }
-        set { setMediaRuntimeValue(using: Self.imageRuntimeStateDescriptor, \.sourceCompatibilityErrorMessage, to: newValue) }
-    }
-
-    var imageSourceCompatibilityWarningMessage: String? {
-        get { mediaRuntimeValue(using: Self.imageRuntimeStateDescriptor, \.sourceCompatibilityWarningMessage) }
-        set { setMediaRuntimeValue(using: Self.imageRuntimeStateDescriptor, \.sourceCompatibilityWarningMessage, to: newValue) }
     }
 
     var isAnalyzingImageSource: Bool {
@@ -197,21 +157,6 @@ extension ContentViewModel {
     var processedAudioSourceIDs: Set<String> {
         get { mediaRuntimeValue(using: Self.audioRuntimeStateDescriptor, \.processedSourceIDs) }
         set { setMediaRuntimeValue(using: Self.audioRuntimeStateDescriptor, \.processedSourceIDs, to: newValue) }
-    }
-
-    var audioConversionErrorMessage: String? {
-        get { mediaRuntimeValue(using: Self.audioRuntimeStateDescriptor, \.conversionErrorMessage) }
-        set { setMediaRuntimeValue(using: Self.audioRuntimeStateDescriptor, \.conversionErrorMessage, to: newValue) }
-    }
-
-    var audioSourceCompatibilityErrorMessage: String? {
-        get { mediaRuntimeValue(using: Self.audioRuntimeStateDescriptor, \.sourceCompatibilityErrorMessage) }
-        set { setMediaRuntimeValue(using: Self.audioRuntimeStateDescriptor, \.sourceCompatibilityErrorMessage, to: newValue) }
-    }
-
-    var audioSourceCompatibilityWarningMessage: String? {
-        get { mediaRuntimeValue(using: Self.audioRuntimeStateDescriptor, \.sourceCompatibilityWarningMessage) }
-        set { setMediaRuntimeValue(using: Self.audioRuntimeStateDescriptor, \.sourceCompatibilityWarningMessage, to: newValue) }
     }
 
     var isAnalyzingAudioSource: Bool {

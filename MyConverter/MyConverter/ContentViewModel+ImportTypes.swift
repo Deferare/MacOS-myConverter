@@ -122,7 +122,7 @@ extension ContentViewModel.MediaKind {
 
     private static let videoDescriptor = makeMediaDescriptor(
             sidebarSystemImage: "film",
-            outputDirectoryURL: \.selectedVideoOutputDirectoryURL,
+            outputDirectoryURL: \.videoOptionsState.selectedOutputDirectoryURL,
             selectedOutputFormatLabel: { viewModel in
                 viewModel.selectedOutputFormatLabel(using: ContentViewModel.videoOutputFormatDescriptorValue)
             },
@@ -137,7 +137,7 @@ extension ContentViewModel.MediaKind {
 
     private static let imageDescriptor = makeMediaDescriptor(
             sidebarSystemImage: "photo",
-            outputDirectoryURL: \.selectedImageOutputDirectoryURL,
+            outputDirectoryURL: \.imageOptionsState.selectedOutputDirectoryURL,
             selectedOutputFormatLabel: { viewModel in
                 viewModel.selectedOutputFormatLabel(using: ContentViewModel.imageOutputFormatDescriptorValue)
             },
@@ -152,7 +152,7 @@ extension ContentViewModel.MediaKind {
 
     private static let audioDescriptor = makeMediaDescriptor(
             sidebarSystemImage: "waveform",
-            outputDirectoryURL: \.selectedAudioOutputDirectoryURL,
+            outputDirectoryURL: \.audioOptionsState.selectedOutputDirectoryURL,
             selectedOutputFormatLabel: { viewModel in
                 viewModel.selectedOutputFormatLabel(using: ContentViewModel.audioOutputFormatDescriptorValue)
             },

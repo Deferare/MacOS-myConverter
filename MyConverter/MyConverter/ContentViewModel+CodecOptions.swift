@@ -21,7 +21,7 @@ extension ContentViewModel {
     >(
         state: StateProxyDescriptor(stateKeyPath: \.videoOptionsState),
         currentFormat: { $0.selectedOutputFormat },
-        availableEncoders: \.availableAudioEncoders,
+        availableEncoders: \.videoRuntimeState.availableAudioEncoders,
         encoder: \.selectedAudioEncoder,
         audioMode: \.selectedAudioMode,
         bitRate: \.selectedAudioBitRate,
@@ -178,7 +178,7 @@ extension ContentViewModel {
         let format = selectedOutputFormat
         guard format.supportsAudioTrack else { return [] }
         return resolvedAudioEncoderOptions(
-            availableAudioEncoders,
+            videoRuntimeState.availableAudioEncoders,
             for: format,
             using: Self.videoAudioCodecDependencyDescriptor
         )
@@ -213,7 +213,7 @@ extension ContentViewModel {
             )
             : []
 
-        availableVideoEncoders = resolvedVideoEncoders
+        videoRuntimeState.availableVideoEncoders = resolvedVideoEncoders
         self[keyPath: Self.videoAudioCodecDependencyDescriptor.availableEncoders] = resolvedAudioEncoders
 
         updateState(\.videoOptionsState) { state in
@@ -244,7 +244,7 @@ extension ContentViewModel {
 
     func applyPlaceholderVideoCodecOptions() {
         let format = selectedOutputFormat
-        availableVideoEncoders = ContentViewModelSupport.placeholderVideoEncoders(for: format)
+        videoRuntimeState.availableVideoEncoders = ContentViewModelSupport.placeholderVideoEncoders(for: format)
         applyPlaceholderAudioCodecDependencies(using: Self.videoAudioCodecDependencyDescriptor)
         updateState(\.videoOptionsState) { state in
             resetVideoBitRateIfNeeded(in: &state)
@@ -263,7 +263,7 @@ extension ContentViewModel {
         let format = selectedOutputFormat
         let encoderOptions = format.supportsAudioTrack
             ? resolvedAudioEncoderOptions(
-                availableAudioEncoders,
+                videoRuntimeState.availableAudioEncoders,
                 for: format,
                 using: Self.videoAudioCodecDependencyDescriptor
             )

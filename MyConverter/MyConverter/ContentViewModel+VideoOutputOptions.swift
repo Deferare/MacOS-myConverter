@@ -7,7 +7,7 @@ extension ContentViewModel {
 
     var videoEncoderOptions: [VideoEncoderOption] {
         resolvedOptions(
-            availableVideoEncoders,
+            videoRuntimeState.availableVideoEncoders,
             autoOption: VideoEncoderOption.auto,
             includesAutoOption: selectedOutputFormat.avFileType != nil
         )
