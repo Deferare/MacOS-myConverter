@@ -1,7 +1,7 @@
 import Foundation
 
 extension ContentViewModel {
-    struct AudioEncodingSelectionState {
+    struct AudioEncodingSelectionState: Equatable {
         let isEnabled: Bool
         let selectedEncoder: AudioEncoderOption
         let selectedMode: AudioModeOption
