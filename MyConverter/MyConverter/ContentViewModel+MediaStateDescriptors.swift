@@ -138,10 +138,17 @@ extension ContentViewModel {
             )
             viewModel.applyPlaceholderVideoCodecOptions()
         },
-        validationMessage: videoValidationMessageValue,
-        hintMessage: videoHintMessageValue,
-        validateSourceOutputSettings: videoValidateSourceOutputSettingsValue,
-        validatePreparedSourceOutputSettings: videoValidatePreparedSourceOutputSettingsValue,
+        validationMessage: { $0.videoValidationMessage() },
+        hintMessage: { _ in nil },
+        validateSourceOutputSettings: { viewModel, sourceURL in
+            await viewModel.validateVideoSourceOutputSettings(sourceURL)
+        },
+        validatePreparedSourceOutputSettings: { viewModel, source, environment in
+            await viewModel.validatePreparedVideoSourceOutputSettings(
+                source: source,
+                environment: environment
+            )
+        },
         performConversion: { viewModel in
             await viewModel.performVideoConversion()
         },
@@ -194,10 +201,17 @@ extension ContentViewModel {
                 to: viewModel
             )
         },
-        validationMessage: imageValidationMessageValue,
-        hintMessage: imageHintMessageValue,
-        validateSourceOutputSettings: imageValidateSourceOutputSettingsValue,
-        validatePreparedSourceOutputSettings: imageValidatePreparedSourceOutputSettingsValue,
+        validationMessage: { $0.imageValidationMessage() },
+        hintMessage: { $0.imageHintMessage() },
+        validateSourceOutputSettings: { viewModel, sourceURL in
+            await viewModel.validateImageSourceOutputSettings(sourceURL)
+        },
+        validatePreparedSourceOutputSettings: { viewModel, source, environment in
+            await viewModel.validatePreparedImageSourceOutputSettings(
+                source: source,
+                environment: environment
+            )
+        },
         performConversion: { viewModel in
             await viewModel.performImageConversion()
         },
@@ -254,10 +268,17 @@ extension ContentViewModel {
             )
             viewModel.applyPlaceholderAudioCodecOptions()
         },
-        validationMessage: audioValidationMessageValue,
-        hintMessage: audioHintMessageValue,
-        validateSourceOutputSettings: audioValidateSourceOutputSettingsValue,
-        validatePreparedSourceOutputSettings: audioValidatePreparedSourceOutputSettingsValue,
+        validationMessage: { $0.audioValidationMessage() },
+        hintMessage: { $0.audioHintMessage() },
+        validateSourceOutputSettings: { viewModel, sourceURL in
+            await viewModel.validateAudioSourceOutputSettings(sourceURL)
+        },
+        validatePreparedSourceOutputSettings: { viewModel, source, environment in
+            await viewModel.validatePreparedAudioSourceOutputSettings(
+                source: source,
+                environment: environment
+            )
+        },
         performConversion: { viewModel in
             await viewModel.performAudioConversion()
         },
