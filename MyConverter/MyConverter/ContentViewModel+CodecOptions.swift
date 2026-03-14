@@ -2,7 +2,7 @@ import Foundation
 
 extension ContentViewModel {
     private struct AudioCodecDependencyDescriptor<State, Format> {
-        let state: StateProxyDescriptor<State>
+        let stateKeyPath: ReferenceWritableKeyPath<ContentViewModel, State>
         let currentFormat: (ContentViewModel) -> Format
         let availableEncoders: ReferenceWritableKeyPath<ContentViewModel, [AudioEncoderOption]>
         let encoder: WritableKeyPath<State, AudioEncoderOption>
@@ -19,7 +19,7 @@ extension ContentViewModel {
         VideoOptionsState,
         VideoFormatOption
     >(
-        state: StateProxyDescriptor(stateKeyPath: \.videoOptionsState),
+        stateKeyPath: \.videoOptionsState,
         currentFormat: { $0.videoOptionsState.selectedOutputFormat },
         availableEncoders: \.videoRuntimeState.availableAudioEncoders,
         encoder: \.selectedAudioEncoder,
@@ -44,7 +44,7 @@ extension ContentViewModel {
         AudioOptionsState,
         AudioFormatOption
     >(
-        state: StateProxyDescriptor(stateKeyPath: \.audioOptionsState),
+        stateKeyPath: \.audioOptionsState,
         currentFormat: { $0.audioOptionsState.selectedOutputFormat },
         availableEncoders: \.audioRuntimeState.availableOutputEncoders,
         encoder: \.selectedOutputEncoder,
@@ -139,7 +139,7 @@ extension ContentViewModel {
         )
 
         self[keyPath: descriptor.availableEncoders] = availableEncoders
-        updateState(using: descriptor.state) { state in
+        updateState(descriptor.stateKeyPath) { state in
             normalizeAudioCodecDependencies(
                 in: &state,
                 format: format,
@@ -286,7 +286,7 @@ extension ContentViewModel {
             for: format,
             using: Self.audioOutputCodecDependencyDescriptor
         )
-        updateState(using: Self.audioOutputCodecDependencyDescriptor.state) { state in
+        updateState(Self.audioOutputCodecDependencyDescriptor.stateKeyPath) { state in
             normalizeAudioCodecDependencies(
                 in: &state,
                 format: format,
