@@ -13,6 +13,25 @@ extension ContentViewModel.SelectedFileListState.RowStatus {
         case completed
         case skipped
 
+        private static let kindMatchers: [(kind: Self, matches: (ContentViewModel.SelectedFileListState.RowStatus) -> Bool)] = [
+            (.pending, {
+                if case .pending = $0 { return true }
+                return false
+            }),
+            (.converting, {
+                if case .converting = $0 { return true }
+                return false
+            }),
+            (.completed, {
+                if case .completed = $0 { return true }
+                return false
+            }),
+            (.skipped, {
+                if case .skipped = $0 { return true }
+                return false
+            })
+        ]
+
         private static let appearanceByKind: [Self: SelectedFileRowStatusAppearance] = [
             .pending: SelectedFileRowStatusAppearance(
                 symbolName: "circle.dashed",
@@ -45,19 +64,14 @@ extension ContentViewModel.SelectedFileListState.RowStatus {
         var defaultProgressValue: Double {
             Self.progressByKind[self] ?? 0
         }
+
+        static func resolve(from status: ContentViewModel.SelectedFileListState.RowStatus) -> Self {
+            Self.kindMatchers.first(where: { $0.matches(status) })?.kind ?? .pending
+        }
     }
 
     private var kind: Kind {
-        switch self {
-        case .pending:
-            .pending
-        case .converting:
-            .converting
-        case .completed:
-            .completed
-        case .skipped:
-            .skipped
-        }
+        Kind.resolve(from: self)
     }
 
     var showsProgressBar: Bool {

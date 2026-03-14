@@ -61,6 +61,45 @@ enum ImageConversionError: LocalizedError {
         case ffmpegUnavailableForAnimatedOutput
         case ffmpegFailed
         case encodingFailed
+
+        private static let kindMatchers: [(kind: Self, matches: (ImageConversionError) -> Bool)] = [
+            (.unreadableImage, {
+                if case .unreadableImage = $0 { return true }
+                return false
+            }),
+            (.noFramesFound, {
+                if case .noFramesFound = $0 { return true }
+                return false
+            }),
+            (.invalidSourceDimensions, {
+                if case .invalidSourceDimensions = $0 { return true }
+                return false
+            }),
+            (.unsupportedOutputFormat, {
+                if case .unsupportedOutputFormat = $0 { return true }
+                return false
+            }),
+            (.ffmpegUnsupportedFormat, {
+                if case .ffmpegUnsupportedFormat = $0 { return true }
+                return false
+            }),
+            (.ffmpegUnavailableForAnimatedOutput, {
+                if case .ffmpegUnavailableForAnimatedOutput = $0 { return true }
+                return false
+            }),
+            (.ffmpegFailed, {
+                if case .ffmpegFailed = $0 { return true }
+                return false
+            }),
+            (.encodingFailed, {
+                if case .encodingFailed = $0 { return true }
+                return false
+            })
+        ]
+
+        static func resolve(from error: ImageConversionError) -> Self {
+            Self.kindMatchers.first(where: { $0.matches(error) })?.kind ?? .encodingFailed
+        }
     }
 
     private static let errorMessageProviderByKind: [Kind: (Self) -> String] = [
@@ -87,24 +126,7 @@ enum ImageConversionError: LocalizedError {
     ]
 
     private var kind: Kind {
-        switch self {
-        case .unreadableImage:
-            .unreadableImage
-        case .noFramesFound:
-            .noFramesFound
-        case .invalidSourceDimensions:
-            .invalidSourceDimensions
-        case .unsupportedOutputFormat:
-            .unsupportedOutputFormat
-        case .ffmpegUnsupportedFormat:
-            .ffmpegUnsupportedFormat
-        case .ffmpegUnavailableForAnimatedOutput:
-            .ffmpegUnavailableForAnimatedOutput
-        case .ffmpegFailed:
-            .ffmpegFailed
-        case .encodingFailed:
-            .encodingFailed
-        }
+        Kind.resolve(from: self)
     }
 
     private var errorMessage: String {
