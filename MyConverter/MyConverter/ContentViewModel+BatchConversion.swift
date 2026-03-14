@@ -124,7 +124,6 @@ extension ContentViewModel {
     func performConversion<OutputSettings: Sendable>(using profile: ConversionWorkflowProfile<OutputSettings>) async {
         let kind = profile.kind
         let descriptor = mediaStateDescriptor(for: kind)
-        let metadata = kind.conversionMetadata
         let validationMessage = validationMessage(for: kind)
         let canConvert = canStartConversion(for: kind, validationMessage: validationMessage)
         let prepareSingleSourceEnvironment: (
@@ -151,13 +150,13 @@ extension ContentViewModel {
                 using: descriptor,
                 \.convertedOutputURLsBySourceID
             ),
-            missingSourceLog: metadata.missingSourceLog,
+            missingSourceLog: kind.missingSourceLog,
             fileExtension: profile.fileExtension(self),
-            outputLabel: metadata.outputLabel,
+            outputLabel: kind.outputLabel,
             preferredOutputDestination: selectedOutputDestinationHandle(for: kind),
             preferredOutputDirectory: selectedOutputDirectoryURL(for: kind),
-            skippedSummaryPrefix: metadata.skippedSummaryPrefix,
-            treatExportCancellationAsCancelled: metadata.treatExportCancellationAsCancelled,
+            skippedSummaryPrefix: kind.skippedSummaryPrefix,
+            treatExportCancellationAsCancelled: kind.treatExportCancellationAsCancelled,
             startState: { outputDirectoryURL, preserveCompletedOutputs in
                 self.setSelectedOutputDirectoryURL(outputDirectoryURL, for: kind)
                 self.prepareConversionStartState(
@@ -197,9 +196,9 @@ extension ContentViewModel {
                 self.applyConversionError(
                     error,
                     for: kind,
-                    logPrefix: metadata.errorLogPrefix,
-                    treatExportCancellationAsCancelled: metadata.treatExportCancellationAsCancelled,
-                    includeDebugInfo: metadata.includeDebugInfo
+                    logPrefix: kind.errorLogPrefix,
+                    treatExportCancellationAsCancelled: kind.treatExportCancellationAsCancelled,
+                    includeDebugInfo: kind.includeDebugInfo
                 )
             },
             onSingleSourceCompletion: {

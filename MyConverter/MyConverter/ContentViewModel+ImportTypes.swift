@@ -5,82 +5,14 @@ import PhotosUI
 #endif
 
 extension ContentViewModel {
-    struct ConversionMetadata {
-        let outputLabel: String
-        let missingSourceLog: String
-        let destinationErrorCode: Int
-        let skippedSummaryPrefix: String
-        let treatExportCancellationAsCancelled: Bool
-        let errorLogPrefix: String
-        let includeDebugInfo: Bool
-    }
-
     enum IOSPhotoLibraryFilter {
         case images
         case videos
         case none
     }
-
-    struct IOSImportDescriptor {
-        let photoLibraryFilter: IOSPhotoLibraryFilter
-        let preferredPhotoLibraryItemTypeIdentifiers: [String]
-        let temporaryImportFallbackFileExtension: String
-    }
 }
 
 extension ContentViewModel.MediaKind {
-    private static let imageIOSImportDescriptor = ContentViewModel.IOSImportDescriptor(
-        photoLibraryFilter: .images,
-        preferredPhotoLibraryItemTypeIdentifiers: [UTType.image.identifier],
-        temporaryImportFallbackFileExtension: "jpg"
-    )
-
-    private static let videoIOSImportDescriptor = ContentViewModel.IOSImportDescriptor(
-        photoLibraryFilter: .videos,
-        preferredPhotoLibraryItemTypeIdentifiers: [
-            UTType.movie.identifier,
-            UTType.video.identifier,
-            UTType.audiovisualContent.identifier
-        ],
-        temporaryImportFallbackFileExtension: "mov"
-    )
-
-    private static let audioIOSImportDescriptor = ContentViewModel.IOSImportDescriptor(
-        photoLibraryFilter: .none,
-        preferredPhotoLibraryItemTypeIdentifiers: [UTType.audio.identifier],
-        temporaryImportFallbackFileExtension: "m4a"
-    )
-
-    private static let videoConversionMetadata = ContentViewModel.ConversionMetadata(
-        outputLabel: "Video",
-        missingSourceLog: "No file to convert.",
-        destinationErrorCode: -1001,
-        skippedSummaryPrefix: "Some video files were skipped:",
-        treatExportCancellationAsCancelled: true,
-        errorLogPrefix: "Conversion failed",
-        includeDebugInfo: true
-    )
-
-    private static let imageConversionMetadata = ContentViewModel.ConversionMetadata(
-        outputLabel: "Image",
-        missingSourceLog: "No image file to convert.",
-        destinationErrorCode: -1002,
-        skippedSummaryPrefix: "Some image files were skipped:",
-        treatExportCancellationAsCancelled: false,
-        errorLogPrefix: "Image conversion failed",
-        includeDebugInfo: false
-    )
-
-    private static let audioConversionMetadata = ContentViewModel.ConversionMetadata(
-        outputLabel: "Audio",
-        missingSourceLog: "No audio file to convert.",
-        destinationErrorCode: -1003,
-        skippedSummaryPrefix: "Some audio files were skipped:",
-        treatExportCancellationAsCancelled: true,
-        errorLogPrefix: "Audio conversion failed",
-        includeDebugInfo: false
-    )
-
     var sidebarSystemImage: String {
         switch self {
         case .video:
@@ -136,14 +68,76 @@ extension ContentViewModel.MediaKind {
         }
     }
 
-    var conversionMetadata: ContentViewModel.ConversionMetadata {
+    var outputLabel: String {
         switch self {
         case .video:
-            Self.videoConversionMetadata
+            "Video"
         case .image:
-            Self.imageConversionMetadata
+            "Image"
         case .audio:
-            Self.audioConversionMetadata
+            "Audio"
+        }
+    }
+
+    var missingSourceLog: String {
+        switch self {
+        case .video:
+            "No file to convert."
+        case .image:
+            "No image file to convert."
+        case .audio:
+            "No audio file to convert."
+        }
+    }
+
+    var destinationErrorCode: Int {
+        switch self {
+        case .video:
+            -1001
+        case .image:
+            -1002
+        case .audio:
+            -1003
+        }
+    }
+
+    var skippedSummaryPrefix: String {
+        switch self {
+        case .video:
+            "Some video files were skipped:"
+        case .image:
+            "Some image files were skipped:"
+        case .audio:
+            "Some audio files were skipped:"
+        }
+    }
+
+    var treatExportCancellationAsCancelled: Bool {
+        switch self {
+        case .video, .audio:
+            true
+        case .image:
+            false
+        }
+    }
+
+    var errorLogPrefix: String {
+        switch self {
+        case .video:
+            "Conversion failed"
+        case .image:
+            "Image conversion failed"
+        case .audio:
+            "Audio conversion failed"
+        }
+    }
+
+    var includeDebugInfo: Bool {
+        switch self {
+        case .video:
+            true
+        case .image, .audio:
+            false
         }
     }
 
@@ -178,14 +172,40 @@ extension ContentViewModel.MediaKind {
         }
     }
 
-    var iosImportDescriptor: ContentViewModel.IOSImportDescriptor {
+    var photoLibraryFilter: ContentViewModel.IOSPhotoLibraryFilter {
         switch self {
         case .video:
-            Self.videoIOSImportDescriptor
+            .videos
         case .image:
-            Self.imageIOSImportDescriptor
+            .images
         case .audio:
-            Self.audioIOSImportDescriptor
+            .none
+        }
+    }
+
+    var preferredPhotoLibraryItemTypeIdentifiers: [String] {
+        switch self {
+        case .video:
+            [
+                UTType.movie.identifier,
+                UTType.video.identifier,
+                UTType.audiovisualContent.identifier
+            ]
+        case .image:
+            [UTType.image.identifier]
+        case .audio:
+            [UTType.audio.identifier]
+        }
+    }
+
+    var temporaryImportFallbackFileExtension: String {
+        switch self {
+        case .video:
+            "mov"
+        case .image:
+            "jpg"
+        case .audio:
+            "m4a"
         }
     }
 }
@@ -220,15 +240,7 @@ extension ContentViewModel.IOSPhotoLibraryFilter {
 
 extension ContentViewModel.MediaKind {
     var photoLibraryPickerFilter: PHPickerFilter? {
-        iosImportDescriptor.photoLibraryFilter.pickerFilter
-    }
-
-    var preferredPhotoLibraryItemTypeIdentifiers: [String] {
-        iosImportDescriptor.preferredPhotoLibraryItemTypeIdentifiers
-    }
-
-    var temporaryImportFallbackFileExtension: String {
-        iosImportDescriptor.temporaryImportFallbackFileExtension
+        photoLibraryFilter.pickerFilter
     }
 }
 

@@ -51,7 +51,7 @@ extension ContentViewModel {
 
         guard let handle = await services.outputDestinationCoordinator.chooseOutputDestination(
             suggestedDirectory: suggestedDirectory,
-            outputLabel: kind.conversionMetadata.outputLabel,
+            outputLabel: kind.outputLabel,
             fileCount: max(snapshot.selectedFileCount, 1)
         ) else {
             return false
