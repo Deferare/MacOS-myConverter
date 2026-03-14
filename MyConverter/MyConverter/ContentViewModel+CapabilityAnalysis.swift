@@ -38,6 +38,7 @@ extension ContentViewModel {
         for urls: [URL],
         kind: MediaKind,
         formatDescriptor: OutputFormatDescriptor<Format>,
+        resolvePreparedCapability: (@Sendable ([URL]) async -> (URL, Capability)?)? = nil,
         fetchCapabilities: @escaping @Sendable (URL) async -> Capability,
         availableFormats: @escaping @Sendable (Capability) -> [Format],
         warningMessage: @escaping @Sendable (Capability) -> String?,
@@ -58,6 +59,7 @@ extension ContentViewModel {
             selectedSourceIDs: {
                 self.selectedSourceIDs(for: kind)
             },
+            resolvePreparedCapability: resolvePreparedCapability,
             fetchCapabilities: fetchCapabilities,
             availableFormats: availableFormats,
             warningMessage: warningMessage,
@@ -186,6 +188,7 @@ extension ContentViewModel {
         stateDescriptor: MediaStateDescriptor,
         formatDescriptor: OutputFormatDescriptor<Format>,
         selectedSourceIDs: @escaping () -> [String],
+        resolvePreparedCapability: (@Sendable ([URL]) async -> (URL, Capability)?)? = nil,
         fetchCapabilities: @escaping @Sendable (URL) async -> Capability,
         availableFormats: @escaping @Sendable (Capability) -> [Format],
         warningMessage: @escaping @Sendable (Capability) -> String?,
@@ -209,11 +212,8 @@ extension ContentViewModel {
         self[keyPath: stateDescriptor.isAnalyzing] = true
         self[keyPath: stateDescriptor.analysisTask] = Task { [weak self] in
             guard let self else { return }
-            if kind == .video,
-               selection.count == 1,
-               let sourceURL = selection.first,
-               let prepared = await prepareSelectedSingleVideoSelectionIfNeeded(for: sourceURL),
-               let capability = prepared.preparedSourceContext.sourceCapabilities as? Capability {
+            if let resolvePreparedCapability,
+               let (sourceURL, capability) = await resolvePreparedCapability(selection) {
                 guard !Task.isCancelled else { return }
                 guard selectedSourceIDs() == expectedSourceIDs else { return }
 
@@ -307,6 +307,17 @@ extension ContentViewModel.MediaKind {
                 for: urls,
                 kind: .video,
                 formatDescriptor: ContentViewModel.videoOutputFormatDescriptor,
+                resolvePreparedCapability: { selection in
+                    guard selection.count == 1,
+                          let sourceURL = selection.first,
+                          let prepared = await viewModel.prepareSelectedSingleVideoSelectionIfNeeded(
+                            for: sourceURL
+                          ) else {
+                        return nil
+                    }
+
+                    return (sourceURL, prepared.preparedSourceContext.sourceCapabilities)
+                },
                 fetchCapabilities: { await VideoConversionEngine.sourceCapabilities(for: $0) },
                 availableFormats: { $0.availableOutputFormats },
                 warningMessage: { $0.warningMessage },
