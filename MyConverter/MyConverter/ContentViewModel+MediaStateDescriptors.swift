@@ -200,18 +200,18 @@ extension ContentViewModel {
 
     private static let videoStateDescriptorValue = makeMediaStateDescriptor(
         state: makeMediaStateKeyPaths(
-            sourceURL: \.sourceURL,
-            queuedSourceURLs: \.queuedSourceURLs,
-            convertedURL: \.convertedURL,
-            convertedURLs: \.convertedURLs,
-            convertedOutputURLsBySourceID: \.convertedOutputURLsBySourceID,
-            processedSourceIDs: \.processedSourceIDs,
+            sourceURL: \.videoRuntimeState.media.sourceURL,
+            queuedSourceURLs: \.videoRuntimeState.media.queuedSourceURLs,
+            convertedURL: \.videoRuntimeState.media.convertedURL,
+            convertedURLs: \.videoRuntimeState.media.convertedURLs,
+            convertedOutputURLsBySourceID: \.videoRuntimeState.media.convertedOutputURLsBySourceID,
+            processedSourceIDs: \.videoRuntimeState.media.processedSourceIDs,
             conversionErrorMessage: \.videoRuntimeState.media.conversionErrorMessage,
             compatibilityErrorMessage: \.videoRuntimeState.media.sourceCompatibilityErrorMessage,
             compatibilityWarningMessage: \.videoRuntimeState.media.sourceCompatibilityWarningMessage,
-            isAnalyzing: \.isAnalyzingSource,
-            isConverting: \.isConverting,
-            progress: \.conversionProgress,
+            isAnalyzing: \.videoRuntimeState.media.isAnalyzingSource,
+            isConverting: \.videoRuntimeState.media.isConverting,
+            progress: \.videoRuntimeState.media.conversionProgress,
             currentBatchIndex: \.videoRuntimeState.media.currentBatchIndex,
             totalBatchCount: \.videoRuntimeState.media.totalBatchCount
         ),

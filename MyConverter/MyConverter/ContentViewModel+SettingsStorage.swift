@@ -201,7 +201,7 @@ extension ContentViewModel {
         storage: makeSourceSettingsStorageDescriptor(
             kind: .video,
             isApplyingStoredSettings: \.settingsState.isApplyingVideoSettings,
-            sourceURL: \.sourceURL,
+            sourceURL: \.videoRuntimeState.media.sourceURL,
             settingsBySourceID: \.settingsState.videoSettingsBySourceID,
             pendingSaveTask: \.taskState.pendingVideoSettingsSaveTask,
             storageKey: PersistedSettingsState().videoStorageKey,

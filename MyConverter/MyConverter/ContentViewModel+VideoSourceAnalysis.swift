@@ -4,7 +4,7 @@ extension ContentViewModel {
     static let videoSourceAnalysisDescriptorValue = makeCapabilitySummaryDescriptor(
         CapabilitySummaryInput(
             kind: .video,
-            availableFormatsKeyPath: \.availableOutputFormats,
+            availableFormatsKeyPath: \.videoRuntimeState.media.availableOutputFormats,
             fetchCapabilities: { await VideoConversionEngine.sourceCapabilities(for: $0) },
             availableFormats: { $0.availableOutputFormats },
             warningMessage: { $0.warningMessage },

@@ -201,7 +201,7 @@ extension ContentViewModel {
             unavailableMessage: "Selected container is not available for this source.",
             preValidation: { viewModel in
                 viewModel.firstNonEmptyMessage(
-                    viewModel.sourceURL != nil ? viewModel.videoFFmpegRequirementMessage() : nil,
+                    viewModel.videoRuntimeState.media.sourceURL != nil ? viewModel.videoFFmpegRequirementMessage() : nil,
                     viewModel.customVideoBitRateValidationMessage()
                 )
             },

@@ -19,7 +19,7 @@ extension ContentViewModel {
         let shouldShowVideoBitRateOption: Bool
 
         init(viewModel: ContentViewModel) {
-            isConverting = viewModel.isConverting
+            isConverting = viewModel.videoRuntimeState.media.isConverting
             selectedOutputFormat = viewModel.selectedOutputFormat
             selectedVideoEncoder = viewModel.selectedVideoEncoder
             selectedResolution = viewModel.selectedResolution
