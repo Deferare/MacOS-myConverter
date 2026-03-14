@@ -123,63 +123,85 @@ extension ContentViewModel {
 }
 
 extension ContentViewModel.MediaKind {
+    private struct CapabilityBootstrapBehavior: Sendable {
+        let applyPlaceholderCapabilities: @MainActor @Sendable (ContentViewModel) -> Void
+        let warmedDefaultCapability: @Sendable () -> ContentViewModel.WarmedDefaultCapability
+    }
+
+    nonisolated private static let capabilityBootstrapBehaviorByKind: [Self: CapabilityBootstrapBehavior] = [
+        .video: CapabilityBootstrapBehavior(
+            applyPlaceholderCapabilities: { viewModel in
+                viewModel.applyAvailableOutputFormats(
+                    ContentViewModelSupport.placeholderVideoFormats(),
+                    using: ContentViewModel.videoOutputFormatDescriptor
+                )
+                viewModel.applyPlaceholderVideoCodecOptions()
+            },
+            warmedDefaultCapability: {
+                let warmedFormats = VideoConversionEngine.defaultOutputFormats()
+                return ContentViewModel.WarmedDefaultCapability { viewModel in
+                    viewModel.applyWarmedOutputFormatsIfIdle(
+                        warmedFormats,
+                        for: .video,
+                        formatDescriptor: ContentViewModel.videoOutputFormatDescriptor,
+                        postApply: {
+                            viewModel.refreshVideoCodecOptions()
+                        }
+                    )
+                }
+            }
+        ),
+        .image: CapabilityBootstrapBehavior(
+            applyPlaceholderCapabilities: { viewModel in
+                viewModel.applyAvailableOutputFormats(
+                    ContentViewModelSupport.placeholderImageFormats(),
+                    using: ContentViewModel.imageOutputFormatDescriptor
+                )
+            },
+            warmedDefaultCapability: {
+                let warmedFormats = ImageConversionEngine.defaultOutputFormats()
+                return ContentViewModel.WarmedDefaultCapability { viewModel in
+                    viewModel.applyWarmedOutputFormatsIfIdle(
+                        warmedFormats,
+                        for: .image,
+                        formatDescriptor: ContentViewModel.imageOutputFormatDescriptor
+                    )
+                }
+            }
+        ),
+        .audio: CapabilityBootstrapBehavior(
+            applyPlaceholderCapabilities: { viewModel in
+                viewModel.applyAvailableOutputFormats(
+                    ContentViewModelSupport.placeholderAudioFormats(),
+                    using: ContentViewModel.audioOutputFormatDescriptor
+                )
+                viewModel.applyPlaceholderAudioCodecOptions()
+            },
+            warmedDefaultCapability: {
+                let warmedFormats = VideoConversionEngine.defaultAudioOutputFormats()
+                return ContentViewModel.WarmedDefaultCapability { viewModel in
+                    viewModel.applyWarmedOutputFormatsIfIdle(
+                        warmedFormats,
+                        for: .audio,
+                        formatDescriptor: ContentViewModel.audioOutputFormatDescriptor,
+                        postApply: {
+                            viewModel.refreshAudioCodecOptions()
+                        }
+                    )
+                }
+            }
+        )
+    ]
+
+    nonisolated private var capabilityBootstrapBehavior: CapabilityBootstrapBehavior {
+        Self.capabilityBootstrapBehaviorByKind[self] ?? Self.capabilityBootstrapBehaviorByKind[.video]!
+    }
+
     func applyPlaceholderCapabilities(to viewModel: ContentViewModel) {
-        switch self {
-        case .video:
-            viewModel.applyAvailableOutputFormats(
-                ContentViewModelSupport.placeholderVideoFormats(),
-                using: ContentViewModel.videoOutputFormatDescriptor
-            )
-            viewModel.applyPlaceholderVideoCodecOptions()
-        case .image:
-            viewModel.applyAvailableOutputFormats(
-                ContentViewModelSupport.placeholderImageFormats(),
-                using: ContentViewModel.imageOutputFormatDescriptor
-            )
-        case .audio:
-            viewModel.applyAvailableOutputFormats(
-                ContentViewModelSupport.placeholderAudioFormats(),
-                using: ContentViewModel.audioOutputFormatDescriptor
-            )
-            viewModel.applyPlaceholderAudioCodecOptions()
-        }
+        capabilityBootstrapBehavior.applyPlaceholderCapabilities(viewModel)
     }
 
     nonisolated func warmedDefaultCapability() -> ContentViewModel.WarmedDefaultCapability {
-        switch self {
-        case .video:
-            let warmedFormats = VideoConversionEngine.defaultOutputFormats()
-            return ContentViewModel.WarmedDefaultCapability { viewModel in
-                viewModel.applyWarmedOutputFormatsIfIdle(
-                    warmedFormats,
-                    for: .video,
-                    formatDescriptor: ContentViewModel.videoOutputFormatDescriptor,
-                    postApply: {
-                        viewModel.refreshVideoCodecOptions()
-                    }
-                )
-            }
-        case .image:
-            let warmedFormats = ImageConversionEngine.defaultOutputFormats()
-            return ContentViewModel.WarmedDefaultCapability { viewModel in
-                viewModel.applyWarmedOutputFormatsIfIdle(
-                    warmedFormats,
-                    for: .image,
-                    formatDescriptor: ContentViewModel.imageOutputFormatDescriptor
-                )
-            }
-        case .audio:
-            let warmedFormats = VideoConversionEngine.defaultAudioOutputFormats()
-            return ContentViewModel.WarmedDefaultCapability { viewModel in
-                viewModel.applyWarmedOutputFormatsIfIdle(
-                    warmedFormats,
-                    for: .audio,
-                    formatDescriptor: ContentViewModel.audioOutputFormatDescriptor,
-                    postApply: {
-                        viewModel.refreshAudioCodecOptions()
-                    }
-                )
-            }
-        }
+        capabilityBootstrapBehavior.warmedDefaultCapability()
     }
 }
