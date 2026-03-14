@@ -1,4 +1,6 @@
+#if os(macOS)
 import AppKit
+#endif
 import Foundation
 import UniformTypeIdentifiers
 
@@ -30,12 +32,13 @@ extension ContentViewModel {
             provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
                 defer { group.leave() }
 
-                var finalURL: URL?
-
+                let finalURL: URL?
                 if let data = item as? Data {
                     finalURL = URL(dataRepresentation: data, relativeTo: nil)
                 } else if let url = item as? URL {
                     finalURL = url
+                } else {
+                    finalURL = nil
                 }
 
                 guard let finalURL else { return }

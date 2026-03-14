@@ -43,7 +43,6 @@
 				AboutDetailView.swift,
 				Assets.xcassets,
 				ContentView.swift,
-				"ContentViewModel+DropHandling.swift",
 				ConverterViewComponents.swift,
 				FileSelectionComponents.swift,
 				FileSelectionDropView.swift,
