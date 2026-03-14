@@ -136,7 +136,7 @@ struct IPadFileRow: View {
     }
 
     private var fallbackSystemImage: String {
-        kind.descriptor.sidebarSystemImage
+        kind.sidebarSystemImage
     }
 }
 

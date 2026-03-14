@@ -13,10 +13,6 @@ extension ContentViewModel {
         var converterTitle: String {
             "Convert \(sidebarTitle)"
         }
-
-        var sidebarSystemImage: String {
-            descriptor.sidebarSystemImage
-        }
     }
 
     struct SelectedFileListState: Equatable {

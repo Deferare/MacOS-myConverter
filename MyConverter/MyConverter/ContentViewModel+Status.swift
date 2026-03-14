@@ -24,7 +24,7 @@ extension ContentViewModel {
             isConverting = snapshot.isConverting
             canConvert = viewModel.canStartConversion(using: snapshot, validationMessage: validationMessage)
             self.selectedFileCount = selectedFileCount
-            selectedFormatLabel = kind.descriptor.selectedOutputFormatLabel(viewModel)
+            selectedFormatLabel = kind.selectedOutputFormatLabel(in: viewModel)
             self.convertedCount = convertedCount
             showsSettings = selectedFileCount > 0
             showsResults = convertedCount > 0

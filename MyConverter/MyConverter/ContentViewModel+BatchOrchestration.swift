@@ -26,7 +26,7 @@ extension ContentViewModel {
         if let handle = securityScopeState.outputDestinationHandleByKind[kind] {
             return handle.url
         }
-        return self[keyPath: kind.descriptor.outputDirectoryURL]
+        return self[keyPath: kind.outputDirectoryURLKeyPath]
     }
 
     func setSelectedOutputDirectoryURL(_ url: URL?, for kind: MediaKind) {
@@ -35,7 +35,7 @@ extension ContentViewModel {
             securityScopeState.outputDestinationHandleByKind[kind] = nil
         }
         synchronizeOutputDirectorySecurityScope(for: url, kind: kind)
-        self[keyPath: kind.descriptor.outputDirectoryURL] = url
+        self[keyPath: kind.outputDirectoryURLKeyPath] = url
     }
 
     func hasSelectedOutputDirectory(for kind: MediaKind) -> Bool {

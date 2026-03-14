@@ -102,15 +102,14 @@ extension ContentViewModel {
         mapToPersisted: @escaping (Settings) -> Persisted,
         restore: @escaping (Persisted) -> Settings
     ) -> SourceSettingsDescriptor<Settings, Persisted> {
-        let mediaDescriptor = kind.descriptor
         return Self.makeSourceSettingsDescriptor(
             isApplyingStoredSettings: isApplyingStoredSettings,
             sourceURL: sourceURL,
             settingsBySourceID: settingsBySourceID,
             pendingSaveTask: pendingSaveTask,
             storageKey: storageKey,
-            saveFailureContext: mediaDescriptor.saveSettingsFailureContext,
-            loadFailureContext: mediaDescriptor.loadSettingsFailureContext,
+            saveFailureContext: kind.saveSettingsFailureContext,
+            loadFailureContext: kind.loadSettingsFailureContext,
             mapToPersisted: mapToPersisted,
             restore: restore
         )

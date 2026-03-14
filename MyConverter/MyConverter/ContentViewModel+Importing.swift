@@ -11,7 +11,7 @@ extension ContentViewModel {
     }
 
     func applyImportedSources(_ urls: [URL], for kind: MediaKind) {
-        let acceptedURLs = acceptedInputURLs(urls, accept: kind.descriptor.acceptsInput)
+        let acceptedURLs = acceptedInputURLs(urls, accept: kind.acceptsInput(_:))
         #if os(iOS)
         let effectiveURLs = uniqueStandardizedURLs(urls.filter { !$0.hasDirectoryPath })
         #else

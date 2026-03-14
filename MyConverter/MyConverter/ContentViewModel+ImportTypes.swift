@@ -26,48 +26,9 @@ extension ContentViewModel {
         let preferredPhotoLibraryItemTypeIdentifiers: [String]
         let temporaryImportFallbackFileExtension: String
     }
-
-    struct MediaDescriptor {
-        let sidebarSystemImage: String
-        let outputDirectoryURL: ReferenceWritableKeyPath<ContentViewModel, URL?>
-        let selectedOutputFormatLabel: (ContentViewModel) -> String
-        let saveSettingsFailureContext: String
-        let loadSettingsFailureContext: String
-        let conversionMetadata: ConversionMetadata
-        let acceptsInput: (URL) -> Bool
-        let preferredImportTypes: (UTType?) -> [UTType]
-        let availableImportSources: [ContentViewModel.ImportSource]
-        let iosImportDescriptor: IOSImportDescriptor
-    }
 }
 
 extension ContentViewModel.MediaKind {
-    private static func makeMediaDescriptor(
-        sidebarSystemImage: String,
-        outputDirectoryURL: ReferenceWritableKeyPath<ContentViewModel, URL?>,
-        selectedOutputFormatLabel: @escaping (ContentViewModel) -> String,
-        saveSettingsFailureContext: String,
-        loadSettingsFailureContext: String,
-        conversionMetadata: ContentViewModel.ConversionMetadata,
-        acceptsInput: @escaping (URL) -> Bool,
-        preferredImportTypes: @escaping (UTType?) -> [UTType],
-        availableImportSources: [ContentViewModel.ImportSource],
-        iosImportDescriptor: ContentViewModel.IOSImportDescriptor
-    ) -> ContentViewModel.MediaDescriptor {
-        ContentViewModel.MediaDescriptor(
-            sidebarSystemImage: sidebarSystemImage,
-            outputDirectoryURL: outputDirectoryURL,
-            selectedOutputFormatLabel: selectedOutputFormatLabel,
-            saveSettingsFailureContext: saveSettingsFailureContext,
-            loadSettingsFailureContext: loadSettingsFailureContext,
-            conversionMetadata: conversionMetadata,
-            acceptsInput: acceptsInput,
-            preferredImportTypes: preferredImportTypes,
-            availableImportSources: availableImportSources,
-            iosImportDescriptor: iosImportDescriptor
-        )
-    }
-
     private static let imageIOSImportDescriptor = ContentViewModel.IOSImportDescriptor(
         photoLibraryFilter: .images,
         preferredPhotoLibraryItemTypeIdentifiers: [UTType.image.identifier],
@@ -120,65 +81,112 @@ extension ContentViewModel.MediaKind {
         includeDebugInfo: false
     )
 
-    private static let videoDescriptor = makeMediaDescriptor(
-            sidebarSystemImage: "film",
-            outputDirectoryURL: \.videoOptionsState.selectedOutputDirectoryURL,
-            selectedOutputFormatLabel: { viewModel in
-                viewModel.selectedOutputFormatLabel(using: ContentViewModel.videoOutputFormatDescriptorValue)
-            },
-            saveSettingsFailureContext: "Failed to persist video settings",
-            loadSettingsFailureContext: "Failed to load persisted video settings",
-            conversionMetadata: videoConversionMetadata,
-            acceptsInput: ContentViewModelSupport.isVideoInputURL(_:),
-            preferredImportTypes: { [.movie, .video, $0].compactMap { $0 } },
-            availableImportSources: [.photoLibrary, .files],
-            iosImportDescriptor: videoIOSImportDescriptor
-        )
+    var sidebarSystemImage: String {
+        switch self {
+        case .video:
+            "film"
+        case .image:
+            "photo"
+        case .audio:
+            "waveform"
+        }
+    }
 
-    private static let imageDescriptor = makeMediaDescriptor(
-            sidebarSystemImage: "photo",
-            outputDirectoryURL: \.imageOptionsState.selectedOutputDirectoryURL,
-            selectedOutputFormatLabel: { viewModel in
-                viewModel.selectedOutputFormatLabel(using: ContentViewModel.imageOutputFormatDescriptorValue)
-            },
-            saveSettingsFailureContext: "Failed to persist image settings",
-            loadSettingsFailureContext: "Failed to load persisted image settings",
-            conversionMetadata: imageConversionMetadata,
-            acceptsInput: ContentViewModelSupport.isImageInputURL(_:),
-            preferredImportTypes: { _ in [.image] },
-            availableImportSources: [.photoLibrary, .files],
-            iosImportDescriptor: imageIOSImportDescriptor
-        )
+    var outputDirectoryURLKeyPath: ReferenceWritableKeyPath<ContentViewModel, URL?> {
+        switch self {
+        case .video:
+            \.videoOptionsState.selectedOutputDirectoryURL
+        case .image:
+            \.imageOptionsState.selectedOutputDirectoryURL
+        case .audio:
+            \.audioOptionsState.selectedOutputDirectoryURL
+        }
+    }
 
-    private static let audioDescriptor = makeMediaDescriptor(
-            sidebarSystemImage: "waveform",
-            outputDirectoryURL: \.audioOptionsState.selectedOutputDirectoryURL,
-            selectedOutputFormatLabel: { viewModel in
-                viewModel.selectedOutputFormatLabel(using: ContentViewModel.audioOutputFormatDescriptorValue)
-            },
-            saveSettingsFailureContext: "Failed to persist audio settings",
-            loadSettingsFailureContext: "Failed to load persisted audio settings",
-            conversionMetadata: audioConversionMetadata,
-            acceptsInput: ContentViewModelSupport.isAudioInputURL(_:),
-            preferredImportTypes: {
-                [.audio, .movie, .video, .audiovisualContent, $0].compactMap { $0 }
-            },
-            availableImportSources: [.files],
-            iosImportDescriptor: audioIOSImportDescriptor
-        )
+    func selectedOutputFormatLabel(in viewModel: ContentViewModel) -> String {
+        switch self {
+        case .video:
+            viewModel.selectedOutputFormatLabel(using: ContentViewModel.videoOutputFormatDescriptorValue)
+        case .image:
+            viewModel.selectedOutputFormatLabel(using: ContentViewModel.imageOutputFormatDescriptorValue)
+        case .audio:
+            viewModel.selectedOutputFormatLabel(using: ContentViewModel.audioOutputFormatDescriptorValue)
+        }
+    }
 
-    private static let descriptorsByKind: [Self: ContentViewModel.MediaDescriptor] = [
-        .video: videoDescriptor,
-        .image: imageDescriptor,
-        .audio: audioDescriptor
-    ]
+    var saveSettingsFailureContext: String {
+        switch self {
+        case .video:
+            "Failed to persist video settings"
+        case .image:
+            "Failed to persist image settings"
+        case .audio:
+            "Failed to persist audio settings"
+        }
+    }
 
-    var descriptor: ContentViewModel.MediaDescriptor {
-        Self.descriptorsByKind[self] ?? Self.videoDescriptor
+    var loadSettingsFailureContext: String {
+        switch self {
+        case .video:
+            "Failed to load persisted video settings"
+        case .image:
+            "Failed to load persisted image settings"
+        case .audio:
+            "Failed to load persisted audio settings"
+        }
     }
 
     var conversionMetadata: ContentViewModel.ConversionMetadata {
-        descriptor.conversionMetadata
+        switch self {
+        case .video:
+            Self.videoConversionMetadata
+        case .image:
+            Self.imageConversionMetadata
+        case .audio:
+            Self.audioConversionMetadata
+        }
+    }
+
+    func acceptsInput(_ url: URL) -> Bool {
+        switch self {
+        case .video:
+            ContentViewModelSupport.isVideoInputURL(url)
+        case .image:
+            ContentViewModelSupport.isImageInputURL(url)
+        case .audio:
+            ContentViewModelSupport.isAudioInputURL(url)
+        }
+    }
+
+    func preferredImportTypes(mkvType: UTType?) -> [UTType] {
+        switch self {
+        case .video:
+            [.movie, .video, mkvType].compactMap { $0 }
+        case .image:
+            [.image]
+        case .audio:
+            [.audio, .movie, .video, .audiovisualContent, mkvType].compactMap { $0 }
+        }
+    }
+
+    var availableImportSources: [ContentViewModel.ImportSource] {
+        switch self {
+        case .video, .image:
+            [.photoLibrary, .files]
+        case .audio:
+            [.files]
+        }
+    }
+
+    var iosImportDescriptor: ContentViewModel.IOSImportDescriptor {
+        switch self {
+        case .video:
+            Self.videoIOSImportDescriptor
+        case .image:
+            Self.imageIOSImportDescriptor
+        case .audio:
+            Self.audioIOSImportDescriptor
+        }
     }
 }
 
@@ -186,7 +194,7 @@ extension ContentViewModel {
     private static let mkvImportType = FormatOptionUtilities.cachedUTType(forFilenameExtension: "mkv")
 
     func preferredImportTypes(for kind: MediaKind) -> [UTType] {
-        kind.descriptor.preferredImportTypes(Self.mkvImportType)
+        kind.preferredImportTypes(mkvType: Self.mkvImportType)
     }
 
     func preferredImportTypes(for selectedTab: ConverterTab) -> [UTType] {
@@ -212,15 +220,15 @@ extension ContentViewModel.IOSPhotoLibraryFilter {
 
 extension ContentViewModel.MediaKind {
     var photoLibraryPickerFilter: PHPickerFilter? {
-        descriptor.iosImportDescriptor.photoLibraryFilter.pickerFilter
+        iosImportDescriptor.photoLibraryFilter.pickerFilter
     }
 
     var preferredPhotoLibraryItemTypeIdentifiers: [String] {
-        descriptor.iosImportDescriptor.preferredPhotoLibraryItemTypeIdentifiers
+        iosImportDescriptor.preferredPhotoLibraryItemTypeIdentifiers
     }
 
     var temporaryImportFallbackFileExtension: String {
-        descriptor.iosImportDescriptor.temporaryImportFallbackFileExtension
+        iosImportDescriptor.temporaryImportFallbackFileExtension
     }
 }
 
@@ -236,7 +244,7 @@ extension ContentViewModel {
     }
 
     func requestImport(for kind: MediaKind) {
-        let importSources = kind.descriptor.availableImportSources
+        let importSources = kind.availableImportSources
         guard let fallbackSource = importSources.first(where: { $0 == .files })
             ?? importSources.first else {
             return

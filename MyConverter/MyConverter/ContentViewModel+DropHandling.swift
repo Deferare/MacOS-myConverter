@@ -14,7 +14,7 @@ extension ContentViewModel {
     func handleDrop(providers: [NSItemProvider], for kind: MediaKind) -> Bool {
         handleMediaDrop(
             providers: providers,
-            accept: kind.descriptor.acceptsInput,
+            accept: kind.acceptsInput(_:),
             applySelection: { [weak self] urls in
                 self?.applyImportedSources(urls, for: kind)
             }
