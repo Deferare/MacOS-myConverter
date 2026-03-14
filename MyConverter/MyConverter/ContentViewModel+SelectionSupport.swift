@@ -106,11 +106,4 @@ extension ContentViewModel {
         }
     }
 
-    func labeledCapabilityMessage(_ message: String, for sourceURL: URL, totalCount: Int) -> String {
-        ContentViewModelSupport.labeledCapabilityMessage(message, for: sourceURL, totalCount: totalCount)
-    }
-
-    func joinedCapabilityMessages(_ messages: [String]) -> String? {
-        ContentViewModelSupport.joinedCapabilityMessages(messages)
-    }
 }

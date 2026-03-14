@@ -26,10 +26,6 @@ struct AggregatedSourceCapabilities<Capability: Sendable, Format: Sendable>: Sen
 }
 
 extension ContentViewModel {
-    func primarySelectedSourceID(from urls: [URL]) -> String? {
-        ContentViewModelSupport.uniqueStandardizedURLs(urls).first.map(sourceIdentifier(for:))
-    }
-
     func analyzeSourceCompatibility<Capability: Sendable, Format: Sendable>(
         for urls: [URL],
         kind: MediaKind,
@@ -215,7 +211,7 @@ extension ContentViewModel {
 
                 onCapability?(sourceURL, capability)
                 let resolvedFormats = deduplicatedAndSorted(availableFormats(capability))
-                let joinedWarnings = joinedCapabilityMessages([
+                let joinedWarnings = ContentViewModelSupport.joinedCapabilityMessages([
                     warningMessage(capability)
                 ].compactMap { $0 })
 
@@ -268,9 +264,9 @@ extension ContentViewModel {
             }
 
             let resolvedFormats = deduplicatedAndSorted(aggregated.commonFormats)
-            let joinedWarnings = self.joinedCapabilityMessages(aggregated.warnings)
+            let joinedWarnings = ContentViewModelSupport.joinedCapabilityMessages(aggregated.warnings)
             let joinedErrors: String?
-            if let resolvedErrors = self.joinedCapabilityMessages(aggregated.errors) {
+            if let resolvedErrors = ContentViewModelSupport.joinedCapabilityMessages(aggregated.errors) {
                 joinedErrors = resolvedErrors
             } else if selection.count > 1 && resolvedFormats.isEmpty {
                 joinedErrors = noCommonFormatsMessage
@@ -336,7 +332,9 @@ extension ContentViewModel.MediaKind {
             )
         },
         .image: SourceAnalysisBehavior { viewModel, urls in
-            let primarySourceID = viewModel.primarySelectedSourceID(from: urls)
+            let primarySourceID = ContentViewModelSupport.uniqueStandardizedURLs(urls)
+                .first
+                .map(viewModel.sourceIdentifier(for:))
             var primaryFrameCount = 0
             var primaryHasAlpha = false
 
