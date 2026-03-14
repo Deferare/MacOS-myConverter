@@ -27,11 +27,7 @@ struct AggregatedSourceCapabilities<Capability: Sendable, Format: Sendable>: Sen
 
 extension ContentViewModel {
     func primarySelectedSourceID(from urls: [URL]) -> String? {
-        uniqueStandardizedURLs(urls).first.map(sourceIdentifier(for:))
-    }
-
-    func selectedSourceIDs(for kind: MediaKind) -> [String] {
-        mediaStateSnapshot(for: kind).selectedSourceURLs.map(sourceIdentifier(for:))
+        ContentViewModelSupport.uniqueStandardizedURLs(urls).first.map(sourceIdentifier(for:))
     }
 
     func analyzeSourceCompatibility<Capability: Sendable, Format: Sendable>(
@@ -57,7 +53,7 @@ extension ContentViewModel {
             stateDescriptor: stateDescriptor,
             formatDescriptor: formatDescriptor,
             selectedSourceIDs: {
-                self.selectedSourceIDs(for: kind)
+                self.mediaStateSnapshot(for: kind).selectedSourceURLs.map(self.sourceIdentifier(for:))
             },
             resolvePreparedCapability: resolvePreparedCapability,
             fetchCapabilities: fetchCapabilities,
@@ -199,7 +195,7 @@ extension ContentViewModel {
         onCapability: ((URL, Capability) -> Void)? = nil,
         onFormatsResolved: @escaping ([Format]) -> Void
     ) {
-        let selection = uniqueStandardizedURLs(urls)
+        let selection = ContentViewModelSupport.uniqueStandardizedURLs(urls)
         let expectedSourceIDs = selection.map(sourceIdentifier(for:))
         guard !selection.isEmpty else {
             self[keyPath: stateDescriptor.isAnalyzing] = false

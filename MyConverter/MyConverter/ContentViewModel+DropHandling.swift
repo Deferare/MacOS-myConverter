@@ -56,9 +56,9 @@ extension ContentViewModel {
             }
         }
 
-        group.notify(queue: .main) { [weak self] in
-            guard let self else { return }
-            let accepted = self.acceptedInputURLs(resolvedURLs, accept: accept)
+        group.notify(queue: .main) {
+            let accepted = ContentViewModelSupport.uniqueStandardizedURLs(resolvedURLs)
+                .filter(accept)
             guard !accepted.isEmpty else { return }
 
             Task { @MainActor in

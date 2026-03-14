@@ -11,16 +11,21 @@ extension ContentViewModel {
     }
 
     func applyImportedSources(_ urls: [URL], for kind: MediaKind) {
-        let acceptedURLs = acceptedInputURLs(urls, accept: kind.acceptsInput(_:))
+        let acceptedURLs = ContentViewModelSupport.uniqueStandardizedURLs(urls)
+            .filter(kind.acceptsInput(_:))
         #if os(iOS)
-        let effectiveURLs = uniqueStandardizedURLs(urls.filter { !$0.hasDirectoryPath })
+        let effectiveURLs = ContentViewModelSupport.uniqueStandardizedURLs(
+            urls.filter { !$0.hasDirectoryPath }
+        )
         #else
         let effectiveURLs = acceptedURLs
         #endif
         guard !effectiveURLs.isEmpty else { return }
 
         let existingSelection = mediaStateSnapshot(for: kind).selectedSourceURLs
-        let mergedSelection = uniqueStandardizedURLs(existingSelection + effectiveURLs)
+        let mergedSelection = ContentViewModelSupport.uniqueStandardizedURLs(
+            existingSelection + effectiveURLs
+        )
         applySelectedSources(mergedSelection, for: kind)
     }
 

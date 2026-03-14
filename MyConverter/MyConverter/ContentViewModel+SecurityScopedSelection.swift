@@ -2,7 +2,7 @@ import Foundation
 
 extension ContentViewModel {
     func synchronizeSourceSecurityScope(for urls: [URL], kind: MediaKind) {
-        let standardizedURLs = uniqueStandardizedURLs(urls)
+        let standardizedURLs = ContentViewModelSupport.uniqueStandardizedURLs(urls)
         let newPaths = Set(standardizedURLs.map(\.path))
         let previousPaths = securityScopeState.pathsByKind[kind] ?? []
 

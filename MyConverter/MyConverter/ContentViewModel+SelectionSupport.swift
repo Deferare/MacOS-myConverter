@@ -9,17 +9,6 @@ extension ConverterTab {
 extension ContentViewModel {
     private static let selectionAnalysisDebounceNanoseconds: UInt64 = 200_000_000
 
-    func uniqueStandardizedURLs(_ urls: [URL]) -> [URL] {
-        ContentViewModelSupport.uniqueStandardizedURLs(urls)
-    }
-
-    func acceptedInputURLs(
-        _ urls: [URL],
-        accept: (URL) -> Bool
-    ) -> [URL] {
-        uniqueStandardizedURLs(urls).filter(accept)
-    }
-
     func cancelTask(_ task: inout Task<Void, Never>?) {
         task?.cancel()
         task = nil
@@ -37,7 +26,7 @@ extension ContentViewModel {
     }
 
     func scheduleSelectedSourceAnalysis(_ urls: [URL], for kind: MediaKind) {
-        let selection = uniqueStandardizedURLs(urls)
+        let selection = ContentViewModelSupport.uniqueStandardizedURLs(urls)
         guard !selection.isEmpty else {
             analyzeSelectedSources(selection, for: kind)
             return
@@ -64,7 +53,7 @@ extension ContentViewModel {
     }
 
     func applySelectedSources(_ urls: [URL], for kind: MediaKind) {
-        let uniqueURLs = uniqueStandardizedURLs(urls)
+        let uniqueURLs = ContentViewModelSupport.uniqueStandardizedURLs(urls)
         guard let primaryURL = uniqueURLs.first else { return }
 
         clearPreparedSingleVideoSelection(for: kind)
