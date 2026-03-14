@@ -21,11 +21,10 @@ extension ContentViewModel {
             return
         }
 
-        let descriptor = kind.mediaStateDescriptor
-        self[keyPath: descriptor.isAnalyzing] = true
+        kind.setAnalyzing(true, in: self)
         kind.applyPlaceholderCapabilities(to: self)
         scheduleDebouncedTask(
-            descriptor.pendingSelectionAnalysisTask,
+            kind.pendingSelectionAnalysisTaskKeyPath,
             delayNanoseconds: Self.selectionAnalysisDebounceNanoseconds
         ) { viewModel in
             kind.analyzeSelectedSources(selection, in: viewModel)
@@ -71,8 +70,7 @@ extension ContentViewModel {
         guard let primaryURL = urls.first else { return }
 
         let primarySourceID = sourceIdentifier(for: primaryURL)
-        let descriptor = kind.mediaStateDescriptor
-        guard self[keyPath: descriptor.sourceURL].map(sourceIdentifier(for:)) != primarySourceID else {
+        guard kind.sourceURL(in: self).map(sourceIdentifier(for:)) != primarySourceID else {
             return
         }
 

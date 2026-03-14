@@ -41,16 +41,10 @@ extension ContentViewModel {
         onCapability: @escaping (URL, Capability) -> Void = { _, _ in },
         onFormatsResolved: @escaping ([Format]) -> Void
     ) {
-        let stateDescriptor = kind.mediaStateDescriptor
-
         analyzeSourceSelection(
             urls: urls,
             kind: kind,
-            stateDescriptor: stateDescriptor,
             formatDescriptor: formatDescriptor,
-            selectedSourceIDs: {
-                kind.mediaStateSnapshot(in: self).selectedSourceURLs.map(self.sourceIdentifier(for:))
-            },
             resolvePreparedCapability: resolvePreparedCapability,
             fetchCapabilities: fetchCapabilities,
             availableFormats: availableFormats,
@@ -74,20 +68,6 @@ extension ContentViewModel {
             postSelectionUpdate()
             persistSettings()
         }
-    }
-
-    func applySourceAnalysisResolution<Format>(
-        for kind: MediaKind,
-        formatDescriptor: OutputFormatDescriptor<Format>,
-        resolvedFormats: [Format],
-        warningMessage: String?,
-        errorMessage: String?
-    ) {
-        let stateDescriptor = kind.mediaStateDescriptor
-        self[keyPath: stateDescriptor.isAnalyzing] = false
-        self[keyPath: formatDescriptor.availableFormats] = resolvedFormats
-        self[keyPath: stateDescriptor.compatibilityWarningMessage] = warningMessage
-        self[keyPath: stateDescriptor.compatibilityErrorMessage] = errorMessage
     }
 
     nonisolated static func aggregateSourceCapabilities<Capability: Sendable, Format: Sendable>(
@@ -177,9 +157,7 @@ extension ContentViewModel {
     func analyzeSourceSelection<Capability: Sendable, Format: Sendable>(
         urls: [URL],
         kind: MediaKind,
-        stateDescriptor: MediaStateDescriptor,
         formatDescriptor: OutputFormatDescriptor<Format>,
-        selectedSourceIDs: @escaping () -> [String],
         resolvePreparedCapability: (@Sendable ([URL]) async -> (URL, Capability)?)? = nil,
         fetchCapabilities: @escaping @Sendable (URL) async -> Capability,
         availableFormats: @escaping @Sendable (Capability) -> [Format],
@@ -194,20 +172,18 @@ extension ContentViewModel {
         let selection = ContentViewModelSupport.uniqueStandardizedURLs(urls)
         let expectedSourceIDs = selection.map(sourceIdentifier(for:))
         guard !selection.isEmpty else {
-            self[keyPath: stateDescriptor.isAnalyzing] = false
-            self[keyPath: formatDescriptor.availableFormats] = []
-            kind.resetCompatibilityState(in: self)
+            kind.resetSourceAnalysisState(in: self, formatDescriptor: formatDescriptor)
             return
         }
 
-        cancelTask(at: stateDescriptor.analysisTask)
-        self[keyPath: stateDescriptor.isAnalyzing] = true
-        self[keyPath: stateDescriptor.analysisTask] = Task { [weak self] in
+        kind.cancelAnalysisTask(in: self)
+        kind.setAnalyzing(true, in: self)
+        kind.setAnalysisTask(Task { [weak self] in
             guard let self else { return }
             if let resolvePreparedCapability,
                let (sourceURL, capability) = await resolvePreparedCapability(selection) {
                 guard !Task.isCancelled else { return }
-                guard selectedSourceIDs() == expectedSourceIDs else { return }
+                guard kind.selectedSourceIDs(in: self) == expectedSourceIDs else { return }
 
                 onCapability?(sourceURL, capability)
                 let resolvedFormats = deduplicatedAndSorted(availableFormats(capability))
@@ -224,8 +200,8 @@ extension ContentViewModel {
                     joinedErrors = nil
                 }
 
-                applySourceAnalysisResolution(
-                    for: kind,
+                kind.applySourceAnalysisResolution(
+                    in: self,
                     formatDescriptor: formatDescriptor,
                     resolvedFormats: resolvedFormats,
                     warningMessage: joinedWarnings,
@@ -257,7 +233,7 @@ extension ContentViewModel {
                 return
             }
             guard !Task.isCancelled else { return }
-            guard selectedSourceIDs() == expectedSourceIDs else { return }
+            guard kind.selectedSourceIDs(in: self) == expectedSourceIDs else { return }
 
             aggregated.orderedResults.forEach { result in
                 onCapability?(result.source, result.capability)
@@ -274,8 +250,8 @@ extension ContentViewModel {
                 joinedErrors = nil
             }
 
-            self.applySourceAnalysisResolution(
-                for: kind,
+            kind.applySourceAnalysisResolution(
+                in: self,
                 formatDescriptor: formatDescriptor,
                 resolvedFormats: resolvedFormats,
                 warningMessage: joinedWarnings,
@@ -283,12 +259,37 @@ extension ContentViewModel {
             )
 
             onFormatsResolved(resolvedFormats)
-        }
+        }, in: self)
     }
 
 }
 
 extension ContentViewModel.MediaKind {
+    func resetSourceAnalysisState<Format>(
+        in viewModel: ContentViewModel,
+        formatDescriptor: ContentViewModel.OutputFormatDescriptor<Format>
+    ) {
+        setAnalyzing(false, in: viewModel)
+        viewModel[keyPath: formatDescriptor.availableFormats] = []
+        resetCompatibilityState(in: viewModel)
+    }
+
+    func applySourceAnalysisResolution<Format>(
+        in viewModel: ContentViewModel,
+        formatDescriptor: ContentViewModel.OutputFormatDescriptor<Format>,
+        resolvedFormats: [Format],
+        warningMessage: String?,
+        errorMessage: String?
+    ) {
+        setAnalyzing(false, in: viewModel)
+        viewModel[keyPath: formatDescriptor.availableFormats] = resolvedFormats
+        setCompatibilityMessages(
+            warningMessage: warningMessage,
+            errorMessage: errorMessage,
+            in: viewModel
+        )
+    }
+
     private struct SourceAnalysisBehavior {
         let analyzeSelectionCompatibility: (ContentViewModel, [URL]) -> Void
     }

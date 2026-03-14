@@ -184,6 +184,83 @@ extension ContentViewModel.MediaKind {
         mediaBehavior.descriptor
     }
 
+    func sourceURL(in viewModel: ContentViewModel) -> URL? {
+        viewModel[keyPath: mediaStateDescriptor.sourceURL]
+    }
+
+    func queuedSourceURLs(in viewModel: ContentViewModel) -> [URL] {
+        viewModel[keyPath: mediaStateDescriptor.queuedSourceURLs]
+    }
+
+    func convertedOutputURLsBySourceID(in viewModel: ContentViewModel) -> [String: URL] {
+        viewModel[keyPath: mediaStateDescriptor.convertedOutputURLsBySourceID]
+    }
+
+    func selectedSourceIDs(in viewModel: ContentViewModel) -> [String] {
+        mediaStateSnapshot(in: viewModel).selectedSourceURLs.map(viewModel.sourceIdentifier(for:))
+    }
+
+    func hasSelectedSource(in viewModel: ContentViewModel) -> Bool {
+        sourceURL(in: viewModel) != nil
+    }
+
+    func isAnalyzing(in viewModel: ContentViewModel) -> Bool {
+        viewModel[keyPath: mediaStateDescriptor.isAnalyzing]
+    }
+
+    func isConverting(in viewModel: ContentViewModel) -> Bool {
+        viewModel[keyPath: mediaStateDescriptor.isConverting]
+    }
+
+    func compatibilityErrorMessage(in viewModel: ContentViewModel) -> String? {
+        viewModel[keyPath: mediaStateDescriptor.compatibilityErrorMessage]
+    }
+
+    func compatibilityWarningMessage(in viewModel: ContentViewModel) -> String? {
+        viewModel[keyPath: mediaStateDescriptor.compatibilityWarningMessage]
+    }
+
+    func setAnalyzing(_ isAnalyzing: Bool, in viewModel: ContentViewModel) {
+        viewModel[keyPath: mediaStateDescriptor.isAnalyzing] = isAnalyzing
+    }
+
+    func setAnalysisTask(_ task: Task<Void, Never>?, in viewModel: ContentViewModel) {
+        viewModel[keyPath: mediaStateDescriptor.analysisTask] = task
+    }
+
+    func cancelAnalysisTask(in viewModel: ContentViewModel) {
+        viewModel.cancelTask(at: mediaStateDescriptor.analysisTask)
+    }
+
+    func setConverting(_ isConverting: Bool, in viewModel: ContentViewModel) {
+        viewModel[keyPath: mediaStateDescriptor.isConverting] = isConverting
+    }
+
+    func setCurrentBatchIndex(_ index: Int, in viewModel: ContentViewModel) {
+        viewModel[keyPath: mediaStateDescriptor.currentBatchIndex] = index
+    }
+
+    func setTotalBatchCount(_ count: Int, in viewModel: ContentViewModel) {
+        viewModel[keyPath: mediaStateDescriptor.totalBatchCount] = count
+    }
+
+    func setConversionErrorMessage(_ message: String?, in viewModel: ContentViewModel) {
+        viewModel[keyPath: mediaStateDescriptor.conversionErrorMessage] = message
+    }
+
+    func setCompatibilityMessages(
+        warningMessage: String?,
+        errorMessage: String?,
+        in viewModel: ContentViewModel
+    ) {
+        viewModel[keyPath: mediaStateDescriptor.compatibilityWarningMessage] = warningMessage
+        viewModel[keyPath: mediaStateDescriptor.compatibilityErrorMessage] = errorMessage
+    }
+
+    var pendingSelectionAnalysisTaskKeyPath: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?> {
+        mediaStateDescriptor.pendingSelectionAnalysisTask
+    }
+
     @MainActor
     func performConversion(in viewModel: ContentViewModel) async {
         await mediaBehavior.performConversion(viewModel)

@@ -2,39 +2,39 @@ import Foundation
 
 extension ContentViewModel {
     func resetCancelledConversionState(
-        using descriptor: MediaStateDescriptor
+        for kind: MediaKind
     ) {
-        setProgress(0, at: descriptor.progress)
-        self[keyPath: descriptor.conversionErrorMessage] = nil
+        kind.setProgress(0, in: self)
+        kind.setConversionErrorMessage(nil, in: self)
     }
 
     func performManagedConversionExecution(
-        using descriptor: MediaStateDescriptor,
+        for kind: MediaKind,
         treatExportCancellationAsCancelled: Bool = false,
         onError: (Error) -> Void,
         operation: () async throws -> Void
     ) async {
         do {
             defer {
-                self[keyPath: descriptor.isConverting] = false
-                self[keyPath: descriptor.currentBatchIndex] = 0
-                self[keyPath: descriptor.totalBatchCount] = 0
+                kind.setConverting(false, in: self)
+                kind.setCurrentBatchIndex(0, in: self)
+                kind.setTotalBatchCount(0, in: self)
             }
             try Task.checkCancellation()
             try await operation()
         } catch is CancellationError {
-            resetCancelledConversionState(using: descriptor)
+            resetCancelledConversionState(for: kind)
         } catch ConversionError.exportCancelled where treatExportCancellationAsCancelled {
-            resetCancelledConversionState(using: descriptor)
+            resetCancelledConversionState(for: kind)
         } catch {
             onError(error)
         }
     }
 
     func executeBatchConversion(
+        for kind: MediaKind,
         preparedSources: [PreparedSourceConversion],
         batchEnvironment: BatchExecutionEnvironment,
-        using descriptor: MediaStateDescriptor,
         skippedSummaryPrefix: String,
         treatExportCancellationAsCancelled: Bool = false,
         validate: @escaping (PreparedSourceConversion, BatchExecutionEnvironment) async -> String?,
@@ -43,11 +43,11 @@ extension ContentViewModel {
         onSourceProcessed: @escaping (URL) -> Void,
         onError: (Error) -> Void
     ) async {
-        self[keyPath: descriptor.totalBatchCount] = preparedSources.count
-        self[keyPath: descriptor.currentBatchIndex] = 0
+        kind.setTotalBatchCount(preparedSources.count, in: self)
+        kind.setCurrentBatchIndex(0, in: self)
 
         await performManagedConversionExecution(
-            using: descriptor,
+            for: kind,
             treatExportCancellationAsCancelled: treatExportCancellationAsCancelled,
             onError: onError
         ) {
@@ -59,16 +59,16 @@ extension ContentViewModel {
                 onSavedOutput: onSavedOutput,
                 onSourceProcessed: onSourceProcessed,
                 onBatchIndexChanged: { index in
-                    self[keyPath: descriptor.currentBatchIndex] = index
+                    kind.setCurrentBatchIndex(index, in: self)
                 }
             )
 
-            setProgress(1, at: descriptor.progress)
+            kind.setProgress(1, in: self)
             if let summary = BatchConversionSupport.skippedFilesSummary(
                 prefix: skippedSummaryPrefix,
                 entries: skippedEntries
             ) {
-                self[keyPath: descriptor.conversionErrorMessage] = summary
+                kind.setConversionErrorMessage(summary, in: self)
             }
         }
     }

@@ -3,8 +3,7 @@ import SwiftUI
 
 extension ContentViewModel {
     func moveSelectedSource(from draggedURL: URL, to targetURL: URL, for kind: MediaKind) {
-        let descriptor = kind.mediaStateDescriptor
-        guard !self[keyPath: descriptor.isConverting] else { return }
+        guard !kind.isConverting(in: self) else { return }
         let snapshot = kind.mediaStateSnapshot(in: self)
         guard let reordered = reorderedURLsByMoving(
             draggedURL,

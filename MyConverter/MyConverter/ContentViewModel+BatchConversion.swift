@@ -17,7 +17,6 @@ extension ContentViewModel {
             Int
         ) async throws -> URL
     ) async {
-        let descriptor = kind.mediaStateDescriptor
         let validationMessage = kind.validationMessage(in: self)
         let canConvert = kind.canStartConversion(
             in: self,
@@ -25,11 +24,8 @@ extension ContentViewModel {
         )
 
         await performMediaBatchConversion(
+            for: kind,
             canConvert: canConvert,
-            descriptor: descriptor,
-            primarySourceURL: self[keyPath: descriptor.sourceURL],
-            queuedSourceURLs: self[keyPath: descriptor.queuedSourceURLs],
-            existingOutputURLsBySourceID: self[keyPath: descriptor.convertedOutputURLsBySourceID],
             missingSourceLog: kind.missingSourceLog,
             fileExtension: fileExtension,
             outputLabel: kind.outputLabel,
@@ -175,11 +171,8 @@ extension ContentViewModel {
     }
 
     func performMediaBatchConversion<OutputSettings: Sendable>(
+        for kind: MediaKind,
         canConvert: Bool,
-        descriptor: MediaStateDescriptor,
-        primarySourceURL: URL?,
-        queuedSourceURLs: [URL],
-        existingOutputURLsBySourceID: [String: URL],
         missingSourceLog: String,
         fileExtension: String,
         outputLabel: String,
@@ -198,6 +191,7 @@ extension ContentViewModel {
         onError: (Error) -> Void,
         onSingleSourceCompletion: (() -> Void)? = nil
     ) async {
+        let primarySourceURL = kind.sourceURL(in: self)
         guard canConvert, let primarySourceURL else {
             if primarySourceURL == nil {
                 print(missingSourceLog)
@@ -213,7 +207,8 @@ extension ContentViewModel {
             return
         }
 
-        let allSourceURLs = [primarySourceURL] + queuedSourceURLs
+        let allSourceURLs = [primarySourceURL] + kind.queuedSourceURLs(in: self)
+        let existingOutputURLsBySourceID = kind.convertedOutputURLsBySourceID(in: self)
         let completedSourceIDs = Set(existingOutputURLsBySourceID.keys)
         let remainingSourceURLs = allSourceURLs.filter { sourceURL in
             !completedSourceIDs.contains(sourceIdentifier(for: sourceURL))
@@ -267,10 +262,10 @@ extension ContentViewModel {
            let prepareSingleSourceEnvironment {
             defer { onSingleSourceCompletion?() }
             await executeSingleSourceConversion(
+                for: kind,
                 preparedSource: preparedSource,
                 outputSettings: outputSettings,
                 prepareSingleSourceEnvironment: prepareSingleSourceEnvironment,
-                using: descriptor,
                 skippedSummaryPrefix: skippedSummaryPrefix,
                 treatExportCancellationAsCancelled: treatExportCancellationAsCancelled,
                 validate: validate,
@@ -289,9 +284,9 @@ extension ContentViewModel {
             )
         }
         await executeBatchConversion(
+            for: kind,
             preparedSources: batchContext.preparedSources,
             batchEnvironment: batchEnvironment,
-            using: descriptor,
             skippedSummaryPrefix: skippedSummaryPrefix,
             treatExportCancellationAsCancelled: treatExportCancellationAsCancelled,
             validate: validate,
@@ -305,13 +300,13 @@ extension ContentViewModel {
     }
 
     func executeSingleSourceConversion<OutputSettings: Sendable>(
+        for kind: MediaKind,
         preparedSource: PreparedSourceConversion,
         outputSettings: OutputSettings,
         prepareSingleSourceEnvironment: @escaping @MainActor (
             PreparedSourceConversion,
             OutputSettings
         ) async -> BatchExecutionEnvironment,
-        using descriptor: MediaStateDescriptor,
         skippedSummaryPrefix: String,
         treatExportCancellationAsCancelled: Bool = false,
         validate: @escaping (PreparedSourceConversion, BatchExecutionEnvironment) async -> String?,
@@ -320,11 +315,11 @@ extension ContentViewModel {
         onSourceProcessed: @escaping (URL) -> Void,
         onError: (Error) -> Void
     ) async {
-        self[keyPath: descriptor.totalBatchCount] = 1
-        self[keyPath: descriptor.currentBatchIndex] = 1
+        kind.setTotalBatchCount(1, in: self)
+        kind.setCurrentBatchIndex(1, in: self)
 
         await performManagedConversionExecution(
-            using: descriptor,
+            for: kind,
             treatExportCancellationAsCancelled: treatExportCancellationAsCancelled,
             onError: onError
         ) {
@@ -348,13 +343,13 @@ extension ContentViewModel {
                 }
             )
 
-            setProgress(1, at: descriptor.progress)
+            kind.setProgress(1, in: self)
             if let entry = result.skippedEntry {
                 onSourceProcessed(preparedSource.sourceURL)
-                self[keyPath: descriptor.conversionErrorMessage] = BatchConversionSupport.skippedFilesSummary(
+                kind.setConversionErrorMessage(BatchConversionSupport.skippedFilesSummary(
                     prefix: skippedSummaryPrefix,
                     entries: [entry]
-                )
+                ), in: self)
             } else if let savedURL = result.savedURL {
                 onSavedOutput(preparedSource.sourceURL, savedURL)
                 onSourceProcessed(preparedSource.sourceURL)
