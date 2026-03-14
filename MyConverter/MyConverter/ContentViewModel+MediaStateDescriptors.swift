@@ -143,7 +143,7 @@ extension ContentViewModel {
         validateSourceOutputSettings: videoValidateSourceOutputSettingsValue,
         validatePreparedSourceOutputSettings: videoValidatePreparedSourceOutputSettingsValue,
         performConversion: { viewModel in
-            await viewModel.performConversion(using: videoConversionWorkflowProfile)
+            await viewModel.performVideoConversion()
         },
         resetCompatibilityMetadata: resetCompatibilityMetadata(_:),
         analyzeSelection: { viewModel, urls in
@@ -202,7 +202,7 @@ extension ContentViewModel {
         validateSourceOutputSettings: imageValidateSourceOutputSettingsValue,
         validatePreparedSourceOutputSettings: imageValidatePreparedSourceOutputSettingsValue,
         performConversion: { viewModel in
-            await viewModel.performConversion(using: imageConversionWorkflowProfile)
+            await viewModel.performImageConversion()
         },
         resetCompatibilityMetadata: resetImageCompatibilityMetadata(_:),
         analyzeSelection: { viewModel, urls in
@@ -265,7 +265,7 @@ extension ContentViewModel {
         validateSourceOutputSettings: audioValidateSourceOutputSettingsValue,
         validatePreparedSourceOutputSettings: audioValidatePreparedSourceOutputSettingsValue,
         performConversion: { viewModel in
-            await viewModel.performConversion(using: audioConversionWorkflowProfile)
+            await viewModel.performAudioConversion()
         },
         resetCompatibilityMetadata: resetCompatibilityMetadata(_:),
         analyzeSelection: { viewModel, urls in

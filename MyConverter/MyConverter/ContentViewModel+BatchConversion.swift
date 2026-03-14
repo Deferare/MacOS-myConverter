@@ -1,145 +1,25 @@
 import Foundation
 
 extension ContentViewModel {
-    struct ConversionWorkflowProfile<OutputSettings: Sendable> {
-        let kind: MediaKind
-        let fileExtension: (ContentViewModel) -> String
-        let buildOutputSettings: (ContentViewModel) throws -> OutputSettings
-        let prepareBatchEnvironment: @Sendable (
-            ContentViewModel,
-            [PreparedSourceConversion],
-            OutputSettings
-        ) async -> BatchExecutionEnvironment
-        let prepareSingleSourceEnvironment: (
-            @MainActor @Sendable (
-                ContentViewModel,
-                PreparedSourceConversion,
-                OutputSettings
-            ) async -> BatchExecutionEnvironment
-        )?
-        let runConversion: (
-            ContentViewModel,
+    func performConversion<OutputSettings: Sendable>(
+        for kind: MediaKind,
+        fileExtension: String,
+        buildOutputSettings: () throws -> OutputSettings,
+        prepareBatchEnvironment: @escaping @Sendable ([PreparedSourceConversion], OutputSettings) async -> BatchExecutionEnvironment,
+        prepareSingleSourceEnvironment: (
+            @MainActor @Sendable (PreparedSourceConversion, OutputSettings) async -> BatchExecutionEnvironment
+        )? = nil,
+        runConversion: @escaping (
             PreparedSourceConversion,
             BatchExecutionEnvironment,
             OutputSettings,
             Int,
             Int
         ) async throws -> URL
-    }
-
-    static let videoConversionWorkflowProfile = ConversionWorkflowProfile<VideoOutputSettings>(
-        kind: .video,
-        fileExtension: { viewModel in
-            videoOutputFormatDescriptorValue.selectedFormatFileExtension(in: viewModel)
-        },
-        buildOutputSettings: { try $0.buildVideoOutputSettings() },
-        prepareBatchEnvironment: { viewModel, preparedSources, outputSettings in
-            await ContentViewModel.prepareVideoBatchExecutionEnvironment(
-                preparedSources: preparedSources,
-                outputSettings: outputSettings,
-                runtimeProvider: viewModel.services.ffmpegRuntimeProvider
-            )
-        },
-        prepareSingleSourceEnvironment: { viewModel, preparedSource, outputSettings in
-            await viewModel.prepareSingleVideoBatchExecutionEnvironment(
-                preparedSource: preparedSource,
-                outputSettings: outputSettings
-            )
-        },
-        runConversion: { viewModel, preparedSource, environment, outputSettings, index, totalCount in
-            try await VideoConversionEngine.convert(
-                inputURL: preparedSource.sourceURL,
-                outputURL: preparedSource.workingOutputURL,
-                outputSettings: outputSettings,
-                inputDurationSeconds: nil,
-                ffmpegContext: environment.videoFFmpegContext,
-                preparedSourceContext: environment.preparedVideoSources[preparedSource.sourceID],
-                onProgress: viewModel.batchProgressHandler(
-                    for: .video,
-                    index: index,
-                    totalCount: totalCount
-                )
-            )
-        }
-    )
-
-    static let imageConversionWorkflowProfile = ConversionWorkflowProfile<ImageOutputSettings>(
-        kind: .image,
-        fileExtension: { viewModel in
-            imageOutputFormatDescriptorValue.selectedFormatFileExtension(in: viewModel)
-        },
-        buildOutputSettings: { $0.buildImageOutputSettings() },
-        prepareBatchEnvironment: { viewModel, preparedSources, _ in
-            await ContentViewModel.prepareImageBatchExecutionEnvironment(
-                preparedSources: preparedSources,
-                runtimeProvider: viewModel.services.ffmpegRuntimeProvider
-            )
-        },
-        prepareSingleSourceEnvironment: nil,
-        runConversion: { viewModel, preparedSource, environment, outputSettings, index, totalCount in
-            try await ImageConversionEngine.convert(
-                inputURL: preparedSource.sourceURL,
-                outputURL: preparedSource.workingOutputURL,
-                outputSettings: outputSettings,
-                ffmpegContext: environment.imageFFmpegContext,
-                onProgress: viewModel.batchProgressHandler(
-                    for: .image,
-                    index: index,
-                    totalCount: totalCount
-                )
-            )
-        }
-    )
-
-    static let audioConversionWorkflowProfile = ConversionWorkflowProfile<AudioOutputSettings>(
-        kind: .audio,
-        fileExtension: { viewModel in
-            audioOutputFormatDescriptorValue.selectedFormatFileExtension(in: viewModel)
-        },
-        buildOutputSettings: { $0.buildAudioOutputSettings() },
-        prepareBatchEnvironment: { viewModel, preparedSources, _ in
-            await ContentViewModel.prepareAudioBatchExecutionEnvironment(
-                preparedSources: preparedSources,
-                runtimeProvider: viewModel.services.ffmpegRuntimeProvider
-            )
-        },
-        prepareSingleSourceEnvironment: nil,
-        runConversion: { viewModel, preparedSource, environment, outputSettings, index, totalCount in
-            try await VideoConversionEngine.convertAudio(
-                inputURL: preparedSource.sourceURL,
-                outputURL: preparedSource.workingOutputURL,
-                outputSettings: outputSettings,
-                inputDurationSeconds: nil,
-                ffmpegContext: environment.videoFFmpegContext,
-                runtimeProvider: viewModel.services.ffmpegRuntimeProvider,
-                onProgress: viewModel.batchProgressHandler(
-                    for: .audio,
-                    index: index,
-                    totalCount: totalCount
-                )
-            )
-        }
-    )
-
-    func performConversion<OutputSettings: Sendable>(using profile: ConversionWorkflowProfile<OutputSettings>) async {
-        let kind = profile.kind
+    ) async {
         let descriptor = mediaStateDescriptor(for: kind)
         let validationMessage = validationMessage(for: kind)
         let canConvert = canStartConversion(for: kind, validationMessage: validationMessage)
-        let prepareSingleSourceEnvironment: (
-            @MainActor @Sendable (
-                PreparedSourceConversion,
-                OutputSettings
-            ) async -> BatchExecutionEnvironment
-        )?
-
-        if let prepare = profile.prepareSingleSourceEnvironment {
-            prepareSingleSourceEnvironment = { preparedSource, outputSettings in
-                await prepare(self, preparedSource, outputSettings)
-            }
-        } else {
-            prepareSingleSourceEnvironment = nil
-        }
 
         await performMediaBatchConversion(
             canConvert: canConvert,
@@ -151,7 +31,7 @@ extension ContentViewModel {
                 \.convertedOutputURLsBySourceID
             ),
             missingSourceLog: kind.missingSourceLog,
-            fileExtension: profile.fileExtension(self),
+            fileExtension: fileExtension,
             outputLabel: kind.outputLabel,
             preferredOutputDestination: selectedOutputDestinationHandle(for: kind),
             preferredOutputDirectory: selectedOutputDirectoryURL(for: kind),
@@ -164,10 +44,8 @@ extension ContentViewModel {
                     preserveCompletedOutputs: preserveCompletedOutputs
                 )
             },
-            buildOutputSettings: { try profile.buildOutputSettings(self) },
-            prepareBatchEnvironment: { preparedSources, outputSettings in
-                await profile.prepareBatchEnvironment(self, preparedSources, outputSettings)
-            },
+            buildOutputSettings: buildOutputSettings,
+            prepareBatchEnvironment: prepareBatchEnvironment,
             prepareSingleSourceEnvironment: prepareSingleSourceEnvironment,
             validate: { preparedSource, environment in
                 await self.validatePreparedSourceOutputSettings(
@@ -176,16 +54,7 @@ extension ContentViewModel {
                     environment: environment
                 )
             },
-            runConversion: { preparedSource, environment, outputSettings, index, totalCount in
-                try await profile.runConversion(
-                    self,
-                    preparedSource,
-                    environment,
-                    outputSettings,
-                    index,
-                    totalCount
-                )
-            },
+            runConversion: runConversion,
             onSavedOutput: { sourceURL, savedURL in
                 self.appendConvertedOutput(savedURL, from: sourceURL, for: kind)
             },
@@ -203,6 +72,98 @@ extension ContentViewModel {
             },
             onSingleSourceCompletion: {
                 self.clearPreparedSingleVideoSelection(for: kind)
+            }
+        )
+    }
+
+    func performVideoConversion() async {
+        await performConversion(
+            for: .video,
+            fileExtension: Self.videoOutputFormatDescriptorValue.selectedFormatFileExtension(in: self),
+            buildOutputSettings: { try self.buildVideoOutputSettings() },
+            prepareBatchEnvironment: { preparedSources, outputSettings in
+                await ContentViewModel.prepareVideoBatchExecutionEnvironment(
+                    preparedSources: preparedSources,
+                    outputSettings: outputSettings,
+                    runtimeProvider: self.services.ffmpegRuntimeProvider
+                )
+            },
+            prepareSingleSourceEnvironment: { preparedSource, outputSettings in
+                await self.prepareSingleVideoBatchExecutionEnvironment(
+                    preparedSource: preparedSource,
+                    outputSettings: outputSettings
+                )
+            },
+            runConversion: { preparedSource, environment, outputSettings, index, totalCount in
+                try await VideoConversionEngine.convert(
+                    inputURL: preparedSource.sourceURL,
+                    outputURL: preparedSource.workingOutputURL,
+                    outputSettings: outputSettings,
+                    inputDurationSeconds: nil,
+                    ffmpegContext: environment.videoFFmpegContext,
+                    preparedSourceContext: environment.preparedVideoSources[preparedSource.sourceID],
+                    onProgress: self.batchProgressHandler(
+                        for: .video,
+                        index: index,
+                        totalCount: totalCount
+                    )
+                )
+            }
+        )
+    }
+
+    func performImageConversion() async {
+        await performConversion(
+            for: .image,
+            fileExtension: Self.imageOutputFormatDescriptorValue.selectedFormatFileExtension(in: self),
+            buildOutputSettings: { self.buildImageOutputSettings() },
+            prepareBatchEnvironment: { preparedSources, _ in
+                await ContentViewModel.prepareImageBatchExecutionEnvironment(
+                    preparedSources: preparedSources,
+                    runtimeProvider: self.services.ffmpegRuntimeProvider
+                )
+            },
+            runConversion: { preparedSource, environment, outputSettings, index, totalCount in
+                try await ImageConversionEngine.convert(
+                    inputURL: preparedSource.sourceURL,
+                    outputURL: preparedSource.workingOutputURL,
+                    outputSettings: outputSettings,
+                    ffmpegContext: environment.imageFFmpegContext,
+                    onProgress: self.batchProgressHandler(
+                        for: .image,
+                        index: index,
+                        totalCount: totalCount
+                    )
+                )
+            }
+        )
+    }
+
+    func performAudioConversion() async {
+        await performConversion(
+            for: .audio,
+            fileExtension: Self.audioOutputFormatDescriptorValue.selectedFormatFileExtension(in: self),
+            buildOutputSettings: { self.buildAudioOutputSettings() },
+            prepareBatchEnvironment: { preparedSources, _ in
+                await ContentViewModel.prepareAudioBatchExecutionEnvironment(
+                    preparedSources: preparedSources,
+                    runtimeProvider: self.services.ffmpegRuntimeProvider
+                )
+            },
+            runConversion: { preparedSource, environment, outputSettings, index, totalCount in
+                try await VideoConversionEngine.convertAudio(
+                    inputURL: preparedSource.sourceURL,
+                    outputURL: preparedSource.workingOutputURL,
+                    outputSettings: outputSettings,
+                    inputDurationSeconds: nil,
+                    ffmpegContext: environment.videoFFmpegContext,
+                    runtimeProvider: self.services.ffmpegRuntimeProvider,
+                    onProgress: self.batchProgressHandler(
+                        for: .audio,
+                        index: index,
+                        totalCount: totalCount
+                    )
+                )
             }
         )
     }
