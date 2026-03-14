@@ -446,11 +446,11 @@ extension ContentViewModel {
         _ settings: Settings,
         using descriptor: SourceSettingsFlowDescriptor<Settings, Persisted, Format>
     ) {
-        applyStoredSourceSettings(
+        descriptor.formatDescriptor.applyStoredSettings(
             applyingFlagKeyPath: descriptor.storage.isApplyingStoredSettings,
             storedFormatID: descriptor.outputFormatID(settings),
             normalizeStoredID: descriptor.normalizeStoredID,
-            formatDescriptor: descriptor.formatDescriptor,
+            to: self,
             applyAdditionalSettings: {
                 descriptor.applyAdditionalSettings(self, settings)
             },

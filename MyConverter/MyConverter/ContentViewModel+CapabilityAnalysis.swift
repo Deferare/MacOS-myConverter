@@ -177,20 +177,10 @@ extension ContentViewModel {
         postSelectionUpdate: () -> Void = {},
         persistSettings: () -> Void
     ) {
-        let selectedFormat = formatDescriptor.selectedFormatValue(in: self)
-        let resolvedSelection = resolvedSelectedFormat(
-            current: selectedFormat,
-            options: resolvedFormats,
-            formatNormalizedID: formatDescriptor.formatNormalizedID,
-            preferredSelection: formatDescriptor.preferredSelection
-        )
-
-        if let selected = resolvedSelection {
-            self[keyPath: formatDescriptor.selectedFormat] = selected
+        formatDescriptor.applyAvailableFormats(resolvedFormats, to: self) {
+            postSelectionUpdate()
+            persistSettings()
         }
-
-        postSelectionUpdate()
-        persistSettings()
     }
 
     func applySourceAnalysisResolution<Capability: Sendable, Format: Sendable>(

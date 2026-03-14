@@ -12,28 +12,6 @@ extension ContentViewModel {
         let preferredSelection: ([Format]) -> Format?
     }
 
-    static func makeOutputFormatDescriptor<Format>(
-        sourceURL: ReferenceWritableKeyPath<ContentViewModel, URL?>,
-        availableFormats: ReferenceWritableKeyPath<ContentViewModel, [Format]>,
-        selectedFormat: ReferenceWritableKeyPath<ContentViewModel, Format>,
-        placeholderFormats: @escaping () -> [Format],
-        formatNormalizedID: @escaping (Format) -> String,
-        formatDisplayName: @escaping (Format) -> String,
-        formatFileExtension: @escaping (Format) -> String,
-        preferredSelection: @escaping ([Format]) -> Format?
-    ) -> OutputFormatDescriptor<Format> {
-        OutputFormatDescriptor(
-            sourceURL: sourceURL,
-            availableFormats: availableFormats,
-            selectedFormat: selectedFormat,
-            placeholderFormats: placeholderFormats,
-            formatNormalizedID: formatNormalizedID,
-            formatDisplayName: formatDisplayName,
-            formatFileExtension: formatFileExtension,
-            preferredSelection: preferredSelection
-        )
-    }
-
     func withSettingsApplicationFlag(
         _ keyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
         operation: () -> Void
@@ -43,123 +21,38 @@ extension ContentViewModel {
         operation()
     }
 
-    func applyStoredFormatSelection<Format>(
-        storedFormatID: String,
-        normalizeStoredID: (String) -> String?,
-        options: [Format],
-        selectedFormatKeyPath: ReferenceWritableKeyPath<ContentViewModel, Format>,
-        formatNormalizedID: (Format) -> String
-    ) {
-        guard let normalizedStoredID = normalizeStoredID(storedFormatID),
-              let matchingFormat = options.first(where: { formatNormalizedID($0) == normalizedStoredID }) else {
-            return
-        }
-        self[keyPath: selectedFormatKeyPath] = matchingFormat
-    }
+    static let videoOutputFormatDescriptorValue = OutputFormatDescriptor(
+        sourceURL: \.videoRuntimeState.media.sourceURL,
+        availableFormats: \.videoRuntimeState.media.availableOutputFormats,
+        selectedFormat: \.videoOptionsState.selectedOutputFormat,
+        placeholderFormats: { ContentViewModelSupport.placeholderVideoFormats() },
+        formatNormalizedID: { $0.normalizedID },
+        formatDisplayName: { $0.displayName },
+        formatFileExtension: { $0.fileExtension },
+        preferredSelection: VideoFormatOption.defaultSelection(from:)
+    )
 
-    func applyStoredSourceSettings<Format>(
-        applyingFlagKeyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
-        storedFormatID: String,
-        normalizeStoredID: (String) -> String?,
-        options: [Format],
-        selectedFormatKeyPath: ReferenceWritableKeyPath<ContentViewModel, Format>,
-        formatNormalizedID: (Format) -> String,
-        applyAdditionalSettings: () -> Void,
-        postApply: () -> Void
-    ) {
-        withSettingsApplicationFlag(applyingFlagKeyPath) {
-            applyStoredFormatSelection(
-                storedFormatID: storedFormatID,
-                normalizeStoredID: normalizeStoredID,
-                options: options,
-                selectedFormatKeyPath: selectedFormatKeyPath,
-                formatNormalizedID: formatNormalizedID
-            )
-            applyAdditionalSettings()
-        }
-        postApply()
-    }
+    static let imageOutputFormatDescriptorValue = OutputFormatDescriptor(
+        sourceURL: \.imageRuntimeState.media.sourceURL,
+        availableFormats: \.imageRuntimeState.media.availableOutputFormats,
+        selectedFormat: \.imageOptionsState.selectedOutputFormat,
+        placeholderFormats: { ContentViewModelSupport.placeholderImageFormats() },
+        formatNormalizedID: { $0.normalizedID },
+        formatDisplayName: { $0.displayName },
+        formatFileExtension: { $0.fileExtension },
+        preferredSelection: { $0.first }
+    )
 
-    func ensureSelectedFormatIsAvailable<Format>(
-        options: [Format],
-        selectedFormatKeyPath: ReferenceWritableKeyPath<ContentViewModel, Format>,
-        formatNormalizedID: (Format) -> String,
-        preferredSelection: ([Format]) -> Format?
-    ) {
-        guard !options.isEmpty else { return }
-        let selectedFormat = self[keyPath: selectedFormatKeyPath]
-        guard !options.contains(where: { formatNormalizedID($0) == formatNormalizedID(selectedFormat) }),
-              let preferredFormat = preferredSelection(options) else {
-            return
-        }
-        self[keyPath: selectedFormatKeyPath] = preferredFormat
-    }
-
-    func resolvedSelectedFormat<Format>(
-        current: Format,
-        options: [Format],
-        formatNormalizedID: (Format) -> String,
-        preferredSelection: ([Format]) -> Format?
-    ) -> Format? {
-        guard !options.isEmpty else { return nil }
-        if options.contains(where: { formatNormalizedID($0) == formatNormalizedID(current) }) {
-            return current
-        }
-        return preferredSelection(options)
-    }
-
-    static let videoOutputFormatDescriptorValue = makeOutputFormatDescriptor(
-            sourceURL: \.videoRuntimeState.media.sourceURL,
-            availableFormats: \.videoRuntimeState.media.availableOutputFormats,
-            selectedFormat: \.videoOptionsState.selectedOutputFormat,
-            placeholderFormats: { ContentViewModelSupport.placeholderVideoFormats() },
-            formatNormalizedID: { $0.normalizedID },
-            formatDisplayName: { $0.displayName },
-            formatFileExtension: { $0.fileExtension },
-            preferredSelection: VideoFormatOption.defaultSelection(from:)
-        )
-
-    static let imageOutputFormatDescriptorValue = makeOutputFormatDescriptor(
-            sourceURL: \.imageRuntimeState.media.sourceURL,
-            availableFormats: \.imageRuntimeState.media.availableOutputFormats,
-            selectedFormat: \.imageOptionsState.selectedOutputFormat,
-            placeholderFormats: { ContentViewModelSupport.placeholderImageFormats() },
-            formatNormalizedID: { $0.normalizedID },
-            formatDisplayName: { $0.displayName },
-            formatFileExtension: { $0.fileExtension },
-            preferredSelection: { $0.first }
-        )
-
-    static let audioOutputFormatDescriptorValue = makeOutputFormatDescriptor(
-            sourceURL: \.audioRuntimeState.media.sourceURL,
-            availableFormats: \.audioRuntimeState.media.availableOutputFormats,
-            selectedFormat: \.audioOptionsState.selectedOutputFormat,
-            placeholderFormats: { ContentViewModelSupport.placeholderAudioFormats() },
-            formatNormalizedID: { $0.normalizedID },
-            formatDisplayName: { $0.displayName },
-            formatFileExtension: { $0.fileExtension },
-            preferredSelection: AudioFormatOption.defaultSelection(from:)
-        )
-
-    func applyStoredSourceSettings<Format>(
-        applyingFlagKeyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
-        storedFormatID: String,
-        normalizeStoredID: (String) -> String?,
-        formatDescriptor: OutputFormatDescriptor<Format>,
-        applyAdditionalSettings: () -> Void,
-        postApply: () -> Void
-    ) {
-        applyStoredSourceSettings(
-            applyingFlagKeyPath: applyingFlagKeyPath,
-            storedFormatID: storedFormatID,
-            normalizeStoredID: normalizeStoredID,
-            options: formatDescriptor.availableOptions(in: self),
-            selectedFormatKeyPath: formatDescriptor.selectedFormat,
-            formatNormalizedID: formatDescriptor.formatNormalizedID,
-            applyAdditionalSettings: applyAdditionalSettings,
-            postApply: postApply
-        )
-    }
+    static let audioOutputFormatDescriptorValue = OutputFormatDescriptor(
+        sourceURL: \.audioRuntimeState.media.sourceURL,
+        availableFormats: \.audioRuntimeState.media.availableOutputFormats,
+        selectedFormat: \.audioOptionsState.selectedOutputFormat,
+        placeholderFormats: { ContentViewModelSupport.placeholderAudioFormats() },
+        formatNormalizedID: { $0.normalizedID },
+        formatDisplayName: { $0.displayName },
+        formatFileExtension: { $0.fileExtension },
+        preferredSelection: AudioFormatOption.defaultSelection(from:)
+    )
 }
 
 extension ContentViewModel.OutputFormatDescriptor {
@@ -207,12 +100,14 @@ extension ContentViewModel.OutputFormatDescriptor {
     }
 
     func ensureSelectedFormatIsAvailable(in viewModel: ContentViewModel) {
-        viewModel.ensureSelectedFormatIsAvailable(
-            options: availableOptions(in: viewModel),
-            selectedFormatKeyPath: selectedFormat,
-            formatNormalizedID: formatNormalizedID,
-            preferredSelection: preferredSelection
-        )
+        let options = availableOptions(in: viewModel)
+        guard !options.isEmpty else { return }
+        let current = selectedFormatValue(in: viewModel)
+        guard !options.contains(where: { formatNormalizedID($0) == formatNormalizedID(current) }),
+              let preferred = preferredSelection(options) else {
+            return
+        }
+        viewModel[keyPath: selectedFormat] = preferred
     }
 
     func applyAvailableFormats(
@@ -220,18 +115,43 @@ extension ContentViewModel.OutputFormatDescriptor {
         to viewModel: ContentViewModel,
         postApply: () -> Void = {}
     ) {
-        let resolvedSelection = viewModel.resolvedSelectedFormat(
-            current: selectedFormatValue(in: viewModel),
-            options: formats,
-            formatNormalizedID: formatNormalizedID,
-            preferredSelection: preferredSelection
-        )
+        let resolvedSelection: Format?
+        if formats.isEmpty {
+            resolvedSelection = nil
+        } else {
+            let current = selectedFormatValue(in: viewModel)
+            if formats.contains(where: { formatNormalizedID($0) == formatNormalizedID(current) }) {
+                resolvedSelection = current
+            } else {
+                resolvedSelection = preferredSelection(formats)
+            }
+        }
 
         viewModel[keyPath: availableFormats] = formats
         if let selected = resolvedSelection {
             viewModel[keyPath: selectedFormat] = selected
         }
 
+        postApply()
+    }
+
+    func applyStoredSettings(
+        applyingFlagKeyPath: ReferenceWritableKeyPath<ContentViewModel, Bool>,
+        storedFormatID: String,
+        normalizeStoredID: (String) -> String?,
+        to viewModel: ContentViewModel,
+        applyAdditionalSettings: () -> Void,
+        postApply: () -> Void
+    ) {
+        viewModel.withSettingsApplicationFlag(applyingFlagKeyPath) {
+            if let normalizedStoredID = normalizeStoredID(storedFormatID),
+               let matchingFormat = availableOptions(in: viewModel).first(
+                    where: { formatNormalizedID($0) == normalizedStoredID }
+               ) {
+                viewModel[keyPath: selectedFormat] = matchingFormat
+            }
+            applyAdditionalSettings()
+        }
         postApply()
     }
 }
