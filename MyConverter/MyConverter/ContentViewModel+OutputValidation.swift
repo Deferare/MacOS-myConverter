@@ -260,36 +260,15 @@ extension ContentViewModel {
     }
 
     func validationMessage(for kind: MediaKind) -> String? {
-        switch kind {
-        case .video:
-            videoValidationMessage()
-        case .image:
-            imageValidationMessage()
-        case .audio:
-            audioValidationMessage()
-        }
+        kind.validationMessage(in: self)
     }
 
     func hintMessage(for kind: MediaKind) -> String? {
-        switch kind {
-        case .video:
-            nil
-        case .image:
-            imageHintMessage()
-        case .audio:
-            audioHintMessage()
-        }
+        kind.hintMessage(in: self)
     }
 
     func validateSourceOutputSettings(for kind: MediaKind, sourceURL: URL) async -> String? {
-        switch kind {
-        case .video:
-            await validateVideoSourceOutputSettings(sourceURL)
-        case .image:
-            await validateImageSourceOutputSettings(sourceURL)
-        case .audio:
-            await validateAudioSourceOutputSettings(sourceURL)
-        }
+        await kind.validateSourceOutputSettings(in: self, sourceURL: sourceURL)
     }
 
     func validatePreparedSourceOutputSettings(
@@ -297,23 +276,11 @@ extension ContentViewModel {
         source: PreparedSourceConversion,
         environment: BatchExecutionEnvironment
     ) async -> String? {
-        switch kind {
-        case .video:
-            await validatePreparedVideoSourceOutputSettings(
-                source: source,
-                environment: environment
-            )
-        case .image:
-            await validatePreparedImageSourceOutputSettings(
-                source: source,
-                environment: environment
-            )
-        case .audio:
-            await validatePreparedAudioSourceOutputSettings(
-                source: source,
-                environment: environment
-            )
-        }
+        await kind.validatePreparedSourceOutputSettings(
+            in: self,
+            source: source,
+            environment: environment
+        )
     }
 
     func outputSettingsValidationMessage<Format>(
@@ -407,5 +374,67 @@ extension ContentViewModel {
             formatNormalizedID: formatNormalizedID,
             additionalValidation: additionalValidation
         )
+    }
+}
+
+extension ContentViewModel.MediaKind {
+    func validationMessage(in viewModel: ContentViewModel) -> String? {
+        switch self {
+        case .video:
+            viewModel.videoValidationMessage()
+        case .image:
+            viewModel.imageValidationMessage()
+        case .audio:
+            viewModel.audioValidationMessage()
+        }
+    }
+
+    func hintMessage(in viewModel: ContentViewModel) -> String? {
+        switch self {
+        case .video:
+            nil
+        case .image:
+            viewModel.imageHintMessage()
+        case .audio:
+            viewModel.audioHintMessage()
+        }
+    }
+
+    func validateSourceOutputSettings(
+        in viewModel: ContentViewModel,
+        sourceURL: URL
+    ) async -> String? {
+        switch self {
+        case .video:
+            await viewModel.validateVideoSourceOutputSettings(sourceURL)
+        case .image:
+            await viewModel.validateImageSourceOutputSettings(sourceURL)
+        case .audio:
+            await viewModel.validateAudioSourceOutputSettings(sourceURL)
+        }
+    }
+
+    func validatePreparedSourceOutputSettings(
+        in viewModel: ContentViewModel,
+        source: PreparedSourceConversion,
+        environment: ContentViewModel.BatchExecutionEnvironment
+    ) async -> String? {
+        switch self {
+        case .video:
+            await viewModel.validatePreparedVideoSourceOutputSettings(
+                source: source,
+                environment: environment
+            )
+        case .image:
+            await viewModel.validatePreparedImageSourceOutputSettings(
+                source: source,
+                environment: environment
+            )
+        case .audio:
+            await viewModel.validatePreparedAudioSourceOutputSettings(
+                source: source,
+                environment: environment
+            )
+        }
     }
 }

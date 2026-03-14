@@ -185,19 +185,11 @@ extension ContentViewModel {
     }
 
     func analyzeSelectedSources(_ urls: [URL], for kind: MediaKind) {
-        switch kind {
-        case .video:
-            analyzeVideoSourceCompatibility(for: urls)
-        case .image:
-            analyzeImageSourceCompatibility(for: urls)
-        case .audio:
-            analyzeAudioSourceCompatibility(for: urls)
-        }
+        kind.analyzeSelectedSources(urls, in: self)
     }
 
     func resetCompatibilityMetadata(for kind: MediaKind) {
-        guard kind == .image else { return }
-        Self.resetImageCompatibilityMetadata(self)
+        kind.resetCompatibilityMetadata(in: self)
     }
 
     func mediaStateSnapshot(for kind: MediaKind) -> MediaStateSnapshot {
@@ -229,5 +221,21 @@ extension ContentViewModel.MediaKind {
 
     var mediaStateDescriptor: ContentViewModel.MediaStateDescriptor {
         Self.mediaStateDescriptorsByKind[self] ?? ContentViewModel.videoStateDescriptor
+    }
+
+    func analyzeSelectedSources(_ urls: [URL], in viewModel: ContentViewModel) {
+        switch self {
+        case .video:
+            viewModel.analyzeVideoSourceCompatibility(for: urls)
+        case .image:
+            viewModel.analyzeImageSourceCompatibility(for: urls)
+        case .audio:
+            viewModel.analyzeAudioSourceCompatibility(for: urls)
+        }
+    }
+
+    func resetCompatibilityMetadata(in viewModel: ContentViewModel) {
+        guard self == .image else { return }
+        ContentViewModel.resetImageCompatibilityMetadata(viewModel)
     }
 }

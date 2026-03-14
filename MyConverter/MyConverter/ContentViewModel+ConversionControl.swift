@@ -12,14 +12,7 @@ extension ContentViewModel {
     }
 
     func runConversion(for kind: MediaKind) async {
-        switch kind {
-        case .video:
-            await performVideoConversion()
-        case .image:
-            await performImageConversion()
-        case .audio:
-            await performAudioConversion()
-        }
+        await kind.performConversion(in: self)
     }
 
     func launchConversionTask(
@@ -46,5 +39,19 @@ extension ContentViewModel {
 
     func clearConversionTask(for kind: MediaKind) {
         setConversionTask(nil, for: kind)
+    }
+}
+
+extension ContentViewModel.MediaKind {
+    @MainActor
+    func performConversion(in viewModel: ContentViewModel) async {
+        switch self {
+        case .video:
+            await viewModel.performVideoConversion()
+        case .image:
+            await viewModel.performImageConversion()
+        case .audio:
+            await viewModel.performAudioConversion()
+        }
     }
 }

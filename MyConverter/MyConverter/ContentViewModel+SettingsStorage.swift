@@ -385,35 +385,49 @@ extension ContentViewModel {
     }
 
     func applyDefaultSourceSettings(for kind: MediaKind) {
-        switch kind {
-        case .video:
-            applyVideoSourceSettings(VideoConversionSettings())
-        case .image:
-            applyImageSourceSettings(ImageConversionSettings())
-        case .audio:
-            applyAudioSourceSettings(AudioConversionSettings())
-        }
+        kind.applyDefaultSourceSettings(to: self)
     }
 
     func applyStoredSourceSettings(for sourceID: String, for kind: MediaKind) {
-        switch kind {
-        case .video:
-            applyStoredVideoSourceSettings(for: sourceID)
-        case .image:
-            applyStoredImageSourceSettings(for: sourceID)
-        case .audio:
-            applyStoredAudioSourceSettings(for: sourceID)
-        }
+        kind.applyStoredSourceSettings(sourceID: sourceID, to: self)
     }
 
     func persistCurrentSourceSettingsIfNeeded(for kind: MediaKind) {
-        switch kind {
+        kind.persistCurrentSourceSettingsIfNeeded(in: self)
+    }
+}
+
+extension ContentViewModel.MediaKind {
+    func applyDefaultSourceSettings(to viewModel: ContentViewModel) {
+        switch self {
         case .video:
-            persistCurrentVideoSourceSettingsIfNeeded()
+            viewModel.applyVideoSourceSettings(VideoConversionSettings())
         case .image:
-            persistCurrentImageSourceSettingsIfNeeded()
+            viewModel.applyImageSourceSettings(ImageConversionSettings())
         case .audio:
-            persistCurrentAudioSourceSettingsIfNeeded()
+            viewModel.applyAudioSourceSettings(AudioConversionSettings())
+        }
+    }
+
+    func applyStoredSourceSettings(sourceID: String, to viewModel: ContentViewModel) {
+        switch self {
+        case .video:
+            viewModel.applyStoredVideoSourceSettings(for: sourceID)
+        case .image:
+            viewModel.applyStoredImageSourceSettings(for: sourceID)
+        case .audio:
+            viewModel.applyStoredAudioSourceSettings(for: sourceID)
+        }
+    }
+
+    func persistCurrentSourceSettingsIfNeeded(in viewModel: ContentViewModel) {
+        switch self {
+        case .video:
+            viewModel.persistCurrentVideoSourceSettingsIfNeeded()
+        case .image:
+            viewModel.persistCurrentImageSourceSettingsIfNeeded()
+        case .audio:
+            viewModel.persistCurrentAudioSourceSettingsIfNeeded()
         }
     }
 }
