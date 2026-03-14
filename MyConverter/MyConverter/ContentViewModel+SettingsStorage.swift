@@ -258,7 +258,7 @@ extension ContentViewModel {
         storage: makeSourceSettingsStorageDescriptor(
             kind: .image,
             isApplyingStoredSettings: \.settingsState.isApplyingImageSettings,
-            sourceURL: \.imageSourceURL,
+            sourceURL: \.imageRuntimeState.media.sourceURL,
             settingsBySourceID: \.settingsState.imageSettingsBySourceID,
             pendingSaveTask: \.taskState.pendingImageSettingsSaveTask,
             storageKey: PersistedSettingsState().imageStorageKey,
@@ -290,7 +290,7 @@ extension ContentViewModel {
         storage: makeSourceSettingsStorageDescriptor(
             kind: .audio,
             isApplyingStoredSettings: \.settingsState.isApplyingAudioSettings,
-            sourceURL: \.audioSourceURL,
+            sourceURL: \.audioRuntimeState.media.sourceURL,
             settingsBySourceID: \.settingsState.audioSettingsBySourceID,
             pendingSaveTask: \.taskState.pendingAudioSettingsSaveTask,
             storageKey: PersistedSettingsState().audioStorageKey,

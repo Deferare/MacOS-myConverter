@@ -52,7 +52,7 @@ extension ContentViewModel {
         bitRate: \.selectedOutputBitRate,
         supportsAudioTrack: { _ in true },
         includesAutoOption: { viewModel, format in
-            viewModel.audioSourceURL == nil && format.allowsFFmpegAutomaticAudioCodec
+            viewModel.audioRuntimeState.media.sourceURL == nil && format.allowsFFmpegAutomaticAudioCodec
         },
         resolvedEncoders: { format in
             VideoConversionEngine.availableAudioEncoders(for: format)

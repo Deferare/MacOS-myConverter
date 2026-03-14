@@ -51,7 +51,7 @@ extension ContentViewModel {
         let hintMessage: String?
 
         init(viewModel: ContentViewModel) {
-            isConverting = viewModel.isImageConverting
+            isConverting = viewModel.imageRuntimeState.media.isConverting
             selectedOutputFormat = viewModel.selectedImageOutputFormat
             selectedResolution = viewModel.selectedImageResolution
             selectedQuality = viewModel.selectedImageQuality
@@ -73,7 +73,7 @@ extension ContentViewModel {
         let hintMessage: String?
 
         init(viewModel: ContentViewModel) {
-            isConverting = viewModel.isAudioConverting
+            isConverting = viewModel.audioRuntimeState.media.isConverting
             selectedOutputFormat = viewModel.selectedAudioOutputFormat
             audioSettings = viewModel.audioOutputEncodingSelectionState
             outputFormatOptions = viewModel.audioOutputFormatOptions

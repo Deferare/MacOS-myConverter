@@ -127,7 +127,7 @@ extension ContentViewModel {
         )
 
     static let imageOutputFormatDescriptorValue = makeOutputFormatDescriptor(
-            sourceURL: \.imageSourceURL,
+            sourceURL: \.imageRuntimeState.media.sourceURL,
             availableFormats: \.imageRuntimeState.media.availableOutputFormats,
             selectedFormat: \.selectedImageOutputFormat,
             placeholderFormats: { ContentViewModelSupport.placeholderImageFormats() },
@@ -138,7 +138,7 @@ extension ContentViewModel {
         )
 
     static let audioOutputFormatDescriptorValue = makeOutputFormatDescriptor(
-            sourceURL: \.audioSourceURL,
+            sourceURL: \.audioRuntimeState.media.sourceURL,
             availableFormats: \.audioRuntimeState.media.availableOutputFormats,
             selectedFormat: \.selectedAudioOutputFormat,
             placeholderFormats: { ContentViewModelSupport.placeholderAudioFormats() },
