@@ -5,6 +5,11 @@ import FFmpegSupport
 #endif
 
 enum EmbeddedFFmpegBridge {
+    private struct BridgeExecutionState: Sendable {
+        var executionThreadRawValue: UInt?
+        var inputWriteDescriptor: Int32 = -1
+    }
+
     nonisolated static var isConfigured: Bool {
         #if os(iOS) && MYCONVERTER_IOS_FFMPEG_BRIDGE
         true
@@ -15,8 +20,25 @@ enum EmbeddedFFmpegBridge {
 
     nonisolated private static let executionLock = NSLock()
     nonisolated private static let stateQueue = DispatchQueue(label: "myconverter.ffmpeg.bridge.state")
-    nonisolated(unsafe) private static var currentExecutionThread: pthread_t?
-    nonisolated(unsafe) private static var currentInputWriteDescriptor: Int32 = -1
+    nonisolated(unsafe) private static var executionState = BridgeExecutionState()
+
+    nonisolated private static func currentExecutionState() -> BridgeExecutionState {
+        stateQueue.sync { executionState }
+    }
+
+    nonisolated private static func updateExecutionState(
+        _ update: (inout BridgeExecutionState) -> Void
+    ) {
+        stateQueue.sync {
+            update(&executionState)
+        }
+    }
+
+    nonisolated private static func executionThread(
+        from rawValue: UInt?
+    ) -> pthread_t? {
+        rawValue.flatMap { pthread_t(bitPattern: $0) }
+    }
 
     nonisolated static func runCommand(
         arguments: [String],
@@ -63,9 +85,8 @@ enum EmbeddedFFmpegBridge {
 
     nonisolated static func cancelCurrentCommand() {
         #if os(iOS) && MYCONVERTER_IOS_FFMPEG_BRIDGE
-        let (thread, inputWriteDescriptor) = stateQueue.sync {
-            (currentExecutionThread, currentInputWriteDescriptor)
-        }
+        let state = currentExecutionState()
+        let inputWriteDescriptor = state.inputWriteDescriptor
 
         if inputWriteDescriptor >= 0 {
             let bytes = Array("q\n".utf8)
@@ -78,7 +99,7 @@ enum EmbeddedFFmpegBridge {
 
         DispatchQueue.global(qos: .userInitiated).async {
             for signal in signals {
-                if let thread {
+                if let thread = executionThread(from: state.executionThreadRawValue) {
                     pthread_kill(thread, signal)
                 }
                 kill(getpid(), signal)
@@ -110,13 +131,10 @@ enum EmbeddedFFmpegBridge {
         outputLineHandler: (@Sendable (String) -> Void)?
     ) throws -> FFmpegCommandResult {
         executionLock.lock()
-        stateQueue.sync {
-            currentExecutionThread = pthread_self()
-        }
+        let currentThreadRawValue = UInt(bitPattern: pthread_self())
+        updateExecutionState { $0.executionThreadRawValue = currentThreadRawValue }
         defer {
-            stateQueue.sync {
-                currentExecutionThread = nil
-            }
+            updateExecutionState { $0.executionThreadRawValue = nil }
             executionLock.unlock()
         }
 
@@ -214,16 +232,12 @@ enum EmbeddedFFmpegBridge {
         dup2(writeDescriptor, STDOUT_FILENO)
         dup2(writeDescriptor, STDERR_FILENO)
         close(inputReadDescriptor)
-        stateQueue.sync {
-            currentInputWriteDescriptor = inputWriteDescriptor
-        }
+        updateExecutionState { $0.inputWriteDescriptor = inputWriteDescriptor }
 
         let status = ffmpeg(commandArguments)
 
         fflush(nil)
-        stateQueue.sync {
-            currentInputWriteDescriptor = -1
-        }
+        updateExecutionState { $0.inputWriteDescriptor = -1 }
         dup2(savedStdin, STDIN_FILENO)
         dup2(savedStdout, STDOUT_FILENO)
         dup2(savedStderr, STDERR_FILENO)
