@@ -26,14 +26,14 @@ struct ContentView: View {
                     viewModel.scheduleCapabilityBootstrap(for: kind)
                 }
             }
-            .fileImporter(
-                isPresented: $viewModel.isImporting,
-                allowedContentTypes: selectedTab.mediaKind.map {
-                    viewModel.preferredImportTypes(for: $0)
+        .fileImporter(
+            isPresented: $viewModel.isImporting,
+            allowedContentTypes: selectedTab.mediaKind.map {
+                    $0.preferredImportTypes()
                 } ?? [.item],
-                allowsMultipleSelection: true
-            ) { result in
-                viewModel.handleFileImportResult(result, for: selectedTab)
+            allowsMultipleSelection: true
+        ) { result in
+                selectedTab.mediaKind?.handleFileImportResult(result, in: viewModel)
             }
     }
 
@@ -83,10 +83,10 @@ struct ContentView: View {
             draggedSelectedFileURL: $draggedSelectedFileURL,
             fileDropAreaHeight: fileDropAreaHeight,
             onDrop: { providers in
-                viewModel.handleDrop(providers: providers, for: kind)
+                kind.handleDrop(providers: providers, in: viewModel)
             },
             onImport: {
-                viewModel.requestFileImport()
+                kind.requestFileImport(in: viewModel)
             },
             onReorder: { draggedURL, targetURL in
                 viewModel.moveSelectedSource(from: draggedURL, to: targetURL, for: kind)

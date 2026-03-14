@@ -43,7 +43,7 @@ extension ContentViewModel.MediaKind {
         if previousHandle?.url.path != url?.path {
             viewModel.securityScopeState.outputDestinationHandleByKind[self] = nil
         }
-        viewModel.synchronizeOutputDirectorySecurityScope(for: url, kind: self)
+        synchronizeOutputDirectorySecurityScope(for: url, in: viewModel)
         viewModel[keyPath: outputDirectoryURLKeyPath] = url
     }
 

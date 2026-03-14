@@ -194,13 +194,15 @@ extension ContentViewModel.MediaKind {
 
 extension ContentViewModel {
     private static let mkvImportType = FormatOptionUtilities.cachedUTType(forFilenameExtension: "mkv")
+}
 
-    func preferredImportTypes(for kind: MediaKind) -> [UTType] {
-        kind.preferredImportTypes(mkvType: Self.mkvImportType)
+extension ContentViewModel.MediaKind {
+    func preferredImportTypes() -> [UTType] {
+        preferredImportTypes(mkvType: ContentViewModel.mkvImportType)
     }
 
-    func requestFileImport() {
-        isImporting = true
+    func requestFileImport(in viewModel: ContentViewModel) {
+        viewModel.isImporting = true
     }
 }
 
@@ -232,14 +234,16 @@ extension ContentViewModel {
         return activeImportRequest
     }
 
-    func startImport(from source: ImportSource, for kind: MediaKind) {
-        activeImportRequest = ImportRequest(kind: kind, source: source)
-        isImporting = source == .files
-    }
-
     func finishActiveImportRequest() {
         activeImportRequest = nil
         isImporting = false
+    }
+}
+
+extension ContentViewModel.MediaKind {
+    func startImport(from source: ContentViewModel.ImportSource, in viewModel: ContentViewModel) {
+        viewModel.activeImportRequest = ContentViewModel.ImportRequest(kind: self, source: source)
+        viewModel.isImporting = source == .files
     }
 }
 #endif

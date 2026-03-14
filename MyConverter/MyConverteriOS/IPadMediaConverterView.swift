@@ -91,7 +91,7 @@ struct IPadMediaConverterView: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: Metrics.panelCornerRadius, style: .continuous))
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
-            viewModel.handleDrop(providers: providers, for: kind)
+            kind.handleDrop(providers: providers, in: viewModel)
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.78), value: isDropTargeted)
     }
@@ -107,7 +107,7 @@ struct IPadMediaConverterView: View {
     private var importSourceMenuContent: some View {
         ForEach(importSources) { source in
             Button(source.buttonTitle) {
-                viewModel.startImport(from: source, for: kind)
+                kind.startImport(from: source, in: viewModel)
             }
         }
     }
@@ -125,7 +125,7 @@ struct IPadMediaConverterView: View {
         } else {
             Button {
                 if let source = kind.defaultImportSource {
-                    viewModel.startImport(from: source, for: kind)
+                    kind.startImport(from: source, in: viewModel)
                 }
             } label: {
                 label()
@@ -236,7 +236,7 @@ struct IPadMediaConverterView: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: Metrics.panelCornerRadius, style: .continuous))
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
-            viewModel.handleDrop(providers: providers, for: kind)
+            kind.handleDrop(providers: providers, in: viewModel)
         }
     }
 

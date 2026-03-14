@@ -26,7 +26,7 @@ struct IOSRootView: View {
 
     private var activeFileImportTypes: [UTType] {
         guard let request = viewModel.activeFileImportRequest else { return [.item] }
-        return viewModel.preferredImportTypes(for: request.kind)
+        return request.kind.preferredImportTypes()
     }
 
     var body: some View {
@@ -63,14 +63,14 @@ struct IOSRootView: View {
                 return
             }
 
-            viewModel.handleFileImportResult(result, for: request.kind)
+            request.kind.handleFileImportResult(result, in: viewModel)
             viewModel.finishActiveImportRequest()
         }
         .sheet(item: photoLibraryImportBinding) { request in
             IPadPhotoLibraryPicker(
                 kind: request.kind,
                 onComplete: { urls in
-                    viewModel.applyImportedSources(urls, for: request.kind)
+                    request.kind.applyImportedSources(urls, in: viewModel)
                     viewModel.finishActiveImportRequest()
                 },
                 onCancel: {

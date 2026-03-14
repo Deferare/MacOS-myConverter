@@ -1,25 +1,6 @@
 import Foundation
 
 extension ContentViewModel {
-    func synchronizeSourceSecurityScope(for urls: [URL], kind: MediaKind) {
-        let standardizedURLs = ContentViewModelSupport.uniqueStandardizedURLs(urls)
-        let newPaths = Set(standardizedURLs.map(\.path))
-        let previousPaths = securityScopeState.pathsByKind[kind] ?? []
-
-        let addedPaths = newPaths.subtracting(previousPaths)
-        let removedPaths = previousPaths.subtracting(newPaths)
-
-        for url in standardizedURLs where addedPaths.contains(url.path) {
-            retainSourceSecurityScope(for: url)
-        }
-
-        for path in removedPaths {
-            releaseSourceSecurityScope(forPath: path)
-        }
-
-        securityScopeState.pathsByKind[kind] = newPaths
-    }
-
     private func retainSourceSecurityScope(for url: URL) {
         let path = url.path
         if var existing = securityScopeState.retainedByPath[path] {
@@ -50,21 +31,42 @@ extension ContentViewModel {
         }
         securityScopeState.retainedByPath.removeValue(forKey: path)
     }
+}
 
-    func synchronizeOutputDirectorySecurityScope(for url: URL?, kind: MediaKind) {
-        let previousPath = securityScopeState.outputDirectoryPathByKind[kind]
+extension ContentViewModel.MediaKind {
+    func synchronizeSourceSecurityScope(for urls: [URL], in viewModel: ContentViewModel) {
+        let standardizedURLs = ContentViewModelSupport.uniqueStandardizedURLs(urls)
+        let newPaths = Set(standardizedURLs.map(\.path))
+        let previousPaths = viewModel.securityScopeState.pathsByKind[self] ?? []
+
+        let addedPaths = newPaths.subtracting(previousPaths)
+        let removedPaths = previousPaths.subtracting(newPaths)
+
+        for url in standardizedURLs where addedPaths.contains(url.path) {
+            viewModel.retainSourceSecurityScope(for: url)
+        }
+
+        for path in removedPaths {
+            viewModel.releaseSourceSecurityScope(forPath: path)
+        }
+
+        viewModel.securityScopeState.pathsByKind[self] = newPaths
+    }
+
+    func synchronizeOutputDirectorySecurityScope(for url: URL?, in viewModel: ContentViewModel) {
+        let previousPath = viewModel.securityScopeState.outputDirectoryPathByKind[self]
         let newPath = url?.path
 
         guard previousPath != newPath else { return }
 
         if let url {
-            retainSourceSecurityScope(for: url)
+            viewModel.retainSourceSecurityScope(for: url)
         }
 
         if let previousPath {
-            releaseSourceSecurityScope(forPath: previousPath)
+            viewModel.releaseSourceSecurityScope(forPath: previousPath)
         }
 
-        securityScopeState.outputDirectoryPathByKind[kind] = newPath
+        viewModel.securityScopeState.outputDirectoryPathByKind[self] = newPath
     }
 }

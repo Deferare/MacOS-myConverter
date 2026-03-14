@@ -11,16 +11,6 @@ extension ContentViewModel {
         handleDroppedFiles(providers: providers, accept: accept, onResolvedURLs: applySelection)
     }
 
-    func handleDrop(providers: [NSItemProvider], for kind: MediaKind) -> Bool {
-        handleMediaDrop(
-            providers: providers,
-            accept: kind.acceptsInput(_:),
-            applySelection: { [weak self] urls in
-                self?.applyImportedSources(urls, for: kind)
-            }
-        )
-    }
-
     func handleDroppedFiles(
         providers: [NSItemProvider],
         accept: @escaping (URL) -> Bool,
@@ -67,5 +57,21 @@ extension ContentViewModel {
         }
 
         return true
+    }
+}
+
+extension ContentViewModel.MediaKind {
+    func handleDrop(
+        providers: [NSItemProvider],
+        in viewModel: ContentViewModel
+    ) -> Bool {
+        viewModel.handleMediaDrop(
+            providers: providers,
+            accept: acceptsInput(_:),
+            applySelection: { [weak viewModel] urls in
+                guard let viewModel else { return }
+                self.applyImportedSources(urls, in: viewModel)
+            }
+        )
     }
 }
