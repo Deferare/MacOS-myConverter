@@ -160,74 +160,17 @@ struct IPadMediaConverterView: View {
     }
 
     private var filesSection: some View {
-        let selectedURLs = renderState.selectedFileListState.selectedURLs
-        let availableURLPaths = Set(selectedURLs.map(\.path))
-
-        return VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Files")
-                    .font(Metrics.sectionTitleFont)
-
-                HStack(alignment: .center, spacing: 12) {
-                    HStack(spacing: 8) {
-                        Circle()
-                            .fill(statusTone)
-                            .frame(width: 10, height: 10)
-                        Text(renderState.inputHeaderState.statusMessage)
-                            .font(.subheadline)
-                            .foregroundStyle(statusTone)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                    }
-
-                    Spacer()
-
-                    if renderState.screenState.isConverting {
-                        Text(renderState.inputHeaderState.progressText)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text(isDropTargeted ? "Release to add files" : "Drag to reorder or drop more files here.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+        IPadFileSelectionList(
+            kind: kind,
+            state: renderState.selectedFileListState,
+            inputHeaderState: renderState.inputHeaderState,
+            isDropTargeted: isDropTargeted,
+            draggedSelectedFileURL: $draggedSelectedFileURL,
+            thumbnailProvider: viewModel.services.thumbnailProvider,
+            onReorder: { draggedURL, targetURL in
+                kind.moveSelectedSource(from: draggedURL, to: targetURL, in: viewModel)
             }
-
-            LazyVStack(spacing: 8) {
-                ForEach(Array(selectedURLs.enumerated()), id: \.element) { index, url in
-                    IPadFileRow(
-                        kind: kind,
-                        url: url,
-                        order: index + 1,
-                        rowStatus: renderState.selectedFileListState.rowStatus(for: url),
-                        thumbnailProvider: viewModel.services.thumbnailProvider
-                    )
-                    .onDrag {
-                        guard !renderState.screenState.isConverting else {
-                            return NSItemProvider()
-                        }
-
-                        draggedSelectedFileURL = url
-                        return NSItemProvider(object: NSString(string: url.path))
-                    }
-                    .onDrop(
-                        of: [UTType.text],
-                        delegate: IPadSelectedFileReorderDropDelegate(
-                            targetURL: url,
-                            availableURLPaths: availableURLPaths,
-                            draggedURL: $draggedSelectedFileURL,
-                            isEnabled: !renderState.screenState.isConverting,
-                            onMove: { draggedURL, targetURL in
-                                withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
-                                    kind.moveSelectedSource(from: draggedURL, to: targetURL, in: viewModel)
-                                }
-                            }
-                        )
-                    )
-                }
-            }
-        }
+        )
         .padding(Metrics.panelPadding)
         .background(panelBackground)
         .overlay(
@@ -362,42 +305,6 @@ struct IPadMediaConverterView: View {
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
-    }
-
-    private var statusTone: Color {
-        renderState.inputHeaderState.statusLevel.color
-    }
-}
-
-private struct IPadSelectedFileReorderDropDelegate: DropDelegate {
-    let targetURL: URL
-    let availableURLPaths: Set<String>
-    @Binding var draggedURL: URL?
-    let isEnabled: Bool
-    let onMove: (_ draggedURL: URL, _ targetURL: URL) -> Void
-
-    func validateDrop(info: DropInfo) -> Bool {
-        isEnabled && info.hasItemsConforming(to: [UTType.text.identifier])
-    }
-
-    func dropEntered(info: DropInfo) {
-        guard isEnabled else { return }
-        guard let draggedURL else { return }
-        guard draggedURL.path != targetURL.path else { return }
-        guard availableURLPaths.contains(draggedURL.path) else { return }
-        guard availableURLPaths.contains(targetURL.path) else { return }
-
-        onMove(draggedURL, targetURL)
-    }
-
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        guard isEnabled else { return nil }
-        return DropProposal(operation: .move)
-    }
-
-    func performDrop(info: DropInfo) -> Bool {
-        draggedURL = nil
-        return isEnabled
     }
 }
 #endif
