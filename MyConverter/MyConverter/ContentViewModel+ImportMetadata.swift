@@ -1,8 +1,5 @@
 import Foundation
 import UniformTypeIdentifiers
-#if os(iOS)
-import PhotosUI
-#endif
 
 extension ContentViewModel {
     enum IOSPhotoLibraryFilter {
@@ -10,10 +7,12 @@ extension ContentViewModel {
         case videos
         case none
     }
+
+    static let mkvImportType = FormatOptionUtilities.cachedUTType(forFilenameExtension: "mkv")
 }
 
 extension ContentViewModel.MediaKind {
-    private struct Metadata {
+    private struct ImportMetadata {
         let sidebarSystemImage: String
         let outputDirectoryURLKeyPath: ReferenceWritableKeyPath<ContentViewModel, URL?>
         let selectedOutputFormatLabel: (ContentViewModel) -> String
@@ -34,8 +33,8 @@ extension ContentViewModel.MediaKind {
         let temporaryImportFallbackFileExtension: String
     }
 
-    private static let metadataByKind: [Self: Metadata] = [
-        .video: Metadata(
+    private static let importMetadataByKind: [Self: ImportMetadata] = [
+        .video: ImportMetadata(
             sidebarSystemImage: "film",
             outputDirectoryURLKeyPath: \.videoOptionsState.selectedOutputDirectoryURL,
             selectedOutputFormatLabel: {
@@ -63,7 +62,7 @@ extension ContentViewModel.MediaKind {
             ],
             temporaryImportFallbackFileExtension: "mov"
         ),
-        .image: Metadata(
+        .image: ImportMetadata(
             sidebarSystemImage: "photo",
             outputDirectoryURLKeyPath: \.imageOptionsState.selectedOutputDirectoryURL,
             selectedOutputFormatLabel: {
@@ -85,7 +84,7 @@ extension ContentViewModel.MediaKind {
             preferredPhotoLibraryItemTypeIdentifiers: [UTType.image.identifier],
             temporaryImportFallbackFileExtension: "jpg"
         ),
-        .audio: Metadata(
+        .audio: ImportMetadata(
             sidebarSystemImage: "waveform",
             outputDirectoryURLKeyPath: \.audioOptionsState.selectedOutputDirectoryURL,
             selectedOutputFormatLabel: {
@@ -111,68 +110,68 @@ extension ContentViewModel.MediaKind {
         )
     ]
 
-    private var metadata: Metadata {
-        Self.metadataByKind[self] ?? Self.metadataByKind[.video]!
+    private var importMetadata: ImportMetadata {
+        Self.importMetadataByKind[self] ?? Self.importMetadataByKind[.video]!
     }
 
     var sidebarSystemImage: String {
-        metadata.sidebarSystemImage
+        importMetadata.sidebarSystemImage
     }
 
     var outputDirectoryURLKeyPath: ReferenceWritableKeyPath<ContentViewModel, URL?> {
-        metadata.outputDirectoryURLKeyPath
+        importMetadata.outputDirectoryURLKeyPath
     }
 
     func selectedOutputFormatLabel(in viewModel: ContentViewModel) -> String {
-        metadata.selectedOutputFormatLabel(viewModel)
+        importMetadata.selectedOutputFormatLabel(viewModel)
     }
 
     var saveSettingsFailureContext: String {
-        metadata.saveSettingsFailureContext
+        importMetadata.saveSettingsFailureContext
     }
 
     var loadSettingsFailureContext: String {
-        metadata.loadSettingsFailureContext
+        importMetadata.loadSettingsFailureContext
     }
 
     var outputLabel: String {
-        metadata.outputLabel
+        importMetadata.outputLabel
     }
 
     var missingSourceLog: String {
-        metadata.missingSourceLog
+        importMetadata.missingSourceLog
     }
 
     var destinationErrorCode: Int {
-        metadata.destinationErrorCode
+        importMetadata.destinationErrorCode
     }
 
     var skippedSummaryPrefix: String {
-        metadata.skippedSummaryPrefix
+        importMetadata.skippedSummaryPrefix
     }
 
     var treatExportCancellationAsCancelled: Bool {
-        metadata.treatExportCancellationAsCancelled
+        importMetadata.treatExportCancellationAsCancelled
     }
 
     var errorLogPrefix: String {
-        metadata.errorLogPrefix
+        importMetadata.errorLogPrefix
     }
 
     var includeDebugInfo: Bool {
-        metadata.includeDebugInfo
+        importMetadata.includeDebugInfo
     }
 
     func acceptsInput(_ url: URL) -> Bool {
-        metadata.acceptsInput(url)
+        importMetadata.acceptsInput(url)
     }
 
     func preferredImportTypes(mkvType: UTType?) -> [UTType] {
-        metadata.preferredImportTypes(mkvType)
+        importMetadata.preferredImportTypes(mkvType)
     }
 
     var availableImportSources: [ContentViewModel.ImportSource] {
-        metadata.availableImportSources
+        importMetadata.availableImportSources
     }
 
     var defaultImportSource: ContentViewModel.ImportSource? {
@@ -180,70 +179,14 @@ extension ContentViewModel.MediaKind {
     }
 
     var photoLibraryFilter: ContentViewModel.IOSPhotoLibraryFilter {
-        metadata.photoLibraryFilter
+        importMetadata.photoLibraryFilter
     }
 
     var preferredPhotoLibraryItemTypeIdentifiers: [String] {
-        metadata.preferredPhotoLibraryItemTypeIdentifiers
+        importMetadata.preferredPhotoLibraryItemTypeIdentifiers
     }
 
     var temporaryImportFallbackFileExtension: String {
-        metadata.temporaryImportFallbackFileExtension
+        importMetadata.temporaryImportFallbackFileExtension
     }
 }
-
-extension ContentViewModel {
-    private static let mkvImportType = FormatOptionUtilities.cachedUTType(forFilenameExtension: "mkv")
-}
-
-extension ContentViewModel.MediaKind {
-    func preferredImportTypes() -> [UTType] {
-        preferredImportTypes(mkvType: ContentViewModel.mkvImportType)
-    }
-
-    func requestFileImport(in viewModel: ContentViewModel) {
-        viewModel.isImporting = true
-    }
-}
-
-#if os(iOS)
-extension ContentViewModel.IOSPhotoLibraryFilter {
-    private static let pickerFilters: [Self: PHPickerFilter?] = [
-        .images: .images,
-        .videos: .videos,
-        .none: nil
-    ]
-
-    var pickerFilter: PHPickerFilter? { Self.pickerFilters[self] ?? nil }
-}
-
-extension ContentViewModel.MediaKind {
-    var photoLibraryPickerFilter: PHPickerFilter? {
-        photoLibraryFilter.pickerFilter
-    }
-}
-
-extension ContentViewModel {
-    var activeFileImportRequest: ImportRequest? {
-        guard let activeImportRequest, activeImportRequest.source == .files else { return nil }
-        return activeImportRequest
-    }
-
-    var activePhotoLibraryImportRequest: ImportRequest? {
-        guard let activeImportRequest, activeImportRequest.source == .photoLibrary else { return nil }
-        return activeImportRequest
-    }
-
-    func finishActiveImportRequest() {
-        activeImportRequest = nil
-        isImporting = false
-    }
-}
-
-extension ContentViewModel.MediaKind {
-    func startImport(from source: ContentViewModel.ImportSource, in viewModel: ContentViewModel) {
-        viewModel.activeImportRequest = ContentViewModel.ImportRequest(kind: self, source: source)
-        viewModel.isImporting = source == .files
-    }
-}
-#endif
