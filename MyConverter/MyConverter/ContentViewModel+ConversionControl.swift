@@ -21,7 +21,7 @@ extension ContentViewModel {
     ) {
         let descriptor = mediaStateDescriptor(for: kind)
         guard currentConversionTask(for: kind) == nil else { return }
-        guard !mediaStateValue(using: descriptor, \.isConverting) else { return }
+        guard !self[keyPath: descriptor.isConverting] else { return }
 
         setConversionTask(Task { @MainActor [weak self] in
             defer { self?.clearConversionTask(for: kind) }

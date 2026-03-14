@@ -22,7 +22,7 @@ extension ContentViewModel {
 
     func compatibilityHintMessage(for kind: MediaKind) -> String? {
         let descriptor = mediaStateDescriptor(for: kind)
-        return nonEmptyMessage(mediaStateValue(using: descriptor, \.compatibilityWarningMessage))
+        return nonEmptyMessage(self[keyPath: descriptor.compatibilityWarningMessage])
     }
 
     func videoFFmpegRequirementMessage() -> String? {
@@ -283,12 +283,12 @@ extension ContentViewModel {
         let descriptor = mediaStateDescriptor(for: kind)
 
         if let compatibilityError = nonEmptyMessage(
-            mediaStateValue(using: descriptor, \.compatibilityErrorMessage)
+            self[keyPath: descriptor.compatibilityErrorMessage]
         ) {
             return compatibilityError
         }
 
-        if mediaStateValue(using: descriptor, \.sourceURL) != nil &&
+        if self[keyPath: descriptor.sourceURL] != nil &&
             !formatDescriptor.isSelectedFormatAvailable(in: self) {
             return unavailableMessage
         }

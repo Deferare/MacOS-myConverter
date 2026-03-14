@@ -44,7 +44,7 @@ extension ContentViewModel {
         }
 
         let descriptor = mediaStateDescriptor(for: kind)
-        setMediaStateValue(using: descriptor, \.isAnalyzing, to: true)
+        self[keyPath: descriptor.isAnalyzing] = true
         applyPlaceholderCapabilities(for: kind)
         scheduleDebouncedTask(
             descriptor.pendingSelectionAnalysisTask,
@@ -91,7 +91,7 @@ extension ContentViewModel {
 
         let primarySourceID = sourceIdentifier(for: primaryURL)
         let descriptor = mediaStateDescriptor(for: kind)
-        guard mediaStateValue(using: descriptor, \.sourceURL).map(sourceIdentifier(for:)) != primarySourceID else {
+        guard self[keyPath: descriptor.sourceURL].map(sourceIdentifier(for:)) != primarySourceID else {
             return
         }
 

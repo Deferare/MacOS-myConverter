@@ -24,12 +24,9 @@ extension ContentViewModel {
         await performMediaBatchConversion(
             canConvert: canConvert,
             descriptor: descriptor,
-            primarySourceURL: mediaStateValue(using: descriptor, \.sourceURL),
-            queuedSourceURLs: mediaStateValue(using: descriptor, \.queuedSourceURLs),
-            existingOutputURLsBySourceID: mediaStateValue(
-                using: descriptor,
-                \.convertedOutputURLsBySourceID
-            ),
+            primarySourceURL: self[keyPath: descriptor.sourceURL],
+            queuedSourceURLs: self[keyPath: descriptor.queuedSourceURLs],
+            existingOutputURLsBySourceID: self[keyPath: descriptor.convertedOutputURLsBySourceID],
             missingSourceLog: kind.missingSourceLog,
             fileExtension: fileExtension,
             outputLabel: kind.outputLabel,

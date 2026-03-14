@@ -144,11 +144,11 @@ extension ContentViewModel {
 
     func resetConversionOutputs(for kind: MediaKind) {
         let descriptor = mediaStateDescriptor(for: kind)
-        setMediaStateValue(using: descriptor, \.convertedURL, to: nil)
-        setMediaStateValue(using: descriptor, \.convertedURLs, to: [])
-        setMediaStateValue(using: descriptor, \.convertedOutputURLsBySourceID, to: [:])
-        setMediaStateValue(using: descriptor, \.processedSourceIDs, to: [])
-        setMediaStateValue(using: descriptor, \.conversionErrorMessage, to: nil)
+        self[keyPath: descriptor.convertedURL] = nil
+        self[keyPath: descriptor.convertedURLs] = []
+        self[keyPath: descriptor.convertedOutputURLsBySourceID] = [:]
+        self[keyPath: descriptor.processedSourceIDs] = []
+        self[keyPath: descriptor.conversionErrorMessage] = nil
     }
 
     func resetCompatibilityState(for kind: MediaKind, resetMetadata: Bool = true) {
@@ -157,8 +157,8 @@ extension ContentViewModel {
             descriptor.resetCompatibilityMetadata(self)
         }
 
-        setMediaStateValue(using: descriptor, \.compatibilityErrorMessage, to: nil)
-        setMediaStateValue(using: descriptor, \.compatibilityWarningMessage, to: nil)
+        self[keyPath: descriptor.compatibilityErrorMessage] = nil
+        self[keyPath: descriptor.compatibilityWarningMessage] = nil
     }
 
     func resetSelectionCompatibilityState(for kind: MediaKind) {
@@ -167,10 +167,10 @@ extension ContentViewModel {
 
     private func clearActivityState(for kind: MediaKind, resetBatchState: Bool) {
         let descriptor = mediaStateDescriptor(for: kind)
-        setMediaStateValue(using: descriptor, \.isAnalyzing, to: false)
+        self[keyPath: descriptor.isAnalyzing] = false
 
         guard resetBatchState else { return }
-        setMediaStateValue(using: descriptor, \.currentBatchIndex, to: 0)
-        setMediaStateValue(using: descriptor, \.totalBatchCount, to: 0)
+        self[keyPath: descriptor.currentBatchIndex] = 0
+        self[keyPath: descriptor.totalBatchCount] = 0
     }
 }

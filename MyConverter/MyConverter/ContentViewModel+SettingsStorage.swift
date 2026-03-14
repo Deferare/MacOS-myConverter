@@ -13,24 +13,9 @@ extension ContentViewModel {
         let bitRate: AudioBitRateOption
     }
 
-    struct SourceSettingsDescriptor<Settings: Equatable, Persisted: Codable> {
-        let isApplyingStoredSettings: ReferenceWritableKeyPath<ContentViewModel, Bool>
-        let sourceURL: ReferenceWritableKeyPath<ContentViewModel, URL?>
-        let settingsBySourceID: ReferenceWritableKeyPath<ContentViewModel, [String: Settings]>
-        let pendingSaveTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>
-        let storageKey: String
-        let saveFailureContext: String
-        let loadFailureContext: String
-        let mapToPersisted: (Settings) -> Persisted
-        let restore: (Persisted) -> Settings
-    }
-
-    func sourceSettingsValue<Settings, Persisted, Value>(
-        using descriptor: SourceSettingsDescriptor<Settings, Persisted>,
-        _ keyPath: KeyPath<SourceSettingsDescriptor<Settings, Persisted>, ReferenceWritableKeyPath<ContentViewModel, Value>>
-    ) -> Value {
-        self[keyPath: descriptor[keyPath: keyPath]]
-    }
+    private static let videoSourceSettingsStorageKey = PersistedSettingsState().videoStorageKey
+    private static let imageSourceSettingsStorageKey = PersistedSettingsState().imageStorageKey
+    private static let audioSourceSettingsStorageKey = PersistedSettingsState().audioStorageKey
 
     private static func storedAudioEncodingSettings(
         from selection: AudioEncodingSelectionState
@@ -107,7 +92,7 @@ extension ContentViewModel {
 
     func applyVideoSourceSettings(_ settings: VideoConversionSettings) {
         Self.videoOutputFormatDescriptorValue.applyStoredSettings(
-            applyingFlagKeyPath: Self.videoSourceSettingsStorageValue.isApplyingStoredSettings,
+            applyingFlagKeyPath: \.settingsState.isApplyingVideoSettings,
             storedFormatID: settings.outputFormatID,
             normalizeStoredID: VideoFormatOption.legacyNormalizedID(from:),
             to: self,
@@ -124,41 +109,21 @@ extension ContentViewModel {
     func applyStoredVideoSourceSettings(for sourceID: String) {
         applyStoredSettingsForSource(
             sourceID: sourceID,
-            using: Self.videoSourceSettingsStorageValue,
+            settingsBySourceID: settingsState.videoSettingsBySourceID,
             defaultSettings: VideoConversionSettings(),
             apply: { self.applyVideoSourceSettings($0) }
         )
     }
 
     func persistCurrentVideoSourceSettingsIfNeeded() {
-        persistSourceSettingsIfNeeded(using: Self.videoSourceSettingsStorageValue) {
-            currentVideoSourceSettings()
-        }
+        persistSourceSettingsIfNeeded(
+            isApplyingStoredSettings: settingsState.isApplyingVideoSettings,
+            sourceURL: videoRuntimeState.media.sourceURL,
+            settingsKeyPath: \.settingsState.videoSettingsBySourceID,
+            buildSettings: { currentVideoSourceSettings() },
+            savePersistedSettings: { schedulePersistedVideoSourceSettingsSave() }
+        )
     }
-
-    static let videoSourceSettingsStorageValue = SourceSettingsDescriptor(
-        isApplyingStoredSettings: \.settingsState.isApplyingVideoSettings,
-        sourceURL: \.videoRuntimeState.media.sourceURL,
-        settingsBySourceID: \.settingsState.videoSettingsBySourceID,
-        pendingSaveTask: \.taskState.pendingVideoSettingsSaveTask,
-        storageKey: PersistedSettingsState().videoStorageKey,
-        saveFailureContext: MediaKind.video.saveSettingsFailureContext,
-        loadFailureContext: MediaKind.video.loadSettingsFailureContext,
-        mapToPersisted: { PersistedVideoConversionSettings(from: $0) },
-        restore: { $0.restoredSettings }
-    )
-
-    static let imageSourceSettingsStorageValue = SourceSettingsDescriptor(
-        isApplyingStoredSettings: \.settingsState.isApplyingImageSettings,
-        sourceURL: \.imageRuntimeState.media.sourceURL,
-        settingsBySourceID: \.settingsState.imageSettingsBySourceID,
-        pendingSaveTask: \.taskState.pendingImageSettingsSaveTask,
-        storageKey: PersistedSettingsState().imageStorageKey,
-        saveFailureContext: MediaKind.image.saveSettingsFailureContext,
-        loadFailureContext: MediaKind.image.loadSettingsFailureContext,
-        mapToPersisted: { PersistedImageConversionSettings(from: $0) },
-        restore: { $0.restoredSettings }
-    )
 
     func currentImageSourceSettings() -> ImageConversionSettings {
         ImageConversionSettings(
@@ -172,7 +137,7 @@ extension ContentViewModel {
 
     func applyImageSourceSettings(_ settings: ImageConversionSettings) {
         Self.imageOutputFormatDescriptorValue.applyStoredSettings(
-            applyingFlagKeyPath: Self.imageSourceSettingsStorageValue.isApplyingStoredSettings,
+            applyingFlagKeyPath: \.settingsState.isApplyingImageSettings,
             storedFormatID: settings.outputFormatID,
             normalizeStoredID: { $0.lowercased() },
             to: self,
@@ -191,29 +156,21 @@ extension ContentViewModel {
     func applyStoredImageSourceSettings(for sourceID: String) {
         applyStoredSettingsForSource(
             sourceID: sourceID,
-            using: Self.imageSourceSettingsStorageValue,
+            settingsBySourceID: settingsState.imageSettingsBySourceID,
             defaultSettings: ImageConversionSettings(),
             apply: { self.applyImageSourceSettings($0) }
         )
     }
 
     func persistCurrentImageSourceSettingsIfNeeded() {
-        persistSourceSettingsIfNeeded(using: Self.imageSourceSettingsStorageValue) {
-            currentImageSourceSettings()
-        }
+        persistSourceSettingsIfNeeded(
+            isApplyingStoredSettings: settingsState.isApplyingImageSettings,
+            sourceURL: imageRuntimeState.media.sourceURL,
+            settingsKeyPath: \.settingsState.imageSettingsBySourceID,
+            buildSettings: { currentImageSourceSettings() },
+            savePersistedSettings: { schedulePersistedImageSourceSettingsSave() }
+        )
     }
-
-    static let audioSourceSettingsStorageValue = SourceSettingsDescriptor(
-        isApplyingStoredSettings: \.settingsState.isApplyingAudioSettings,
-        sourceURL: \.audioRuntimeState.media.sourceURL,
-        settingsBySourceID: \.settingsState.audioSettingsBySourceID,
-        pendingSaveTask: \.taskState.pendingAudioSettingsSaveTask,
-        storageKey: PersistedSettingsState().audioStorageKey,
-        saveFailureContext: MediaKind.audio.saveSettingsFailureContext,
-        loadFailureContext: MediaKind.audio.loadSettingsFailureContext,
-        mapToPersisted: { PersistedAudioConversionSettings(from: $0) },
-        restore: { $0.restoredSettings }
-    )
 
     func currentAudioSourceSettings() -> AudioConversionSettings {
         let audioSettings = Self.storedAudioEncodingSettings(
@@ -230,7 +187,7 @@ extension ContentViewModel {
 
     func applyAudioSourceSettings(_ settings: AudioConversionSettings) {
         Self.audioOutputFormatDescriptorValue.applyStoredSettings(
-            applyingFlagKeyPath: Self.audioSourceSettingsStorageValue.isApplyingStoredSettings,
+            applyingFlagKeyPath: \.settingsState.isApplyingAudioSettings,
             storedFormatID: settings.outputFormatID,
             normalizeStoredID: { $0.lowercased() },
             to: self,
@@ -259,16 +216,20 @@ extension ContentViewModel {
     func applyStoredAudioSourceSettings(for sourceID: String) {
         applyStoredSettingsForSource(
             sourceID: sourceID,
-            using: Self.audioSourceSettingsStorageValue,
+            settingsBySourceID: settingsState.audioSettingsBySourceID,
             defaultSettings: AudioConversionSettings(),
             apply: { self.applyAudioSourceSettings($0) }
         )
     }
 
     func persistCurrentAudioSourceSettingsIfNeeded() {
-        persistSourceSettingsIfNeeded(using: Self.audioSourceSettingsStorageValue) {
-            currentAudioSourceSettings()
-        }
+        persistSourceSettingsIfNeeded(
+            isApplyingStoredSettings: settingsState.isApplyingAudioSettings,
+            sourceURL: audioRuntimeState.media.sourceURL,
+            settingsKeyPath: \.settingsState.audioSettingsBySourceID,
+            buildSettings: { currentAudioSourceSettings() },
+            savePersistedSettings: { schedulePersistedAudioSourceSettingsSave() }
+        )
     }
 
     func saveSettings<Value: Encodable>(
@@ -305,11 +266,26 @@ extension ContentViewModel {
 
     func loadPersistedSourceSettingsState() {
         settingsState.videoSettingsBySourceID =
-            loadPersistedSourceSettings(using: Self.videoSourceSettingsStorageValue)
+            loadPersistedSourceSettings(
+                [String: PersistedVideoConversionSettings].self,
+                storageKey: Self.videoSourceSettingsStorageKey,
+                failureContext: MediaKind.video.loadSettingsFailureContext,
+                restore: { $0.restoredSettings }
+            )
         settingsState.imageSettingsBySourceID =
-            loadPersistedSourceSettings(using: Self.imageSourceSettingsStorageValue)
+            loadPersistedSourceSettings(
+                [String: PersistedImageConversionSettings].self,
+                storageKey: Self.imageSourceSettingsStorageKey,
+                failureContext: MediaKind.image.loadSettingsFailureContext,
+                restore: { $0.restoredSettings }
+            )
         settingsState.audioSettingsBySourceID =
-            loadPersistedSourceSettings(using: Self.audioSourceSettingsStorageValue)
+            loadPersistedSourceSettings(
+                [String: PersistedAudioConversionSettings].self,
+                storageKey: Self.audioSourceSettingsStorageKey,
+                failureContext: MediaKind.audio.loadSettingsFailureContext,
+                restore: { $0.restoredSettings }
+            )
     }
 
     func persistSourceSettingsIfNeeded<Settings: Equatable>(
@@ -331,21 +307,6 @@ extension ContentViewModel {
         savePersistedSettings()
     }
 
-    func persistSourceSettingsIfNeeded<Settings: Equatable, Persisted>(
-        using descriptor: SourceSettingsDescriptor<Settings, Persisted>,
-        buildSettings: () -> Settings
-    ) {
-        persistSourceSettingsIfNeeded(
-            isApplyingStoredSettings: sourceSettingsValue(using: descriptor, \.isApplyingStoredSettings),
-            sourceURL: sourceSettingsValue(using: descriptor, \.sourceURL),
-            settingsKeyPath: descriptor.settingsBySourceID,
-            buildSettings: buildSettings,
-            savePersistedSettings: {
-                self.schedulePersistedSourceSettingsSave(using: descriptor)
-            }
-        )
-    }
-
     func savePersistedSourceSettings<Settings: Equatable, Persisted: Encodable>(
         settingsBySourceID: [String: Settings],
         mapToPersisted: (Settings) -> Persisted,
@@ -361,16 +322,50 @@ extension ContentViewModel {
     }
 
     func schedulePersistedSourceSettingsSave<Settings: Equatable, Persisted: Encodable>(
-        using descriptor: SourceSettingsDescriptor<Settings, Persisted>
+        _ pendingSaveTask: ReferenceWritableKeyPath<ContentViewModel, Task<Void, Never>?>,
+        settingsKeyPath: ReferenceWritableKeyPath<ContentViewModel, [String: Settings]>,
+        mapToPersisted: @escaping (Settings) -> Persisted,
+        storageKey: String,
+        failureContext: String
     ) {
-        scheduleDebouncedTask(descriptor.pendingSaveTask) { viewModel in
+        scheduleDebouncedTask(pendingSaveTask) { viewModel in
             viewModel.savePersistedSourceSettings(
-                settingsBySourceID: viewModel.sourceSettingsValue(using: descriptor, \.settingsBySourceID),
-                mapToPersisted: descriptor.mapToPersisted,
-                storageKey: descriptor.storageKey,
-                failureContext: descriptor.saveFailureContext
+                settingsBySourceID: viewModel[keyPath: settingsKeyPath],
+                mapToPersisted: mapToPersisted,
+                storageKey: storageKey,
+                failureContext: failureContext
             )
         }
+    }
+
+    func schedulePersistedVideoSourceSettingsSave() {
+        schedulePersistedSourceSettingsSave(
+            \.taskState.pendingVideoSettingsSaveTask,
+            settingsKeyPath: \.settingsState.videoSettingsBySourceID,
+            mapToPersisted: { PersistedVideoConversionSettings(from: $0) },
+            storageKey: Self.videoSourceSettingsStorageKey,
+            failureContext: MediaKind.video.saveSettingsFailureContext
+        )
+    }
+
+    func schedulePersistedImageSourceSettingsSave() {
+        schedulePersistedSourceSettingsSave(
+            \.taskState.pendingImageSettingsSaveTask,
+            settingsKeyPath: \.settingsState.imageSettingsBySourceID,
+            mapToPersisted: { PersistedImageConversionSettings(from: $0) },
+            storageKey: Self.imageSourceSettingsStorageKey,
+            failureContext: MediaKind.image.saveSettingsFailureContext
+        )
+    }
+
+    func schedulePersistedAudioSourceSettingsSave() {
+        schedulePersistedSourceSettingsSave(
+            \.taskState.pendingAudioSettingsSaveTask,
+            settingsKeyPath: \.settingsState.audioSettingsBySourceID,
+            mapToPersisted: { PersistedAudioConversionSettings(from: $0) },
+            storageKey: Self.audioSourceSettingsStorageKey,
+            failureContext: MediaKind.audio.saveSettingsFailureContext
+        )
     }
 
     func loadPersistedSourceSettings<Settings, Persisted: Decodable>(
@@ -387,31 +382,6 @@ extension ContentViewModel {
             return [:]
         }
         return decoded.mapValues(restore)
-    }
-
-    func loadPersistedSourceSettings<Settings: Equatable, Persisted>(
-        using descriptor: SourceSettingsDescriptor<Settings, Persisted>
-    ) -> [String: Settings] {
-        loadPersistedSourceSettings(
-            [String: Persisted].self,
-            storageKey: descriptor.storageKey,
-            failureContext: descriptor.loadFailureContext,
-            restore: descriptor.restore
-        )
-    }
-
-    func applyStoredSettingsForSource<Settings: Equatable, Persisted>(
-        sourceID: String,
-        using descriptor: SourceSettingsDescriptor<Settings, Persisted>,
-        defaultSettings: @autoclosure () -> Settings,
-        apply: (Settings) -> Void
-    ) {
-        applyStoredSettingsForSource(
-            sourceID: sourceID,
-            settingsBySourceID: sourceSettingsValue(using: descriptor, \.settingsBySourceID),
-            defaultSettings: defaultSettings(),
-            apply: apply
-        )
     }
 
     func applyDefaultSourceSettings(for kind: MediaKind) {

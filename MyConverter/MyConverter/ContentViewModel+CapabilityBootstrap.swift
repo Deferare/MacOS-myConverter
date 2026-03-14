@@ -16,8 +16,8 @@ extension ContentViewModel {
         postApply: () -> Void = {}
     ) {
         let descriptor = mediaStateDescriptor(for: kind)
-        guard mediaStateValue(using: descriptor, \.sourceURL) == nil,
-              !mediaStateValue(using: descriptor, \.isAnalyzing) else {
+        guard self[keyPath: descriptor.sourceURL] == nil,
+              !self[keyPath: descriptor.isAnalyzing] else {
             return
         }
 
