@@ -110,17 +110,13 @@ extension ContentViewModel {
         conversionTask: \.taskState.conversionTask,
         pendingSelectionAnalysisTask: \.taskState.pendingVideoSelectionAnalysisTask,
         applyDefaultSourceSettings: { viewModel in
-            let flow = videoSourceSettingsFlowValue
-            viewModel.applySourceSettings(flow.defaultSettings(), using: flow)
+            viewModel.applyVideoSourceSettings(VideoConversionSettings())
         },
         applyStoredSourceSettings: { viewModel, sourceID in
-            viewModel.applySourceSettingsForSource(
-                sourceID: sourceID,
-                using: videoSourceSettingsFlowValue
-            )
+            viewModel.applyStoredVideoSourceSettings(for: sourceID)
         },
         persistCurrentSourceSettings: { viewModel in
-            viewModel.persistCurrentSourceSettingsIfNeeded(using: videoSourceSettingsFlowValue)
+            viewModel.persistCurrentVideoSourceSettingsIfNeeded()
         },
         warmDefaultCapabilities: {
             let warmedFormats = VideoConversionEngine.defaultOutputFormats()
@@ -177,17 +173,13 @@ extension ContentViewModel {
         conversionTask: \.taskState.imageConversionTask,
         pendingSelectionAnalysisTask: \.taskState.pendingImageSelectionAnalysisTask,
         applyDefaultSourceSettings: { viewModel in
-            let flow = imageSourceSettingsFlowValue
-            viewModel.applySourceSettings(flow.defaultSettings(), using: flow)
+            viewModel.applyImageSourceSettings(ImageConversionSettings())
         },
         applyStoredSourceSettings: { viewModel, sourceID in
-            viewModel.applySourceSettingsForSource(
-                sourceID: sourceID,
-                using: imageSourceSettingsFlowValue
-            )
+            viewModel.applyStoredImageSourceSettings(for: sourceID)
         },
         persistCurrentSourceSettings: { viewModel in
-            viewModel.persistCurrentSourceSettingsIfNeeded(using: imageSourceSettingsFlowValue)
+            viewModel.persistCurrentImageSourceSettingsIfNeeded()
         },
         warmDefaultCapabilities: {
             let warmedFormats = ImageConversionEngine.defaultOutputFormats()
@@ -240,17 +232,13 @@ extension ContentViewModel {
         conversionTask: \.taskState.audioConversionTask,
         pendingSelectionAnalysisTask: \.taskState.pendingAudioSelectionAnalysisTask,
         applyDefaultSourceSettings: { viewModel in
-            let flow = audioSourceSettingsFlowValue
-            viewModel.applySourceSettings(flow.defaultSettings(), using: flow)
+            viewModel.applyAudioSourceSettings(AudioConversionSettings())
         },
         applyStoredSourceSettings: { viewModel, sourceID in
-            viewModel.applySourceSettingsForSource(
-                sourceID: sourceID,
-                using: audioSourceSettingsFlowValue
-            )
+            viewModel.applyStoredAudioSourceSettings(for: sourceID)
         },
         persistCurrentSourceSettings: { viewModel in
-            viewModel.persistCurrentSourceSettingsIfNeeded(using: audioSourceSettingsFlowValue)
+            viewModel.persistCurrentAudioSourceSettingsIfNeeded()
         },
         warmDefaultCapabilities: {
             let warmedFormats = VideoConversionEngine.defaultAudioOutputFormats()
