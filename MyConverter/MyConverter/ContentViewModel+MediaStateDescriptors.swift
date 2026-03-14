@@ -131,70 +131,6 @@ extension ContentViewModel {
         conversionTask: \.taskState.audioConversionTask,
         pendingSelectionAnalysisTask: \.taskState.pendingAudioSelectionAnalysisTask
     )
-
-    func prepareConversionStartState(
-        for kind: MediaKind,
-        preserveCompletedOutputs: Bool = false
-    ) {
-        let descriptor = kind.mediaStateDescriptor
-        self[keyPath: descriptor.isConverting] = true
-        if !preserveCompletedOutputs {
-            self[keyPath: descriptor.convertedURL] = nil
-            self[keyPath: descriptor.convertedURLs] = []
-            self[keyPath: descriptor.convertedOutputURLsBySourceID] = [:]
-        }
-        self[keyPath: descriptor.processedSourceIDs] = []
-        self[keyPath: descriptor.conversionErrorMessage] = nil
-        self[keyPath: descriptor.progress] = 0
-    }
-
-    func appendConvertedOutput(_ outputURL: URL, from sourceURL: URL, for kind: MediaKind) {
-        let descriptor = kind.mediaStateDescriptor
-        let sourceID = sourceIdentifier(for: sourceURL)
-        self[keyPath: descriptor.convertedURL] = outputURL
-
-        var convertedURLs = self[keyPath: descriptor.convertedURLs]
-        convertedURLs.append(outputURL)
-        self[keyPath: descriptor.convertedURLs] = convertedURLs
-
-        var convertedOutputURLsBySourceID = self[keyPath: descriptor.convertedOutputURLsBySourceID]
-        convertedOutputURLsBySourceID[sourceID] = outputURL
-        self[keyPath: descriptor.convertedOutputURLsBySourceID] = convertedOutputURLsBySourceID
-    }
-
-    func markProcessedSource(_ sourceURL: URL, for kind: MediaKind) {
-        let descriptor = kind.mediaStateDescriptor
-        var processedSourceIDs = self[keyPath: descriptor.processedSourceIDs]
-        processedSourceIDs.insert(sourceIdentifier(for: sourceURL))
-        self[keyPath: descriptor.processedSourceIDs] = processedSourceIDs
-    }
-
-    func analyzeSelectedSources(_ urls: [URL], for kind: MediaKind) {
-        kind.analyzeSelectionCompatibility(in: self, urls: urls)
-    }
-
-    func resetCompatibilityMetadata(for kind: MediaKind) {
-        kind.resetCompatibilityMetadata(in: self)
-    }
-
-    func mediaStateSnapshot(for kind: MediaKind) -> MediaStateSnapshot {
-        let descriptor = kind.mediaStateDescriptor
-
-        return MediaStateSnapshot(
-            sourceURL: self[keyPath: descriptor.sourceURL],
-            queuedSourceURLs: self[keyPath: descriptor.queuedSourceURLs],
-            convertedURLs: self[keyPath: descriptor.convertedURLs],
-            convertedOutputURLsBySourceID: self[keyPath: descriptor.convertedOutputURLsBySourceID],
-            processedSourceIDs: self[keyPath: descriptor.processedSourceIDs],
-            conversionErrorMessage: self[keyPath: descriptor.conversionErrorMessage],
-            compatibilityWarningMessage: self[keyPath: descriptor.compatibilityWarningMessage],
-            isAnalyzing: self[keyPath: descriptor.isAnalyzing],
-            isConverting: self[keyPath: descriptor.isConverting],
-            progress: self[keyPath: descriptor.progress],
-            currentBatchIndex: self[keyPath: descriptor.currentBatchIndex],
-            totalBatchCount: self[keyPath: descriptor.totalBatchCount]
-        )
-    }
 }
 
 extension ContentViewModel.MediaKind {
@@ -253,11 +189,71 @@ extension ContentViewModel.MediaKind {
         await mediaBehavior.performConversion(viewModel)
     }
 
+    func prepareConversionStartState(
+        in viewModel: ContentViewModel,
+        preserveCompletedOutputs: Bool = false
+    ) {
+        let descriptor = mediaStateDescriptor
+        viewModel[keyPath: descriptor.isConverting] = true
+        if !preserveCompletedOutputs {
+            viewModel[keyPath: descriptor.convertedURL] = nil
+            viewModel[keyPath: descriptor.convertedURLs] = []
+            viewModel[keyPath: descriptor.convertedOutputURLsBySourceID] = [:]
+        }
+        viewModel[keyPath: descriptor.processedSourceIDs] = []
+        viewModel[keyPath: descriptor.conversionErrorMessage] = nil
+        viewModel[keyPath: descriptor.progress] = 0
+    }
+
+    func appendConvertedOutput(
+        _ outputURL: URL,
+        from sourceURL: URL,
+        in viewModel: ContentViewModel
+    ) {
+        let descriptor = mediaStateDescriptor
+        let sourceID = viewModel.sourceIdentifier(for: sourceURL)
+        viewModel[keyPath: descriptor.convertedURL] = outputURL
+
+        var convertedURLs = viewModel[keyPath: descriptor.convertedURLs]
+        convertedURLs.append(outputURL)
+        viewModel[keyPath: descriptor.convertedURLs] = convertedURLs
+
+        var convertedOutputURLsBySourceID = viewModel[keyPath: descriptor.convertedOutputURLsBySourceID]
+        convertedOutputURLsBySourceID[sourceID] = outputURL
+        viewModel[keyPath: descriptor.convertedOutputURLsBySourceID] = convertedOutputURLsBySourceID
+    }
+
+    func markProcessedSource(_ sourceURL: URL, in viewModel: ContentViewModel) {
+        let descriptor = mediaStateDescriptor
+        var processedSourceIDs = viewModel[keyPath: descriptor.processedSourceIDs]
+        processedSourceIDs.insert(viewModel.sourceIdentifier(for: sourceURL))
+        viewModel[keyPath: descriptor.processedSourceIDs] = processedSourceIDs
+    }
+
     func analyzeSelectedSources(_ urls: [URL], in viewModel: ContentViewModel) {
         mediaBehavior.analyzeSelectedSources(viewModel, urls)
     }
 
     func resetCompatibilityMetadata(in viewModel: ContentViewModel) {
         mediaBehavior.resetCompatibilityMetadata(viewModel)
+    }
+
+    func mediaStateSnapshot(in viewModel: ContentViewModel) -> ContentViewModel.MediaStateSnapshot {
+        let descriptor = mediaStateDescriptor
+
+        return ContentViewModel.MediaStateSnapshot(
+            sourceURL: viewModel[keyPath: descriptor.sourceURL],
+            queuedSourceURLs: viewModel[keyPath: descriptor.queuedSourceURLs],
+            convertedURLs: viewModel[keyPath: descriptor.convertedURLs],
+            convertedOutputURLsBySourceID: viewModel[keyPath: descriptor.convertedOutputURLsBySourceID],
+            processedSourceIDs: viewModel[keyPath: descriptor.processedSourceIDs],
+            conversionErrorMessage: viewModel[keyPath: descriptor.conversionErrorMessage],
+            compatibilityWarningMessage: viewModel[keyPath: descriptor.compatibilityWarningMessage],
+            isAnalyzing: viewModel[keyPath: descriptor.isAnalyzing],
+            isConverting: viewModel[keyPath: descriptor.isConverting],
+            progress: viewModel[keyPath: descriptor.progress],
+            currentBatchIndex: viewModel[keyPath: descriptor.currentBatchIndex],
+            totalBatchCount: viewModel[keyPath: descriptor.totalBatchCount]
+        )
     }
 }

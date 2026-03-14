@@ -88,7 +88,7 @@ extension ContentViewModel {
     }
 
     func canRetainPreparedSingleVideoSelection(_ prepared: PreparedSingleVideoSelection) -> Bool {
-        let selectedSourceIDs = mediaStateSnapshot(for: .video)
+        let selectedSourceIDs = MediaKind.video.mediaStateSnapshot(in: self)
             .selectedSourceURLs
             .map(sourceIdentifier(for:))
         return selectedSourceIDs.count == 1 && selectedSourceIDs.first == prepared.sourceID

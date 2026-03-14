@@ -53,7 +53,7 @@ extension ContentViewModel.MediaKind {
 
     @discardableResult
     func chooseOutputDirectory(in viewModel: ContentViewModel) async -> Bool {
-        let snapshot = viewModel.mediaStateSnapshot(for: self)
+        let snapshot = mediaStateSnapshot(in: viewModel)
         let suggestedDirectory = selectedOutputDirectoryURL(in: viewModel)
             ?? snapshot.selectedSourceURLs.first?.deletingLastPathComponent()
             ?? viewModel.defaultSuggestedOutputDirectory

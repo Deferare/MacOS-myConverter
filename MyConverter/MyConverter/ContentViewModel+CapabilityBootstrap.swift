@@ -5,25 +5,6 @@ extension ContentViewModel {
         let applyIfIdle: @MainActor @Sendable (ContentViewModel) -> Void
     }
 
-    func applyWarmedOutputFormatsIfIdle<Format>(
-        _ warmedFormats: [Format],
-        for kind: MediaKind,
-        formatDescriptor: OutputFormatDescriptor<Format>,
-        postApply: () -> Void = {}
-    ) {
-        let descriptor = kind.mediaStateDescriptor
-        guard self[keyPath: descriptor.sourceURL] == nil,
-              !self[keyPath: descriptor.isAnalyzing] else {
-            return
-        }
-
-        applyAvailableOutputFormats(
-            warmedFormats,
-            using: formatDescriptor,
-            postApply: postApply
-        )
-    }
-
     func markCapabilityBootstrapNeedsRefresh(for kinds: [MediaKind]) {
         capabilityWarmState.markNeedsWarm(for: uniqueMediaKinds(kinds))
     }
@@ -127,9 +108,9 @@ extension ContentViewModel.MediaKind {
             warmedDefaultCapability: {
                 let warmedFormats = VideoConversionEngine.defaultOutputFormats()
                 return ContentViewModel.WarmedDefaultCapability { viewModel in
-                    viewModel.applyWarmedOutputFormatsIfIdle(
+                    Self.video.applyWarmedOutputFormatsIfIdle(
                         warmedFormats,
-                        for: .video,
+                        in: viewModel,
                         formatDescriptor: ContentViewModel.videoOutputFormatDescriptor,
                         postApply: {
                             Self.video.refreshCodecOptions(in: viewModel)
@@ -148,9 +129,9 @@ extension ContentViewModel.MediaKind {
             warmedDefaultCapability: {
                 let warmedFormats = ImageConversionEngine.defaultOutputFormats()
                 return ContentViewModel.WarmedDefaultCapability { viewModel in
-                    viewModel.applyWarmedOutputFormatsIfIdle(
+                    Self.image.applyWarmedOutputFormatsIfIdle(
                         warmedFormats,
-                        for: .image,
+                        in: viewModel,
                         formatDescriptor: ContentViewModel.imageOutputFormatDescriptor
                     )
                 }
@@ -167,9 +148,9 @@ extension ContentViewModel.MediaKind {
             warmedDefaultCapability: {
                 let warmedFormats = VideoConversionEngine.defaultAudioOutputFormats()
                 return ContentViewModel.WarmedDefaultCapability { viewModel in
-                    viewModel.applyWarmedOutputFormatsIfIdle(
+                    Self.audio.applyWarmedOutputFormatsIfIdle(
                         warmedFormats,
-                        for: .audio,
+                        in: viewModel,
                         formatDescriptor: ContentViewModel.audioOutputFormatDescriptor,
                         postApply: {
                             Self.audio.refreshCodecOptions(in: viewModel)
@@ -186,6 +167,25 @@ extension ContentViewModel.MediaKind {
 
     func applyPlaceholderCapabilities(to viewModel: ContentViewModel) {
         capabilityBootstrapBehavior.applyPlaceholderCapabilities(viewModel)
+    }
+
+    func applyWarmedOutputFormatsIfIdle<Format>(
+        _ warmedFormats: [Format],
+        in viewModel: ContentViewModel,
+        formatDescriptor: ContentViewModel.OutputFormatDescriptor<Format>,
+        postApply: () -> Void = {}
+    ) {
+        let descriptor = mediaStateDescriptor
+        guard viewModel[keyPath: descriptor.sourceURL] == nil,
+              !viewModel[keyPath: descriptor.isAnalyzing] else {
+            return
+        }
+
+        viewModel.applyAvailableOutputFormats(
+            warmedFormats,
+            using: formatDescriptor,
+            postApply: postApply
+        )
     }
 
     nonisolated func warmedDefaultCapability() -> ContentViewModel.WarmedDefaultCapability {

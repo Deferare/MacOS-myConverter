@@ -1,38 +1,35 @@
 import Foundation
 
-extension ContentViewModel {
+extension ContentViewModel.MediaKind {
     func launchConversionTask(
-        for kind: MediaKind,
+        in viewModel: ContentViewModel,
         operation: @escaping @MainActor () async -> Void
     ) {
-        let descriptor = kind.mediaStateDescriptor
-        guard self[keyPath: descriptor.conversionTask] == nil else { return }
-        guard !self[keyPath: descriptor.isConverting] else { return }
+        let descriptor = mediaStateDescriptor
+        guard viewModel[keyPath: descriptor.conversionTask] == nil else { return }
+        guard !viewModel[keyPath: descriptor.isConverting] else { return }
 
-        self[keyPath: descriptor.conversionTask] = Task { @MainActor [weak self] in
-            defer { self?.clearConversionTask(for: kind) }
+        viewModel[keyPath: descriptor.conversionTask] = Task { @MainActor [weak viewModel] in
+            defer { viewModel.map { self.clearConversionTask(in: $0) } }
             await operation()
         }
     }
 
-    func cancelConversionTask(for kind: MediaKind) {
+    func cancelConversionTask(in viewModel: ContentViewModel) {
         #if os(iOS)
         EmbeddedFFmpegBridge.cancelCurrentCommand()
         #endif
-        let descriptor = kind.mediaStateDescriptor
-        guard let task = self[keyPath: descriptor.conversionTask] else { return }
+        let descriptor = mediaStateDescriptor
+        guard let task = viewModel[keyPath: descriptor.conversionTask] else { return }
         task.cancel()
     }
 
-    func clearConversionTask(for kind: MediaKind) {
-        let descriptor = kind.mediaStateDescriptor
-        self[keyPath: descriptor.conversionTask] = nil
+    func clearConversionTask(in viewModel: ContentViewModel) {
+        viewModel[keyPath: mediaStateDescriptor.conversionTask] = nil
     }
-}
 
-extension ContentViewModel.MediaKind {
     func startConversion(in viewModel: ContentViewModel) {
-        viewModel.launchConversionTask(for: self) { [weak viewModel] in
+        launchConversionTask(in: viewModel) { [weak viewModel] in
             if let viewModel {
                 await self.performConversion(in: viewModel)
             }
@@ -40,6 +37,6 @@ extension ContentViewModel.MediaKind {
     }
 
     func cancelConversion(in viewModel: ContentViewModel) {
-        viewModel.cancelConversionTask(for: self)
+        cancelConversionTask(in: viewModel)
     }
 }

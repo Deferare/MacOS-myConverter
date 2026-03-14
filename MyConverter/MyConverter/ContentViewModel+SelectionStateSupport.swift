@@ -104,40 +104,47 @@ extension ContentViewModel {
         self[keyPath: keyPath] = nil
     }
 
-    func resetConversionOutputs(for kind: MediaKind) {
-        let descriptor = kind.mediaStateDescriptor
-        self[keyPath: descriptor.convertedURL] = nil
-        self[keyPath: descriptor.convertedURLs] = []
-        self[keyPath: descriptor.convertedOutputURLsBySourceID] = [:]
-        self[keyPath: descriptor.processedSourceIDs] = []
-        self[keyPath: descriptor.conversionErrorMessage] = nil
-    }
-
-    func resetCompatibilityState(for kind: MediaKind, resetMetadata: Bool = true) {
-        if resetMetadata {
-            resetCompatibilityMetadata(for: kind)
-        }
-
-        let descriptor = kind.mediaStateDescriptor
-        self[keyPath: descriptor.compatibilityErrorMessage] = nil
-        self[keyPath: descriptor.compatibilityWarningMessage] = nil
-    }
-
-    func resetSelectionCompatibilityState(for kind: MediaKind) {
-        resetCompatibilityState(for: kind)
-    }
-
-    private func clearActivityState(for kind: MediaKind, resetBatchState: Bool) {
-        let descriptor = kind.mediaStateDescriptor
-        self[keyPath: descriptor.isAnalyzing] = false
-
-        guard resetBatchState else { return }
-        self[keyPath: descriptor.currentBatchIndex] = 0
-        self[keyPath: descriptor.totalBatchCount] = 0
-    }
 }
 
 extension ContentViewModel.MediaKind {
+    func resetConversionOutputs(in viewModel: ContentViewModel) {
+        let descriptor = mediaStateDescriptor
+        viewModel[keyPath: descriptor.convertedURL] = nil
+        viewModel[keyPath: descriptor.convertedURLs] = []
+        viewModel[keyPath: descriptor.convertedOutputURLsBySourceID] = [:]
+        viewModel[keyPath: descriptor.processedSourceIDs] = []
+        viewModel[keyPath: descriptor.conversionErrorMessage] = nil
+    }
+
+    func resetCompatibilityState(
+        in viewModel: ContentViewModel,
+        resetMetadata: Bool = true
+    ) {
+        if resetMetadata {
+            resetCompatibilityMetadata(in: viewModel)
+        }
+
+        let descriptor = mediaStateDescriptor
+        viewModel[keyPath: descriptor.compatibilityErrorMessage] = nil
+        viewModel[keyPath: descriptor.compatibilityWarningMessage] = nil
+    }
+
+    func resetSelectionCompatibilityState(in viewModel: ContentViewModel) {
+        resetCompatibilityState(in: viewModel)
+    }
+
+    private func clearActivityState(
+        in viewModel: ContentViewModel,
+        resetBatchState: Bool
+    ) {
+        let descriptor = mediaStateDescriptor
+        viewModel[keyPath: descriptor.isAnalyzing] = false
+
+        guard resetBatchState else { return }
+        viewModel[keyPath: descriptor.currentBatchIndex] = 0
+        viewModel[keyPath: descriptor.totalBatchCount] = 0
+    }
+
     func restoreIdleState(
         in viewModel: ContentViewModel,
         resetOutputs: Bool = false,
@@ -145,14 +152,14 @@ extension ContentViewModel.MediaKind {
         applyDefaultSettings: Bool = false
     ) {
         viewModel.clearPreparedSingleVideoSelection(for: self)
-        viewModel.cancelSelectionAnalysis(for: self)
+        cancelSelectionAnalysis(in: viewModel)
 
         if resetOutputs {
-            viewModel.resetConversionOutputs(for: self)
+            resetConversionOutputs(in: viewModel)
         }
 
-        viewModel.resetCompatibilityState(for: self)
-        viewModel.clearActivityState(for: self, resetBatchState: resetBatchState)
+        resetCompatibilityState(in: viewModel)
+        clearActivityState(in: viewModel, resetBatchState: resetBatchState)
 
         applyPlaceholderCapabilities(to: viewModel)
 
@@ -166,8 +173,8 @@ extension ContentViewModel.MediaKind {
 
     func clearSelectedSource(in viewModel: ContentViewModel) {
         viewModel.clearPreparedSingleVideoSelection(for: self)
-        viewModel.cancelSelectionAnalysis(for: self)
-        viewModel.assignSelection([], for: self)
+        cancelSelectionAnalysis(in: viewModel)
+        assignSelection([], in: viewModel)
         restoreIdleState(
             in: viewModel,
             resetOutputs: true,

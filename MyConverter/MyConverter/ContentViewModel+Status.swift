@@ -202,13 +202,13 @@ extension ContentViewModel.MediaKind {
         validationMessage: String?
     ) -> Bool {
         viewModel.canStartConversion(
-            using: viewModel.mediaStateSnapshot(for: self),
+            using: mediaStateSnapshot(in: viewModel),
             validationMessage: validationMessage
         )
     }
 
     func converterRenderState(in viewModel: ContentViewModel) -> ContentViewModel.ConverterRenderState {
-        let snapshot = viewModel.mediaStateSnapshot(for: self)
+        let snapshot = mediaStateSnapshot(in: viewModel)
         let validationMessage = validationMessage(in: viewModel)
         let status = viewModel.conversionStatus(
             using: snapshot,

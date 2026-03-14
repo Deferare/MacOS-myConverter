@@ -5,7 +5,7 @@ extension ContentViewModel {
     func moveSelectedSource(from draggedURL: URL, to targetURL: URL, for kind: MediaKind) {
         let descriptor = kind.mediaStateDescriptor
         guard !self[keyPath: descriptor.isConverting] else { return }
-        let snapshot = mediaStateSnapshot(for: kind)
+        let snapshot = kind.mediaStateSnapshot(in: self)
         guard let reordered = reorderedURLsByMoving(
             draggedURL,
             to: targetURL,
@@ -14,7 +14,7 @@ extension ContentViewModel {
             return
         }
 
-        assignSelection(reordered, for: kind)
+        kind.assignSelection(reordered, in: self)
         refreshSelectionAfterPrimarySourceChange(reordered, for: kind)
     }
 

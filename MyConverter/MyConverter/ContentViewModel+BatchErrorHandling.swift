@@ -1,21 +1,21 @@
 import Foundation
 
-extension ContentViewModel {
+extension ContentViewModel.MediaKind {
     func applyConversionError(
         _ error: Error,
-        for kind: MediaKind,
+        in viewModel: ContentViewModel,
         logPrefix: String,
         treatExportCancellationAsCancelled: Bool = false,
         includeDebugInfo: Bool = false
     ) {
-        let descriptor = kind.mediaStateDescriptor
+        let descriptor = mediaStateDescriptor
         if treatExportCancellationAsCancelled, case ConversionError.exportCancelled = error {
-            self[keyPath: descriptor.conversionErrorMessage] = nil
+            viewModel[keyPath: descriptor.conversionErrorMessage] = nil
             return
         }
 
         let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-        self[keyPath: descriptor.conversionErrorMessage] = message
+        viewModel[keyPath: descriptor.conversionErrorMessage] = message
 
         if includeDebugInfo, let conversionError = error as? ConversionError {
             print("\(logPrefix): \(conversionError.debugInfo)")

@@ -14,21 +14,10 @@ extension ContentViewModel {
         task = nil
     }
 
-    func cancelPendingSelectionAnalysis(for kind: MediaKind) {
-        let descriptor = kind.mediaStateDescriptor
-        cancelTask(at: descriptor.pendingSelectionAnalysisTask)
-    }
-
-    func cancelSelectionAnalysis(for kind: MediaKind) {
-        let descriptor = kind.mediaStateDescriptor
-        cancelTask(at: descriptor.analysisTask)
-        cancelPendingSelectionAnalysis(for: kind)
-    }
-
     func scheduleSelectedSourceAnalysis(_ urls: [URL], for kind: MediaKind) {
         let selection = ContentViewModelSupport.uniqueStandardizedURLs(urls)
         guard !selection.isEmpty else {
-            analyzeSelectedSources(selection, for: kind)
+            kind.analyzeSelectedSources(selection, in: self)
             return
         }
 
@@ -39,7 +28,7 @@ extension ContentViewModel {
             descriptor.pendingSelectionAnalysisTask,
             delayNanoseconds: Self.selectionAnalysisDebounceNanoseconds
         ) { viewModel in
-            viewModel.analyzeSelectedSources(selection, for: kind)
+            kind.analyzeSelectedSources(selection, in: viewModel)
         }
     }
 
@@ -57,10 +46,10 @@ extension ContentViewModel {
         guard let primaryURL = uniqueURLs.first else { return }
 
         clearPreparedSingleVideoSelection(for: kind)
-        cancelSelectionAnalysis(for: kind)
-        assignSelection(uniqueURLs, for: kind)
-        resetConversionOutputs(for: kind)
-        resetSelectionCompatibilityState(for: kind)
+        kind.cancelSelectionAnalysis(in: self)
+        kind.assignSelection(uniqueURLs, in: self)
+        kind.resetConversionOutputs(in: self)
+        kind.resetSelectionCompatibilityState(in: self)
         kind.applyStoredSourceSettings(
             sourceID: sourceIdentifier(for: primaryURL),
             to: self
@@ -88,22 +77,33 @@ extension ContentViewModel {
         }
 
         clearPreparedSingleVideoSelection(for: kind)
-        cancelSelectionAnalysis(for: kind)
-        resetSelectionCompatibilityState(for: kind)
+        kind.cancelSelectionAnalysis(in: self)
+        kind.resetSelectionCompatibilityState(in: self)
         kind.applyStoredSourceSettings(sourceID: primarySourceID, to: self)
         scheduleSelectedSourceAnalysis(urls, for: kind)
     }
 
     func removeProcessedSource(_ processedURL: URL, for kind: MediaKind) {
         let processedID = sourceIdentifier(for: processedURL)
-        let remainingSources = mediaStateSnapshot(for: kind)
+        let remainingSources = kind.mediaStateSnapshot(in: self)
             .selectedSourceURLs
             .filter { sourceIdentifier(for: $0) != processedID }
-        assignSelection(remainingSources, for: kind)
+        kind.assignSelection(remainingSources, in: self)
         guard !remainingSources.isEmpty else {
             kind.restoreIdleState(in: self)
             return
         }
     }
 
+}
+
+extension ContentViewModel.MediaKind {
+    func cancelPendingSelectionAnalysis(in viewModel: ContentViewModel) {
+        viewModel.cancelTask(at: mediaStateDescriptor.pendingSelectionAnalysisTask)
+    }
+
+    func cancelSelectionAnalysis(in viewModel: ContentViewModel) {
+        viewModel.cancelTask(at: mediaStateDescriptor.analysisTask)
+        cancelPendingSelectionAnalysis(in: viewModel)
+    }
 }

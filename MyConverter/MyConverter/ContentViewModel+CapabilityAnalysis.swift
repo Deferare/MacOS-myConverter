@@ -49,7 +49,7 @@ extension ContentViewModel {
             stateDescriptor: stateDescriptor,
             formatDescriptor: formatDescriptor,
             selectedSourceIDs: {
-                self.mediaStateSnapshot(for: kind).selectedSourceURLs.map(self.sourceIdentifier(for:))
+                kind.mediaStateSnapshot(in: self).selectedSourceURLs.map(self.sourceIdentifier(for:))
             },
             resolvePreparedCapability: resolvePreparedCapability,
             fetchCapabilities: fetchCapabilities,
@@ -196,7 +196,7 @@ extension ContentViewModel {
         guard !selection.isEmpty else {
             self[keyPath: stateDescriptor.isAnalyzing] = false
             self[keyPath: formatDescriptor.availableFormats] = []
-            resetCompatibilityState(for: kind)
+            kind.resetCompatibilityState(in: self)
             return
         }
 

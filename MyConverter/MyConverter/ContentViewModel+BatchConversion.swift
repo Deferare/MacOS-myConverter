@@ -39,8 +39,8 @@ extension ContentViewModel {
             treatExportCancellationAsCancelled: kind.treatExportCancellationAsCancelled,
             startState: { outputDirectoryURL, preserveCompletedOutputs in
                 kind.setSelectedOutputDirectoryURL(outputDirectoryURL, in: self)
-                self.prepareConversionStartState(
-                    for: kind,
+                kind.prepareConversionStartState(
+                    in: self,
                     preserveCompletedOutputs: preserveCompletedOutputs
                 )
             },
@@ -56,15 +56,15 @@ extension ContentViewModel {
             },
             runConversion: runConversion,
             onSavedOutput: { sourceURL, savedURL in
-                self.appendConvertedOutput(savedURL, from: sourceURL, for: kind)
+                kind.appendConvertedOutput(savedURL, from: sourceURL, in: self)
             },
             onSourceProcessed: { sourceURL in
-                self.markProcessedSource(sourceURL, for: kind)
+                kind.markProcessedSource(sourceURL, in: self)
             },
             onError: { error in
-                self.applyConversionError(
+                kind.applyConversionError(
                     error,
-                    for: kind,
+                    in: self,
                     logPrefix: kind.errorLogPrefix,
                     treatExportCancellationAsCancelled: kind.treatExportCancellationAsCancelled,
                     includeDebugInfo: kind.includeDebugInfo

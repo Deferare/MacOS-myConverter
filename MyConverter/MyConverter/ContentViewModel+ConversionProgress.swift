@@ -35,24 +35,25 @@ extension ContentViewModel {
         return (base + itemProgress) / total
     }
 
-    func setProgress(_ rawProgress: Double, for kind: MediaKind) {
-        let descriptor = kind.mediaStateDescriptor
-        setProgress(rawProgress, at: descriptor.progress)
-    }
-
     func updateBatchProgress(
         for kind: MediaKind,
         itemProgress: Double,
         index: Int,
         totalCount: Int
     ) {
-        setProgress(
+        kind.setProgress(
             normalizedBatchProgress(
                 itemProgress: itemProgress,
                 index: index,
                 totalCount: totalCount
             ),
-            for: kind
+            in: self
         )
+    }
+}
+
+extension ContentViewModel.MediaKind {
+    func setProgress(_ rawProgress: Double, in viewModel: ContentViewModel) {
+        viewModel.setProgress(rawProgress, at: mediaStateDescriptor.progress)
     }
 }
