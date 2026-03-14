@@ -1,6 +1,11 @@
 import Foundation
 
 extension ContentViewModel {
+    struct ResolvedBatchOutputDirectory: Sendable {
+        let outputDirectoryURL: URL
+        let outputDirectoryAccessURL: URL
+    }
+
     func performVideoConversion() async {
         await MediaKind.video.performConversion(
             in: self,
@@ -217,7 +222,16 @@ extension ContentViewModel.MediaKind {
         onSingleSourceCompletion: (() -> Void)? = nil
     ) async {
         let primarySourceURL = sourceURL(in: viewModel)
-        guard canConvert, let primarySourceURL else {
+        guard
+            canConvert,
+            let sourceSelection = BatchSourceSelectionPlanner.resolve(
+                primarySourceURL: primarySourceURL,
+                queuedSourceURLs: queuedSourceURLs(in: viewModel),
+                completedSourceIDs: Set(convertedOutputURLsBySourceID(in: viewModel).keys),
+                sourceIdentifier: { viewModel.sourceIdentifier(for: $0) }
+            ),
+            let primarySourceURL
+        else {
             if primarySourceURL == nil {
                 print(missingSourceLog)
             }
@@ -232,43 +246,22 @@ extension ContentViewModel.MediaKind {
             return
         }
 
-        let allSourceURLs = [primarySourceURL] + queuedSourceURLs(in: viewModel)
-        let existingOutputURLsBySourceID = convertedOutputURLsBySourceID(in: viewModel)
-        let completedSourceIDs = Set(existingOutputURLsBySourceID.keys)
-        let remainingSourceURLs = allSourceURLs.filter { sourceURL in
-            !completedSourceIDs.contains(viewModel.sourceIdentifier(for: sourceURL))
-        }
-        let shouldResumePartialBatch =
-            !completedSourceIDs.isEmpty &&
-            !remainingSourceURLs.isEmpty &&
-            remainingSourceURLs.count < allSourceURLs.count
-        let sourceURLs = shouldResumePartialBatch ? remainingSourceURLs : allSourceURLs
-
-        let resolvedOutputDirectoryURL: URL
-        let resolvedOutputDirectoryAccessURL: URL
-        if let preferredOutputDirectory {
-            resolvedOutputDirectoryURL = preferredOutputDirectory.standardizedFileURL
-            resolvedOutputDirectoryAccessURL = preferredOutputDestination?.url ?? preferredOutputDirectory
-        } else {
-            guard let selectedDestination = await viewModel.services.outputDestinationCoordinator.chooseOutputDestination(
-                suggestedDirectory: primarySourceURL.deletingLastPathComponent(),
-                outputLabel: outputLabel,
-                fileCount: sourceURLs.count
-            ) else {
-                return
-            }
-            resolvedOutputDirectoryURL = selectedDestination.url
-            resolvedOutputDirectoryAccessURL = selectedDestination.url
+        guard let resolvedOutputDirectory = await resolveBatchOutputDirectory(
+            in: viewModel,
+            primarySourceURL: primarySourceURL,
+            preferredOutputDestination: preferredOutputDestination,
+            preferredOutputDirectory: preferredOutputDirectory,
+            outputLabel: outputLabel,
+            fileCount: sourceSelection.sourceURLs.count
+        ) else {
+            return
         }
 
-        let batchContext = await detachedTaskValue(priority: .userInitiated) {
-            BatchConversionSupport.prepareContext(
-                sourceURLs: sourceURLs,
-                fileExtension: fileExtension,
-                outputDirectoryURL: resolvedOutputDirectoryURL,
-                outputDirectoryAccessURL: resolvedOutputDirectoryAccessURL
-            )
-        }
+        let batchContext = await prepareBatchConversionContext(
+            sourceURLs: sourceSelection.sourceURLs,
+            fileExtension: fileExtension,
+            outputDirectory: resolvedOutputDirectory
+        )
         guard let batchContext else {
             return
         }
@@ -281,7 +274,7 @@ extension ContentViewModel.MediaKind {
             return
         }
 
-        startState(batchContext.outputDirectoryURL, shouldResumePartialBatch)
+        startState(batchContext.outputDirectoryURL, sourceSelection.shouldResumePartialBatch)
         if batchContext.preparedSources.count == 1,
            let preparedSource = batchContext.preparedSources.first,
            let prepareSingleSourceEnvironment {
@@ -322,6 +315,50 @@ extension ContentViewModel.MediaKind {
             onSourceProcessed: onSourceProcessed,
             onError: onError
         )
+    }
+
+    private func resolveBatchOutputDirectory(
+        in viewModel: ContentViewModel,
+        primarySourceURL: URL,
+        preferredOutputDestination: OutputDestinationHandle?,
+        preferredOutputDirectory: URL?,
+        outputLabel: String,
+        fileCount: Int
+    ) async -> ContentViewModel.ResolvedBatchOutputDirectory? {
+        if let preferredOutputDirectory {
+            return ContentViewModel.ResolvedBatchOutputDirectory(
+                outputDirectoryURL: preferredOutputDirectory.standardizedFileURL,
+                outputDirectoryAccessURL: preferredOutputDestination?.url ?? preferredOutputDirectory
+            )
+        }
+
+        guard let selectedDestination = await viewModel.services.outputDestinationCoordinator.chooseOutputDestination(
+                suggestedDirectory: primarySourceURL.deletingLastPathComponent(),
+                outputLabel: outputLabel,
+                fileCount: fileCount
+            ) else {
+            return nil
+        }
+
+        return ContentViewModel.ResolvedBatchOutputDirectory(
+            outputDirectoryURL: selectedDestination.url,
+            outputDirectoryAccessURL: selectedDestination.url
+        )
+    }
+
+    private func prepareBatchConversionContext(
+        sourceURLs: [URL],
+        fileExtension: String,
+        outputDirectory: ContentViewModel.ResolvedBatchOutputDirectory
+    ) async -> PreparedBatchConversionContext? {
+        await detachedTaskValue(priority: .userInitiated) {
+            BatchConversionSupport.prepareContext(
+                sourceURLs: sourceURLs,
+                fileExtension: fileExtension,
+                outputDirectoryURL: outputDirectory.outputDirectoryURL,
+                outputDirectoryAccessURL: outputDirectory.outputDirectoryAccessURL
+            )
+        }
     }
 
     func executeSingleSourceConversion<OutputSettings: Sendable>(
@@ -378,13 +415,14 @@ extension ContentViewModel.MediaKind {
             )
 
             self.setProgress(1, in: viewModel)
-            if let entry = result.skippedEntry {
+            switch result {
+            case let .skipped(entry):
                 onSourceProcessed(preparedSource.sourceURL)
                 self.setConversionErrorMessage(BatchConversionSupport.skippedFilesSummary(
                     prefix: skippedSummaryPrefix,
                     entries: [entry]
                 ), in: viewModel)
-            } else if let savedURL = result.savedURL {
+            case let .saved(savedURL):
                 onSavedOutput(preparedSource.sourceURL, savedURL)
                 onSourceProcessed(preparedSource.sourceURL)
             }

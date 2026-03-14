@@ -1,9 +1,9 @@
 import Foundation
 
 extension ContentViewModel {
-    struct PreparedSourceExecutionResult {
-        let savedURL: URL?
-        let skippedEntry: String?
+    enum PreparedSourceExecutionResult: Sendable {
+        case saved(URL)
+        case skipped(String)
     }
 
     func withSourceSecurityScope<T>(
@@ -21,9 +21,8 @@ extension ContentViewModel {
     ) async throws -> PreparedSourceExecutionResult {
         try await withSourceSecurityScope(for: preparedSource.sourceURL) {
             if let validationMessage = await validate(preparedSource, batchEnvironment) {
-                return PreparedSourceExecutionResult(
-                    savedURL: nil,
-                    skippedEntry: "\(preparedSource.sourceURL.lastPathComponent): \(validationMessage)"
+                return .skipped(
+                    "\(preparedSource.sourceURL.lastPathComponent): \(validationMessage)"
                 )
             }
 
@@ -40,10 +39,7 @@ extension ContentViewModel {
                 from: output,
                 preparedSource: preparedSource
             )
-            return PreparedSourceExecutionResult(
-                savedURL: savedURL,
-                skippedEntry: nil
-            )
+            return .saved(savedURL)
         }
     }
 
@@ -77,10 +73,10 @@ extension ContentViewModel {
                 }
             )
 
-            if let skippedEntry = result.skippedEntry {
+            switch result {
+            case let .skipped(skippedEntry):
                 skippedEntries.append(skippedEntry)
-            }
-            if let savedURL = result.savedURL {
+            case let .saved(savedURL):
                 onSavedOutput(preparedSource.sourceURL, savedURL)
             }
             onSourceProcessed(preparedSource.sourceURL)
