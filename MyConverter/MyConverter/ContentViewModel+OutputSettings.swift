@@ -54,16 +54,17 @@ extension ContentViewModel {
     }
 
     var videoAudioEncodingSelectionState: AudioEncodingSelectionState {
-        let isEnabled = selectedOutputFormat.supportsAudioTrack
+        let options = videoOptionsState
+        let isEnabled = options.selectedOutputFormat.supportsAudioTrack
         return AudioEncodingSelectionState(
             isEnabled: isEnabled,
-            selectedEncoder: selectedAudioEncoder,
-            selectedMode: selectedAudioMode,
-            selectedSampleRate: selectedSampleRate,
-            selectedBitRate: selectedAudioBitRate,
+            selectedEncoder: options.selectedAudioEncoder,
+            selectedMode: options.selectedAudioMode,
+            selectedSampleRate: options.selectedSampleRate,
+            selectedBitRate: options.selectedAudioBitRate,
             encoderOptions: conditionalValues(when: isEnabled, videoAudioEncoderSelectionOptions),
-            shouldShowSampleRateOption: isEnabled && selectedAudioEncoder.supportsSampleRate,
-            shouldShowBitRateOption: isEnabled && selectedAudioEncoder.supportsAudioBitRate
+            shouldShowSampleRateOption: isEnabled && options.selectedAudioEncoder.supportsSampleRate,
+            shouldShowBitRateOption: isEnabled && options.selectedAudioEncoder.supportsAudioBitRate
         )
     }
 
@@ -94,31 +95,32 @@ extension ContentViewModel {
     func resolvedVideoBitRateKbps() throws -> Int? {
         guard shouldShowVideoBitRateOption else { return nil }
 
-        switch selectedVideoBitRate {
+        switch videoOptionsState.selectedVideoBitRate {
         case .auto:
             return nil
         case .custom:
             guard let custom = normalizedCustomVideoBitRateKbps else {
-                throw ConversionError.invalidCustomVideoBitRate(customVideoBitRate)
+                throw ConversionError.invalidCustomVideoBitRate(videoOptionsState.customVideoBitRate)
             }
             return custom
         default:
-            return selectedVideoBitRate.kbps
+            return videoOptionsState.selectedVideoBitRate.kbps
         }
     }
 
     func buildVideoOutputSettings() throws -> VideoOutputSettings {
+        let options = videoOptionsState
         let audioSettings = resolvedAudioEncodingSettings(videoAudioEncodingSelectionState)
 
         return VideoOutputSettings(
-            containerFormat: selectedOutputFormat,
-            videoCodecCandidates: selectedVideoEncoder.codecCandidates,
-            useHEVCTag: selectedVideoEncoder.usesHEVCCodec,
-            resolution: selectedResolution.dimensions,
-            frameRate: selectedFrameRate.fps,
+            containerFormat: options.selectedOutputFormat,
+            videoCodecCandidates: options.selectedVideoEncoder.codecCandidates,
+            useHEVCTag: options.selectedVideoEncoder.usesHEVCCodec,
+            resolution: options.selectedResolution.dimensions,
+            frameRate: options.selectedFrameRate.fps,
             gifPlaybackSpeed: optionalValue(
                 when: shouldShowGIFPlaybackSpeedOption,
-                selectedGIFPlaybackSpeed.multiplier
+                options.selectedGIFPlaybackSpeed.multiplier
             ),
             videoBitRateKbps: try resolvedVideoBitRateKbps(),
             audioCodecCandidates: audioSettings.codecCandidates,

@@ -118,7 +118,7 @@ extension ContentViewModel {
     static let videoOutputFormatDescriptorValue = makeOutputFormatDescriptor(
             sourceURL: \.videoRuntimeState.media.sourceURL,
             availableFormats: \.videoRuntimeState.media.availableOutputFormats,
-            selectedFormat: \.selectedOutputFormat,
+            selectedFormat: \.videoOptionsState.selectedOutputFormat,
             placeholderFormats: { ContentViewModelSupport.placeholderVideoFormats() },
             formatNormalizedID: { $0.normalizedID },
             formatDisplayName: { $0.displayName },

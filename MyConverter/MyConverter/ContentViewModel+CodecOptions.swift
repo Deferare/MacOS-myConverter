@@ -20,7 +20,7 @@ extension ContentViewModel {
         VideoFormatOption
     >(
         state: StateProxyDescriptor(stateKeyPath: \.videoOptionsState),
-        currentFormat: { $0.selectedOutputFormat },
+        currentFormat: { $0.videoOptionsState.selectedOutputFormat },
         availableEncoders: \.videoRuntimeState.availableAudioEncoders,
         encoder: \.selectedAudioEncoder,
         audioMode: \.selectedAudioMode,
@@ -175,7 +175,7 @@ extension ContentViewModel {
     }
 
     var videoAudioEncoderSelectionOptions: [AudioEncoderOption] {
-        let format = selectedOutputFormat
+        let format = videoOptionsState.selectedOutputFormat
         guard format.supportsAudioTrack else { return [] }
         return resolvedAudioEncoderOptions(
             videoRuntimeState.availableAudioEncoders,
@@ -194,7 +194,7 @@ extension ContentViewModel {
     }
 
     func refreshVideoCodecOptions() {
-        let format = selectedOutputFormat
+        let format = videoOptionsState.selectedOutputFormat
         let resolvedVideoEncoders = VideoConversionEngine.availableVideoEncoders(for: format)
         let resolvedAudioEncoders = Self.videoAudioCodecDependencyDescriptor.resolvedEncoders(format)
         let resolvedVideoEncoderOptions = resolvedOptions(
@@ -243,7 +243,7 @@ extension ContentViewModel {
     }
 
     func applyPlaceholderVideoCodecOptions() {
-        let format = selectedOutputFormat
+        let format = videoOptionsState.selectedOutputFormat
         videoRuntimeState.availableVideoEncoders = ContentViewModelSupport.placeholderVideoEncoders(for: format)
         applyPlaceholderAudioCodecDependencies(using: Self.videoAudioCodecDependencyDescriptor)
         updateState(\.videoOptionsState) { state in
@@ -260,7 +260,7 @@ extension ContentViewModel {
     }
 
     func normalizeVideoOptionDependencies() {
-        let format = selectedOutputFormat
+        let format = videoOptionsState.selectedOutputFormat
         let encoderOptions = format.supportsAudioTrack
             ? resolvedAudioEncoderOptions(
                 videoRuntimeState.availableAudioEncoders,

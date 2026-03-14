@@ -213,17 +213,18 @@ extension ContentViewModel {
         outputFormatID: { $0.outputFormatID },
         normalizeStoredID: VideoFormatOption.legacyNormalizedID(from:),
         buildCurrentSettings: { viewModel in
+            let options = viewModel.videoOptionsState
             let audioSettings = storedAudioEncodingSettings(
                 from: viewModel.videoAudioEncodingSelectionState
             )
             return VideoConversionSettings(
-                outputFormatID: viewModel.selectedOutputFormat.id,
-                videoEncoder: viewModel.selectedVideoEncoder,
-                resolution: viewModel.selectedResolution,
-                frameRate: viewModel.selectedFrameRate,
-                gifPlaybackSpeed: viewModel.selectedGIFPlaybackSpeed,
-                videoBitRate: viewModel.selectedVideoBitRate,
-                customVideoBitRate: viewModel.customVideoBitRate,
+                outputFormatID: options.selectedOutputFormat.id,
+                videoEncoder: options.selectedVideoEncoder,
+                resolution: options.selectedResolution,
+                frameRate: options.selectedFrameRate,
+                gifPlaybackSpeed: options.selectedGIFPlaybackSpeed,
+                videoBitRate: options.selectedVideoBitRate,
+                customVideoBitRate: options.customVideoBitRate,
                 audioEncoder: audioSettings.encoder,
                 audioMode: audioSettings.mode,
                 sampleRate: audioSettings.sampleRate,
@@ -231,12 +232,12 @@ extension ContentViewModel {
             )
         },
         applyAdditionalSettings: { viewModel, settings in
-            viewModel.selectedVideoEncoder = settings.videoEncoder
-            viewModel.selectedResolution = settings.resolution
-            viewModel.selectedFrameRate = settings.frameRate
-            viewModel.selectedGIFPlaybackSpeed = settings.gifPlaybackSpeed
-            viewModel.selectedVideoBitRate = settings.videoBitRate
-            viewModel.customVideoBitRate = settings.customVideoBitRate
+            viewModel.videoOptionsState.selectedVideoEncoder = settings.videoEncoder
+            viewModel.videoOptionsState.selectedResolution = settings.resolution
+            viewModel.videoOptionsState.selectedFrameRate = settings.frameRate
+            viewModel.videoOptionsState.selectedGIFPlaybackSpeed = settings.gifPlaybackSpeed
+            viewModel.videoOptionsState.selectedVideoBitRate = settings.videoBitRate
+            viewModel.videoOptionsState.customVideoBitRate = settings.customVideoBitRate
             applyStoredAudioEncodingSettings(
                 StoredAudioEncodingSettings(
                     encoder: settings.audioEncoder,
@@ -245,10 +246,10 @@ extension ContentViewModel {
                     bitRate: settings.audioBitRate
                 ),
                 to: viewModel,
-                encoder: \.selectedAudioEncoder,
-                mode: \.selectedAudioMode,
-                sampleRate: \.selectedSampleRate,
-                bitRate: \.selectedAudioBitRate
+                encoder: \.videoOptionsState.selectedAudioEncoder,
+                mode: \.videoOptionsState.selectedAudioMode,
+                sampleRate: \.videoOptionsState.selectedSampleRate,
+                bitRate: \.videoOptionsState.selectedAudioBitRate
             )
         },
         refreshDependentOptions: { $0.refreshVideoCodecOptions() }

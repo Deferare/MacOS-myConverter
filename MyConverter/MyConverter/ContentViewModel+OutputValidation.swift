@@ -85,7 +85,7 @@ extension ContentViewModel {
 
     func customVideoBitRateValidationMessage() -> String? {
         guard shouldShowVideoBitRateOption,
-              selectedVideoBitRate == .custom,
+              videoOptionsState.selectedVideoBitRate == .custom,
               normalizedCustomVideoBitRateKbps == nil else {
             return nil
         }
@@ -209,7 +209,7 @@ extension ContentViewModel {
                 let audioSettings = viewModel.videoAudioEncodingSelectionState
                 return viewModel.firstNonEmptyMessage(
                     viewModel.unavailableSelectedOptionMessage(
-                        viewModel.selectedVideoEncoder,
+                        viewModel.videoOptionsState.selectedVideoEncoder,
                         in: viewModel.videoEncoderOptions,
                         named: "video encoder"
                     ),

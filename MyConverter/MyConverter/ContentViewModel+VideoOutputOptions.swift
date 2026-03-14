@@ -9,7 +9,7 @@ extension ContentViewModel {
         resolvedOptions(
             videoRuntimeState.availableVideoEncoders,
             autoOption: VideoEncoderOption.auto,
-            includesAutoOption: selectedOutputFormat.avFileType != nil
+            includesAutoOption: videoOptionsState.selectedOutputFormat.avFileType != nil
         )
     }
 
@@ -18,7 +18,7 @@ extension ContentViewModel {
     }
 
     var shouldShowVideoEncoderOption: Bool {
-        selectedOutputFormat.supportsVideoEncoderSelection && videoEncoderOptions.count > 1
+        videoOptionsState.selectedOutputFormat.supportsVideoEncoderSelection && videoEncoderOptions.count > 1
     }
 
     var shouldShowAudioSettings: Bool {
@@ -26,11 +26,11 @@ extension ContentViewModel {
     }
 
     var shouldShowVideoBitRateOption: Bool {
-        selectedVideoEncoder.supportsVideoBitRate
+        videoOptionsState.selectedVideoEncoder.supportsVideoBitRate
     }
 
     var shouldShowGIFPlaybackSpeedOption: Bool {
-        selectedOutputFormat.usesGIFPalettePipeline
+        videoOptionsState.selectedOutputFormat.usesGIFPalettePipeline
     }
 
     var shouldShowAudioSampleRateOption: Bool {
@@ -42,7 +42,7 @@ extension ContentViewModel {
     }
 
     var normalizedCustomVideoBitRateKbps: Int? {
-        let trimmed = customVideoBitRate.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = videoOptionsState.customVideoBitRate.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
 
         let sanitized = trimmed.replacingOccurrences(of: ",", with: "")
@@ -52,19 +52,19 @@ extension ContentViewModel {
 
     var requiresFFmpegForCurrentVideoSettings: Bool {
         let audioSettings = videoAudioEncodingSelectionState
-        if selectedOutputFormat.avFileType == nil {
+        if videoOptionsState.selectedOutputFormat.avFileType == nil {
             return true
         }
-        if selectedOutputFormat.usesGIFPalettePipeline {
+        if videoOptionsState.selectedOutputFormat.usesGIFPalettePipeline {
             return true
         }
-        if selectedVideoEncoder != .auto {
+        if videoOptionsState.selectedVideoEncoder != .auto {
             return true
         }
-        if selectedResolution != .original || selectedFrameRate != .original {
+        if videoOptionsState.selectedResolution != .original || videoOptionsState.selectedFrameRate != .original {
             return true
         }
-        if shouldShowVideoBitRateOption && selectedVideoBitRate != .auto {
+        if shouldShowVideoBitRateOption && videoOptionsState.selectedVideoBitRate != .auto {
             return true
         }
         if !audioSettings.isEnabled {

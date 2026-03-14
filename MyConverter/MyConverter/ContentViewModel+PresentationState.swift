@@ -20,13 +20,13 @@ extension ContentViewModel {
 
         init(viewModel: ContentViewModel) {
             isConverting = viewModel.videoRuntimeState.media.isConverting
-            selectedOutputFormat = viewModel.selectedOutputFormat
-            selectedVideoEncoder = viewModel.selectedVideoEncoder
-            selectedResolution = viewModel.selectedResolution
-            selectedFrameRate = viewModel.selectedFrameRate
-            selectedGIFPlaybackSpeed = viewModel.selectedGIFPlaybackSpeed
-            selectedVideoBitRate = viewModel.selectedVideoBitRate
-            customVideoBitRate = viewModel.customVideoBitRate
+            selectedOutputFormat = viewModel.videoOptionsState.selectedOutputFormat
+            selectedVideoEncoder = viewModel.videoOptionsState.selectedVideoEncoder
+            selectedResolution = viewModel.videoOptionsState.selectedResolution
+            selectedFrameRate = viewModel.videoOptionsState.selectedFrameRate
+            selectedGIFPlaybackSpeed = viewModel.videoOptionsState.selectedGIFPlaybackSpeed
+            selectedVideoBitRate = viewModel.videoOptionsState.selectedVideoBitRate
+            customVideoBitRate = viewModel.videoOptionsState.customVideoBitRate
             audioSettings = viewModel.videoAudioEncodingSelectionState
             outputFormatOptions = viewModel.outputFormatOptions
             videoEncoderOptions = viewModel.videoEncoderOptions
