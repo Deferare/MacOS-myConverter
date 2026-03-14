@@ -70,7 +70,14 @@ extension ContentViewModel {
         let persistCurrentSourceSettings: (ContentViewModel) -> Void
         let warmDefaultCapabilities: @Sendable () -> WarmedDefaultCapability
         let applyPlaceholderCapabilities: (ContentViewModel) -> Void
-        let validation: MediaValidationDescriptor
+        let validationMessage: (ContentViewModel) -> String?
+        let hintMessage: (ContentViewModel) -> String?
+        let validateSourceOutputSettings: (ContentViewModel, URL) async -> String?
+        let validatePreparedSourceOutputSettings: (
+            ContentViewModel,
+            PreparedSourceConversion,
+            BatchExecutionEnvironment
+        ) async -> String?
         let performConversion: @MainActor (ContentViewModel) async -> Void
         let resetCompatibilityMetadata: (ContentViewModel) -> Void
         let analyzeSelection: (ContentViewModel, [URL]) -> Void
@@ -137,7 +144,10 @@ extension ContentViewModel {
             formatDescriptor: videoOutputFormatDescriptorValue,
             applyAdditionalPlaceholderState: { $0.applyPlaceholderVideoCodecOptions() }
         ),
-        validation: videoValidationDescriptorValue,
+        validationMessage: videoValidationDescriptorValue.validationMessage,
+        hintMessage: videoValidationDescriptorValue.hintMessage,
+        validateSourceOutputSettings: videoValidationDescriptorValue.validateSourceOutputSettings,
+        validatePreparedSourceOutputSettings: videoValidationDescriptorValue.validatePreparedSourceOutputSettings,
         performConversion: makeConversionExecutor(using: videoConversionWorkflowProfile),
         resetCompatibilityMetadata: resetCompatibilityMetadata(_:),
         analyzeSelection: makeMediaSelectionAnalyzer(descriptor: { _ in videoSourceAnalysisDescriptorValue })
@@ -183,7 +193,10 @@ extension ContentViewModel {
             placeholderFormats: ContentViewModelSupport.placeholderImageFormats,
             formatDescriptor: imageOutputFormatDescriptorValue
         ),
-        validation: imageValidationDescriptorValue,
+        validationMessage: imageValidationDescriptorValue.validationMessage,
+        hintMessage: imageValidationDescriptorValue.hintMessage,
+        validateSourceOutputSettings: imageValidationDescriptorValue.validateSourceOutputSettings,
+        validatePreparedSourceOutputSettings: imageValidationDescriptorValue.validatePreparedSourceOutputSettings,
         performConversion: makeConversionExecutor(using: imageConversionWorkflowProfile),
         resetCompatibilityMetadata: resetImageCompatibilityMetadata(_:),
         analyzeSelection: makeMediaSelectionAnalyzer(descriptor: { _ in imageSourceAnalysisDescriptorValue })
@@ -231,7 +244,10 @@ extension ContentViewModel {
             formatDescriptor: audioOutputFormatDescriptorValue,
             applyAdditionalPlaceholderState: { $0.applyPlaceholderAudioCodecOptions() }
         ),
-        validation: audioValidationDescriptorValue,
+        validationMessage: audioValidationDescriptorValue.validationMessage,
+        hintMessage: audioValidationDescriptorValue.hintMessage,
+        validateSourceOutputSettings: audioValidationDescriptorValue.validateSourceOutputSettings,
+        validatePreparedSourceOutputSettings: audioValidationDescriptorValue.validatePreparedSourceOutputSettings,
         performConversion: makeConversionExecutor(using: audioConversionWorkflowProfile),
         resetCompatibilityMetadata: resetCompatibilityMetadata(_:),
         analyzeSelection: makeMediaSelectionAnalyzer(descriptor: { _ in audioSourceAnalysisDescriptorValue })

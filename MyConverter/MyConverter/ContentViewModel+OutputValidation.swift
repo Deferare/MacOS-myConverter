@@ -321,15 +321,15 @@ extension ContentViewModel {
     )
 
     func validationMessage(for kind: MediaKind) -> String? {
-        mediaStateDescriptor(for: kind).validation.validationMessage(self)
+        mediaStateDescriptor(for: kind).validationMessage(self)
     }
 
     func hintMessage(for kind: MediaKind) -> String? {
-        mediaStateDescriptor(for: kind).validation.hintMessage(self)
+        mediaStateDescriptor(for: kind).hintMessage(self)
     }
 
     func validateSourceOutputSettings(for kind: MediaKind, sourceURL: URL) async -> String? {
-        await mediaStateDescriptor(for: kind).validation.validateSourceOutputSettings(
+        await mediaStateDescriptor(for: kind).validateSourceOutputSettings(
             self,
             sourceURL
         )
@@ -340,7 +340,7 @@ extension ContentViewModel {
         source: PreparedSourceConversion,
         environment: BatchExecutionEnvironment
     ) async -> String? {
-        await mediaStateDescriptor(for: kind).validation.validatePreparedSourceOutputSettings(
+        await mediaStateDescriptor(for: kind).validatePreparedSourceOutputSettings(
             self,
             source,
             environment
