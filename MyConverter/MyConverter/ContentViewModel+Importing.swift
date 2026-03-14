@@ -26,7 +26,7 @@ extension ContentViewModel {
         let mergedSelection = ContentViewModelSupport.uniqueStandardizedURLs(
             existingSelection + effectiveURLs
         )
-        applySelectedSources(mergedSelection, for: kind)
+        kind.applySelectedSources(mergedSelection, in: self)
     }
 
     func handleFileImportResult(_ result: Result<[URL], Error>, for selectedTab: ConverterTab) {

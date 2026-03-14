@@ -283,8 +283,8 @@ extension ContentViewModel {
                 outputSettings
             )
         }
-        await executeBatchConversion(
-            for: kind,
+        await kind.executeBatchConversion(
+            in: self,
             preparedSources: batchContext.preparedSources,
             batchEnvironment: batchEnvironment,
             skippedSummaryPrefix: skippedSummaryPrefix,
@@ -318,8 +318,8 @@ extension ContentViewModel {
         kind.setTotalBatchCount(1, in: self)
         kind.setCurrentBatchIndex(1, in: self)
 
-        await performManagedConversionExecution(
-            for: kind,
+        await kind.performManagedConversionExecution(
+            in: self,
             treatExportCancellationAsCancelled: treatExportCancellationAsCancelled,
             onError: onError
         ) {

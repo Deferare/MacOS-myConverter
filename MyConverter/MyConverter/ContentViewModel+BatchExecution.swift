@@ -1,57 +1,60 @@
 import Foundation
 
-extension ContentViewModel {
-    func resetCancelledConversionState(
-        for kind: MediaKind
-    ) {
-        kind.setProgress(0, in: self)
-        kind.setConversionErrorMessage(nil, in: self)
+extension ContentViewModel.MediaKind {
+    func resetCancelledConversionState(in viewModel: ContentViewModel) {
+        setProgress(0, in: viewModel)
+        setConversionErrorMessage(nil, in: viewModel)
     }
 
     func performManagedConversionExecution(
-        for kind: MediaKind,
+        in viewModel: ContentViewModel,
         treatExportCancellationAsCancelled: Bool = false,
         onError: (Error) -> Void,
         operation: () async throws -> Void
     ) async {
         do {
             defer {
-                kind.setConverting(false, in: self)
-                kind.setCurrentBatchIndex(0, in: self)
-                kind.setTotalBatchCount(0, in: self)
+                setConverting(false, in: viewModel)
+                setCurrentBatchIndex(0, in: viewModel)
+                setTotalBatchCount(0, in: viewModel)
             }
             try Task.checkCancellation()
             try await operation()
         } catch is CancellationError {
-            resetCancelledConversionState(for: kind)
+            resetCancelledConversionState(in: viewModel)
         } catch ConversionError.exportCancelled where treatExportCancellationAsCancelled {
-            resetCancelledConversionState(for: kind)
+            resetCancelledConversionState(in: viewModel)
         } catch {
             onError(error)
         }
     }
 
     func executeBatchConversion(
-        for kind: MediaKind,
+        in viewModel: ContentViewModel,
         preparedSources: [PreparedSourceConversion],
-        batchEnvironment: BatchExecutionEnvironment,
+        batchEnvironment: ContentViewModel.BatchExecutionEnvironment,
         skippedSummaryPrefix: String,
         treatExportCancellationAsCancelled: Bool = false,
-        validate: @escaping (PreparedSourceConversion, BatchExecutionEnvironment) async -> String?,
-        runConversion: @escaping (PreparedSourceConversion, BatchExecutionEnvironment, Int, Int) async throws -> URL,
+        validate: @escaping (PreparedSourceConversion, ContentViewModel.BatchExecutionEnvironment) async -> String?,
+        runConversion: @escaping (
+            PreparedSourceConversion,
+            ContentViewModel.BatchExecutionEnvironment,
+            Int,
+            Int
+        ) async throws -> URL,
         onSavedOutput: @escaping (URL, URL) -> Void,
         onSourceProcessed: @escaping (URL) -> Void,
         onError: (Error) -> Void
     ) async {
-        kind.setTotalBatchCount(preparedSources.count, in: self)
-        kind.setCurrentBatchIndex(0, in: self)
+        setTotalBatchCount(preparedSources.count, in: viewModel)
+        setCurrentBatchIndex(0, in: viewModel)
 
         await performManagedConversionExecution(
-            for: kind,
+            in: viewModel,
             treatExportCancellationAsCancelled: treatExportCancellationAsCancelled,
             onError: onError
         ) {
-            let skippedEntries = try await runBatchConversionLoop(
+            let skippedEntries = try await viewModel.runBatchConversionLoop(
                 preparedSources: preparedSources,
                 batchEnvironment: batchEnvironment,
                 validate: validate,
@@ -59,16 +62,16 @@ extension ContentViewModel {
                 onSavedOutput: onSavedOutput,
                 onSourceProcessed: onSourceProcessed,
                 onBatchIndexChanged: { index in
-                    kind.setCurrentBatchIndex(index, in: self)
+                    self.setCurrentBatchIndex(index, in: viewModel)
                 }
             )
 
-            kind.setProgress(1, in: self)
+            self.setProgress(1, in: viewModel)
             if let summary = BatchConversionSupport.skippedFilesSummary(
                 prefix: skippedSummaryPrefix,
                 entries: skippedEntries
             ) {
-                kind.setConversionErrorMessage(summary, in: self)
+                self.setConversionErrorMessage(summary, in: viewModel)
             }
         }
     }

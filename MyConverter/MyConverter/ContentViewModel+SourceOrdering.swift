@@ -14,7 +14,7 @@ extension ContentViewModel {
         }
 
         kind.assignSelection(reordered, in: self)
-        refreshSelectionAfterPrimarySourceChange(reordered, for: kind)
+        kind.refreshSelectionAfterPrimarySourceChange(reordered, in: self)
     }
 
     func reorderedURLsByMoving(_ draggedURL: URL, to targetURL: URL, in urls: [URL]) -> [URL]? {
