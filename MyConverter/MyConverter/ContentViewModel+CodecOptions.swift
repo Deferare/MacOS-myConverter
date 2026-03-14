@@ -136,11 +136,11 @@ extension ContentViewModel {
         return preferredOption(options)
     }
 
-    private func refreshAudioCodecDependencies<State: Equatable, Format>(
-        using descriptor: AudioCodecDependencyDescriptor<State, Format>
+    private func applyAudioCodecDependencies<State: Equatable, Format>(
+        using descriptor: AudioCodecDependencyDescriptor<State, Format>,
+        availableEncoders: [AudioEncoderOption]
     ) {
         let format = descriptor.currentFormat(self)
-        let availableEncoders = descriptor.resolvedEncoders(format)
         let encoderOptions = resolvedAudioEncoderOptions(
             availableEncoders,
             for: format,
@@ -158,26 +158,29 @@ extension ContentViewModel {
         }
     }
 
+    private func refreshAudioCodecDependencies<State: Equatable, Format>(
+        using descriptor: AudioCodecDependencyDescriptor<State, Format>
+    ) {
+        let format = descriptor.currentFormat(self)
+        applyAudioCodecDependencies(
+            using: descriptor,
+            availableEncoders: descriptor.resolvedEncoders(format)
+        )
+    }
+
     private func applyPlaceholderAudioCodecDependencies<State: Equatable, Format>(
         using descriptor: AudioCodecDependencyDescriptor<State, Format>
     ) {
         let format = descriptor.currentFormat(self)
-        let availableEncoders = descriptor.placeholderEncoders(format)
-        let encoderOptions = resolvedAudioEncoderOptions(
-            availableEncoders,
-            for: format,
-            using: descriptor
+        applyAudioCodecDependencies(
+            using: descriptor,
+            availableEncoders: descriptor.placeholderEncoders(format)
         )
+    }
 
-        self[keyPath: descriptor.availableEncoders] = availableEncoders
-        updateState(using: descriptor.state) { state in
-            normalizeAudioCodecDependencies(
-                in: &state,
-                format: format,
-                encoderOptions: encoderOptions,
-                using: descriptor
-            )
-        }
+    private func resetVideoBitRateIfNeeded(in state: inout VideoOptionsState) {
+        guard !state.selectedVideoEncoder.supportsVideoBitRate else { return }
+        state.selectedVideoBitRate = .auto
     }
 
     func refreshVideoCodecOptions() {
@@ -225,9 +228,7 @@ extension ContentViewModel {
                 encoderOptions: resolvedAudioEncoderOptions,
                 using: Self.videoAudioCodecDependencyDescriptor
             )
-            if !state.selectedVideoEncoder.supportsVideoBitRate {
-                state.selectedVideoBitRate = .auto
-            }
+            resetVideoBitRateIfNeeded(in: &state)
         }
     }
 
@@ -236,9 +237,7 @@ extension ContentViewModel {
         availableVideoEncoders = ContentViewModelSupport.placeholderVideoEncoders(for: format)
         applyPlaceholderAudioCodecDependencies(using: Self.videoAudioCodecDependencyDescriptor)
         updateState(\.videoOptionsState) { state in
-            if !state.selectedVideoEncoder.supportsVideoBitRate {
-                state.selectedVideoBitRate = .auto
-            }
+            resetVideoBitRateIfNeeded(in: &state)
         }
     }
 
@@ -266,9 +265,7 @@ extension ContentViewModel {
                 encoderOptions: encoderOptions,
                 using: Self.videoAudioCodecDependencyDescriptor
             )
-            if !state.selectedVideoEncoder.supportsVideoBitRate {
-                state.selectedVideoBitRate = .auto
-            }
+            resetVideoBitRateIfNeeded(in: &state)
         }
     }
 
