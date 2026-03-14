@@ -1,80 +1,9 @@
 import Foundation
 
 extension ContentViewModel {
-    func performConversion<OutputSettings: Sendable>(
-        for kind: MediaKind,
-        fileExtension: String,
-        buildOutputSettings: () throws -> OutputSettings,
-        prepareBatchEnvironment: @escaping @Sendable ([PreparedSourceConversion], OutputSettings) async -> BatchExecutionEnvironment,
-        prepareSingleSourceEnvironment: (
-            @MainActor @Sendable (PreparedSourceConversion, OutputSettings) async -> BatchExecutionEnvironment
-        )? = nil,
-        runConversion: @escaping (
-            PreparedSourceConversion,
-            BatchExecutionEnvironment,
-            OutputSettings,
-            Int,
-            Int
-        ) async throws -> URL
-    ) async {
-        let validationMessage = kind.validationMessage(in: self)
-        let canConvert = kind.canStartConversion(
-            in: self,
-            validationMessage: validationMessage
-        )
-
-        await performMediaBatchConversion(
-            for: kind,
-            canConvert: canConvert,
-            missingSourceLog: kind.missingSourceLog,
-            fileExtension: fileExtension,
-            outputLabel: kind.outputLabel,
-            preferredOutputDestination: kind.selectedOutputDestinationHandle(in: self),
-            preferredOutputDirectory: kind.selectedOutputDirectoryURL(in: self),
-            skippedSummaryPrefix: kind.skippedSummaryPrefix,
-            treatExportCancellationAsCancelled: kind.treatExportCancellationAsCancelled,
-            startState: { outputDirectoryURL, preserveCompletedOutputs in
-                kind.setSelectedOutputDirectoryURL(outputDirectoryURL, in: self)
-                kind.prepareConversionStartState(
-                    in: self,
-                    preserveCompletedOutputs: preserveCompletedOutputs
-                )
-            },
-            buildOutputSettings: buildOutputSettings,
-            prepareBatchEnvironment: prepareBatchEnvironment,
-            prepareSingleSourceEnvironment: prepareSingleSourceEnvironment,
-            validate: { preparedSource, environment in
-                await kind.validatePreparedSourceOutputSettings(
-                    in: self,
-                    source: preparedSource,
-                    environment: environment
-                )
-            },
-            runConversion: runConversion,
-            onSavedOutput: { sourceURL, savedURL in
-                kind.appendConvertedOutput(savedURL, from: sourceURL, in: self)
-            },
-            onSourceProcessed: { sourceURL in
-                kind.markProcessedSource(sourceURL, in: self)
-            },
-            onError: { error in
-                kind.applyConversionError(
-                    error,
-                    in: self,
-                    logPrefix: kind.errorLogPrefix,
-                    treatExportCancellationAsCancelled: kind.treatExportCancellationAsCancelled,
-                    includeDebugInfo: kind.includeDebugInfo
-                )
-            },
-            onSingleSourceCompletion: {
-                self.clearPreparedSingleVideoSelection(for: kind)
-            }
-        )
-    }
-
     func performVideoConversion() async {
-        await performConversion(
-            for: .video,
+        await MediaKind.video.performConversion(
+            in: self,
             fileExtension: selectedOutputFormatFileExtension(
                 using: Self.videoOutputFormatDescriptor
             ),
@@ -100,8 +29,8 @@ extension ContentViewModel {
                     inputDurationSeconds: nil,
                     ffmpegContext: environment.videoFFmpegContext,
                     preparedSourceContext: environment.preparedVideoSources[preparedSource.sourceID],
-                    onProgress: self.batchProgressHandler(
-                        for: .video,
+                    onProgress: MediaKind.video.batchProgressHandler(
+                        in: self,
                         index: index,
                         totalCount: totalCount
                     )
@@ -111,8 +40,8 @@ extension ContentViewModel {
     }
 
     func performImageConversion() async {
-        await performConversion(
-            for: .image,
+        await MediaKind.image.performConversion(
+            in: self,
             fileExtension: selectedOutputFormatFileExtension(
                 using: Self.imageOutputFormatDescriptor
             ),
@@ -129,8 +58,8 @@ extension ContentViewModel {
                     outputURL: preparedSource.workingOutputURL,
                     outputSettings: outputSettings,
                     ffmpegContext: environment.imageFFmpegContext,
-                    onProgress: self.batchProgressHandler(
-                        for: .image,
+                    onProgress: MediaKind.image.batchProgressHandler(
+                        in: self,
                         index: index,
                         totalCount: totalCount
                     )
@@ -140,8 +69,8 @@ extension ContentViewModel {
     }
 
     func performAudioConversion() async {
-        await performConversion(
-            for: .audio,
+        await MediaKind.audio.performConversion(
+            in: self,
             fileExtension: selectedOutputFormatFileExtension(
                 using: Self.audioOutputFormatDescriptor
             ),
@@ -160,8 +89,8 @@ extension ContentViewModel {
                     inputDurationSeconds: nil,
                     ffmpegContext: environment.videoFFmpegContext,
                     runtimeProvider: self.services.ffmpegRuntimeProvider,
-                    onProgress: self.batchProgressHandler(
-                        for: .audio,
+                    onProgress: MediaKind.audio.batchProgressHandler(
+                        in: self,
                         index: index,
                         totalCount: totalCount
                     )
@@ -169,9 +98,88 @@ extension ContentViewModel {
             }
         )
     }
+}
+
+extension ContentViewModel.MediaKind {
+    func performConversion<OutputSettings: Sendable>(
+        in viewModel: ContentViewModel,
+        fileExtension: String,
+        buildOutputSettings: () throws -> OutputSettings,
+        prepareBatchEnvironment: @escaping @Sendable (
+            [PreparedSourceConversion],
+            OutputSettings
+        ) async -> ContentViewModel.BatchExecutionEnvironment,
+        prepareSingleSourceEnvironment: (
+            @MainActor @Sendable (
+                PreparedSourceConversion,
+                OutputSettings
+            ) async -> ContentViewModel.BatchExecutionEnvironment
+        )? = nil,
+        runConversion: @escaping (
+            PreparedSourceConversion,
+            ContentViewModel.BatchExecutionEnvironment,
+            OutputSettings,
+            Int,
+            Int
+        ) async throws -> URL
+    ) async {
+        let validationMessage = validationMessage(in: viewModel)
+        let canConvert = canStartConversion(
+            in: viewModel,
+            validationMessage: validationMessage
+        )
+
+        await performMediaBatchConversion(
+            in: viewModel,
+            canConvert: canConvert,
+            missingSourceLog: missingSourceLog,
+            fileExtension: fileExtension,
+            outputLabel: outputLabel,
+            preferredOutputDestination: selectedOutputDestinationHandle(in: viewModel),
+            preferredOutputDirectory: selectedOutputDirectoryURL(in: viewModel),
+            skippedSummaryPrefix: skippedSummaryPrefix,
+            treatExportCancellationAsCancelled: treatExportCancellationAsCancelled,
+            startState: { outputDirectoryURL, preserveCompletedOutputs in
+                self.setSelectedOutputDirectoryURL(outputDirectoryURL, in: viewModel)
+                self.prepareConversionStartState(
+                    in: viewModel,
+                    preserveCompletedOutputs: preserveCompletedOutputs
+                )
+            },
+            buildOutputSettings: buildOutputSettings,
+            prepareBatchEnvironment: prepareBatchEnvironment,
+            prepareSingleSourceEnvironment: prepareSingleSourceEnvironment,
+            validate: { preparedSource, environment in
+                await self.validatePreparedSourceOutputSettings(
+                    in: viewModel,
+                    source: preparedSource,
+                    environment: environment
+                )
+            },
+            runConversion: runConversion,
+            onSavedOutput: { sourceURL, savedURL in
+                self.appendConvertedOutput(savedURL, from: sourceURL, in: viewModel)
+            },
+            onSourceProcessed: { sourceURL in
+                self.markProcessedSource(sourceURL, in: viewModel)
+            },
+            onError: { error in
+                self.applyConversionError(
+                    error,
+                    in: viewModel,
+                    logPrefix: self.errorLogPrefix,
+                    treatExportCancellationAsCancelled: self.treatExportCancellationAsCancelled,
+                    includeDebugInfo: self.includeDebugInfo
+                )
+            },
+            onSingleSourceCompletion: {
+                viewModel.clearPreparedSingleVideoSelection(for: self)
+            }
+        )
+    }
 
     func performMediaBatchConversion<OutputSettings: Sendable>(
-        for kind: MediaKind,
+        in viewModel: ContentViewModel,
         canConvert: Bool,
         missingSourceLog: String,
         fileExtension: String,
@@ -182,16 +190,33 @@ extension ContentViewModel {
         treatExportCancellationAsCancelled: Bool = false,
         startState: (URL, Bool) -> Void,
         buildOutputSettings: () throws -> OutputSettings,
-        prepareBatchEnvironment: @escaping @Sendable ([PreparedSourceConversion], OutputSettings) async -> BatchExecutionEnvironment,
-        prepareSingleSourceEnvironment: (@MainActor (PreparedSourceConversion, OutputSettings) async -> BatchExecutionEnvironment)? = nil,
-        validate: @escaping (PreparedSourceConversion, BatchExecutionEnvironment) async -> String?,
-        runConversion: @escaping (PreparedSourceConversion, BatchExecutionEnvironment, OutputSettings, Int, Int) async throws -> URL,
+        prepareBatchEnvironment: @escaping @Sendable (
+            [PreparedSourceConversion],
+            OutputSettings
+        ) async -> ContentViewModel.BatchExecutionEnvironment,
+        prepareSingleSourceEnvironment: (
+            @MainActor (
+                PreparedSourceConversion,
+                OutputSettings
+            ) async -> ContentViewModel.BatchExecutionEnvironment
+        )? = nil,
+        validate: @escaping (
+            PreparedSourceConversion,
+            ContentViewModel.BatchExecutionEnvironment
+        ) async -> String?,
+        runConversion: @escaping (
+            PreparedSourceConversion,
+            ContentViewModel.BatchExecutionEnvironment,
+            OutputSettings,
+            Int,
+            Int
+        ) async throws -> URL,
         onSavedOutput: @escaping (URL, URL) -> Void,
         onSourceProcessed: @escaping (URL) -> Void,
         onError: (Error) -> Void,
         onSingleSourceCompletion: (() -> Void)? = nil
     ) async {
-        let primarySourceURL = kind.sourceURL(in: self)
+        let primarySourceURL = sourceURL(in: viewModel)
         guard canConvert, let primarySourceURL else {
             if primarySourceURL == nil {
                 print(missingSourceLog)
@@ -207,11 +232,11 @@ extension ContentViewModel {
             return
         }
 
-        let allSourceURLs = [primarySourceURL] + kind.queuedSourceURLs(in: self)
-        let existingOutputURLsBySourceID = kind.convertedOutputURLsBySourceID(in: self)
+        let allSourceURLs = [primarySourceURL] + queuedSourceURLs(in: viewModel)
+        let existingOutputURLsBySourceID = convertedOutputURLsBySourceID(in: viewModel)
         let completedSourceIDs = Set(existingOutputURLsBySourceID.keys)
         let remainingSourceURLs = allSourceURLs.filter { sourceURL in
-            !completedSourceIDs.contains(sourceIdentifier(for: sourceURL))
+            !completedSourceIDs.contains(viewModel.sourceIdentifier(for: sourceURL))
         }
         let shouldResumePartialBatch =
             !completedSourceIDs.isEmpty &&
@@ -225,7 +250,7 @@ extension ContentViewModel {
             resolvedOutputDirectoryURL = preferredOutputDirectory.standardizedFileURL
             resolvedOutputDirectoryAccessURL = preferredOutputDestination?.url ?? preferredOutputDirectory
         } else {
-            guard let selectedDestination = await services.outputDestinationCoordinator.chooseOutputDestination(
+            guard let selectedDestination = await viewModel.services.outputDestinationCoordinator.chooseOutputDestination(
                 suggestedDirectory: primarySourceURL.deletingLastPathComponent(),
                 outputLabel: outputLabel,
                 fileCount: sourceURLs.count
@@ -262,7 +287,7 @@ extension ContentViewModel {
            let prepareSingleSourceEnvironment {
             defer { onSingleSourceCompletion?() }
             await executeSingleSourceConversion(
-                for: kind,
+                in: viewModel,
                 preparedSource: preparedSource,
                 outputSettings: outputSettings,
                 prepareSingleSourceEnvironment: prepareSingleSourceEnvironment,
@@ -283,8 +308,8 @@ extension ContentViewModel {
                 outputSettings
             )
         }
-        await kind.executeBatchConversion(
-            in: self,
+        await executeBatchConversion(
+            in: viewModel,
             preparedSources: batchContext.preparedSources,
             batchEnvironment: batchEnvironment,
             skippedSummaryPrefix: skippedSummaryPrefix,
@@ -300,26 +325,35 @@ extension ContentViewModel {
     }
 
     func executeSingleSourceConversion<OutputSettings: Sendable>(
-        for kind: MediaKind,
+        in viewModel: ContentViewModel,
         preparedSource: PreparedSourceConversion,
         outputSettings: OutputSettings,
         prepareSingleSourceEnvironment: @escaping @MainActor (
             PreparedSourceConversion,
             OutputSettings
-        ) async -> BatchExecutionEnvironment,
+        ) async -> ContentViewModel.BatchExecutionEnvironment,
         skippedSummaryPrefix: String,
         treatExportCancellationAsCancelled: Bool = false,
-        validate: @escaping (PreparedSourceConversion, BatchExecutionEnvironment) async -> String?,
-        runConversion: @escaping (PreparedSourceConversion, BatchExecutionEnvironment, OutputSettings, Int, Int) async throws -> URL,
+        validate: @escaping (
+            PreparedSourceConversion,
+            ContentViewModel.BatchExecutionEnvironment
+        ) async -> String?,
+        runConversion: @escaping (
+            PreparedSourceConversion,
+            ContentViewModel.BatchExecutionEnvironment,
+            OutputSettings,
+            Int,
+            Int
+        ) async throws -> URL,
         onSavedOutput: @escaping (URL, URL) -> Void,
         onSourceProcessed: @escaping (URL) -> Void,
         onError: (Error) -> Void
     ) async {
-        kind.setTotalBatchCount(1, in: self)
-        kind.setCurrentBatchIndex(1, in: self)
+        setTotalBatchCount(1, in: viewModel)
+        setCurrentBatchIndex(1, in: viewModel)
 
-        await kind.performManagedConversionExecution(
-            in: self,
+        await performManagedConversionExecution(
+            in: viewModel,
             treatExportCancellationAsCancelled: treatExportCancellationAsCancelled,
             onError: onError
         ) {
@@ -328,7 +362,7 @@ extension ContentViewModel {
                 outputSettings
             )
 
-            let result = try await processPreparedSourceConversion(
+            let result = try await viewModel.processPreparedSourceConversion(
                 preparedSource,
                 batchEnvironment: batchEnvironment,
                 validate: validate,
@@ -343,13 +377,13 @@ extension ContentViewModel {
                 }
             )
 
-            kind.setProgress(1, in: self)
+            self.setProgress(1, in: viewModel)
             if let entry = result.skippedEntry {
                 onSourceProcessed(preparedSource.sourceURL)
-                kind.setConversionErrorMessage(BatchConversionSupport.skippedFilesSummary(
+                self.setConversionErrorMessage(BatchConversionSupport.skippedFilesSummary(
                     prefix: skippedSummaryPrefix,
                     entries: [entry]
-                ), in: self)
+                ), in: viewModel)
             } else if let savedURL = result.savedURL {
                 onSavedOutput(preparedSource.sourceURL, savedURL)
                 onSourceProcessed(preparedSource.sourceURL)
