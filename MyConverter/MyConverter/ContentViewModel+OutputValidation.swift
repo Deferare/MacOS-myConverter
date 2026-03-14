@@ -17,44 +17,6 @@ extension ContentViewModel {
         ) async -> String?
     }
 
-    private struct OutputFormatValidationInput<Capability, Format> {
-        let kind: MediaKind
-        let hintMessage: (ContentViewModel) -> String?
-        let formatDescriptor: OutputFormatDescriptor<Format>
-        let unavailableMessage: String
-        let preValidation: (ContentViewModel) -> String?
-        let additionalValidation: (ContentViewModel) -> String?
-        let fetchCapabilities: (URL) async -> Capability
-        let availableFormats: (Capability) -> [Format]
-        let errorMessage: (Capability) -> String?
-        let preSourceValidation: (ContentViewModel, URL) async -> String?
-        let additionalCapabilityValidation: (ContentViewModel, Capability) -> String?
-        let validatePreparedSource: (
-            ContentViewModel,
-            PreparedSourceConversion,
-            BatchExecutionEnvironment,
-            OutputFormatDescriptor<Format>
-        ) -> PreparedSourceOutputValidationResult
-    }
-
-    static func makeMediaValidationDescriptor(
-        validationMessage: @escaping (ContentViewModel) -> String?,
-        hintMessage: @escaping (ContentViewModel) -> String? = { _ in nil },
-        validateSourceOutputSettings: @escaping (ContentViewModel, URL) async -> String?,
-        validatePreparedSourceOutputSettings: @escaping (
-            ContentViewModel,
-            PreparedSourceConversion,
-            BatchExecutionEnvironment
-        ) async -> String?
-    ) -> MediaValidationDescriptor {
-        MediaValidationDescriptor(
-            validationMessage: validationMessage,
-            hintMessage: hintMessage,
-            validateSourceOutputSettings: validateSourceOutputSettings,
-            validatePreparedSourceOutputSettings: validatePreparedSourceOutputSettings
-        )
-    }
-
     func nonEmptyMessage(_ message: String?) -> String? {
         guard let message, !message.isEmpty else { return nil }
         return message
@@ -135,58 +97,76 @@ extension ContentViewModel {
     }
 
     private static func makeOutputFormatValidationDescriptor<Capability, Format>(
-        _ input: OutputFormatValidationInput<Capability, Format>
+        kind: MediaKind,
+        hintMessage: @escaping (ContentViewModel) -> String? = { _ in nil },
+        formatDescriptor: OutputFormatDescriptor<Format>,
+        unavailableMessage: String,
+        preValidation: @escaping (ContentViewModel) -> String?,
+        additionalValidation: @escaping (ContentViewModel) -> String?,
+        fetchCapabilities: @escaping (URL) async -> Capability,
+        availableFormats: @escaping (Capability) -> [Format],
+        errorMessage: @escaping (Capability) -> String?,
+        preSourceValidation: @escaping (ContentViewModel, URL) async -> String?,
+        additionalCapabilityValidation: @escaping (ContentViewModel, Capability) -> String?,
+        validatePreparedSource: @escaping (
+            ContentViewModel,
+            PreparedSourceConversion,
+            BatchExecutionEnvironment,
+            OutputFormatDescriptor<Format>
+        ) -> PreparedSourceOutputValidationResult
     ) -> MediaValidationDescriptor {
-        makeMediaValidationDescriptor(
+        MediaValidationDescriptor(
             validationMessage: { viewModel in
-                if let message = input.preValidation(viewModel) {
+                if let message = preValidation(viewModel) {
                     return message
                 }
 
                 return viewModel.outputSettingsValidationMessage(
-                    for: input.kind,
-                    formatDescriptor: input.formatDescriptor,
-                    unavailableMessage: input.unavailableMessage
+                    for: kind,
+                    formatDescriptor: formatDescriptor,
+                    unavailableMessage: unavailableMessage
                 ) {
-                    input.additionalValidation(viewModel)
+                    additionalValidation(viewModel)
                 }
             },
-            hintMessage: input.hintMessage,
+            hintMessage: hintMessage,
             validateSourceOutputSettings: { viewModel, sourceURL in
-                if let message = await input.preSourceValidation(viewModel, sourceURL) {
+                if let message = await preSourceValidation(viewModel, sourceURL) {
                     return message
                 }
 
-                let descriptor = input.formatDescriptor
                 return await viewModel.validateOutputFormatAvailability(
                     for: sourceURL,
-                    selectedFormatNormalizedID: viewModel.selectedOutputFormatNormalizedID(using: descriptor),
-                    unavailableMessage: input.unavailableMessage,
-                    fetchCapabilities: input.fetchCapabilities,
-                    availableFormats: input.availableFormats,
-                    errorMessage: input.errorMessage,
-                    formatNormalizedID: descriptor.formatNormalizedID,
+                    selectedFormatNormalizedID: viewModel.selectedOutputFormatNormalizedID(
+                        using: formatDescriptor
+                    ),
+                    unavailableMessage: unavailableMessage,
+                    fetchCapabilities: fetchCapabilities,
+                    availableFormats: availableFormats,
+                    errorMessage: errorMessage,
+                    formatNormalizedID: formatDescriptor.formatNormalizedID,
                     additionalValidation: { capabilities in
-                        input.additionalCapabilityValidation(viewModel, capabilities)
+                        additionalCapabilityValidation(viewModel, capabilities)
                     }
                 )
             },
             validatePreparedSourceOutputSettings: { viewModel, source, environment in
-                let descriptor = input.formatDescriptor
-                switch input.validatePreparedSource(viewModel, source, environment, descriptor) {
+                switch validatePreparedSource(viewModel, source, environment, formatDescriptor) {
                 case .handled(let message):
                     return message
                 case .unavailable:
                     return await viewModel.validateOutputFormatAvailability(
                         for: source.sourceURL,
-                        selectedFormatNormalizedID: viewModel.selectedOutputFormatNormalizedID(using: descriptor),
-                        unavailableMessage: input.unavailableMessage,
-                        fetchCapabilities: input.fetchCapabilities,
-                        availableFormats: input.availableFormats,
-                        errorMessage: input.errorMessage,
-                        formatNormalizedID: descriptor.formatNormalizedID,
+                        selectedFormatNormalizedID: viewModel.selectedOutputFormatNormalizedID(
+                            using: formatDescriptor
+                        ),
+                        unavailableMessage: unavailableMessage,
+                        fetchCapabilities: fetchCapabilities,
+                        availableFormats: availableFormats,
+                        errorMessage: errorMessage,
+                        formatNormalizedID: formatDescriptor.formatNormalizedID,
                         additionalValidation: { capabilities in
-                            input.additionalCapabilityValidation(viewModel, capabilities)
+                            additionalCapabilityValidation(viewModel, capabilities)
                         }
                     )
                 }
@@ -195,156 +175,149 @@ extension ContentViewModel {
     }
 
     static let videoValidationDescriptorValue = makeOutputFormatValidationDescriptor(
-        OutputFormatValidationInput(
-            kind: .video,
-            hintMessage: { _ in nil },
-            formatDescriptor: videoOutputFormatDescriptorValue,
-            unavailableMessage: "Selected container is not available for this source.",
-            preValidation: { viewModel in
-                viewModel.firstNonEmptyMessage(
-                    viewModel.videoRuntimeState.media.sourceURL != nil ? viewModel.videoFFmpegRequirementMessage() : nil,
-                    viewModel.customVideoBitRateValidationMessage()
-                )
-            },
-            additionalValidation: { viewModel in
-                let selection = viewModel.videoEncodingSelectionState
-                return viewModel.firstNonEmptyMessage(
-                    viewModel.unavailableSelectedOptionMessage(
-                        selection.selectedVideoEncoder,
-                        in: selection.videoEncoderOptions,
-                        named: "video encoder"
-                    ),
-                    selection.audioSettings.isEnabled
-                        ? viewModel.unavailableSelectedAudioEncoderMessage(selection.audioSettings)
-                        : nil
-                )
-            },
-            fetchCapabilities: { await VideoConversionEngine.sourceCapabilities(for: $0) },
-            availableFormats: { $0.availableOutputFormats },
-            errorMessage: { $0.errorMessage },
-            preSourceValidation: { viewModel, _ in
-                viewModel.videoFFmpegRequirementMessage()
-            },
-            additionalCapabilityValidation: { _, _ in nil },
-            validatePreparedSource: { viewModel, source, environment, descriptor in
-                guard let cached = environment.preparedVideoSources[source.sourceID] else {
-                    return .unavailable
-                }
-
-                if let message = viewModel.videoFFmpegRequirementMessage() {
-                    return .handled(message)
-                }
-
-                return .handled(
-                    viewModel.validateCachedOutputFormatAvailability(
-                        capabilities: cached.sourceCapabilities,
-                        selectedFormatNormalizedID: viewModel.selectedOutputFormatNormalizedID(
-                            using: descriptor
-                        ),
-                        unavailableMessage: "Selected container is not available for this source.",
-                        availableFormats: { $0.availableOutputFormats },
-                        errorMessage: { $0.errorMessage },
-                        formatNormalizedID: { $0.normalizedID }
-                    )
-                )
+        kind: .video,
+        formatDescriptor: videoOutputFormatDescriptorValue,
+        unavailableMessage: "Selected container is not available for this source.",
+        preValidation: { viewModel in
+            viewModel.firstNonEmptyMessage(
+                viewModel.videoRuntimeState.media.sourceURL != nil ? viewModel.videoFFmpegRequirementMessage() : nil,
+                viewModel.customVideoBitRateValidationMessage()
+            )
+        },
+        additionalValidation: { viewModel in
+            let selection = viewModel.videoEncodingSelectionState
+            return viewModel.firstNonEmptyMessage(
+                viewModel.unavailableSelectedOptionMessage(
+                    selection.selectedVideoEncoder,
+                    in: selection.videoEncoderOptions,
+                    named: "video encoder"
+                ),
+                selection.audioSettings.isEnabled
+                    ? viewModel.unavailableSelectedAudioEncoderMessage(selection.audioSettings)
+                    : nil
+            )
+        },
+        fetchCapabilities: { await VideoConversionEngine.sourceCapabilities(for: $0) },
+        availableFormats: { $0.availableOutputFormats },
+        errorMessage: { $0.errorMessage },
+        preSourceValidation: { viewModel, _ in
+            viewModel.videoFFmpegRequirementMessage()
+        },
+        additionalCapabilityValidation: { _, _ in nil },
+        validatePreparedSource: { viewModel, source, environment, descriptor in
+            guard let cached = environment.preparedVideoSources[source.sourceID] else {
+                return .unavailable
             }
-        )
+
+            if let message = viewModel.videoFFmpegRequirementMessage() {
+                return .handled(message)
+            }
+
+            return .handled(
+                viewModel.validateCachedOutputFormatAvailability(
+                    capabilities: cached.sourceCapabilities,
+                    selectedFormatNormalizedID: viewModel.selectedOutputFormatNormalizedID(
+                        using: descriptor
+                    ),
+                    unavailableMessage: "Selected container is not available for this source.",
+                    availableFormats: { $0.availableOutputFormats },
+                    errorMessage: { $0.errorMessage },
+                    formatNormalizedID: { $0.normalizedID }
+                )
+            )
+        }
     )
 
     static let imageValidationDescriptorValue = makeOutputFormatValidationDescriptor(
-        OutputFormatValidationInput(
-            kind: .image,
-            hintMessage: { viewModel in
-                viewModel.firstNonEmptyMessage(
-                    viewModel.imageSourceIsAnimated && !viewModel.imageOptionsState.selectedOutputFormat.supportsAnimation
-                        ? "This format exports only the first frame for animated sources."
-                        : nil,
-                    viewModel.shouldShowPreserveAnimationOption && !ImageConversionEngine.isFFmpegAvailable()
-                        ? "ffmpeg is required to preserve animation."
-                        : nil
-                )
-            },
-            formatDescriptor: imageOutputFormatDescriptorValue,
-            unavailableMessage: "Selected output format is not available for this source.",
-            preValidation: { _ in nil },
-            additionalValidation: { viewModel in
-                viewModel.imageAnimationExportValidationMessage(
-                    isAnimated: viewModel.imageSourceIsAnimated
-                )
-            },
-            fetchCapabilities: { await ImageConversionEngine.sourceCapabilities(for: $0) },
-            availableFormats: { $0.availableOutputFormats },
-            errorMessage: { $0.errorMessage },
-            preSourceValidation: { _, _ in nil },
-            additionalCapabilityValidation: { viewModel, capabilities in
-                viewModel.imageAnimationExportValidationMessage(
-                    isAnimated: capabilities.frameCount > 1
-                )
-            },
-            validatePreparedSource: { viewModel, source, environment, descriptor in
-                guard let cached = environment.preparedImageCapabilities[source.sourceID] else {
-                    return .unavailable
-                }
-
-                return .handled(
-                    viewModel.validateCachedOutputFormatAvailability(
-                        capabilities: cached,
-                        selectedFormatNormalizedID: viewModel.selectedOutputFormatNormalizedID(
-                            using: descriptor
-                        ),
-                        unavailableMessage: "Selected output format is not available for this source.",
-                        availableFormats: { $0.availableOutputFormats },
-                        errorMessage: { $0.errorMessage },
-                        formatNormalizedID: { $0.normalizedID },
-                        additionalValidation: { capabilities in
-                            viewModel.imageAnimationExportValidationMessage(
-                                isAnimated: capabilities.frameCount > 1
-                            )
-                        }
-                    )
-                )
+        kind: .image,
+        hintMessage: { viewModel in
+            viewModel.firstNonEmptyMessage(
+                viewModel.imageSourceIsAnimated && !viewModel.imageOptionsState.selectedOutputFormat.supportsAnimation
+                    ? "This format exports only the first frame for animated sources."
+                    : nil,
+                viewModel.shouldShowPreserveAnimationOption && !ImageConversionEngine.isFFmpegAvailable()
+                    ? "ffmpeg is required to preserve animation."
+                    : nil
+            )
+        },
+        formatDescriptor: imageOutputFormatDescriptorValue,
+        unavailableMessage: "Selected output format is not available for this source.",
+        preValidation: { _ in nil },
+        additionalValidation: { viewModel in
+            viewModel.imageAnimationExportValidationMessage(
+                isAnimated: viewModel.imageSourceIsAnimated
+            )
+        },
+        fetchCapabilities: { await ImageConversionEngine.sourceCapabilities(for: $0) },
+        availableFormats: { $0.availableOutputFormats },
+        errorMessage: { $0.errorMessage },
+        preSourceValidation: { _, _ in nil },
+        additionalCapabilityValidation: { viewModel, capabilities in
+            viewModel.imageAnimationExportValidationMessage(
+                isAnimated: capabilities.frameCount > 1
+            )
+        },
+        validatePreparedSource: { viewModel, source, environment, descriptor in
+            guard let cached = environment.preparedImageCapabilities[source.sourceID] else {
+                return .unavailable
             }
-        )
+
+            return .handled(
+                viewModel.validateCachedOutputFormatAvailability(
+                    capabilities: cached,
+                    selectedFormatNormalizedID: viewModel.selectedOutputFormatNormalizedID(
+                        using: descriptor
+                    ),
+                    unavailableMessage: "Selected output format is not available for this source.",
+                    availableFormats: { $0.availableOutputFormats },
+                    errorMessage: { $0.errorMessage },
+                    formatNormalizedID: { $0.normalizedID },
+                    additionalValidation: { capabilities in
+                        viewModel.imageAnimationExportValidationMessage(
+                            isAnimated: capabilities.frameCount > 1
+                        )
+                    }
+                )
+            )
+        }
     )
 
     static let audioValidationDescriptorValue = makeOutputFormatValidationDescriptor(
-        OutputFormatValidationInput(
-            kind: .audio,
-            hintMessage: { viewModel in
-                viewModel.compatibilityHintMessage(for: .audio)
-            },
-            formatDescriptor: audioOutputFormatDescriptorValue,
-            unavailableMessage: "Selected output format is not available for this source.",
-            preValidation: { _ in nil },
-            additionalValidation: { viewModel in
-                viewModel.unavailableSelectedAudioEncoderMessage(
-                    viewModel.audioOutputEncodingSelectionState
-                )
-            },
-            fetchCapabilities: { await VideoConversionEngine.sourceCapabilitiesForAudio(for: $0) },
-            availableFormats: { $0.availableOutputFormats },
-            errorMessage: { $0.errorMessage },
-            preSourceValidation: { _, _ in nil },
-            additionalCapabilityValidation: { _, _ in nil },
-            validatePreparedSource: { viewModel, source, environment, descriptor in
-                guard let cached = environment.preparedAudioCapabilities[source.sourceID] else {
-                    return .unavailable
-                }
-
-                return .handled(
-                    viewModel.validateCachedOutputFormatAvailability(
-                        capabilities: cached,
-                        selectedFormatNormalizedID: viewModel.selectedOutputFormatNormalizedID(
-                            using: descriptor
-                        ),
-                        unavailableMessage: "Selected output format is not available for this source.",
-                        availableFormats: { $0.availableOutputFormats },
-                        errorMessage: { $0.errorMessage },
-                        formatNormalizedID: { $0.normalizedID }
-                    )
-                )
+        kind: .audio,
+        hintMessage: { viewModel in
+            viewModel.compatibilityHintMessage(for: .audio)
+        },
+        formatDescriptor: audioOutputFormatDescriptorValue,
+        unavailableMessage: "Selected output format is not available for this source.",
+        preValidation: { _ in nil },
+        additionalValidation: { viewModel in
+            viewModel.unavailableSelectedAudioEncoderMessage(
+                viewModel.audioOutputEncodingSelectionState
+            )
+        },
+        fetchCapabilities: { await VideoConversionEngine.sourceCapabilitiesForAudio(for: $0) },
+        availableFormats: { $0.availableOutputFormats },
+        errorMessage: { $0.errorMessage },
+        preSourceValidation: { _, _ in nil },
+        additionalCapabilityValidation: { _, _ in nil },
+        validatePreparedSource: { viewModel, source, environment, descriptor in
+            guard let cached = environment.preparedAudioCapabilities[source.sourceID] else {
+                return .unavailable
             }
-        )
+
+            return .handled(
+                viewModel.validateCachedOutputFormatAvailability(
+                    capabilities: cached,
+                    selectedFormatNormalizedID: viewModel.selectedOutputFormatNormalizedID(
+                        using: descriptor
+                    ),
+                    unavailableMessage: "Selected output format is not available for this source.",
+                    availableFormats: { $0.availableOutputFormats },
+                    errorMessage: { $0.errorMessage },
+                    formatNormalizedID: { $0.normalizedID }
+                )
+            )
+        }
     )
 
     func validationMessage(for kind: MediaKind) -> String? {
