@@ -12,7 +12,7 @@ struct AboutInfoSection: View {
                     systemImage: "person.text.rectangle"
                 )
 
-                VStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 0) {
                     AboutMetadataRow(
                         title: "Developer",
                         value: "JiHoon K (Deferare)",

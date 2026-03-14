@@ -53,7 +53,7 @@ struct AboutDetailView: View {
                 appIconImage
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .frame(width: 140, height: 140)
+                    .frame(width: 120, height: 120)
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text("MyConverter")
@@ -63,7 +63,7 @@ struct AboutDetailView: View {
                         .font(.headline)
                         .foregroundStyle(.secondary)
 
-                    HStack(spacing: 8) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text(appVersionText)
                             .font(.caption.weight(.semibold))
                             .padding(.horizontal, 10)

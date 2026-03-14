@@ -76,7 +76,7 @@ struct AboutMetadataRow: View {
         HStack(spacing: 14) {
             rowIcon(symbolName: systemImage)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
@@ -106,10 +106,10 @@ struct AboutMetadataRow: View {
             .frame(width: AboutThemeMetrics.rowIconSize, height: AboutThemeMetrics.rowIconSize)
             .background(
                 Circle()
-                    .fill(.white.opacity(0.05))
+                    .fill(.white.opacity(0.12))
                     .overlay(
                         Circle()
-                            .stroke(.white.opacity(0.08), lineWidth: 1)
+                            .stroke(.white.opacity(0.20), lineWidth: 1)
                     )
             )
     }
@@ -128,18 +128,31 @@ struct AboutInlineStatusRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(isError ? .orange : .primary)
 
                 Text(message)
                     .font(.caption)
-                    .foregroundStyle(isError ? .orange : .secondary)
+                    .foregroundStyle(isError ? .orange.opacity(0.8) : .secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
             Spacer(minLength: 0)
         }
-        .padding(.vertical, AboutThemeMetrics.rowVerticalPadding)
+        .padding(isError ? 16 : 0)
+        .padding(.vertical, isError ? 0 : AboutThemeMetrics.rowVerticalPadding)
+        .background(
+            Group {
+                if isError {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.orange.opacity(0.15))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+                        )
+                }
+            }
+        )
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 

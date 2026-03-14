@@ -92,30 +92,30 @@ struct DonationSupportSection: View {
 
     private func donationButtonContent(for product: Product) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .center) {
+            HStack(alignment: .center, spacing: 8) {
                 Text(donationStore.suggestedAmountText(for: product.id))
-                    .font(.system(size: 30, weight: .black))
-
-                Spacer()
+                    .font(.system(size: 34, weight: .heavy))
 
                 if donationStore.purchasingProductID == product.id {
                     ProgressView()
                         .controlSize(.small)
                 } else {
                     Image(systemName: "heart.fill")
-                        .font(.caption.weight(.bold))
+                        .font(.headline)
                         .foregroundStyle(.red)
                 }
+                
+                Spacer()
             }
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text("One-time tip")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-
+            VStack(alignment: .leading, spacing: 2) {
                 Text("Support the project")
-                    .font(.subheadline.weight(.medium))
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.primary)
+                
+                Text("One-time tip")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
             }
         }
         .padding(18)
