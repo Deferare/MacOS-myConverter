@@ -38,38 +38,6 @@ extension ContentViewModel.MediaKind {
         formatNormalizedID: @escaping @Sendable (Format) -> String,
         deduplicatedAndSorted: @escaping @Sendable ([Format]) -> [Format],
         noCommonFormatsMessage: String,
-        onCapability: @escaping (URL, Capability) -> Void = { _, _ in },
-        onFormatsResolved: @escaping ([Format]) -> Void
-    ) {
-        analyzeSourceSelection(
-            in: viewModel,
-            urls: urls,
-            formatDescriptor: formatDescriptor,
-            resolvePreparedCapability: resolvePreparedCapability,
-            fetchCapabilities: fetchCapabilities,
-            availableFormats: availableFormats,
-            warningMessage: warningMessage,
-            errorMessage: errorMessage,
-            formatNormalizedID: formatNormalizedID,
-            deduplicatedAndSorted: deduplicatedAndSorted,
-            noCommonFormatsMessage: noCommonFormatsMessage,
-            onCapability: onCapability,
-            onFormatsResolved: onFormatsResolved
-        )
-    }
-
-    func analyzeSourceSelection<Capability: Sendable, Format: Sendable>(
-        in viewModel: ContentViewModel,
-        urls: [URL],
-        formatDescriptor: ContentViewModel.OutputFormatDescriptor<Format>,
-        resolvePreparedCapability: (@Sendable ([URL]) async -> (URL, Capability)?)? = nil,
-        fetchCapabilities: @escaping @Sendable (URL) async -> Capability,
-        availableFormats: @escaping @Sendable (Capability) -> [Format],
-        warningMessage: @escaping @Sendable (Capability) -> String?,
-        errorMessage: @escaping @Sendable (Capability) -> String?,
-        formatNormalizedID: @escaping @Sendable (Format) -> String,
-        deduplicatedAndSorted: @escaping @Sendable ([Format]) -> [Format],
-        noCommonFormatsMessage: String,
         onCapability: ((URL, Capability) -> Void)? = nil,
         onFormatsResolved: @escaping ([Format]) -> Void
     ) {
