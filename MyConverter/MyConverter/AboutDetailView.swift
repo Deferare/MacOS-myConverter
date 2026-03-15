@@ -54,6 +54,7 @@ struct AboutDetailView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 120, height: 120)
+                    .clipShape(RoundedRectangle(cornerRadius: 27, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text("MyConverter")
