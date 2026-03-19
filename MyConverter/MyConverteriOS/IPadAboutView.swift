@@ -3,7 +3,6 @@ import SwiftUI
 import UIKit
 
 struct IPadAboutView: View {
-    @ObservedObject var donationStore: DonationStore
     @State private var isShowingLicenses = false
 
     var body: some View {
@@ -14,8 +13,6 @@ struct IPadAboutView: View {
             ScrollView {
                 VStack(spacing: 20) {
                     IPadAboutHeroSection(appVersionText: appVersionText)
-
-                    DonationSupportSection(donationStore: donationStore)
 
                     AboutInfoSection {
                         isShowingLicenses = true
@@ -34,11 +31,10 @@ struct IPadAboutView: View {
             }
         }
         .navigationTitle("About")
-        .task {
-            await donationStore.loadProductsIfNeeded()
-        }
         .sheet(isPresented: $isShowingLicenses) {
             OpenSourceLicensesSheet(isPresented: $isShowingLicenses)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
         .tint(.blue)
     }

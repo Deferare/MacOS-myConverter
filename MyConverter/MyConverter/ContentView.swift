@@ -10,7 +10,6 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @StateObject private var viewModel = ContentViewModel()
-    @StateObject private var donationStore = DonationStore()
     @State private var selectedTab: ConverterTab = .video
     @State private var dropTargetedKinds: Set<ContentViewModel.MediaKind> = []
     @State private var draggedSelectedFileURL: URL?
@@ -54,7 +53,7 @@ struct ContentView: View {
         if let kind = tab.mediaKind {
             mediaDetailView(for: kind)
         } else {
-            AboutDetailView(donationStore: donationStore)
+            AboutDetailView()
         }
     }
 

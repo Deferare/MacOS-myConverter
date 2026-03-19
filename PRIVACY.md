@@ -14,13 +14,12 @@ Your selected files are used only to perform conversions you request.
 ## 3. Analytics and Tracking
 MyConverter does not use third-party analytics, advertising SDKs, or tracking technologies.
 
-## 4. In-App Purchases
-MyConverter offers optional donation-based in-app purchases through Apple's in-app purchase system.  
-Payment information is processed by Apple, not by MyConverter.
+## 4. Purchases
+MyConverter does not offer in-app purchases.
 
 ## 5. Network Access
 MyConverter does not require network access for core conversion features.  
-Network communication may occur only for Apple in-app purchase transactions.
+The app can open external links such as email when you choose to contact the developer.
 
 ## 6. Data Sharing
 MyConverter does not share your personal data with third parties.
