@@ -4,7 +4,6 @@ import UniformTypeIdentifiers
 
 struct IOSRootView: View {
     @StateObject private var viewModel = ContentViewModel()
-    @StateObject private var donationStore = DonationStore()
     @State private var selectedTab: ConverterTab = .video
 
     private var photoLibraryImportBinding: Binding<ContentViewModel.ImportRequest?> {
@@ -36,13 +35,11 @@ struct IOSRootView: View {
                 case .compact:
                     IOSCompactRootContent(
                         viewModel: viewModel,
-                        donationStore: donationStore,
                         selectedTab: $selectedTab
                     )
                 case .regular:
                     IOSRegularRootContent(
                         viewModel: viewModel,
-                        donationStore: donationStore,
                         selectedTab: $selectedTab
                     )
                 }
@@ -83,7 +80,6 @@ struct IOSRootView: View {
 
 struct IOSCompactRootContent: View {
     @ObservedObject var viewModel: ContentViewModel
-    @ObservedObject var donationStore: DonationStore
     @Binding var selectedTab: ConverterTab
 
     var body: some View {
@@ -117,7 +113,7 @@ struct IOSCompactRootContent: View {
 
             Tab(ConverterTab.about.title, systemImage: ConverterTab.about.systemImage, value: ConverterTab.about) {
                 NavigationStack {
-                    IPadAboutView(donationStore: donationStore)
+                    IPadAboutView()
                 }
             }
         }

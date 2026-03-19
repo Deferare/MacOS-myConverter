@@ -2,7 +2,6 @@ import AppKit
 import SwiftUI
 
 struct AboutDetailView: View {
-    @ObservedObject var donationStore: DonationStore
     @State private var isShowingOpenSourceLicenses = false
 
     var body: some View {
@@ -13,8 +12,6 @@ struct AboutDetailView: View {
             ScrollView(.vertical, showsIndicators: true) {
                 VStack(spacing: 20) {
                     aboutHeroCard
-
-                    DonationSupportSection(donationStore: donationStore)
 
                     AboutInfoSection(
                         onOpenLicenses: {
@@ -36,9 +33,6 @@ struct AboutDetailView: View {
         }
         .navigationTitle("About")
         .backgroundExtensionEffect()
-        .task {
-            await donationStore.loadProductsIfNeeded()
-        }
         .sheet(isPresented: $isShowingOpenSourceLicenses) {
             OpenSourceLicensesSheet(
                 isPresented: $isShowingOpenSourceLicenses

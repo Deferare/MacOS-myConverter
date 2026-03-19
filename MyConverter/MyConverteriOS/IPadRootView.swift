@@ -3,7 +3,6 @@ import SwiftUI
 
 struct IOSRegularRootContent: View {
     @ObservedObject var viewModel: ContentViewModel
-    @ObservedObject var donationStore: DonationStore
     @Binding var selectedTab: ConverterTab
 
     var body: some View {
@@ -40,7 +39,7 @@ struct IOSRegularRootContent: View {
             TabSection("App") {
                 Tab(ConverterTab.about.title, systemImage: ConverterTab.about.systemImage, value: ConverterTab.about) {
                     NavigationStack {
-                        IPadAboutView(donationStore: donationStore)
+                        IPadAboutView()
                     }
                 }
             }
