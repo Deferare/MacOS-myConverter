@@ -33,6 +33,8 @@ struct IPadAboutView: View {
         .navigationTitle("About")
         .sheet(isPresented: $isShowingLicenses) {
             OpenSourceLicensesSheet(isPresented: $isShowingLicenses)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
         .tint(.blue)
     }

@@ -35,23 +35,37 @@ struct AboutSectionHeader: View {
     let systemImage: String
 
     var body: some View {
-        HStack(spacing: 16) {
-            Image(systemName: systemImage)
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .frame(width: 44, height: 44)
-                .glassEffect(.regular.interactive(false), in: Circle())
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.title3.weight(.semibold))
-
-                Text(subtitle)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 16) {
+                sectionIcon
+                sectionText
+                Spacer(minLength: 0)
             }
 
-            Spacer()
+            VStack(alignment: .leading, spacing: 14) {
+                sectionIcon
+                sectionText
+            }
+        }
+    }
+
+    private var sectionIcon: some View {
+        Image(systemName: systemImage)
+            .font(.title3.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .frame(width: 44, height: 44)
+            .glassEffect(.regular.interactive(false), in: Circle())
+    }
+
+    private var sectionText: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.title3.weight(.semibold))
+
+            Text(subtitle)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -73,7 +87,7 @@ struct AboutMetadataRow: View {
     var emphasizesValue = false
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(alignment: .top, spacing: 14) {
             rowIcon(symbolName: systemImage)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -87,12 +101,14 @@ struct AboutMetadataRow: View {
                     .foregroundStyle(emphasizesValue ? Color.accentColor : .primary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            .layoutPriority(1)
             .frame(maxWidth: .infinity, alignment: .leading)
 
             if let trailingSystemImage {
                 Image(systemName: trailingSystemImage)
                     .font(.caption.weight(.bold))
                     .foregroundStyle(.secondary)
+                    .padding(.top, 4)
             }
         }
         .padding(.vertical, AboutThemeMetrics.rowVerticalPadding)
